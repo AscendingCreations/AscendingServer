@@ -1,4 +1,4 @@
-use crate::{containers::*, sql::*, AraisealError, Result};
+use crate::{containers::*, sql::*, AscendingError, Result};
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use diesel::{self, insert_into, prelude::*, sql_types::*};
 
@@ -12,7 +12,7 @@ pub fn find_player(conn: &mut PgConnection, username: &str, password: &str) -> R
     if let Some(userdata) = userdata {
         let hash = match PasswordHash::new(&userdata.password[..]) {
             Ok(v) => v,
-            Err(_) => return Err(AraisealError::IncorrectPassword),
+            Err(_) => return Err(AscendingError::IncorrectPassword),
         };
 
         if Argon2::default()
@@ -21,7 +21,7 @@ pub fn find_player(conn: &mut PgConnection, username: &str, password: &str) -> R
         {
             Ok(Some(userdata.uid))
         } else {
-            Err(AraisealError::IncorrectPassword)
+            Err(AscendingError::IncorrectPassword)
         }
     } else {
         Ok(None)

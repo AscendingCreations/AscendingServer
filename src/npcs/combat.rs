@@ -1,14 +1,10 @@
 use crate::{containers::Storage, gametypes::*, maps::*, npcs::*};
 
-pub fn entity_cast_check(world: &Storage, caster: &Entity, target: &Entity, range: i32) -> bool {
+pub fn entity_cast_check(_world: &Storage, caster: &Entity, target: &Entity, range: i32) -> bool {
     let check = check_surrounding(caster.pos.map, target.pos.map, true);
     let pos = target.pos.map_offset(check.into());
 
-    if range >= caster.pos.checkdistance(pos) && target.life.is_alive() {
-        true
-    } else {
-        false
-    }
+    range >= caster.pos.checkdistance(pos) && target.life.is_alive()
 }
 
 pub fn try_cast(

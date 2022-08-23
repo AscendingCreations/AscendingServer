@@ -23,21 +23,21 @@ pub fn handle_data(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result
         match user.borrow().status {
             OnlineType::Online => {
                 if id <= 1 {
-                    return Err(AraisealError::MultiLogin);
+                    return Err(AscendingError::MultiLogin);
                 }
             }
             OnlineType::Accepted => {
                 if id > 1 {
-                    return Err(AraisealError::PacketManipulation { name: "".into() });
+                    return Err(AscendingError::PacketManipulation { name: "".into() });
                 }
             }
             OnlineType::None => {
-                return Err(AraisealError::PacketManipulation { name: "".into() });
+                return Err(AscendingError::PacketManipulation { name: "".into() });
             }
         }
     }
 
-    let fun = unwrap_or_return!(PACKET_MAP.get(&id), Err(AraisealError::InvalidPacket));
+    let fun = unwrap_or_return!(PACKET_MAP.get(&id), Err(AscendingError::InvalidPacket));
     fun(world, data, uid)
 }
 
@@ -103,9 +103,9 @@ fn handle_register(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result
                         0,
                     )
                 }
-                _ => return Err(AraisealError::RegisterFail),
+                _ => return Err(AscendingError::RegisterFail),
             },
-            Err(_) => return Err(AraisealError::UserNotFound),
+            Err(_) => return Err(AscendingError::UserNotFound),
         }
 
         user.name = name;
@@ -131,7 +131,7 @@ fn handle_register(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result
         return send_infomsg(world, user.socket_id, "Account Was Created. Please wait for the Verification code sent to your email before logging in.".into(), 1);
     }
 
-    Err(AraisealError::InvalidSocket)
+    Err(AscendingError::InvalidSocket)
 }
 
 fn handle_login(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result<()> {
@@ -174,7 +174,7 @@ fn handle_login(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result<()
         return Ok(());
     }
 
-    Err(AraisealError::InvalidSocket)
+    Err(AscendingError::InvalidSocket)
 }
 
 fn handle_move(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result<()> {
@@ -190,7 +190,7 @@ fn handle_move(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result<()>
         let pos: Position = data.read()?;
 
         if world.bases.map.get(&pos.map).is_none() || dir > 3 {
-            return Err(AraisealError::InvalidPacket);
+            return Err(AscendingError::InvalidPacket);
         }
 
         if pos != user.borrow().e.pos {
@@ -201,7 +201,7 @@ fn handle_move(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result<()>
         user.borrow_mut().movement(world, dir);
     }
 
-    Err(AraisealError::InvalidSocket)
+    Err(AscendingError::InvalidSocket)
 }
 
 fn handle_dir(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result<()> {
@@ -213,7 +213,7 @@ fn handle_dir(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result<()> 
         let dir = data.read::<u8>()?;
 
         if dir > 3 {
-            return Err(AraisealError::InvalidPacket);
+            return Err(AscendingError::InvalidPacket);
         }
 
         user.borrow_mut().e.dir = dir;
@@ -223,7 +223,7 @@ fn handle_dir(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result<()> 
         return Ok(());
     }
 
-    Err(AraisealError::InvalidSocket)
+    Err(AscendingError::InvalidSocket)
 }
 
 fn handle_skill(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result<()> {
@@ -239,7 +239,7 @@ fn handle_skill(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result<()
         let _id = data.read::<u8>()?;
 
         if dir > 3 {
-            return Err(AraisealError::InvalidPacket);
+            return Err(AscendingError::InvalidPacket);
         }
 
         if user.borrow().e.dir != dir {
@@ -251,7 +251,7 @@ fn handle_skill(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result<()
         return Ok(());
     }
 
-    Err(AraisealError::InvalidSocket)
+    Err(AscendingError::InvalidSocket)
 }
 
 fn handle_useitem(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result<()> {
@@ -273,7 +273,7 @@ fn handle_useitem(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result<
         return Ok(());
     }
 
-    Err(AraisealError::InvalidSocket)
+    Err(AscendingError::InvalidSocket)
 }
 
 fn handle_unequip(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result<()> {
@@ -312,7 +312,7 @@ fn handle_unequip(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result<
         return send_equipment(world, &player);
     }
 
-    Err(AraisealError::InvalidSocket)
+    Err(AscendingError::InvalidSocket)
 }
 
 fn handle_switchinvslot(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result<()> {
@@ -373,7 +373,7 @@ fn handle_switchinvslot(world: &Storage, data: &mut ByteBuffer, uid: usize) -> R
         return Ok(());
     }
 
-    Err(AraisealError::InvalidSocket)
+    Err(AscendingError::InvalidSocket)
 }
 
 fn handle_pickup(world: &Storage, _data: &mut ByteBuffer, uid: usize) -> Result<()> {
@@ -464,7 +464,7 @@ fn handle_pickup(world: &Storage, _data: &mut ByteBuffer, uid: usize) -> Result<
         return Ok(());
     }
 
-    Err(AraisealError::InvalidSocket)
+    Err(AscendingError::InvalidSocket)
 }
 
 fn handle_dropitem(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result<()> {
@@ -485,7 +485,7 @@ fn handle_dropitem(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result
         //make sure it exists first.
         let _ = unwrap_or_return!(
             world.bases.map.get(&player.e.pos.map),
-            Err(AraisealError::Unhandled)
+            Err(AscendingError::Unhandled)
         );
 
         match get_inv_type(slot) {
@@ -515,7 +515,7 @@ fn handle_dropitem(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result
         mapitem.item.val -= leftover;
         let mut map = unwrap_or_return!(
             world.map_data.get(&player.e.pos.map),
-            Err(AraisealError::Unhandled)
+            Err(AscendingError::Unhandled)
         )
         .borrow_mut();
 
@@ -524,7 +524,7 @@ fn handle_dropitem(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result
         return Ok(());
     }
 
-    Err(AraisealError::InvalidSocket)
+    Err(AscendingError::InvalidSocket)
 }
 
 fn handle_deleteitem(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result<()> {
@@ -558,7 +558,7 @@ fn handle_deleteitem(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Resu
         return Ok(());
     }
 
-    Err(AraisealError::InvalidSocket)
+    Err(AscendingError::InvalidSocket)
 }
 
 fn handle_message(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result<()> {
@@ -633,7 +633,7 @@ fn handle_message(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result<
         return send_message(world, &player, msg, head, channel, usersocket);
     }
 
-    Err(AraisealError::InvalidSocket)
+    Err(AscendingError::InvalidSocket)
 }
 
 fn handle_buyitem(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result<()> {
@@ -660,5 +660,5 @@ fn handle_buyitem(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result<
         return Ok(());
     }
 
-    Err(AraisealError::InvalidSocket)
+    Err(AscendingError::InvalidSocket)
 }

@@ -8,7 +8,7 @@ mod sharedstructs;
 
 pub use entity::*;
 pub use enums::*;
-pub use error::{AraisealError, Result};
+pub use error::{AscendingError, Result};
 pub use map_position::*;
 pub use position::*;
 pub use rgb::Rgba;

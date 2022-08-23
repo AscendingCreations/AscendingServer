@@ -1,9 +1,9 @@
 use thiserror::Error;
 
-pub type Result<T> = std::result::Result<T, AraisealError>;
+pub type Result<T> = std::result::Result<T, AscendingError>;
 
 #[derive(Error, Debug)]
-pub enum AraisealError {
+pub enum AscendingError {
     #[error("Currently Unhandled data error")]
     Unhandled,
     #[error("Multiple Logins Detected")]
