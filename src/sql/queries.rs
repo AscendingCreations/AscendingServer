@@ -1,6 +1,6 @@
 use crate::{containers::*, sql::*, AscendingError, Result};
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
-use diesel::{self, insert_into, prelude::*, sql_types::*};
+use diesel::{self, insert_into, prelude::*};
 
 pub fn find_player(conn: &mut PgConnection, username: &str, password: &str) -> Result<Option<i64>> {
     let userdata = players::table

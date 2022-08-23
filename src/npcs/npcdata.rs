@@ -1,5 +1,4 @@
 use crate::gametypes::*;
-use rand::{thread_rng, Rng};
 use serde::{Deserialize, Serialize};
 
 #[derive(Derivative, Clone, Debug, Default, Serialize, Deserialize)]
@@ -41,10 +40,6 @@ pub struct NpcData {
 }
 
 impl NpcData {
-    pub fn get_damage(&self) -> u32 {
-        self.pdamage
-    }
-
     pub fn is_agressive(&self) -> bool {
         self.behaviour.is_agressive()
     }

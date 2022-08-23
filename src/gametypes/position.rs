@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use unwrap_helpers::*;
 
 #[derive(SqlType)]
-#[postgres(type_name = "position")]
+#[diesel(postgres_type(name = "position"))]
 pub struct PosType;
 
 #[derive(
@@ -28,7 +28,7 @@ pub struct PosType;
     ByteBufferRead,
     ByteBufferWrite,
 )]
-#[sql_type = "PosType"]
+#[diesel(sql_type = PosType)]
 pub struct Position {
     pub x: i32,
     pub y: i32,

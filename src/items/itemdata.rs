@@ -1,4 +1,4 @@
-use crate::gametypes::{ItemTypes, Rgba, StatType};
+use crate::gametypes::{ItemTypes, Rgba};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Deserialize, Serialize, Derivative)]
@@ -9,9 +9,6 @@ pub struct ItemData {
     pub soundid: u16,
     pub sprite: u16,
     pub animation: Option<u32>,
-    pub reqstattype: StatType,
-    pub reqstat: u8,
-    pub reqstatlvl: u16,
     pub data: [i16; 20],
     pub itemtype: ItemTypes,
     pub itemtype2: u8,

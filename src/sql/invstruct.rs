@@ -1,9 +1,9 @@
-use crate::{gametypes::*, items::Item, sql::*};
+use crate::{gametypes::*, items::Item, sql};
 use std::convert::TryInto;
 
 #[derive(Debug, Queryable, Insertable, Identifiable, AsChangeset)]
-#[table_name = "invitems"]
-#[primary_key(uid, id)]
+#[diesel(table_name = sql::invitems)]
+#[diesel(primary_key(uid, id))]
 pub struct PGInvItem {
     uid: i64,
     id: i16,

@@ -9,7 +9,7 @@ use diesel::{
 use serde::{Deserialize, Serialize};
 
 #[derive(SqlType)]
-#[postgres(type_name = "map_position")]
+#[diesel(postgres_type(name = "map_position"))]
 pub struct MapPosType;
 
 #[derive(
@@ -27,7 +27,7 @@ pub struct MapPosType;
     ByteBufferRead,
     ByteBufferWrite,
 )]
-#[sql_type = "PosType"]
+#[diesel(sql_type = PosType)]
 pub struct MapPosition {
     pub x: i32,
     pub y: i32,

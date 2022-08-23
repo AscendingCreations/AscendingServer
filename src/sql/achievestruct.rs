@@ -1,9 +1,9 @@
-use crate::{gametypes::*, sql::*};
+use crate::{gametypes::*, sql};
 use std::convert::TryInto;
 
 #[derive(Debug, Queryable, Insertable, Identifiable, AsChangeset)]
-#[table_name = "achievements"]
-#[primary_key(uid)]
+#[diesel(table_name = sql::achievements)]
+#[diesel(primary_key(uid))]
 pub struct PGAchievements {
     uid: i64,
     daykills: i32,

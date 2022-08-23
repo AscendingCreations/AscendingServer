@@ -1,9 +1,9 @@
-use crate::{items::Item, sql::*};
+use crate::{items::Item, sql};
 use std::convert::TryInto;
 
 #[derive(Debug, Queryable, Insertable, Identifiable, AsChangeset)]
-#[table_name = "equipment"]
-#[primary_key(uid, id)]
+#[diesel(table_name = sql::equipment)]
+#[diesel(primary_key(uid, id))]
 pub struct PGEquipItem {
     uid: i64,
     id: i16,
