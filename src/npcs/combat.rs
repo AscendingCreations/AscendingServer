@@ -68,44 +68,18 @@ pub fn npc_cast(world: &Storage, npc: &mut Npc, base: &NpcData) -> Option<Entity
 pub fn npc_combat(world: &Storage, npc: &mut Npc, base: &NpcData) {
     if let Some(entitytype) = npc_cast(world, npc, base) {
         match entitytype {
-            EntityType::Player(i, accid) => {
-                if let Some(mut target) = world.players.borrow().get(i as usize) {
-                    let def = target.borrow().e.pdefense;
-                    let mut damage = npc.e.pdamage.saturating_sub(def / 4);
-
-                    //protect from accidental heals due to u32 to i32 conversion.
-                    if damage >= i32::MAX as u32 {
-                        damage = (i32::MAX - 1) as u32;
-                    }
-
-                    //lets randomize to see if we do want to deal 1 damage if Defense is to high.
-                    if damage == 0 {
-                        let mut rng = thread_rng();
-                        damage = rng.gen_range(0..=1);
-                    }
-
-                    target.borrow_mut().damage_player(damage as i32)
+            EntityType::Player(i, _accid) => {
+                if let Some(target) = world.players.borrow().get(i as usize) {
+                    let damage = npc_combat_damage(&target.borrow().e, npc, base);
+                    target.borrow_mut().damage_player(damage)
 
                     //TODO Send Attack And Damage packets here.
                 }
             }
             EntityType::Npc(i) => {
                 if let Some(target) = world.npcs.borrow().get(i as usize) {
-                    let def = target.borrow().e.pdefense;
-                    let mut damage = npc.e.pdamage.saturating_sub(def / 2);
-
-                    //protect from accidental heals due to u32 to i32 conversion.
-                    if damage >= i32::MAX as u32 {
-                        damage = (i32::MAX - 1) as u32;
-                    }
-
-                    //lets randomize to see if we do want to deal 1 damage if Defense is to high.
-                    if damage == 0 {
-                        let mut rng = thread_rng();
-                        damage = rng.gen_range(0..=1);
-                    }
-
-                    target.borrow_mut().damage_npc(damage as i32)
+                    let damage = npc_combat_damage(&target.borrow().e, npc, base);
+                    target.borrow_mut().damage_npc(damage)
 
                     //TODO Send Attack And Damage packets here.
                 }
@@ -113,4 +87,38 @@ pub fn npc_combat(world: &Storage, npc: &mut Npc, base: &NpcData) {
             EntityType::Map(_) | EntityType::None => {}
         }
     }
+}
+
+pub fn npc_combat_damage(entity: &Entity, npc: &mut Npc, base: &NpcData) -> i32 {
+    let def = if entity.etype.is_player() {
+        entity.pdefense + entity.level.saturating_div(5) as u32
+    } else {
+        entity.pdefense
+    };
+
+    let offset = if entity.etype.is_player() { 4 } else { 2 };
+
+    let mut damage = npc.e.pdamage.saturating_sub(def / offset);
+    let mut rng = thread_rng();
+
+    //set to max before we set to max i32 just in case. Order matters here.
+    if damage > base.maxdamage {
+        damage = base.maxdamage;
+    }
+
+    //protect from accidental heals due to u32 to i32 conversion.
+    if damage >= i32::MAX as u32 {
+        damage = (i32::MAX - 1) as u32;
+    }
+
+    //lets randomize are damage range so every attack doesnt always deal the same damage.
+    damage = rng.gen_range(base.mindamage..=damage);
+
+    //lets randomize to see if we do want to deal 1 damage if Defense is to high.
+    if damage == 0 {
+        let mut rng = thread_rng();
+        damage = rng.gen_range(0..=1);
+    }
+
+    damage as i32
 }
