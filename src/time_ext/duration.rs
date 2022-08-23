@@ -66,9 +66,7 @@ impl Serialize for MyDuration {
     where
         S: Serializer,
     {
-        let dur = self.num_milliseconds();
-
-        dur.serialize(serializer)
+        self.num_milliseconds().serialize(serializer)
     }
 }
 
@@ -77,46 +75,43 @@ impl<'de> Deserialize<'de> for MyDuration {
     where
         D: Deserializer<'de>,
     {
-        let dur = i64::deserialize(deserializer)?;
-        let duration = chrono::Duration::milliseconds(dur);
-        Ok(MyDuration(duration))
+        Ok(MyDuration(chrono::Duration::milliseconds(
+            i64::deserialize(deserializer)?,
+        )))
     }
 }
 
 impl ByteBufferRead for MyDuration {
     fn read_from_buffer(buffer: &mut ByteBuffer) -> bytey::Result<Self> {
-        let dur = buffer.read::<i64>()?;
-        let duration = chrono::Duration::milliseconds(dur);
-        Ok(MyDuration(duration))
+        Ok(MyDuration(chrono::Duration::milliseconds(
+            buffer.read::<i64>()?,
+        )))
     }
 
     fn read_from_buffer_le(buffer: &mut ByteBuffer) -> bytey::Result<Self> {
-        let dur = buffer.read_le::<i64>()?;
-        let duration = chrono::Duration::milliseconds(dur);
-        Ok(MyDuration(duration))
+        Ok(MyDuration(chrono::Duration::milliseconds(
+            buffer.read_le::<i64>()?,
+        )))
     }
 
     fn read_from_buffer_be(buffer: &mut ByteBuffer) -> bytey::Result<Self> {
-        let dur = buffer.read_be::<i64>()?;
-        let duration = chrono::Duration::milliseconds(dur);
-        Ok(MyDuration(duration))
+        Ok(MyDuration(chrono::Duration::milliseconds(
+            buffer.read_be::<i64>()?,
+        )))
     }
 }
 
 impl ByteBufferWrite for &MyDuration {
     fn write_to_buffer(&self, buffer: &mut ByteBuffer) -> bytey::Result<()> {
-        let dur = self.num_milliseconds();
-        buffer.write(dur)?;
+        buffer.write(self.num_milliseconds())?;
         Ok(())
     }
     fn write_to_buffer_le(&self, buffer: &mut ByteBuffer) -> bytey::Result<()> {
-        let dur = self.num_milliseconds();
-        buffer.write(dur)?;
+        buffer.write_le(self.num_milliseconds())?;
         Ok(())
     }
     fn write_to_buffer_be(&self, buffer: &mut ByteBuffer) -> bytey::Result<()> {
-        let dur = self.num_milliseconds();
-        buffer.write(dur)?;
+        buffer.write_be(self.num_milliseconds())?;
         Ok(())
     }
 }

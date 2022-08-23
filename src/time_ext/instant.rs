@@ -84,8 +84,7 @@ impl Serialize for MyInstant {
     where
         S: Serializer,
     {
-        let dur = self.to_dur();
-        dur.serialize(serializer)
+        self.to_dur().serialize(serializer)
     }
 }
 
@@ -94,42 +93,35 @@ impl<'de> Deserialize<'de> for MyInstant {
     where
         D: Deserializer<'de>,
     {
-        let dur: i64 = i64::deserialize(deserializer)?;
-        Ok(MyInstant::from_dur(dur))
+        Ok(MyInstant::from_dur(i64::deserialize(deserializer)?))
     }
 }
 
 impl ByteBufferRead for MyInstant {
     fn read_from_buffer(buffer: &mut ByteBuffer) -> bytey::Result<Self> {
-        let dur = buffer.read::<i64>()?;
-        Ok(MyInstant::from_dur(dur))
+        Ok(MyInstant::from_dur(buffer.read::<i64>()?))
     }
 
     fn read_from_buffer_le(buffer: &mut ByteBuffer) -> bytey::Result<Self> {
-        let dur = buffer.read_le::<i64>()?;
-        Ok(MyInstant::from_dur(dur))
+        Ok(MyInstant::from_dur(buffer.read_le::<i64>()?))
     }
 
     fn read_from_buffer_be(buffer: &mut ByteBuffer) -> bytey::Result<Self> {
-        let dur = buffer.read_be::<i64>()?;
-        Ok(MyInstant::from_dur(dur))
+        Ok(MyInstant::from_dur(buffer.read_be::<i64>()?))
     }
 }
 
 impl ByteBufferWrite for &MyInstant {
     fn write_to_buffer(&self, buffer: &mut ByteBuffer) -> bytey::Result<()> {
-        let dur = self.to_dur();
-        buffer.write(dur)?;
+        buffer.write(self.to_dur())?;
         Ok(())
     }
     fn write_to_buffer_le(&self, buffer: &mut ByteBuffer) -> bytey::Result<()> {
-        let dur = self.to_dur();
-        buffer.write(dur)?;
+        buffer.write_le(self.to_dur())?;
         Ok(())
     }
     fn write_to_buffer_be(&self, buffer: &mut ByteBuffer) -> bytey::Result<()> {
-        let dur = self.to_dur();
-        buffer.write(dur)?;
+        buffer.write_be(self.to_dur())?;
         Ok(())
     }
 }

@@ -31,9 +31,7 @@ impl MyDate {
     }
 
     pub fn add_days(&mut self, days: i64) {
-        let dur = Duration::days(days);
-
-        self.0 = unwrap_or_return!(self.0.checked_add_signed(dur));
+        self.0 = unwrap_or_return!(self.0.checked_add_signed(Duration::days(days)));
     }
 }
 
