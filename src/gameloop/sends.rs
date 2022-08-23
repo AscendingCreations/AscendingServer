@@ -266,38 +266,6 @@ pub fn send_vitals(world: &Storage, user: &Player) -> Result<()> {
 }
 
 #[inline]
-pub fn send_combatstats(world: &Storage, user: &Player) -> Result<()> {
-    let mut buf = ByteBuffer::new_packet_with(256)?;
-
-    buf.write::<u32>(ServerPackets::Playerstat as u32)?;
-    for i in 0..COMBAT_MAX {
-        buf.write::<i16>(user.e.cstat[i])?;
-        buf.write::<i16>(user.e.buffs[i])?;
-        buf.write::<u64>(user.cstatexp[i])?;
-    }
-    buf.finish()?;
-    send_to(world, user.socket_id, &buf);
-
-    Ok(())
-}
-
-#[inline]
-pub fn send_otherstats(world: &Storage, user: &Player) -> Result<()> {
-    let mut buf = ByteBuffer::new_packet_with(256)?;
-
-    buf.write::<u32>(ServerPackets::Playerotherstat as u32)?;
-    for i in 0..COMBAT_MAX {
-        buf.write::<i16>(user.sstats[i])?;
-        buf.write::<i16>(user.sstatbuffs[i])?;
-        buf.write::<u64>(user.sstatexp[i])?;
-    }
-    buf.finish()?;
-    send_to(world, user.socket_id, &buf);
-
-    Ok(())
-}
-
-#[inline]
 pub fn send_inv(world: &Storage, user: &Player) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(6500)?;
 
@@ -318,18 +286,6 @@ pub fn send_invslot(world: &Storage, user: &Player, id: usize) -> Result<()> {
     buf.write::<u32>(ServerPackets::Playerinvslot as u32)?;
     buf.write::<u64>(id as u64)?;
     buf.write(&user.inv[id])?;
-    buf.finish()?;
-    send_to(world, user.socket_id, &buf);
-
-    Ok(())
-}
-
-#[inline]
-pub fn send_cast(world: &Storage, user: &Player, casting: bool) -> Result<()> {
-    let mut buf = ByteBuffer::new_packet_with(16)?;
-
-    buf.write::<u32>(ServerPackets::Playercastskill as u32)?;
-    buf.write::<u8>(casting as u8)?;
     buf.finish()?;
     send_to(world, user.socket_id, &buf);
 
@@ -389,96 +345,6 @@ pub fn send_money(world: &Storage, user: &Player) -> Result<()> {
     buf.write::<u64>(user.vals)?;
     buf.finish()?;
     send_to(world, user.socket_id, &buf);
-
-    Ok(())
-}
-
-#[inline]
-pub fn send_effectaction(world: &Storage, user: &Player, toself: bool) -> Result<()> {
-    let mut buf = ByteBuffer::new_packet_with(16)?;
-    let closure = |toself, id| if toself { Some(id) } else { None };
-
-    buf.write::<u32>(ServerPackets::Playerdir as u32)?;
-    buf.write::<u8>(user.e.dir)?;
-    buf.finish()?;
-    send_to_maps(
-        world,
-        user.e.pos.map,
-        &buf,
-        closure(toself, user.e.get_id()),
-    );
-
-    Ok(())
-}
-
-#[inline]
-pub fn send_effects(world: &Storage, user: &Player, toself: bool) -> Result<()> {
-    let mut buf = ByteBuffer::new_packet_with(16)?;
-    let closure = |toself, id| if toself { Some(id) } else { None };
-
-    buf.write::<u32>(ServerPackets::Playerdir as u32)?;
-    buf.write::<u8>(user.e.dir)?;
-    buf.finish()?;
-    send_to_maps(
-        world,
-        user.e.pos.map,
-        &buf,
-        closure(toself, user.e.get_id()),
-    );
-
-    Ok(())
-}
-
-#[inline]
-pub fn send_effectremove(world: &Storage, user: &Player, toself: bool) -> Result<()> {
-    let mut buf = ByteBuffer::new_packet_with(16)?;
-    let closure = |toself, id| if toself { Some(id) } else { None };
-
-    buf.write::<u32>(ServerPackets::Playerdir as u32)?;
-    buf.write::<u8>(user.e.dir)?;
-    buf.finish()?;
-    send_to_maps(
-        world,
-        user.e.pos.map,
-        &buf,
-        closure(toself, user.e.get_id()),
-    );
-
-    Ok(())
-}
-
-#[inline]
-pub fn send_effect(world: &Storage, user: &Player, toself: bool) -> Result<()> {
-    let mut buf = ByteBuffer::new_packet_with(16)?;
-    let closure = |toself, id| if toself { Some(id) } else { None };
-
-    buf.write::<u32>(ServerPackets::Playerdir as u32)?;
-    buf.write::<u8>(user.e.dir)?;
-    buf.finish()?;
-    send_to_maps(
-        world,
-        user.e.pos.map,
-        &buf,
-        closure(toself, user.e.get_id()),
-    );
-
-    Ok(())
-}
-
-#[inline]
-pub fn send_variables(world: &Storage, user: &Player, toself: bool) -> Result<()> {
-    let mut buf = ByteBuffer::new_packet_with(16)?;
-    let closure = |toself, id| if toself { Some(id) } else { None };
-
-    buf.write::<u32>(ServerPackets::Playerdir as u32)?;
-    buf.write::<u8>(user.e.dir)?;
-    buf.finish()?;
-    send_to_maps(
-        world,
-        user.e.pos.map,
-        &buf,
-        closure(toself, user.e.get_id()),
-    );
 
     Ok(())
 }

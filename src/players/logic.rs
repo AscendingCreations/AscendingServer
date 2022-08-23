@@ -169,23 +169,6 @@ impl Player {
         self.e.level * 25
     }
 
-    pub fn calc_combat_stat(&self, world: &Storage, stat_id: CombatStat) -> i16 {
-        let id = stat_id as usize;
-        let mut stat = self.e.cstat[id] as i16;
-
-        for equipment in &self.equip {
-            if equipment.val == 0 {
-                continue;
-            }
-
-            if let Some(item) = world.bases.item.get(equipment.num as usize) {
-                stat = stat.saturating_add(item.combatstats[id]);
-            }
-        }
-
-        stat
-    }
-
     pub fn get_weapon_damage(&self, world: &Storage) -> (i16, i16) {
         let mut dmg = (0, 0);
 
@@ -213,11 +196,6 @@ impl Player {
         }
 
         defense
-    }
-
-    pub fn get_status_res(&self) -> i16 {
-        self.e.cstat[CombatStat::Statusres as usize]
-            .saturating_add(self.e.buffs[CombatStat::Statusres as usize])
     }
 
     pub fn repair_equipment(&mut self, world: &Storage, slot: usize, repair_per: f32) {

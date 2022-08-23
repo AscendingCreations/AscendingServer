@@ -23,11 +23,6 @@ pub struct Player {
     #[derivative(Default(value = "MyInstant::now()"))]
     pub mapitemtimer: MyInstant,
     pub access: UserAccess,
-    #[derivative(Default(value = "[1; SKILL_MAX]"))]
-    pub sstats: Skillstats,
-    pub sstatbuffs: BuffSkillstats,
-    pub cstatexp: CombatstatExps,
-    pub sstatexp: SkillstatExps,
     pub achievements: Achievements,
     pub using: IsUsingType,
     pub status: OnlineType,

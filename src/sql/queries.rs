@@ -169,58 +169,6 @@ pub fn update_address(conn: &mut PgConnection, user: &mut crate::players::Player
     Ok(())
 }
 
-pub fn update_combatskills(
-    conn: &mut PgConnection,
-    user: &mut crate::players::Player,
-) -> Result<()> {
-    diesel::update(players::table)
-        .set(&PGPlayerCombatSkills::new(user))
-        .execute(conn)?;
-    Ok(())
-}
-
-pub fn update_combatskill(
-    conn: &mut PgConnection,
-    user: &mut crate::players::Player,
-    id: usize,
-) -> Result<()> {
-    diesel::sql_query(
-        "UPDATE public.players SET cstats[$1] = $2, cstatexp[$1] = $3 WHERE uid = $4;",
-    )
-    .bind::<BigInt, _>(id as i64)
-    .bind::<SmallInt, _>(user.e.cstat[id] as i16)
-    .bind::<BigInt, _>(user.cstatexp[id] as i64)
-    .bind::<BigInt, _>(user.accid)
-    .execute(conn)?;
-    Ok(())
-}
-
-pub fn update_otherskills(
-    conn: &mut PgConnection,
-    user: &mut crate::players::Player,
-) -> Result<()> {
-    diesel::update(players::table)
-        .set(&PGPlayerSkills::new(user))
-        .execute(conn)?;
-    Ok(())
-}
-
-pub fn update_otherskill(
-    conn: &mut PgConnection,
-    user: &mut crate::players::Player,
-    id: usize,
-) -> Result<()> {
-    diesel::sql_query(
-        "UPDATE public.players SET sstats[$1] = $2, sstatexp[$1] = $3 WHERE uid = $4;",
-    )
-    .bind::<BigInt, _>(id as i64)
-    .bind::<SmallInt, _>(user.sstats[id] as i16)
-    .bind::<BigInt, _>(user.sstatexp[id] as i64)
-    .bind::<BigInt, _>(user.accid)
-    .execute(conn)?;
-    Ok(())
-}
-
 pub fn update_playerdata(conn: &mut PgConnection, user: &mut crate::players::Player) -> Result<()> {
     diesel::update(players::table)
         .set(&PGPlayerData::new(user))

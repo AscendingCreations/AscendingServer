@@ -22,12 +22,6 @@ pub struct PGPlayer {
     vals: i64,
     data: Vec<i64>,
     access: UserAccess,
-    sstats: Vec<i16>,
-    sstatbuffs: Vec<i16>,
-    sstatexp: Vec<i64>,
-    cstats: Vec<i16>,
-    cstatbuffs: Vec<i16>,
-    cstatexp: Vec<i64>,
     passresetcode: Option<String>,
     pos: Position,
     vital: Vec<i32>,
@@ -69,12 +63,6 @@ impl PGPlayer {
             vals: user.vals as i64,
             data: user.data.to_vec(),
             access: user.access,
-            sstats: user.sstats.to_vec(),
-            sstatbuffs: user.sstatbuffs.to_vec(),
-            sstatexp: user.sstatexp.iter().map(|x| *x as i64).collect(),
-            cstats: user.e.cstat.to_vec(),
-            cstatbuffs: user.e.buffs.to_vec(),
-            cstatexp: user.cstatexp.iter().map(|x| *x as i64).collect(),
             passresetcode: None,
             pos: user.e.pos,
             vital: user.e.vital.to_vec(),
@@ -104,12 +92,6 @@ pub struct PGPlayerWithID {
     vals: i64,
     data: Vec<i64>,
     access: UserAccess,
-    sstats: Vec<i16>,
-    sstatbuffs: Vec<i16>,
-    sstatexp: Vec<i64>,
-    cstats: Vec<i16>,
-    cstatbuffs: Vec<i16>,
-    cstatexp: Vec<i64>,
     pos: Position,
     vital: Vec<i32>,
     deathtimer: MyInstant,
@@ -132,12 +114,6 @@ impl PGPlayerWithID {
             vals: user.vals as i64,
             data: user.data.to_vec(),
             access: user.access,
-            sstats: user.sstats.to_vec(),
-            sstatbuffs: user.sstatbuffs.to_vec(),
-            sstatexp: user.sstatexp.iter().map(|x| *x as i64).collect(),
-            cstats: user.e.cstat.to_vec(),
-            cstatbuffs: user.e.buffs.to_vec(),
-            cstatexp: user.cstatexp.iter().map(|x| *x as i64).collect(),
             pos: user.e.pos,
             vital: user.e.vital.to_vec(),
             deathtimer: user.e.deathtimer,
@@ -159,32 +135,6 @@ impl PGPlayerWithID {
         user.vals = self.vals as u64;
         user.data = self.data[..5].try_into().unwrap_or([0; 5]);
         user.access = self.access;
-        user.sstats = self.sstats[..SKILL_MAX]
-            .try_into()
-            .unwrap_or([0; SKILL_MAX]);
-        user.sstatbuffs = self.sstatbuffs[..SKILL_MAX]
-            .try_into()
-            .unwrap_or([0; SKILL_MAX]);
-        user.sstatexp = self
-            .sstatexp
-            .iter()
-            .map(|x| *x as u64)
-            .collect::<Vec<u64>>()[..SKILL_MAX]
-            .try_into()
-            .unwrap_or([0; SKILL_MAX]);
-        user.e.cstat = self.cstats[..COMBAT_MAX]
-            .try_into()
-            .unwrap_or([0; COMBAT_MAX]);
-        user.e.buffs = self.cstatbuffs[..COMBAT_MAX]
-            .try_into()
-            .unwrap_or([0; COMBAT_MAX]);
-        user.cstatexp = self
-            .cstatexp
-            .iter()
-            .map(|x| *x as u64)
-            .collect::<Vec<u64>>()[..COMBAT_MAX]
-            .try_into()
-            .unwrap_or([0; COMBAT_MAX]);
         user.e.pos = self.pos;
         user.e.vital = self.vital[..VITALS_MAX]
             .try_into()
@@ -207,8 +157,6 @@ impl PGPlayerWithID {
 pub struct PGPlayerLogOut {
     uid: i64,
     itemtimer: MyInstant,
-    sstatbuffs: Vec<i16>,
-    cstatbuffs: Vec<i16>,
     pos: Position,
     vital: Vec<i32>,
     deathtimer: MyInstant,
@@ -221,8 +169,6 @@ impl PGPlayerLogOut {
         PGPlayerLogOut {
             uid: user.accid,
             itemtimer: user.itemtimer,
-            sstatbuffs: user.sstatbuffs.to_vec(),
-            cstatbuffs: user.e.buffs.to_vec(),
             pos: user.e.pos,
             vital: user.e.vital.to_vec(),
             deathtimer: user.e.deathtimer,
@@ -281,44 +227,6 @@ impl PGPlayerLevel {
             uid: user.accid,
             level: user.e.level,
             levelexp: user.levelexp as i64,
-        }
-    }
-}
-
-#[derive(Debug, Queryable, Insertable, AsChangeset)]
-#[table_name = "players"]
-#[primary_key(uid)]
-pub struct PGPlayerCombatSkills {
-    uid: i64,
-    cstats: Vec<i16>,
-    cstatexp: Vec<i64>,
-}
-
-impl PGPlayerCombatSkills {
-    pub fn new(user: &crate::players::Player) -> PGPlayerCombatSkills {
-        PGPlayerCombatSkills {
-            uid: user.accid,
-            cstats: user.e.cstat.to_vec(),
-            cstatexp: user.cstatexp.iter().map(|x| *x as i64).collect(),
-        }
-    }
-}
-
-#[derive(Debug, Queryable, Insertable, AsChangeset)]
-#[table_name = "players"]
-#[primary_key(uid)]
-pub struct PGPlayerSkills {
-    uid: i64,
-    sstats: Vec<i16>,
-    sstatexp: Vec<i64>,
-}
-
-impl PGPlayerSkills {
-    pub fn new(user: &crate::players::Player) -> PGPlayerSkills {
-        PGPlayerSkills {
-            uid: user.accid,
-            sstats: user.sstats.to_vec(),
-            sstatexp: user.sstatexp.iter().map(|x| *x as i64).collect(),
         }
     }
 }

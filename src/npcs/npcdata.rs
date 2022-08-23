@@ -19,11 +19,10 @@ pub struct NpcData {
     pub follow_sight: i32,
     pub walkdistance: u32,
     pub pdamage: u32,
-    pub pdef: u32,
+    pub pdefense: u32,
     pub canpassthru: bool,
     pub isanimated: bool,
     pub size: TileBox,
-    pub cstat: Combatstats,
     pub behaviour: AIBehavior,
     pub maxdamage: u32,
     pub mindamage: u32,
@@ -37,7 +36,7 @@ pub struct NpcData {
     pub has_enemies: bool,
     pub can_attack: bool,
     pub spawntime: (GameTime, GameTime),
-    pub range: i32, //skill type to cast it with and  percentage needed to cast and Max Percentage.
+    pub range: i32, //attack range. How far they need to be to hit their target.
     pub enemies: Vec<u64>,
 }
 

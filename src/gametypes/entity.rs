@@ -17,9 +17,8 @@ pub struct Entity {
     pub vitalbuffs: [i32; VITALS_MAX],
     #[derivative(Default(value = "[0; VITALS_MAX]"))]
     pub regens: [u32; VITALS_MAX],
-    #[derivative(Default(value = "[1; COMBAT_MAX]"))]
-    pub cstat: Combatstats,
-    pub buffs: BuffCombatstats,
+    pub pdamage: u32,
+    pub pdefense: u32,
     pub targettype: EntityType,
     pub targetpos: Position,
     #[derivative(Default(value = "MyInstant::now()"))]

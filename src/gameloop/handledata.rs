@@ -226,7 +226,7 @@ fn handle_dir(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result<()> 
     Err(AscendingError::InvalidSocket)
 }
 
-fn handle_skill(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result<()> {
+fn handle_attack(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result<()> {
     if let Some(user) = world.players.borrow().get(uid) {
         if !user.borrow().e.life.is_alive()
             || user.borrow().using.inuse()
@@ -247,7 +247,7 @@ fn handle_skill(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result<()
             send_dir(world, &user.borrow(), true)?;
         }
 
-        //castskill();
+        //TODO Add Attack funciton call here for player attacks
         return Ok(());
     }
 
@@ -269,7 +269,7 @@ fn handle_useitem(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result<
         let _targettype = data.read::<u8>()?;
 
         user.borrow_mut().itemtimer = *world.gettick.borrow() + Duration::milliseconds(250);
-        //useitem();
+        //TODO useitem();
         return Ok(());
     }
 
@@ -308,7 +308,7 @@ fn handle_unequip(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result<
 
         player.equip[slot] = item;
         let _ = update_equipment(&mut world.pgconn.borrow_mut(), &mut player, slot);
-        //calculatebonuses();
+        //TODO calculatestats();
         return send_equipment(world, &player);
     }
 
@@ -459,7 +459,6 @@ fn handle_pickup(world: &Storage, _data: &mut ByteBuffer, uid: usize) -> Result<
             }
         }
 
-        //updatequests
         player.mapitemtimer = *world.gettick.borrow() + Duration::milliseconds(100);
         return Ok(());
     }
@@ -631,33 +630,6 @@ fn handle_message(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result<
         };
 
         return send_message(world, &player, msg, head, channel, usersocket);
-    }
-
-    Err(AscendingError::InvalidSocket)
-}
-
-fn handle_buyitem(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result<()> {
-    if let Some(user) = world.players.borrow().get(uid) {
-        let player = user.borrow_mut();
-        if !player.e.life.is_alive() || player.e.casting || player.e.stunned {
-            return Ok(());
-        }
-
-        let _id = unwrap_or_return!(player.using.get_id(), Ok(()));
-        let _slot = data.read::<u32>()? as usize;
-        let _value = data.read::<u16>()?;
-
-        //get the Itemnum, priceincrease, amountperpurchase
-        //let itemdata = script_get_data(&id);
-        //let items = world.items();
-        //let item = items.items[itemdata.0].borrow()
-        //let price = item.baseprice.saturating_add(itemdata.1);
-        //if player.vals >= price {
-        //finish after getting scripts done for npc shops.
-        //purchase and give item here.
-        //}
-
-        return Ok(());
     }
 
     Err(AscendingError::InvalidSocket)
