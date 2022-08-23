@@ -10,7 +10,6 @@ use crate::{
 * Item can send up to 30 per packet.
 * npc can send up to 22 per packet.
 * player can send up to 3 per packet.
-* Resource can send up to 75 per packet.
 */
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]

@@ -29,8 +29,8 @@ pub fn try_cast(
         EntityType::Npc(i) => {
             if let Some(target) = world.npcs.borrow().get(i as usize) {
                 let target = target.borrow();
-
-                if casttype == NpcCastType::Enemy && base.enemies.iter().any(|e| *e == target.num) {
+                
+                if base.has_enemies && casttype == NpcCastType::Enemy && base.enemies.iter().any(|e| *e == target.num) {
                     return entity_cast_check(world, caster, &target.e, range);
                 }
             }

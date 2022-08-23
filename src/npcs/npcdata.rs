@@ -6,10 +6,8 @@ use serde::{Deserialize, Serialize};
 pub struct NpcData {
     pub name: String,
     pub level: i32,
-    pub respawn_wait: i64,
     pub movement_wait: i64,
     pub attack_wait: i64,
-    pub intervaled_wait: i64,
     pub spawn_wait: i64,
     pub maxhp: u32,
     pub maxsp: u32,
@@ -20,7 +18,6 @@ pub struct NpcData {
     pub pdamage: u32,
     pub pdefense: u32,
     pub canpassthru: bool,
-    pub isanimated: bool,
     pub size: TileBox,
     pub behaviour: AIBehavior,
     pub maxdamage: u32,
@@ -35,8 +32,10 @@ pub struct NpcData {
     pub has_enemies: bool,
     pub can_attack: bool,
     pub spawntime: (GameTime, GameTime),
-    pub range: i32, //attack range. How far they need to be to hit their target.
-    pub enemies: Vec<u64>,
+    pub range: i32,        //attack range. How far they need to be to hit their target.
+    pub enemies: Vec<u64>, //list of enemies the npcs can attack of other npc's... WAR!
+    pub drops: Vec<(u32, u32, u32)>, //item dropped on death, chance, amount
+    pub drops_max: Vec<u16>, //number of Different items that will be picked  0..=drops_max. that we can cycle thru and drop at random.
 }
 
 impl NpcData {

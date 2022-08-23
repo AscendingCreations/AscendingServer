@@ -23,11 +23,6 @@ pub struct Map {
     #[serde(with = "BigArray")]
     pub tiles: [Tile; MAP_MAX_X * MAP_MAX_Y],
     pub zonespawns: [Vec<(u16, u16)>; 5],
-    pub temp: i16,
-    pub light: i16,
-    pub fog: i16,
-    pub fogalpha: i16,
-    pub fogspeed: i16,
     pub music: u32,
     pub weather: Weather,
     pub zones: [(u64, [Option<u64>; 5]); 5],

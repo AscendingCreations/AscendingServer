@@ -230,7 +230,7 @@ fn handle_attack(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result<(
     if let Some(user) = world.players.borrow().get(uid) {
         if !user.borrow().e.life.is_alive()
             || user.borrow().using.inuse()
-            || user.borrow().e.casting
+            || user.borrow().e.attacking
         {
             return Ok(());
         }
@@ -258,7 +258,7 @@ fn handle_useitem(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result<
     if let Some(user) = world.players.borrow().get(uid) {
         if !user.borrow().e.life.is_alive()
             || user.borrow().using.inuse()
-            || user.borrow().e.casting
+            || user.borrow().e.attacking
             || user.borrow().e.stunned
             || user.borrow().itemtimer > *world.gettick.borrow()
         {
@@ -281,7 +281,7 @@ fn handle_unequip(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result<
         let mut player = user.borrow_mut();
         if !player.e.life.is_alive()
             || player.using.inuse()
-            || player.e.casting
+            || player.e.attacking
             || player.e.stunned
             || player.itemtimer > *world.gettick.borrow()
         {
@@ -320,7 +320,7 @@ fn handle_switchinvslot(world: &Storage, data: &mut ByteBuffer, uid: usize) -> R
         let mut player = user.borrow_mut();
         if !player.e.life.is_alive()
             || player.using.inuse()
-            || player.e.casting
+            || player.e.attacking
             || player.e.stunned
             || player.itemtimer > *world.gettick.borrow()
         {
@@ -383,7 +383,7 @@ fn handle_pickup(world: &Storage, _data: &mut ByteBuffer, uid: usize) -> Result<
 
         if !player.e.life.is_alive()
             || player.using.inuse()
-            || player.e.casting
+            || player.e.attacking
             || player.e.stunned
             || player.mapitemtimer > *world.gettick.borrow()
         {
@@ -469,7 +469,10 @@ fn handle_pickup(world: &Storage, _data: &mut ByteBuffer, uid: usize) -> Result<
 fn handle_dropitem(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result<()> {
     if let Some(user) = world.players.borrow().get(uid) {
         let mut player = user.borrow_mut();
-        if !player.e.life.is_alive() || player.using.inuse() || player.e.casting || player.e.stunned
+        if !player.e.life.is_alive()
+            || player.using.inuse()
+            || player.e.attacking
+            || player.e.stunned
         {
             return Ok(());
         }
@@ -529,7 +532,10 @@ fn handle_dropitem(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result
 fn handle_deleteitem(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result<()> {
     if let Some(user) = world.players.borrow().get(uid) {
         let mut player = user.borrow_mut();
-        if !player.e.life.is_alive() || player.using.inuse() || player.e.casting || player.e.stunned
+        if !player.e.life.is_alive()
+            || player.using.inuse()
+            || player.e.attacking
+            || player.e.stunned
         {
             return Ok(());
         }
@@ -565,7 +571,10 @@ fn handle_message(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result<
         let player = user.borrow();
         let mut usersocket: Option<usize> = None;
 
-        if !player.e.life.is_alive() || player.using.inuse() || player.e.casting || player.e.stunned
+        if !player.e.life.is_alive()
+            || player.using.inuse()
+            || player.e.attacking
+            || player.e.stunned
         {
             return Ok(());
         }

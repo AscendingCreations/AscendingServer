@@ -122,7 +122,7 @@ pub fn playerdata(world: &Storage, id: u64) -> Option<ByteBuffer> {
         buf.write::<i16>(player.resetcount).ok()?;
         buf.write(&player.e.life).ok()?;
         buf.write::<u8>(player.e.hidden as u8).ok()?;
-        buf.write::<u8>(player.e.casting as u8).ok()?;
+        buf.write::<u8>(player.e.attacking as u8).ok()?;
         buf.write::<u8>(player.pvpon as u8).ok()?;
         buf.write::<u8>(player.pk as u8).ok()?;
         buf.finish().ok()?;

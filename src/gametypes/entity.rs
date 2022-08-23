@@ -37,12 +37,11 @@ pub struct Entity {
     pub just_spawned: MyInstant,
     #[derivative(Default(value = "DeathType::Alive"))]
     pub life: DeathType,
-    pub traps: Vec<usize>,
     pub dir: u8,
     pub hidden: bool,
     pub stunned: bool,
     pub incombat: bool,
-    pub casting: bool,
+    pub attacking: bool,
     pub mode: NpcMode, //Player is always None
 }
 

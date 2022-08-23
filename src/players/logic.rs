@@ -211,7 +211,7 @@ impl Player {
             );
 
             self.equip[slot].data[0] = self.equip[slot].data[0].saturating_add(repair_amount);
-            //TODO: Load EQ bonus
+            //TODO: CalculateStats();
 
             let _ = send_equipment(world, self);
             let _ = update_equipment(&mut world.pgconn.borrow_mut(), self, slot);
