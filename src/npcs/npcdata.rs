@@ -35,7 +35,7 @@ pub struct NpcData {
     pub range: i32,        //attack range. How far they need to be to hit their target.
     pub enemies: Vec<u64>, //list of enemies the npcs can attack of other npc's... WAR!
     pub drops: Vec<(u32, u32, u32)>, //item dropped on death, chance, amount
-    pub drops_max: Vec<u16>, //number of Different items that will be picked  0..=drops_max. that we can cycle thru and drop at random.
+    pub drops_max: u16, //number of Different items that will be picked  0..=drops_max. that we can cycle thru and drop at random.
 }
 
 impl NpcData {
