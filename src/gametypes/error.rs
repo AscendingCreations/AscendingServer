@@ -1,3 +1,4 @@
+use crate::gametypes::MapPosition;
 use thiserror::Error;
 
 pub type Result<T> = std::result::Result<T, AscendingError>;
@@ -26,6 +27,8 @@ pub enum AscendingError {
     NoUsernameSet,
     #[error("No password was set")]
     NoPasswordSet,
+    #[error("Map at Position {0:?} not found")]
+    MapNotFound(MapPosition),
     #[error(transparent)]
     AddrParseError(#[from] std::net::AddrParseError),
     #[error(transparent)]

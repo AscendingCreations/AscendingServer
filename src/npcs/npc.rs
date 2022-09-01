@@ -6,7 +6,6 @@ use unwrap_helpers::*;
 pub struct Npc {
     pub num: u64,
     pub sprite: u32,
-    pub spawn: Position,
     #[derivative(Default(value = "MyInstant::now()"))]
     pub despawntimer: MyInstant,
     #[derivative(Default(value = "MyInstant::now()"))]
@@ -15,14 +14,14 @@ pub struct Npc {
     pub e: Entity,
     pub despawns: bool,
     pub hitby: Vec<(u32, u64, u64)>,
-    //new pos and walking dir.
+    //New pos and walking dir.
     pub moves: Vec<(Position, u8)>,
     pub moving: bool,
     pub is_retreating: bool,
     pub walktospawn: bool,
-    pub zoneid: Option<u32>,
+    //Zone ID so when they Die that map can spawn more.
+    pub spawned_zone: Option<usize>,
     pub move_pos: Option<Position>,
-    pub data: [i64; 10],
 }
 
 impl Npc {

@@ -14,7 +14,7 @@ pub fn update_players(world: &Storage) {
                 if player.e.deathtimer < tick {
                     player.e.life = DeathType::Alive;
                     let _ = send_life_status(world, &player, true);
-                    let spawn = player.spawn;
+                    let spawn = player.e.spawn;
                     let dir = player.e.dir;
 
                     player.warp(world, spawn, dir);

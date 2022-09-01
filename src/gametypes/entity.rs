@@ -5,6 +5,10 @@ use crate::{gametypes::*, time_ext::MyInstant};
 #[derivative(Default(new = "true"))]
 pub struct Entity {
     pub etype: EntityType,
+    //Original Position and Map spawned too. used with Zone_id for unload/death.
+    #[derivative(Default(value = "Position::new(10, 10, MapPosition::new(0,0,0))"))]
+    pub spawn: Position,
+    pub data: [i64; 10],
     pub killcount: u32,
     #[derivative(Default(value = "1"))]
     pub level: i32,

@@ -58,10 +58,10 @@ impl PGPlayer {
             name: user.name.clone(),
             address: user.addr.clone(),
             sprite: user.sprite as i16,
-            spawn: user.spawn,
+            spawn: user.e.spawn,
             itemtimer: user.itemtimer,
             vals: user.vals as i64,
-            data: user.data.to_vec(),
+            data: user.e.data.to_vec(),
             access: user.access,
             passresetcode: None,
             pos: user.e.pos,
@@ -109,10 +109,10 @@ impl PGPlayerWithID {
             name: user.name.clone(),
             address: user.addr.clone(),
             sprite: user.sprite as i16,
-            spawn: user.spawn,
+            spawn: user.e.spawn,
             itemtimer: user.itemtimer,
             vals: user.vals as i64,
-            data: user.data.to_vec(),
+            data: user.e.data.to_vec(),
             access: user.access,
             pos: user.e.pos,
             vital: user.e.vital.to_vec(),
@@ -130,10 +130,10 @@ impl PGPlayerWithID {
         user.name = self.name.clone();
         user.addr = self.address.clone();
         user.sprite = self.sprite as u8;
-        user.spawn = self.spawn;
+        user.e.spawn = self.spawn;
         user.itemtimer = self.itemtimer;
         user.vals = self.vals as u64;
-        user.data = self.data[..5].try_into().unwrap_or([0; 5]);
+        user.e.data = self.data[..10].try_into().unwrap_or([0; 10]);
         user.access = self.access;
         user.e.pos = self.pos;
         user.e.vital = self.vital[..VITALS_MAX]
@@ -243,7 +243,7 @@ impl PGPlayerData {
     pub fn new(user: &crate::players::Player) -> PGPlayerData {
         PGPlayerData {
             uid: user.accid,
-            data: user.data.to_vec(),
+            data: user.e.data.to_vec(),
         }
     }
 }
@@ -277,7 +277,7 @@ impl PGPlayerSpawn {
     pub fn new(user: &crate::players::Player) -> PGPlayerSpawn {
         PGPlayerSpawn {
             uid: user.accid,
-            spawn: user.spawn,
+            spawn: user.e.spawn,
         }
     }
 }

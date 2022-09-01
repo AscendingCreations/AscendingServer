@@ -13,11 +13,8 @@ pub struct Player {
     pub accid: i64,
     pub levelexp: u64,
     pub vals: u64,
-    pub data: [i64; 5],
     pub socket_id: usize,
     pub useditemid: u32,
-    #[derivative(Default(value = "Position::new(10, 10, MapPosition::new(0,0,0))"))]
-    pub spawn: Position,
     #[derivative(Default(value = "MyInstant::now()"))]
     pub itemtimer: MyInstant,
     #[derivative(Default(value = "MyInstant::now()"))]

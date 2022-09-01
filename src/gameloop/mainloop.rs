@@ -40,6 +40,12 @@ pub fn game_loop(world: &Storage) {
             }
             tmr60000 = tick + Duration::milliseconds(60000);
         }
+
+        if let Err(e) = poll_events(world) {
+            println!("Poll event error: {:?}", e);
+        }
+
+        process_packets(world);
     }
 }
 
