@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 #![recursion_limit = "256"]
-#![feature(test)]
+#![feature(test, let_chains)]
 extern crate test;
 #[macro_use]
 extern crate derivative;
@@ -19,16 +19,16 @@ mod time_ext;
 #[allow(unused_imports)]
 use gameloop::*;
 use gametypes::*;
-use npcs::*;
+//use npcs::*;
 //use player::Player;
-use serde::{Deserialize, Serialize};
-use socket::*;
+//use serde::{Deserialize, Serialize};
+//use socket::*;
 //use sql::*;
 use containers::Storage;
 //use test::Bencher;
-use bytey::ByteBuffer;
-use bytey::{ByteBufferRead, ByteBufferWrite};
-use time_ext::{MyDuration, MyInstant};
+//use bytey::ByteBuffer;
+//use bytey::{ByteBufferRead, ByteBufferWrite};
+//use time_ext::{MyDuration, MyInstant};
 
 #[macro_use]
 extern crate diesel;

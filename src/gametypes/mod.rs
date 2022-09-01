@@ -37,6 +37,7 @@ pub const MAX_ITEMS: usize = 2000;
 pub const MAX_PLAYERS: usize = 1000;
 
 pub const MAX_WORLD_NPCS: usize = 100_000;
+pub const NPCS_SPAWNCAP: usize = 10;
 
 pub const MAX_LVL: usize = 200;
 pub const MAX_INV: usize = 378;

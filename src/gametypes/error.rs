@@ -29,6 +29,8 @@ pub enum AscendingError {
     NoPasswordSet,
     #[error("Map at Position {0:?} not found")]
     MapNotFound(MapPosition),
+    #[error("NPC ID {0:?} not found")]
+    NpcNotFound(u64),
     #[error(transparent)]
     AddrParseError(#[from] std::net::AddrParseError),
     #[error(transparent)]

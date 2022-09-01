@@ -9,6 +9,8 @@ pub struct Npc {
     #[derivative(Default(value = "MyInstant::now()"))]
     pub despawntimer: MyInstant,
     #[derivative(Default(value = "MyInstant::now()"))]
+    pub spawntimer: MyInstant,
+    #[derivative(Default(value = "MyInstant::now()"))]
     pub ai_timer: MyInstant, //for rebuilding the a* paths
     //offset for special things so the npc wont to events based on this spawn time.
     pub e: Entity,

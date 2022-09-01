@@ -22,8 +22,9 @@ pub struct Map {
     #[derivative(Default(value = "[Tile::default(); MAP_MAX_X * MAP_MAX_Y]"))]
     #[serde(with = "BigArray")]
     pub tiles: [Tile; MAP_MAX_X * MAP_MAX_Y],
-    // Tiles for zone spawning. (x, y)
-    pub zonespawns: [Vec<(u16, u16)>; 5],
+    // Tiles for zone spawning. (x, y) using u8 to cut down the size and since maps should never Exceed 64x64
+    // As super large maps are stupid within a Seamless Structure.
+    pub zonespawns: [Vec<(u8, u8)>; 5],
     pub music: u32,
     pub weather: Weather,
     // (Max spawns per zone, [npc_id; 5])
