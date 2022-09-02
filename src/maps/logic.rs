@@ -85,10 +85,17 @@ pub fn update_maps(world: &Storage) -> Result<()> {
 
                 let mut data = map_data.borrow_mut();
                 //Lets Spawn the npcs here;
-                for (spawn, zone_id, npc_id) in spawnable.drain(..) {
-
-                    //data.add_entity_to_grid()
-                    //data.add_npc(global_npc_id);
+                for (spawn, zone, npc_id) in spawnable.drain(..) {
+                    let global_npc_id = world.add_npc(
+                        world
+                            .bases
+                            .npc
+                            .get(npc_id as usize)
+                            .ok_or(AscendingError::NpcNotFound(npc_id))?
+                            .new_npc(spawn, zone, npc_id),
+                    );
+                    data.add_entity_to_grid(spawn);
+                    data.add_npc(global_npc_id);
                 }
             }
         }
