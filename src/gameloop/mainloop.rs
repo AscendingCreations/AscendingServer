@@ -1,5 +1,6 @@
 use crate::{
-    containers::Storage, gameloop::handle_data, npcs::*, players::*, socket::*, time_ext::MyInstant,
+    containers::Storage, gameloop::handle_data, maps::update_maps, npcs::*, players::*, socket::*,
+    time_ext::MyInstant,
 };
 use chrono::Duration;
 
@@ -21,6 +22,9 @@ pub fn game_loop(world: &Storage) {
         }
 
         if tick > tmr500 {
+            if let Err(e) = update_maps(world) {
+                println!("Error: {:?}", e);
+            }
             tmr500 = tick + Duration::milliseconds(500);
         }
 

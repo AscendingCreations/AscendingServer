@@ -1,11 +1,9 @@
-use crate::{containers::Storage, gameloop::*, gametypes::*, maps::*, players::*, sql::*};
-use chrono::Duration;
+use crate::{containers::Storage, gametypes::*};
 use rand::{thread_rng, Rng};
-use std::cmp::{max, min};
+use std::cmp::min;
 use unwrap_helpers::{unwrap_continue, ToOption};
 
 pub fn update_maps(world: &Storage) -> Result<()> {
-    let tick = *world.gettick.borrow();
     let mut rng = thread_rng();
     let mut spawnable = Vec::new();
     let mut len = world.npcs.borrow().len();
@@ -94,7 +92,6 @@ pub fn update_maps(world: &Storage) -> Result<()> {
                             .ok_or(AscendingError::NpcNotFound(npc_id))?
                             .new_npc(spawn, zone, npc_id),
                     );
-                    data.add_entity_to_grid(spawn);
                     data.add_npc(global_npc_id);
                 }
             }
