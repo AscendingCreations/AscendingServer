@@ -7,7 +7,7 @@ use crate::{
 };
 
 /* Information Packet Data Portion Worse case is 1420 bytes
-* This means you can fit based on Quantity + 4 byte token header
+* This means you can fit based on Quantity + 4 byte token header  + 4 bytes for count
 * Item Size of 17 bytes can send up to 82 per packet.
 * Npc Size 80 bytes can send up to 16 per packet.
 * player Size 226 bytes can send up to 5 per packet.
