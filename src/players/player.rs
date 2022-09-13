@@ -33,7 +33,7 @@ pub struct Player {
     pub pvpon: bool,
     pub pk: bool,
     pub movesavecount: u16,
-    pub datatasks: Vec<usize>,
+    pub map_switch_tasks: Vec<usize>,
 }
 
 impl Player {

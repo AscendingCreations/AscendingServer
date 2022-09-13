@@ -7,7 +7,7 @@ license = "MIT OR Apache-2.0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-thiserror = "1.0.33"
+thiserror = "1.0.34"
 serde = { version = "1.0.144", features = ["derive"] }
 serde_repr = "0.1.9"
 slab = "0.4.7"

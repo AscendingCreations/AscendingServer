@@ -25,7 +25,7 @@ pub struct Storage {
     pub gettick: RefCell<MyInstant>,
     pub pgconn: RefCell<PgConnection>,
     pub time: RefCell<GameTime>,
-    pub datatasks: RefCell<slab::Slab<DataTasks>>,
+    pub map_switch_tasks: RefCell<slab::Slab<MapSwitchTasks>>, //Data Tasks For dealing with Player Warp and MapSwitch
     pub bases: Bases,
 }
 
@@ -53,7 +53,7 @@ impl Storage {
             gettick: RefCell::new(MyInstant::now()),
             pgconn: RefCell::new(establish_connection()),
             time: RefCell::new(GameTime::default()),
-            datatasks: RefCell::new(slab::Slab::new()),
+            map_switch_tasks: RefCell::new(slab::Slab::new()),
             bases: Bases::new()?,
         })
     }

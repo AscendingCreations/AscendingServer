@@ -62,7 +62,25 @@ fn handle_register(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result
             return send_infomsg(
                 world,
                 user.socket_id,
-                "Username or Password contains unaccepted Characters".into(),
+                "Username, Name, or Password contains unaccepted Characters".into(),
+                0,
+            );
+        }
+
+        if username.len() >= 64 || name.len() >= 64 {
+            return send_infomsg(
+                world,
+                user.socket_id,
+                "Username or Name has too many Characters, 64 Characters Max".into(),
+                0,
+            );
+        }
+
+        if password.len() >= 128 {
+            return send_infomsg(
+                world,
+                user.socket_id,
+                "Password has too many Characters, 128 Characters Max".into(),
                 0,
             );
         }
@@ -140,6 +158,15 @@ fn handle_login(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result<()
     let appmajor = data.read::<u16>()? as usize;
     let appminior = data.read::<u16>()? as usize;
     let apprevision = data.read::<u16>()? as usize;
+
+    if username.len() >= 64 || password.len() >= 128 {
+        return send_infomsg(
+            world,
+            p.borrow().socket_id,
+            "Account does not Exist or Password is not Correct.".into(),
+            0,
+        );
+    }
 
     if let Some(p) = world.players.borrow().get(uid) {
         let id = find_player(&mut world.pgconn.borrow_mut(), &username, &password)?;

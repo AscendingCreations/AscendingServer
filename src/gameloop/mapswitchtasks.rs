@@ -6,23 +6,22 @@ use crate::{
     players::*,
 };
 
-/* Information Packet Data Portion Worse case is 1420 bytes
-* This means you can fit based on Quantity + 4 byte token header
-* Item Size of 17 bytes can send up to 82 per packet.
-* Npc Size 80 bytes can send up to 16 per packet.
-* player Size 226 bytes can send up to 5 per packet.
+/* Information
+* Item can send up to 30 per packet.
+* npc can send up to 22 per packet.
+* player can send up to 3 per packet.
 */
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct DataTask {
+pub struct MapSwitchTask {
     ownerid: usize,
     mapid: MapPosition,
     currentids: Vec<u64>,
 }
 
-impl DataTask {
-    pub fn new(ownerid: usize, mapid: MapPosition) -> DataTask {
-        DataTask {
+impl MapSwitchTask {
+    pub fn new(ownerid: usize, mapid: MapPosition) -> MapSwitchTask {
+        MapSwitchTask {
             ownerid,
             mapid,
             currentids: Vec::with_capacity(32),
@@ -32,26 +31,41 @@ impl DataTask {
 
 //types to buffer load when loading a map.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum DataTasks {
-    NpcMove(DataTask),
-    PlayerMove(DataTask),
-    ItemUnload(DataTask),
-    ItemLoad(DataTask),
-    NpcAttack(),
-    PlayerAttack(),
+pub enum MapSwitchTasks {
+    Npc(MapSwitchTask),    //0
+    Player(MapSwitchTask), //1
+    Items(MapSwitchTask),  //2
 }
 
 pub fn init_data_lists(world: &Storage, user: &mut Player, oldmap: MapPosition) {
-    /*let mut new_players = HashSet::<u64>::with_capacity_and_hasher(32, Default::default());
+    //Remove old tasks and replace with new ones during map switching.
+    while let Some(i) = user.map_switch_tasks.pop() {
+        world.map_switch_tasks.borrow_mut().remove(i);
+    }
+
+    //setup the old and new information so we know what to remove and add for.
+    let mut old_players = (
+        Vec::<u64>::with_capacity(32),
+        HashSet::<u64>::with_capacity_and_hasher(32, Default::default()),
+    );
+    let mut old_npcs = (
+        Vec::<u64>::with_capacity(32),
+        HashSet::<u64>::with_capacity_and_hasher(32, Default::default()),
+    );
+    let mut old_items = (
+        Vec::<u64>::with_capacity(32),
+        HashSet::<u64>::with_capacity_and_hasher(32, Default::default()),
+    );
+    let mut new_players = HashSet::<u64>::with_capacity_and_hasher(32, Default::default());
     let mut new_npcs = HashSet::<u64>::with_capacity_and_hasher(32, Default::default());
     let mut new_items = HashSet::<u64>::with_capacity_and_hasher(32, Default::default());
 
     //create the data tasks to be ran against.
-    let mut task_player = DataTask::new(user.e.get_id(), user.e.pos.map);
-    let mut task_npc = DataTask::new(user.e.get_id(), user.e.pos.map);
-    let mut task_item = DataTask::new(user.e.get_id(), user.e.pos.map);
+    let mut task_player = MapSwitchTask::new(user.e.get_id(), user.e.pos.map);
+    let mut task_npc = MapSwitchTask::new(user.e.get_id(), user.e.pos.map);
+    let mut task_item = MapSwitchTask::new(user.e.get_id(), user.e.pos.map);
 
-    //get the old map npcs, resource, players and items so we can send remove requests.
+    //get the old map npcs, players and items so we can send remove requests.
     for m in get_surrounding(oldmap, true) {
         if let Some(map) = world.map_data.get(&m) {
             for id in &map.borrow().players {
@@ -73,7 +87,8 @@ pub fn init_data_lists(world: &Storage, user: &mut Player, oldmap: MapPosition) 
 
     if let Some(map) = world.map_data.get(&user.e.pos.map) {
         //Only get the New id's not in Old for the Vec we use the old data to deturmine what use to exist.
-        //this gets them for the main map the rest we will cycle thru.
+        //This gets them for the main map the rest we will cycle thru.
+        //We do this to get the main maps data first.
         for id in &map.borrow().players {
             if !old_players.1.contains(&(*id as u64)) {
                 task_player.currentids.push(*id as u64);
@@ -98,7 +113,7 @@ pub fn init_data_lists(world: &Storage, user: &mut Player, oldmap: MapPosition) 
             new_items.insert(*id as u64);
         }
 
-        //we have to do this so the first maps Items Always appear first in the Vec.
+        //Then we get the rest of the maps so it sends and loads last.
         for m in get_surrounding(user.e.pos.map, true) {
             if m != user.e.pos.map {
                 if let Some(map) = world.map_data.get(&m) {
@@ -160,22 +175,22 @@ pub fn init_data_lists(world: &Storage, user: &mut Player, oldmap: MapPosition) 
         3,
     );
 
-    user.datatasks.push(
+    user.map_switch_tasks.push(
         world
             .map_switch_tasks
             .borrow_mut()
             .insert(MapSwitchTasks::Player(task_player)),
     );
-    user.datatasks.push(
+    user.map_switch_tasks.push(
         world
             .map_switch_tasks
             .borrow_mut()
             .insert(MapSwitchTasks::Npc(task_npc)),
     );
-    user.datatasks.push(
+    user.map_switch_tasks.push(
         world
             .map_switch_tasks
             .borrow_mut()
             .insert(MapSwitchTasks::Items(task_item)),
-    );*/
+    );
 }
