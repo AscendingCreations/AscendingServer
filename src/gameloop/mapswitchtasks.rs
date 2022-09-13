@@ -6,10 +6,11 @@ use crate::{
     players::*,
 };
 
-/* Information
-* Item can send up to 30 per packet.
-* npc can send up to 22 per packet.
-* player can send up to 3 per packet.
+/* Information Packet Data Portion Worse case is 1420 bytes
+* This means you can fit based on Quantity + 4 byte token header
+* Item Size of 17 bytes can send up to 82 per packet.
+* Npc Size 80 bytes can send up to 16 per packet.
+* player Size 226 bytes can send up to 5 per packet.
 */
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
