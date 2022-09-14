@@ -13,16 +13,15 @@ use serde_repr::*;
     Serialize_repr,
     Deserialize_repr,
     DbEnum,
-    Derivative,
+    Default,
     ByteBufferRead,
     ByteBufferWrite,
 )]
-#[derivative(Default)]
 #[DbValueStyle = "PascalCase"]
 #[DieselTypePath = "crate::sql::UserAccessMapping"]
 #[repr(u8)]
 pub enum UserAccess {
-    #[derivative(Default)]
+    #[default]
     None,
     Monitor,
     Admin,
@@ -38,9 +37,11 @@ pub enum UserAccess {
     Deserialize_repr,
     ByteBufferRead,
     ByteBufferWrite,
+    Default,
 )]
 #[repr(u8)]
 pub enum ChatChannel {
+    #[default]
     Map,
     Global,
     Trade,
@@ -57,14 +58,13 @@ pub enum ChatChannel {
     Eq,
     Serialize_repr,
     Deserialize_repr,
-    Derivative,
+    Default,
     ByteBufferRead,
     ByteBufferWrite,
 )]
-#[derivative(Default)]
 #[repr(u8)]
 pub enum AIBehavior {
-    #[derivative(Default)]
+    #[default]
     Friendly, //Never Attack or be attacked
     Agressive,       //Will attack on sight
     Reactive,        //Will attack when attacked
@@ -82,14 +82,13 @@ pub enum AIBehavior {
     Eq,
     Serialize_repr,
     Deserialize_repr,
-    Derivative,
+    Default,
     ByteBufferRead,
     ByteBufferWrite,
 )]
-#[derivative(Default)]
 #[repr(u8)]
 pub enum NpcCastType {
-    #[derivative(Default)]
+    #[default]
     SelfOnly,
     Enemy,  // for Attack spells/bad effects
     Friend, // for healing/revival/good effects
@@ -126,15 +125,14 @@ impl AIBehavior {
     Debug,
     PartialEq,
     Eq,
-    Derivative,
+    Default,
     Deserialize,
     Serialize,
     ByteBufferRead,
     ByteBufferWrite,
 )]
-#[derivative(Default)]
 pub enum EntityType {
-    #[derivative(Default)]
+    #[default]
     None,
     Player(u64, i64), //ArrID, AccID used for comparison if still same player.
     Npc(u64),
@@ -191,14 +189,13 @@ impl EntityType {
     Eq,
     Serialize_repr,
     Deserialize_repr,
-    Derivative,
+    Default,
     ByteBufferRead,
     ByteBufferWrite,
 )]
-#[derivative(Default)]
 #[repr(u8)]
 pub enum ItemTypes {
-    #[derivative(Default)]
+    #[default]
     None,
     Weapon,
     Accessory,
@@ -239,14 +236,8 @@ pub enum EquipmentType {
     Boot,
     Accessory1,
     Accessory2,
-    Accessory3,
-    Accessory4,
-    CostumWeapon,
-    CostumHelmet,
-    CostumChest,
-    CostumPants,
     Count,
-} //14
+} //8
 
 #[derive(
     Copy,
@@ -257,11 +248,10 @@ pub enum EquipmentType {
     Serialize_repr,
     Deserialize_repr,
     DbEnum,
-    Derivative,
+    Default,
     ByteBufferRead,
     ByteBufferWrite,
 )]
-#[derivative(Default)]
 #[DbValueStyle = "PascalCase"]
 #[DieselTypePath = "crate::sql::VitalTypesMapping"]
 #[repr(u8)]
@@ -269,7 +259,7 @@ pub enum VitalTypes {
     Hp,
     Mp,
     Sp,
-    #[derivative(Default)]
+    #[default]
     Count,
 }
 
@@ -302,14 +292,13 @@ pub enum MapAttributes {
     Deserialize_repr,
     PartialEq,
     Eq,
-    Derivative,
+    Default,
     ByteBufferRead,
     ByteBufferWrite,
 )]
-#[derivative(Default)]
 #[repr(u8)]
 pub enum Weather {
-    #[derivative(Default)]
+    #[default]
     None,
     Rain,
     Snow,
@@ -345,14 +334,13 @@ pub enum MapLayers {
     Eq,
     Serialize_repr,
     Deserialize_repr,
-    Derivative,
+    Default,
     ByteBufferRead,
     ByteBufferWrite,
 )]
-#[derivative(Default)]
 #[repr(u8)]
 pub enum ToolType {
-    #[derivative(Default)]
+    #[default]
     None,
     Axe,
     Pick,
@@ -362,20 +350,30 @@ pub enum ToolType {
     Shovel,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Derivative)]
-#[derivative(Default)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Default)]
 pub enum OnlineType {
-    #[derivative(Default)]
+    #[default]
     None,
     Accepted,
     Online,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Derivative)]
-#[derivative(Default)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Serialize_repr,
+    Deserialize_repr,
+    PartialEq,
+    Eq,
+    Default,
+    ByteBufferRead,
+    ByteBufferWrite,
+)]
+#[repr(u8)]
 pub enum NpcMode {
     None,
-    #[derivative(Default)]
+    #[default]
     Normal,
     Pet,
     Summon,
@@ -413,13 +411,12 @@ pub enum LogType {
     Eq,
     Deserialize,
     Serialize,
-    Derivative,
+    Default,
     ByteBufferRead,
     ByteBufferWrite,
 )]
-#[derivative(Default)]
 pub enum IsUsingType {
-    #[derivative(Default)]
+    #[default]
     None,
     Bank,
     Fishing(i64),
@@ -476,6 +473,7 @@ impl IsUsingType {
     Debug,
     PartialEq,
     Eq,
+    Default,
     Serialize_repr,
     Deserialize_repr,
     ByteBufferRead,
@@ -487,6 +485,7 @@ pub enum DeathType {
     Spirit,
     Dead,
     UnSpawned,
+    #[default]
     Spawning,
 }
 

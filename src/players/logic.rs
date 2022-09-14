@@ -188,7 +188,7 @@ impl Player {
     pub fn get_armor_defense(&self, world: &Storage) -> (i16, i16) {
         let mut defense = (0i16, 0i16);
 
-        for i in EquipmentType::Helmet as usize..=EquipmentType::Accessory4 as usize {
+        for i in EquipmentType::Helmet as usize..=EquipmentType::Accessory2 as usize {
             if let Some(item) = world.bases.item.get(self.equip[i].num as usize) {
                 defense.0 = defense.0.saturating_add(item.data[0]);
                 defense.1 = defense.1.saturating_add(item.data[1]);

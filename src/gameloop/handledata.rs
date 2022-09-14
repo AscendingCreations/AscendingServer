@@ -159,16 +159,16 @@ fn handle_login(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result<()
     let appminior = data.read::<u16>()? as usize;
     let apprevision = data.read::<u16>()? as usize;
 
-    if username.len() >= 64 || password.len() >= 128 {
-        return send_infomsg(
-            world,
-            p.borrow().socket_id,
-            "Account does not Exist or Password is not Correct.".into(),
-            0,
-        );
-    }
-
     if let Some(p) = world.players.borrow().get(uid) {
+        if username.len() >= 64 || password.len() >= 128 {
+            return send_infomsg(
+                world,
+                p.borrow().socket_id,
+                "Account does not Exist or Password is not Correct.".into(),
+                0,
+            );
+        }
+
         let id = find_player(&mut world.pgconn.borrow_mut(), &username, &password)?;
         let id = unwrap_or_return!(
             id,

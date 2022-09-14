@@ -76,11 +76,10 @@ pub fn a_star_path(
     allowed_maps.get(&stop.map)?;
 
     //find the Offset position of the end position for Calculations
-    let stop_offset =
-        match map_offset_range(world, start, stop, &allowed_maps, &mut HashSet::default()) {
-            Some(pos) => pos,
-            None => return None,
-        };
+    let stop_offset = match map_offset_range(start, stop, &allowed_maps, &mut HashSet::default()) {
+        Some(pos) => pos,
+        None => return None,
+    };
 
     nodes.push(PathNode::new(start, dir, start, None));
     opened.push(Reverse((0, id)));

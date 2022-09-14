@@ -16,15 +16,13 @@ use crate::{
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct MapSwitchTask {
     ownerid: usize,
-    mapid: MapPosition,
     currentids: Vec<u64>,
 }
 
 impl MapSwitchTask {
-    pub fn new(ownerid: usize, mapid: MapPosition) -> MapSwitchTask {
+    pub fn new(ownerid: usize) -> MapSwitchTask {
         MapSwitchTask {
             ownerid,
-            mapid,
             currentids: Vec::with_capacity(32),
         }
     }
@@ -62,9 +60,9 @@ pub fn init_data_lists(world: &Storage, user: &mut Player, oldmap: MapPosition) 
     let mut new_items = HashSet::<u64>::with_capacity_and_hasher(32, Default::default());
 
     //create the data tasks to be ran against.
-    let mut task_player = MapSwitchTask::new(user.e.get_id(), user.e.pos.map);
-    let mut task_npc = MapSwitchTask::new(user.e.get_id(), user.e.pos.map);
-    let mut task_item = MapSwitchTask::new(user.e.get_id(), user.e.pos.map);
+    let mut task_player = MapSwitchTask::new(user.e.get_id());
+    let mut task_npc = MapSwitchTask::new(user.e.get_id());
+    let mut task_item = MapSwitchTask::new(user.e.get_id());
 
     //get the old map npcs, players and items so we can send remove requests.
     for m in get_surrounding(oldmap, true) {

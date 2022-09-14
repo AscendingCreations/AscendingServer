@@ -246,7 +246,6 @@ pub fn get_surrounding_set(position: MapPosition) -> HashSet<MapPosition> {
 //This is a recrusive function gets the End positions Offset
 // position based on start position.
 pub fn map_offset_range(
-    world: &Storage,
     start: Position,
     endpos: Position,
     allowed_maps: &HashSet<MapPosition>,
@@ -279,7 +278,7 @@ pub fn map_offset_range(
 
         let end = endpos.map_offset(dir.into());
         let pos = Position::new(0, 0, x);
-        let ret = map_offset_range(world, pos, end, allowed_maps, processed);
+        let ret = map_offset_range(pos, end, allowed_maps, processed);
 
         //if it is Some then we did find it and get the offset so lets return it.
         if ret.is_some() {
