@@ -1,4 +1,4 @@
-use crate::{gameloop::*, gametypes::*, items::*, npcs::Npc, players::*};
+use crate::{gametypes::*, items::*, npcs::Npc, players::*, tasks::*};
 use bytey::{ByteBufferRead, ByteBufferWrite};
 use serde::{Deserialize, Serialize};
 
@@ -144,6 +144,28 @@ pub struct PlayerSpawnPacket {
     pub vitalmax: [i32; VITALS_MAX],
 }
 
+impl PlayerSpawnPacket {
+    pub fn player_task(player: &Player) -> TaskData {
+        TaskData::PlayerSpawn(Self {
+            dir: player.e.dir,
+            hidden: player.e.hidden,
+            id: player.e.etype.get_id() as u64,
+            level: player.e.level,
+            life: player.e.life,
+            pdamage: player.e.pdamage,
+            pdefense: player.e.pdefense,
+            position: player.e.pos,
+            sprite: player.sprite,
+            vital: player.e.vital,
+            vitalmax: player.e.vitalmax,
+            access: player.access,
+            equip: player.equip,
+            pk: player.pk,
+            pvpon: player.pvpon,
+        })
+    }
+}
+
 #[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
 pub struct MessagePacket {
     //336 bytes 4 messages per packet
@@ -153,10 +175,32 @@ pub struct MessagePacket {
     pub access: Option<UserAccess>, //5
 }
 
+impl MessagePacket {
+    pub fn map_task(
+        channel: ChatChannel,
+        head: String,
+        msg: String,
+        access: Option<UserAccess>,
+    ) -> TaskData {
+        TaskData::MapChat(Self {
+            channel,
+            head,
+            msg,
+            access,
+        })
+    }
+}
+
 #[derive(Copy, Clone, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
 pub struct MapItemPacket {
     //3 messages per packet
     pub id: u64, //Items map ID
     pub position: Position,
     pub item: Item,
+}
+
+impl MapItemPacket {
+    pub fn map_task(id: u64, position: Position, item: Item) -> TaskData {
+        TaskData::ItemLoad(Self { id, position, item })
+    }
 }

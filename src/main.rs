@@ -14,6 +14,7 @@ mod npcs;
 mod players;
 mod socket;
 mod sql;
+mod tasks;
 mod time_ext;
 
 #[allow(unused_imports)]

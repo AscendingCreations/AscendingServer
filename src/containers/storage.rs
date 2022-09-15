@@ -6,6 +6,7 @@ use crate::{
     npcs::*,
     players::Player,
     socket::*,
+    tasks::{DataTaskToken, DataTasks, MapSwitchTasks},
     time_ext::MyInstant,
 };
 use diesel::prelude::*;
@@ -20,6 +21,8 @@ pub struct Storage {
     pub npc_ids: RefCell<IndexSet<usize>>,
     pub name_map: RefCell<HashMap<String, usize>>, //for player names to ID's
     pub map_data: IndexMap<MapPosition, RefCell<MapData>>,
+    //This is for handling the massive npc movements and such to the clients.
+    pub map_data_tasks: RefCell<IndexMap<DataTaskToken, DataTasks>>,
     pub poll: RefCell<mio::Poll>,
     pub server: RefCell<Server>,
     pub gettick: RefCell<MyInstant>,
@@ -48,6 +51,7 @@ impl Storage {
             npc_ids: RefCell::new(IndexSet::default()),
             name_map: RefCell::new(HashMap::default()), //for player names to ID's
             map_data: IndexMap::default(),
+            map_data_tasks: RefCell::new(IndexMap::default()),
             poll: RefCell::new(poll),
             server: RefCell::new(server),
             gettick: RefCell::new(MyInstant::now()),
