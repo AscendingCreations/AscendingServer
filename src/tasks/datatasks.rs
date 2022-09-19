@@ -42,6 +42,11 @@ impl DataTaskToken {
         let mut buffer = bytey::ByteBuffer::with_capacity(data.buffer_size())?;
         data.to_buffer(&mut buffer)?;
 
+        //lets ensure the buffer is set to cursor 0 for writes to another buffer.
+        unsafe {
+            buffer.move_cursor_unchecked(0);
+        }
+
         match world.map_cache.borrow_mut().entry(self) {
             Entry::Vacant(v) => {
                 v.insert(vec![buffer]);
@@ -54,5 +59,26 @@ impl DataTaskToken {
         world.map_cache_ids.borrow_mut().insert(self);
 
         Ok(())
+    }
+
+    //This is the amount of items per packet being sent limit. this is based on
+    //the max empty space 1420 bytes of usable data in the packet. / the overall size -1.
+    pub fn limits(&self) -> usize {
+        match self {
+            DataTaskToken::NpcMove(_) | DataTaskToken::PlayerMove(_) => 41,
+            DataTaskToken::NpcDir(_)
+            | DataTaskToken::PlayerDir(_)
+            | DataTaskToken::NpcDeath(_)
+            | DataTaskToken::PlayerDeath(_) => 157,
+            DataTaskToken::NpcUnload(_)
+            | DataTaskToken::PlayerUnload(_)
+            | DataTaskToken::NpcAttack(_)
+            | DataTaskToken::PlayerAttack(_)
+            | DataTaskToken::ItemUnload(_) => 176,
+            DataTaskToken::NpcSpawn(_) => 16,
+            DataTaskToken::PlayerSpawn(_) => 8,
+            DataTaskToken::MapChat(_) => 4, // This one might be more special since it will range heavily.
+            DataTaskToken::ItemLoad(_) => 28,
+        }
     }
 }
