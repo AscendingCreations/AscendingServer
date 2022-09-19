@@ -53,7 +53,7 @@ impl Player {
         if oldpos != pos {
             self.e.pos = pos;
 
-            let mut map = unwrap_or_return!(world.map_data.get(&oldpos.map), oldpos).borrow_mut();
+            let mut map = unwrap_or_return!(world.maps.get(&oldpos.map), oldpos).borrow_mut();
             map.remove_entity_from_grid(oldpos);
             map.add_entity_to_grid(pos);
         }
@@ -64,11 +64,11 @@ impl Player {
     #[inline(always)]
     pub fn switch_maps(&mut self, world: &Storage, pos: Position) -> Position {
         let oldpos = self.e.pos;
-        let mut map = unwrap_or_return!(world.map_data.get(&self.e.pos.map), oldpos).borrow_mut();
+        let mut map = unwrap_or_return!(world.maps.get(&self.e.pos.map), oldpos).borrow_mut();
         map.remove_player(world, self.e.get_id());
         map.remove_entity_from_grid(self.e.pos);
 
-        let mut map = unwrap_or_return!(world.map_data.get(&pos.map), oldpos).borrow_mut();
+        let mut map = unwrap_or_return!(world.maps.get(&pos.map), oldpos).borrow_mut();
         map.add_player(world, self.e.get_id());
         map.add_entity_to_grid(pos);
 

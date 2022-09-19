@@ -1,16 +1,16 @@
 use crate::{containers::IndexMap, gametypes::*, items::*, maps::*, npcs::*};
 pub struct Bases {
-    pub map: IndexMap<MapPosition, Map>,
-    pub npc: Vec<NpcData>,
-    pub item: Vec<ItemData>,
+    pub maps: IndexMap<MapPosition, Map>,
+    pub npcs: Vec<NpcData>,
+    pub items: Vec<ItemData>,
 }
 
 impl Bases {
     pub fn new() -> Option<Self> {
         Some(Self {
-            map: IndexMap::default(),
-            npc: vec![NpcData::default(); MAX_NPCS],
-            item: vec![ItemData::default(); MAX_ITEMS],
+            maps: IndexMap::default(),
+            npcs: vec![NpcData::default(); MAX_NPCS],
+            items: vec![ItemData::default(); MAX_ITEMS],
         })
     }
 }

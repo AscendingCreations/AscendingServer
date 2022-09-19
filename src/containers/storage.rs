@@ -6,9 +6,10 @@ use crate::{
     npcs::*,
     players::Player,
     socket::*,
-    tasks::{DataTaskToken, DataTasks, MapSwitchTasks},
+    tasks::{DataTaskToken, MapSwitchTasks},
     time_ext::MyInstant,
 };
+use bytey::ByteBuffer;
 use diesel::prelude::*;
 use mio::Poll;
 use std::cell::RefCell;
@@ -19,10 +20,12 @@ pub struct Storage {
     pub player_ids: RefCell<IndexSet<usize>>,
     pub recv_ids: RefCell<IndexSet<usize>>,
     pub npc_ids: RefCell<IndexSet<usize>>,
-    pub name_map: RefCell<HashMap<String, usize>>, //for player names to ID's
-    pub map_data: IndexMap<MapPosition, RefCell<MapData>>,
-    //This is for handling the massive npc movements and such to the clients.
-    pub map_data_tasks: RefCell<IndexMap<DataTaskToken, DataTasks>>,
+    pub player_names: RefCell<HashMap<String, usize>>, //for player names to ID's
+    pub maps: IndexMap<MapPosition, RefCell<MapData>>,
+    //This is for buffering the specific packets needing to send.
+    pub map_cache: RefCell<HashMap<DataTaskToken, Vec<ByteBuffer>>>,
+    //This keeps track of what Things need sending. So we can leave it loaded and only loop whats needed.
+    pub map_cache_ids: RefCell<IndexSet<usize>>,
     pub poll: RefCell<mio::Poll>,
     pub server: RefCell<Server>,
     pub gettick: RefCell<MyInstant>,
@@ -49,9 +52,10 @@ impl Storage {
             player_ids: RefCell::new(IndexSet::default()),
             recv_ids: RefCell::new(IndexSet::default()),
             npc_ids: RefCell::new(IndexSet::default()),
-            name_map: RefCell::new(HashMap::default()), //for player names to ID's
-            map_data: IndexMap::default(),
-            map_data_tasks: RefCell::new(IndexMap::default()),
+            player_names: RefCell::new(HashMap::default()), //for player names to ID's
+            maps: IndexMap::default(),
+            map_cache: RefCell::new(HashMap::default()),
+            map_cache_ids: RefCell::new(IndexSet::default()),
             poll: RefCell::new(poll),
             server: RefCell::new(server),
             gettick: RefCell::new(MyInstant::now()),
@@ -80,7 +84,7 @@ impl Storage {
         let removed = self.npcs.borrow_mut().remove(id).into_inner();
         self.npc_ids.borrow_mut().remove(&id);
 
-        self.map_data
+        self.maps
             .get(&removed.e.pos.map)?
             .borrow_mut()
             .remove_entity_from_grid(removed.e.pos);
@@ -94,7 +98,9 @@ impl Storage {
         let mut player = playerref.borrow_mut();
 
         player.e.etype = EntityType::Player(id as u64, player.accid);
-        self.name_map.borrow_mut().insert(player.name.clone(), id);
+        self.player_names
+            .borrow_mut()
+            .insert(player.name.clone(), id);
         self.player_ids.borrow_mut().insert(id);
         id
     }
@@ -106,7 +112,7 @@ impl Storage {
 
         let removed = self.players.borrow_mut().remove(id);
         let _oldid = self
-            .name_map
+            .player_names
             .borrow_mut()
             .remove(&removed.borrow_mut().name);
         self.player_ids.borrow_mut().remove(&id);

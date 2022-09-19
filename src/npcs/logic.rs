@@ -18,7 +18,7 @@ pub fn update_npcs(world: &Storage) {
                         continue;
                     }
 
-                    if let Some(npcdata) = world.bases.npc.get(npc.num as usize) {
+                    if let Some(npcdata) = world.bases.npcs.get(npc.num as usize) {
                         if !world
                             .time
                             .borrow()
@@ -30,7 +30,7 @@ pub fn update_npcs(world: &Storage) {
 
                         //targeting
                         if npcdata.can_target
-                            && unwrap_continue!(world.map_data.get(&npc.e.pos.map))
+                            && unwrap_continue!(world.maps.get(&npc.e.pos.map))
                                 .borrow()
                                 .players_on_map()
                         {
@@ -46,7 +46,7 @@ pub fn update_npcs(world: &Storage) {
                         //attacking
                         if npc.e.life.is_alive()
                             && npcdata.can_attack
-                            && unwrap_continue!(world.map_data.get(&npc.e.pos.map))
+                            && unwrap_continue!(world.maps.get(&npc.e.pos.map))
                                 .borrow()
                                 .players_on_map()
                             && npc.e.attacktimer < tick
@@ -61,7 +61,7 @@ pub fn update_npcs(world: &Storage) {
                 DeathType::UnSpawned => unloadnpcs.push(*i),
                 DeathType::Spawning => {
                     if npc.spawntimer < tick {
-                        let map_data = unwrap_continue!(world.map_data.get(&npc.e.spawn.map));
+                        let map_data = unwrap_continue!(world.maps.get(&npc.e.spawn.map));
 
                         //make sure we can spawn here before even spawning them.
                         if map_data.borrow().is_blocked_tile(npc.e.spawn) {

@@ -216,7 +216,7 @@ fn handle_move(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result<()>
         let dir: u8 = data.read()?;
         let pos: Position = data.read()?;
 
-        if world.bases.map.get(&pos.map).is_none() || dir > 3 {
+        if world.bases.maps.get(&pos.map).is_none() || dir > 3 {
             return Err(AscendingError::InvalidPacket);
         }
 
@@ -362,7 +362,7 @@ fn handle_switchinvslot(world: &Storage, data: &mut ByteBuffer, uid: usize) -> R
             return Ok(());
         }
 
-        let base1 = &world.bases.item[player.inv[oldslot].num as usize];
+        let base1 = &world.bases.items[player.inv[oldslot].num as usize];
         let invtype = get_inv_itemtype(base1);
 
         if get_inv_type(oldslot) != invtype || get_inv_type(newslot) != invtype {
@@ -421,8 +421,8 @@ fn handle_pickup(world: &Storage, _data: &mut ByteBuffer, uid: usize) -> Result<
 
         'remremove: for id in mapids {
             if let Some(x) = id.get() {
-                let mut map = unwrap_continue!(world.map_data.get(&x)).borrow_mut();
-                let _ = unwrap_continue!(world.bases.map.get(&player.e.pos.map));
+                let mut map = unwrap_continue!(world.maps.get(&x)).borrow_mut();
+                let _ = unwrap_continue!(world.bases.maps.get(&player.e.pos.map));
                 let ids = map.itemids.clone();
 
                 for i in ids {
@@ -443,7 +443,7 @@ fn handle_pickup(world: &Storage, _data: &mut ByteBuffer, uid: usize) -> Result<
                         } else {
                             let amount = map.items[i].item.val;
                             let rem = give_item(world, &mut player, &mut map.items[i].item);
-                            let item = &world.bases.item[map.items[i].item.num as usize];
+                            let item = &world.bases.items[map.items[i].item.num as usize];
 
                             if rem == 0 {
                                 let st = match amount {
@@ -480,7 +480,7 @@ fn handle_pickup(world: &Storage, _data: &mut ByteBuffer, uid: usize) -> Result<
         }
 
         if let Some(id) = remid {
-            if let Some(map) = world.map_data.get(&id.0) {
+            if let Some(map) = world.maps.get(&id.0) {
                 map.borrow_mut().remove_item(id.1);
                 let _ = send_data_remove(world, id.1 as u64, id.0, 3);
             }
@@ -513,7 +513,7 @@ fn handle_dropitem(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result
 
         //make sure it exists first.
         let _ = unwrap_or_return!(
-            world.bases.map.get(&player.e.pos.map),
+            world.bases.maps.get(&player.e.pos.map),
             Err(AscendingError::Unhandled)
         );
 
@@ -543,7 +543,7 @@ fn handle_dropitem(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result
         let leftover = take_itemslot(world, &mut player, slot, amount);
         mapitem.item.val -= leftover;
         let mut map = unwrap_or_return!(
-            world.map_data.get(&player.e.pos.map),
+            world.maps.get(&player.e.pos.map),
             Err(AscendingError::Unhandled)
         )
         .borrow_mut();
@@ -639,7 +639,7 @@ fn handle_message(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result<
                     );
                 }
 
-                usersocket = match world.name_map.borrow().get(&name) {
+                usersocket = match world.player_names.borrow().get(&name) {
                     Some(id) => {
                         if let Some(user2) = world.players.borrow().get(*id) {
                             Some(user2.borrow().socket_id)

@@ -8,7 +8,7 @@ pub fn update_maps(world: &Storage) -> Result<()> {
     let mut spawnable = Vec::new();
     let mut len = world.npcs.borrow().len();
 
-    for (position, map_data) in &world.map_data {
+    for (position, map_data) in &world.maps {
         // Only Spawn is a player is on or near a the map.
         if map_data.borrow().players_on_map() {
             //get this so we can Add to it each time without needing to borrow() npcs again.
@@ -19,7 +19,7 @@ pub fn update_maps(world: &Storage) -> Result<()> {
             if len < MAX_WORLD_NPCS {
                 let map = world
                     .bases
-                    .map
+                    .maps
                     .get(position)
                     .ok_or(AscendingError::MapNotFound(*position))?;
 
@@ -41,7 +41,7 @@ pub fn update_maps(world: &Storage) -> Result<()> {
                             let game_time = world.time.borrow();
                             let (from, to) = world
                                 .bases
-                                .npc
+                                .npcs
                                 .get(npc_id as usize)
                                 .ok_or(AscendingError::NpcNotFound(npc_id))?
                                 .spawntime;
@@ -87,7 +87,7 @@ pub fn update_maps(world: &Storage) -> Result<()> {
                     let global_npc_id = world.add_npc(
                         world
                             .bases
-                            .npc
+                            .npcs
                             .get(npc_id as usize)
                             .ok_or(AscendingError::NpcNotFound(npc_id))?
                             .new_npc(spawn, zone, npc_id),

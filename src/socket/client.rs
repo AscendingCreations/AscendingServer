@@ -261,7 +261,7 @@ impl Client {
 #[inline]
 pub fn disconnect(playerid: usize, world: &Storage) {
     if let Some(player) = world.remove_player(playerid) {
-        if let Some(map) = world.map_data.get(&player.e.pos.map) {
+        if let Some(map) = world.maps.get(&player.e.pos.map) {
             map.borrow_mut().remove_player(world, playerid);
             //todo Add save for player world here.
             //todo Add Update Players on map here.
@@ -312,7 +312,7 @@ pub fn send_to_maps(
     avoidindex: Option<usize>,
 ) {
     for m in get_surrounding(position, true) {
-        let map = unwrap_continue!(world.map_data.get(&m));
+        let map = unwrap_continue!(world.maps.get(&m));
 
         for id in &map.borrow().players {
             if avoidindex.map(|value| value == *id).unwrap_or(false) {

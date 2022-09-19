@@ -66,7 +66,7 @@ pub fn init_data_lists(world: &Storage, user: &mut Player, oldmap: MapPosition) 
 
     //get the old map npcs, players and items so we can send remove requests.
     for m in get_surrounding(oldmap, true) {
-        if let Some(map) = world.map_data.get(&m) {
+        if let Some(map) = world.maps.get(&m) {
             for id in &map.borrow().players {
                 old_players.0.push(*id as u64);
                 old_players.1.insert(*id as u64);
@@ -84,7 +84,7 @@ pub fn init_data_lists(world: &Storage, user: &mut Player, oldmap: MapPosition) 
         }
     }
 
-    if let Some(map) = world.map_data.get(&user.e.pos.map) {
+    if let Some(map) = world.maps.get(&user.e.pos.map) {
         //Only get the New id's not in Old for the Vec we use the old data to deturmine what use to exist.
         //This gets them for the main map the rest we will cycle thru.
         //We do this to get the main maps data first.
@@ -115,7 +115,7 @@ pub fn init_data_lists(world: &Storage, user: &mut Player, oldmap: MapPosition) 
         //Then we get the rest of the maps so it sends and loads last.
         for m in get_surrounding(user.e.pos.map, true) {
             if m != user.e.pos.map {
-                if let Some(map) = world.map_data.get(&m) {
+                if let Some(map) = world.maps.get(&m) {
                     for id in &map.borrow().players {
                         if !old_players.1.contains(&(*id as u64)) {
                             task_player.currentids.push(*id as u64);

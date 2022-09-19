@@ -177,7 +177,7 @@ impl Player {
         if self.equip[EquipmentType::Weapon as usize].val > 0 {
             if let Some(item) = world
                 .bases
-                .item
+                .items
                 .get(self.equip[EquipmentType::Weapon as usize].num as usize)
             {
                 dmg = (item.data[0], item.data[1]);
@@ -191,7 +191,7 @@ impl Player {
         let mut defense = (0i16, 0i16);
 
         for i in EquipmentType::Helmet as usize..=EquipmentType::Accessory2 as usize {
-            if let Some(item) = world.bases.item.get(self.equip[i].num as usize) {
+            if let Some(item) = world.bases.items.get(self.equip[i].num as usize) {
                 defense.0 = defense.0.saturating_add(item.data[0]);
                 defense.1 = defense.1.saturating_add(item.data[1]);
             }
@@ -201,7 +201,7 @@ impl Player {
     }
 
     pub fn repair_equipment(&mut self, world: &Storage, slot: usize, repair_per: f32) {
-        if let Some(item) = world.bases.item.get(self.equip[slot].num as usize) {
+        if let Some(item) = world.bases.items.get(self.equip[slot].num as usize) {
             if !item.repairable || self.equip[slot].data[0] == self.equip[slot].data[1] {
                 return;
             }

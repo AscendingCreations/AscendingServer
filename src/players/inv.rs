@@ -149,7 +149,7 @@ pub fn set_inv_item(
 
 #[inline]
 pub fn give_item(world: &Storage, user: &mut Player, item: &mut Item) -> u16 {
-    let base = &world.bases.item[item.num as usize];
+    let base = &world.bases.items[item.num as usize];
     let invtype = get_inv_itemtype(base);
 
     auto_set_inv_item(world, user, item, base, invtype)
@@ -163,7 +163,7 @@ pub fn set_inv_slot(
     slot: usize,
     amount: u16,
 ) -> Option<u16> {
-    let base = &world.bases.item[item.num as usize];
+    let base = &world.bases.items[item.num as usize];
     let invtype = get_inv_itemtype(base);
 
     if get_inv_type(slot) != invtype {
@@ -201,7 +201,7 @@ pub fn take_inv_items(
 
 #[inline]
 pub fn take_item(world: &Storage, user: &mut Player, num: u32, amount: u16) -> u16 {
-    let base = &world.bases.item[num as usize];
+    let base = &world.bases.items[num as usize];
     let invtype = get_inv_itemtype(base);
 
     take_inv_items(world, user, num, amount, invtype)

@@ -16,7 +16,7 @@ pub fn movement(world: &Storage, npc: &mut Npc, _base: &NpcData) {
             }
         } else if npc.e.targettype != EntityType::None
             && world
-                .map_data
+                .maps
                 .get(&npc.e.pos.map)
                 .map(|map| map.borrow().players_on_map())
                 .unwrap_or(false)
@@ -27,7 +27,7 @@ pub fn movement(world: &Storage, npc: &mut Npc, _base: &NpcData) {
         } else {
             //no special movement lets give them some if we can;
             if world
-                .map_data
+                .maps
                 .get(&npc.e.pos.map)
                 .map(|map| map.borrow().players_on_map())
                 .unwrap_or(false)
@@ -56,7 +56,7 @@ pub fn movement(world: &Storage, npc: &mut Npc, _base: &NpcData) {
             if npc.move_pos.is_none() {
                 //do any movepos to position first
                 if !world
-                    .map_data
+                    .maps
                     .get(&npc.e.pos.map)
                     .map(|map| map.borrow().players_on_map())
                     .unwrap_or(false)

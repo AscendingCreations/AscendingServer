@@ -68,11 +68,8 @@ pub fn send_mapitem(
     id: u64,
     sendto: Option<usize>,
 ) -> Result<()> {
-    let map = &unwrap_or_return!(
-        world.map_data.get(&position),
-        Err(AscendingError::Unhandled)
-    )
-    .borrow();
+    let map =
+        &unwrap_or_return!(world.maps.get(&position), Err(AscendingError::Unhandled)).borrow();
     if let Some(item) = map.items.get(id as usize) {
         let mut buf = ByteBuffer::new_packet_with(64)?;
         buf.write::<u32>(ServerPackets::Mapitem as u32)?;

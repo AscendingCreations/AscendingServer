@@ -48,7 +48,7 @@ pub fn targeting(world: &Storage, npc: &mut Npc, base: &NpcData) {
     let valid_map_data = map_range
         .iter()
         .filter_map(|map_pos| map_pos.get())
-        .filter_map(|i| world.map_data.get(&i));
+        .filter_map(|i| world.maps.get(&i));
 
     for map_data_ref in valid_map_data {
         let map_data = map_data_ref.borrow();
@@ -100,7 +100,7 @@ pub fn npc_targeting(world: &Storage, npc: &mut Npc, base: &NpcData, entity: Ent
         EntityType::Npc(i) => {
             if let Some(target) = world.npcs.borrow().get(i as usize) {
                 let target = target.borrow();
-                let newbase = &world.bases.npc[target.num as usize];
+                let newbase = &world.bases.npcs[target.num as usize];
                 let mut is_enemy = false;
 
                 if newbase.has_enemies {

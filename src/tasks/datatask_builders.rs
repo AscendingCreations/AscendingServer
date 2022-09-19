@@ -5,29 +5,35 @@ use serde::{Deserialize, Serialize};
 //Only 42 of these can be sent per Packet
 #[derive(Copy, Clone, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
 pub struct MovePacket {
+    //38
     pub id: u64,
-    pub position: Position,
+    pub position: Position, //28 bytes
     pub warp: bool,
     pub dir: u8,
 }
 
-impl MovePacket {
-    pub fn npc_task(id: u64, position: Position, warp: bool, dir: u8) -> TaskData {
-        TaskData::NpcMove(Self {
-            id,
-            position,
-            warp,
-            dir,
-        })
+impl ToBuffer for MovePacket {
+    fn to_buffer(&self, buffer: &mut bytey::ByteBuffer) -> Result<()> {
+        buffer.write(self.id)?;
+        buffer.write(self.position)?;
+        buffer.write(self.warp)?;
+        buffer.write(self.dir)?;
+        Ok(())
     }
 
-    pub fn player_task(id: u64, position: Position, warp: bool, dir: u8) -> TaskData {
-        TaskData::PlayerMove(Self {
+    fn buffer_size(&self) -> usize {
+        38
+    }
+}
+
+impl MovePacket {
+    pub fn new(id: u64, position: Position, warp: bool, dir: u8) -> Self {
+        Self {
             id,
             position,
             warp,
             dir,
-        })
+        }
     }
 }
 
@@ -49,12 +55,8 @@ pub struct DirPacket {
 }
 
 impl DirPacket {
-    pub fn npc_task(id: u64, dir: u8) -> TaskData {
-        TaskData::NpcDir(Self { id, dir })
-    }
-
-    pub fn player_task(id: u64, dir: u8) -> TaskData {
-        TaskData::PlayerDir(Self { id, dir })
+    pub fn new(id: u64, dir: u8) -> Self {
+        Self { id, dir }
     }
 }
 
@@ -76,12 +78,8 @@ pub struct DeathPacket {
 }
 
 impl DeathPacket {
-    pub fn npc_task(id: u64, life: DeathType) -> TaskData {
-        TaskData::NpcDeath(Self { id, life })
-    }
-
-    pub fn player_task(id: u64, life: DeathType) -> TaskData {
-        TaskData::PlayerDeath(Self { id, life })
+    pub fn new(id: u64, life: DeathType) -> Self {
+        Self { id, life }
     }
 }
 
@@ -105,8 +103,8 @@ pub struct NpcSpawnPacket {
 }
 
 impl NpcSpawnPacket {
-    pub fn npc_task(npc: &Npc) -> TaskData {
-        TaskData::NpcSpawn(Self {
+    pub fn new(npc: &Npc) -> Self {
+        Self {
             dir: npc.e.dir,
             hidden: npc.e.hidden,
             id: npc.e.etype.get_id() as u64,
@@ -120,7 +118,7 @@ impl NpcSpawnPacket {
             sprite: npc.sprite,
             vital: npc.e.vital,
             vitalmax: npc.e.vitalmax,
-        })
+        }
     }
 }
 
@@ -145,8 +143,8 @@ pub struct PlayerSpawnPacket {
 }
 
 impl PlayerSpawnPacket {
-    pub fn player_task(player: &Player) -> TaskData {
-        TaskData::PlayerSpawn(Self {
+    pub fn new(player: &Player) -> Self {
+        Self {
             dir: player.e.dir,
             hidden: player.e.hidden,
             id: player.e.etype.get_id() as u64,
@@ -162,7 +160,7 @@ impl PlayerSpawnPacket {
             equip: player.equip,
             pk: player.pk,
             pvpon: player.pvpon,
-        })
+        }
     }
 }
 
@@ -176,18 +174,18 @@ pub struct MessagePacket {
 }
 
 impl MessagePacket {
-    pub fn map_task(
+    pub fn new(
         channel: ChatChannel,
         head: String,
         msg: String,
         access: Option<UserAccess>,
-    ) -> TaskData {
-        TaskData::MapChat(Self {
+    ) -> Self {
+        Self {
             channel,
             head,
             msg,
             access,
-        })
+        }
     }
 }
 
@@ -200,7 +198,7 @@ pub struct MapItemPacket {
 }
 
 impl MapItemPacket {
-    pub fn map_task(id: u64, position: Position, item: Item) -> TaskData {
-        TaskData::ItemLoad(Self { id, position, item })
+    pub fn new(id: u64, position: Position, item: Item) -> Self {
+        Self { id, position, item }
     }
 }

@@ -94,7 +94,7 @@ impl MapData {
 
         for i in self.get_surrounding(true) {
             if i != self.position {
-                unwrap_continue!(world.map_data.get(&i))
+                unwrap_continue!(world.maps.get(&i))
                     .borrow_mut()
                     .players_on_map += 1;
             }
@@ -112,7 +112,7 @@ impl MapData {
 
         for i in self.get_surrounding(true) {
             if i != self.position {
-                unwrap_continue!(world.map_data.get(&i))
+                unwrap_continue!(world.maps.get(&i))
                     .borrow_mut()
                     .players_on_map -= 1;
             }
@@ -173,7 +173,7 @@ pub fn get_dir_mapid(
     dir: MapPosDir,
 ) -> Option<MapPosition> {
     let offset = position.map_offset(dir);
-    let _ = world.bases.map.get(&offset)?;
+    let _ = world.bases.maps.get(&offset)?;
     Some(offset)
 }
 
@@ -291,14 +291,14 @@ pub fn map_offset_range(
 
 pub fn get_maps_in_range(world: &Storage, pos: &Position, range: i32) -> Vec<MapPos> {
     let mut arr: Vec<MapPos> = Vec::new();
-    unwrap_or_return!(world.bases.map.get(&pos.map), Vec::new());
+    unwrap_or_return!(world.bases.maps.get(&pos.map), Vec::new());
 
     arr.push(MapPos::Center(pos.map));
 
     if pos.x - range < 0 && pos.y - range < 0 {
         let pos = pos.map.map_offset(MapPosDir::UpLeft);
 
-        if world.bases.map.get(&pos).is_some() {
+        if world.bases.maps.get(&pos).is_some() {
             arr.push(MapPos::UpLeft(pos));
         }
     }
@@ -306,7 +306,7 @@ pub fn get_maps_in_range(world: &Storage, pos: &Position, range: i32) -> Vec<Map
     if pos.x - range < 0 && pos.y + range >= MAP_MAX_Y as i32 {
         let pos = pos.map.map_offset(MapPosDir::DownLeft);
 
-        if world.bases.map.get(&pos).is_some() {
+        if world.bases.maps.get(&pos).is_some() {
             arr.push(MapPos::DownLeft(pos));
         }
     }
@@ -314,7 +314,7 @@ pub fn get_maps_in_range(world: &Storage, pos: &Position, range: i32) -> Vec<Map
     if pos.x + range < 0 && pos.y - range < 0 {
         let pos = pos.map.map_offset(MapPosDir::UpRight);
 
-        if world.bases.map.get(&pos).is_some() {
+        if world.bases.maps.get(&pos).is_some() {
             arr.push(MapPos::UpRight(pos));
         }
     }
@@ -322,7 +322,7 @@ pub fn get_maps_in_range(world: &Storage, pos: &Position, range: i32) -> Vec<Map
     if pos.x + range < 0 && pos.y + range >= MAP_MAX_Y as i32 {
         let pos = pos.map.map_offset(MapPosDir::DownRight);
 
-        if world.bases.map.get(&pos).is_some() {
+        if world.bases.maps.get(&pos).is_some() {
             arr.push(MapPos::DownRight(pos));
         }
     }
@@ -330,7 +330,7 @@ pub fn get_maps_in_range(world: &Storage, pos: &Position, range: i32) -> Vec<Map
     if pos.x - range < 0 {
         let pos = pos.map.map_offset(MapPosDir::Left);
 
-        if world.bases.map.get(&pos).is_some() {
+        if world.bases.maps.get(&pos).is_some() {
             arr.push(MapPos::Left(pos));
         }
     }
@@ -338,7 +338,7 @@ pub fn get_maps_in_range(world: &Storage, pos: &Position, range: i32) -> Vec<Map
     if pos.x + range >= MAP_MAX_X as i32 {
         let pos = pos.map.map_offset(MapPosDir::Right);
 
-        if world.bases.map.get(&pos).is_some() {
+        if world.bases.maps.get(&pos).is_some() {
             arr.push(MapPos::Right(pos));
         }
     }
@@ -346,7 +346,7 @@ pub fn get_maps_in_range(world: &Storage, pos: &Position, range: i32) -> Vec<Map
     if pos.y - range < 0 {
         let pos = pos.map.map_offset(MapPosDir::Up);
 
-        if world.bases.map.get(&pos).is_some() {
+        if world.bases.maps.get(&pos).is_some() {
             arr.push(MapPos::Up(pos));
         }
     }
@@ -354,7 +354,7 @@ pub fn get_maps_in_range(world: &Storage, pos: &Position, range: i32) -> Vec<Map
     if pos.y + range >= MAP_MAX_Y as i32 {
         let pos = pos.map.map_offset(MapPosDir::Down);
 
-        if world.bases.map.get(&pos).is_some() {
+        if world.bases.maps.get(&pos).is_some() {
             arr.push(MapPos::Down(pos));
         }
     }
@@ -370,28 +370,28 @@ pub fn map_path_blocked(
 ) -> bool {
     let blocked = match movedir {
         0 => {
-            if let Some(map) = world.map_data.get(&cur_pos.map) {
+            if let Some(map) = world.maps.get(&cur_pos.map) {
                 map.borrow().move_grid[cur_pos.as_tile()].2.get(B0) == 0b00000001
             } else {
                 true
             }
         }
         1 => {
-            if let Some(map) = world.map_data.get(&cur_pos.map) {
+            if let Some(map) = world.maps.get(&cur_pos.map) {
                 map.borrow().move_grid[cur_pos.as_tile()].2.get(B3) == 0b00001000
             } else {
                 true
             }
         }
         2 => {
-            if let Some(map) = world.map_data.get(&cur_pos.map) {
+            if let Some(map) = world.maps.get(&cur_pos.map) {
                 map.borrow().move_grid[cur_pos.as_tile()].2.get(B1) == 0b00000010
             } else {
                 true
             }
         }
         _ => {
-            if let Some(map) = world.map_data.get(&cur_pos.map) {
+            if let Some(map) = world.maps.get(&cur_pos.map) {
                 map.borrow().move_grid[cur_pos.as_tile()].2.get(B2) == 0b00000100
             } else {
                 true
@@ -400,7 +400,7 @@ pub fn map_path_blocked(
     };
 
     if !blocked {
-        return unwrap_or_return!(world.map_data.get(&next_pos.map), true)
+        return unwrap_or_return!(world.maps.get(&next_pos.map), true)
             .borrow()
             .is_blocked_tile(next_pos);
     }
