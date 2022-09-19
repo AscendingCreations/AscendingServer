@@ -39,15 +39,14 @@ pub enum DataTaskToken {
 
 impl DataTaskToken {
     pub fn add_task<T: ToBuffer>(self, world: &Storage, data: &T) -> Result<DataTaskToken> {
+        let mut buffer = bytey::ByteBuffer::with_capacity(data.buffer_size())?;
+        data.to_buffer(&mut buffer)?;
+
         match world.map_cache.borrow_mut().entry(self) {
             Entry::Vacant(v) => {
-                let mut buffer = bytey::ByteBuffer::with_capacity(data.buffer_size())?;
-                data.to_buffer(&mut buffer)?;
                 v.insert(vec![buffer]);
             }
             Entry::Occupied(mut o) => {
-                let mut buffer = bytey::ByteBuffer::with_capacity(data.buffer_size())?;
-                data.to_buffer(&mut buffer)?;
                 o.get_mut().push(buffer);
             }
         }
