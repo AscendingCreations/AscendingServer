@@ -1,6 +1,5 @@
 use crate::{
     containers::{Bases, HashMap, IndexMap, IndexSet},
-    gameloop::*,
     gametypes::*,
     maps::*,
     npcs::*,
@@ -25,7 +24,7 @@ pub struct Storage {
     //This is for buffering the specific packets needing to send.
     pub map_cache: RefCell<HashMap<DataTaskToken, Vec<ByteBuffer>>>,
     //This keeps track of what Things need sending. So we can leave it loaded and only loop whats needed.
-    pub map_cache_ids: RefCell<IndexSet<usize>>,
+    pub map_cache_ids: RefCell<IndexSet<DataTaskToken>>,
     pub poll: RefCell<mio::Poll>,
     pub server: RefCell<Server>,
     pub gettick: RefCell<MyInstant>,
