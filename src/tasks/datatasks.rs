@@ -1,8 +1,9 @@
 use crate::{
     containers::Storage,
     gametypes::{MapPosition, Result},
+    socket::*,
 };
-use bytey::ByteBuffer;
+
 use std::collections::hash_map::Entry;
 /* Information Packet Data Portion Worse case is 1420 bytes
 * This means you can fit based on Quantity + 4 byte token header  + 4 bytes for count
@@ -14,7 +15,11 @@ use std::collections::hash_map::Entry;
 //For Data task translation to a byte buffer.
 pub trait ToBuffer {
     fn to_buffer(&self, buffer: &mut ByteBuffer) -> Result<()>;
-    fn buffer_size(&self) -> usize;
+
+    /// Amount of packets per each packet for this type.
+    /// Remember the smallest size is 1404 bytes.
+    /// After we already use 16bytes for intenral data needs
+    fn limit(&self) -> usize;
 }
 
 //Token uses the Maps position to Store in the IndexMap.
@@ -39,20 +44,34 @@ pub enum DataTaskToken {
 
 impl DataTaskToken {
     pub fn add_task<T: ToBuffer>(self, world: &Storage, data: &T) -> Result<()> {
-        let mut buffer = bytey::ByteBuffer::with_capacity(data.buffer_size())?;
-        data.to_buffer(&mut buffer)?;
-
-        //lets ensure the buffer is set to cursor 0 for writes to another buffer.
-        unsafe {
-            buffer.move_cursor_unchecked(0);
-        }
-
         match world.map_cache.borrow_mut().entry(self) {
             Entry::Vacant(v) => {
-                v.insert(vec![buffer]);
+                let mut buffer = ByteBuffer::new_packet_with(1412)?;
+                data.to_buffer(&mut buffer)?;
+                v.insert(vec![(1, buffer)]);
             }
             Entry::Occupied(mut o) => {
-                o.get_mut().push(buffer);
+                let buffers = o.get_mut();
+
+                if buffers.is_empty() {
+                    let mut buffer = ByteBuffer::new_packet_with(1412)?;
+                    //prelocate space for count and packetID
+                    buffer.write(0u64)?;
+                    data.to_buffer(&mut buffer)?;
+                    buffers.push((1, buffer));
+                } else {
+                    let mut buffer = buffers.last_mut().unwrap();
+                    data.to_buffer(&mut buffer.1)?;
+                    buffer.0 += 1;
+
+                    // if buffer is full lets make another one thats empty.
+                    if buffer.0 >= data.limit() {
+                        let mut buffer = ByteBuffer::new_packet_with(1412)?;
+                        //prelocate space for count and packetID
+                        buffer.write(0u64)?;
+                        buffers.push((0, buffer));
+                    }
+                }
             }
         }
 

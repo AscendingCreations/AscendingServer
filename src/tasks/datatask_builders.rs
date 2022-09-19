@@ -21,8 +21,9 @@ impl ToBuffer for MovePacket {
         Ok(())
     }
 
-    fn buffer_size(&self) -> usize {
-        38
+    /// This is the Limit at which a Count of these can exist within a packet.
+    fn limit(&self) -> usize {
+        36
     }
 }
 
