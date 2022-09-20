@@ -64,17 +64,17 @@ impl DataTaskToken {
                     //push it to the buffer list.
                     buffers.push((1, buffer));
                 } else {
-                    let mut buffer = buffers
+                    let (count, buffer) = buffers
                         .last_mut()
                         .ok_or(AscendingError::PacketCacheNotFound(self))?;
-                    data.to_buffer(&mut buffer.1)?;
-                    buffer.0 += 1;
+                    data.to_buffer(buffer)?;
+                    *count += 1;
 
                     // If buffer is full lets make another one thats empty.
                     // Also lets Finish the old buffer by adding the count.
                     // We will use the count to deturmine if we send the packet or not.
-                    if buffer.0 >= data.limit() {
-                        finish_cache(&mut buffer.1, buffer.0)?;
+                    if *count >= data.limit() {
+                        finish_cache(buffer, *count)?;
                         buffers.push((0, new_cache(data.packet_id())?));
                     }
                 }
