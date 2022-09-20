@@ -22,7 +22,7 @@ pub struct Storage {
     pub player_names: RefCell<HashMap<String, usize>>, //for player names to ID's
     pub maps: IndexMap<MapPosition, RefCell<MapData>>,
     //This is for buffering the specific packets needing to send.
-    pub map_cache: RefCell<HashMap<DataTaskToken, Vec<(usize, ByteBuffer)>>>,
+    pub map_cache: RefCell<HashMap<DataTaskToken, Vec<(u32, ByteBuffer)>>>,
     //This keeps track of what Things need sending. So we can leave it loaded and only loop whats needed.
     pub map_cache_ids: RefCell<IndexSet<DataTaskToken>>,
     pub poll: RefCell<mio::Poll>,

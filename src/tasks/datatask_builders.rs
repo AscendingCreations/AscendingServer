@@ -22,8 +22,12 @@ impl ToBuffer for MovePacket {
     }
 
     /// This is the Limit at which a Count of these can exist within a packet.
-    fn limit(&self) -> usize {
+    fn limit(&self) -> u32 {
         36
+    }
+
+    fn packet_id(&self) -> u32 {
+        ServerPackets::Playermove as u32
     }
 }
 

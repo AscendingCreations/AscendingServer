@@ -1,4 +1,4 @@
-use crate::gametypes::MapPosition;
+use crate::{gametypes::MapPosition, tasks::DataTaskToken};
 use thiserror::Error;
 
 pub type Result<T> = std::result::Result<T, AscendingError>;
@@ -31,6 +31,8 @@ pub enum AscendingError {
     MapNotFound(MapPosition),
     #[error("NPC ID {0:?} not found")]
     NpcNotFound(u64),
+    #[error("Packet buffer {0:?} not found")]
+    PacketCacheNotFound(DataTaskToken),
     #[error(transparent)]
     AddrParseError(#[from] std::net::AddrParseError),
     #[error(transparent)]

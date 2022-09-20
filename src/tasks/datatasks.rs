@@ -1,6 +1,6 @@
 use crate::{
     containers::Storage,
-    gametypes::{MapPosition, Result},
+    gametypes::{AscendingError, MapPosition, Result},
     socket::*,
 };
 
@@ -19,7 +19,9 @@ pub trait ToBuffer {
     /// Amount of packets per each packet for this type.
     /// Remember the smallest size is 1404 bytes.
     /// After we already use 16bytes for intenral data needs
-    fn limit(&self) -> usize;
+    fn limit(&self) -> u32;
+
+    fn packet_id(&self) -> u32;
 }
 
 //Token uses the Maps position to Store in the IndexMap.
@@ -46,31 +48,32 @@ impl DataTaskToken {
     pub fn add_task<T: ToBuffer>(self, world: &Storage, data: &T) -> Result<()> {
         match world.map_cache.borrow_mut().entry(self) {
             Entry::Vacant(v) => {
-                let mut buffer = ByteBuffer::new_packet_with(1412)?;
+                let mut buffer = new_cache(data.packet_id())?;
                 data.to_buffer(&mut buffer)?;
                 v.insert(vec![(1, buffer)]);
             }
             Entry::Occupied(mut o) => {
                 let buffers = o.get_mut();
 
-                //TODO: Add packet ID write to the buffer from data fn;
                 if buffers.is_empty() {
-                    let mut buffer = ByteBuffer::new_packet_with(1412)?;
-                    //prelocate space for count and packetID
-                    buffer.write(0u64)?;
+                    let mut buffer = new_cache(data.packet_id())?;
+                    //write the data into the packet.
                     data.to_buffer(&mut buffer)?;
+                    //push it to the buffer list.
                     buffers.push((1, buffer));
                 } else {
-                    let mut buffer = buffers.last_mut().unwrap();
+                    let mut buffer = buffers
+                        .last_mut()
+                        .ok_or(AscendingError::PacketCacheNotFound(self))?;
                     data.to_buffer(&mut buffer.1)?;
                     buffer.0 += 1;
 
-                    // if buffer is full lets make another one thats empty.
+                    // If buffer is full lets make another one thats empty.
+                    // Also lets Finish the old buffer by adding the count.
+                    // We will use the count to deturmine if we send the packet or not.
                     if buffer.0 >= data.limit() {
-                        let mut buffer = ByteBuffer::new_packet_with(1412)?;
-                        //prelocate space for count and packetID
-                        buffer.write(0u64)?;
-                        buffers.push((0, buffer));
+                        finish_cache(&mut buffer.1, buffer.0)?;
+                        buffers.push((0, new_cache(data.packet_id())?));
                     }
                 }
             }
@@ -101,4 +104,25 @@ impl DataTaskToken {
             DataTaskToken::ItemLoad(_) => 28,
         }
     }
+}
+
+fn new_cache(packet_id: u32) -> Result<ByteBuffer> {
+    let mut buffer = ByteBuffer::new_packet_with(1412)?;
+    //prelocate space for count and packetID
+    buffer.write(packet_id)?;
+    //preallocate space for count.
+    buffer.write(0u32)?;
+    Ok(buffer)
+}
+
+fn finish_cache(buffer: &mut ByteBuffer, count: u32) -> Result<()> {
+    //Move it 8 bytes for Size + 4 bytes for Packet ID to get count location.
+    buffer.move_cursor(12)?;
+    //Write the count from the offset cursor position.
+    //This will overwrite old data which in this case is empty.
+    buffer.write(count)?;
+    //finish the buffer off. This sets the Packet size and makes sure the cursor is
+    //back to zero again.
+    buffer.finish()?;
+    Ok(())
 }
