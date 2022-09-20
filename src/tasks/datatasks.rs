@@ -14,6 +14,7 @@ use std::collections::hash_map::Entry;
 
 //For Data task translation to a byte buffer.
 pub trait ToBuffer {
+    /// Used to write the data type to the buffer.
     fn to_buffer(&self, buffer: &mut ByteBuffer) -> Result<()>;
 
     /// Amount of packets per each packet for this type.
@@ -21,6 +22,7 @@ pub trait ToBuffer {
     /// After we already use 16bytes for intenral data needs
     fn limit(&self) -> u32;
 
+    /// Id of the packet for the data type.
     fn packet_id(&self) -> u32;
 }
 
