@@ -5,9 +5,9 @@ use serde::{Deserialize, Serialize};
 //Only 42 of these can be sent per Packet
 #[derive(Copy, Clone, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
 pub struct MovePacket {
-    //38
+    //34
     pub id: u64,
-    pub position: Position, //28 bytes
+    pub position: Position, //24 bytes
     pub warp: bool,
     pub dir: u8,
 }
@@ -19,15 +19,6 @@ impl ToBuffer for MovePacket {
         buffer.write(self.warp)?;
         buffer.write(self.dir)?;
         Ok(())
-    }
-
-    /// This is the Limit at which a Count of these can exist within a packet.
-    fn limit(&self) -> u32 {
-        36
-    }
-
-    fn packet_id(&self) -> u32 {
-        ServerPackets::Playermove as u32
     }
 }
 

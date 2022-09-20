@@ -1,29 +1,22 @@
 use crate::{
     containers::Storage,
-    gametypes::{AscendingError, MapPosition, Result},
+    gametypes::{AscendingError, MapPosition, Result, ServerPackets},
     socket::*,
 };
 
 use std::collections::hash_map::Entry;
-/* Information Packet Data Portion Worse case is 1420 bytes
-* This means you can fit based on Quantity + 4 byte token header  + 4 bytes for count
-* Item Size of 17 bytes can send up to 82 per packet.
-* Npc Size 80 bytes can send up to 16 per packet.
-* player Size 226 bytes can send up to 5 per packet.
+/* Information Packet Data Portion Worse case is 1400 bytes
+* This means you can fit based on Packet Size: 8bytes + Packet ID: 4bytes  + Data array count: 4bytes
+this leaves you with 1384 bytes to play with per packet.
+* Item Size of 17 bytes can send up to 81 per packet.
+* Npc Size 80 bytes can send up to 17 per packet.
+* player Size 226 bytes can send up to 6 per packet.
 */
 
 //For Data task translation to a byte buffer.
 pub trait ToBuffer {
     /// Used to write the data type to the buffer.
     fn to_buffer(&self, buffer: &mut ByteBuffer) -> Result<()>;
-
-    /// Amount of packets per each packet for this type.
-    /// Remember the smallest size is 1404 bytes.
-    /// After we already use 16bytes for intenral data needs
-    fn limit(&self) -> u32;
-
-    /// Id of the packet for the data type.
-    fn packet_id(&self) -> u32;
 }
 
 //Token uses the Maps position to Store in the IndexMap.
@@ -50,7 +43,7 @@ impl DataTaskToken {
     pub fn add_task<T: ToBuffer>(self, world: &Storage, data: &T) -> Result<()> {
         match world.map_cache.borrow_mut().entry(self) {
             Entry::Vacant(v) => {
-                let mut buffer = new_cache(data.packet_id())?;
+                let mut buffer = new_cache(self.packet_id())?;
                 data.to_buffer(&mut buffer)?;
                 v.insert(vec![(1, buffer)]);
             }
@@ -58,7 +51,7 @@ impl DataTaskToken {
                 let buffers = o.get_mut();
 
                 if buffers.is_empty() {
-                    let mut buffer = new_cache(data.packet_id())?;
+                    let mut buffer = new_cache(self.packet_id())?;
                     //write the data into the packet.
                     data.to_buffer(&mut buffer)?;
                     //push it to the buffer list.
@@ -73,9 +66,9 @@ impl DataTaskToken {
                     // If buffer is full lets make another one thats empty.
                     // Also lets Finish the old buffer by adding the count.
                     // We will use the count to deturmine if we send the packet or not.
-                    if *count >= data.limit() {
+                    if *count >= self.limits() {
                         finish_cache(buffer, *count)?;
-                        buffers.push((0, new_cache(data.packet_id())?));
+                        buffers.push((0, new_cache(self.packet_id())?));
                     }
                 }
             }
@@ -87,23 +80,44 @@ impl DataTaskToken {
     }
 
     //This is the amount of items per packet being sent limit. this is based on
-    //the max empty space 1420 bytes of usable data in the packet. / the overall size -1.
-    pub fn limits(&self) -> usize {
+    //the max empty space 1384 bytes of usable data in the packet.
+    pub fn limits(&self) -> u32 {
         match self {
-            DataTaskToken::NpcMove(_) | DataTaskToken::PlayerMove(_) => 41,
+            DataTaskToken::NpcMove(_) | DataTaskToken::PlayerMove(_) => 40,
             DataTaskToken::NpcDir(_)
             | DataTaskToken::PlayerDir(_)
             | DataTaskToken::NpcDeath(_)
-            | DataTaskToken::PlayerDeath(_) => 157,
+            | DataTaskToken::PlayerDeath(_) => 153,
             DataTaskToken::NpcUnload(_)
             | DataTaskToken::PlayerUnload(_)
             | DataTaskToken::NpcAttack(_)
             | DataTaskToken::PlayerAttack(_)
-            | DataTaskToken::ItemUnload(_) => 176,
-            DataTaskToken::NpcSpawn(_) => 16,
-            DataTaskToken::PlayerSpawn(_) => 8,
+            | DataTaskToken::ItemUnload(_) => 173,
+            DataTaskToken::NpcSpawn(_) => 11,
+            DataTaskToken::PlayerSpawn(_) => 6,
             DataTaskToken::MapChat(_) => 4, // This one might be more special since it will range heavily.
             DataTaskToken::ItemLoad(_) => 28,
+        }
+    }
+
+    /// Id of the packet for the data type.
+    pub fn packet_id(&self) -> u32 {
+        match self {
+            DataTaskToken::NpcMove(_) => ServerPackets::Playermove as u32,
+            DataTaskToken::PlayerMove(_) => ServerPackets::Playermove as u32,
+            DataTaskToken::NpcDir(_) => ServerPackets::Playerdir as u32,
+            DataTaskToken::PlayerDir(_) => ServerPackets::Playerdir as u32,
+            DataTaskToken::NpcDeath(_) => ServerPackets::Playerdir as u32,
+            DataTaskToken::PlayerDeath(_) => ServerPackets::Playerdir as u32,
+            DataTaskToken::NpcUnload(_) => ServerPackets::Playerdir as u32,
+            DataTaskToken::PlayerUnload(_) => ServerPackets::Playerdir as u32,
+            DataTaskToken::NpcAttack(_) => ServerPackets::Playerdir as u32,
+            DataTaskToken::PlayerAttack(_) => ServerPackets::Playerdir as u32,
+            DataTaskToken::ItemUnload(_) => ServerPackets::Playerdir as u32,
+            DataTaskToken::NpcSpawn(_) => ServerPackets::Playerdir as u32,
+            DataTaskToken::PlayerSpawn(_) => ServerPackets::Playerdir as u32,
+            DataTaskToken::MapChat(_) => ServerPackets::Playerdir as u32,
+            DataTaskToken::ItemLoad(_) => ServerPackets::Playerdir as u32,
         }
     }
 }
