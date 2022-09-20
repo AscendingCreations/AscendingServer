@@ -108,7 +108,7 @@ impl DataTaskToken {
     }
 }
 
-fn new_cache(packet_id: u32) -> Result<ByteBuffer> {
+pub fn new_cache(packet_id: u32) -> Result<ByteBuffer> {
     let mut buffer = ByteBuffer::new_packet_with(1412)?;
     //prelocate space for count and packetID
     buffer.write(packet_id)?;
@@ -117,7 +117,7 @@ fn new_cache(packet_id: u32) -> Result<ByteBuffer> {
     Ok(buffer)
 }
 
-fn finish_cache(buffer: &mut ByteBuffer, count: u32) -> Result<()> {
+pub fn finish_cache(buffer: &mut ByteBuffer, count: u32) -> Result<()> {
     //Move it 8 bytes for Size + 4 bytes for Packet ID to get count location.
     buffer.move_cursor(12)?;
     //Write the count from the offset cursor position.
