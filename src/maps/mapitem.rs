@@ -52,19 +52,19 @@ impl ByteBufferRead for MapItem {
 impl ByteBufferWrite for &MapItem {
     fn write_to_buffer(&self, buffer: &mut ByteBuffer) -> bytey::Result<()> {
         buffer.write(self.id)?;
-        buffer.write(&self.item)?;
+        buffer.write(self.item)?;
         buffer.write(self.pos)?;
         Ok(())
     }
     fn write_to_buffer_le(&self, buffer: &mut ByteBuffer) -> bytey::Result<()> {
         buffer.write_le(self.id)?;
-        buffer.write_le(&self.item)?;
+        buffer.write_le(self.item)?;
         buffer.write_le(self.pos)?;
         Ok(())
     }
     fn write_to_buffer_be(&self, buffer: &mut ByteBuffer) -> bytey::Result<()> {
         buffer.write_be(self.id)?;
-        buffer.write_be(&self.item)?;
+        buffer.write_be(self.item)?;
         buffer.write_be(self.pos)?;
         Ok(())
     }

@@ -1,7 +1,18 @@
-use bytey::{ByteBuffer, ByteBufferRead, ByteBufferWrite};
+use bytey::{ByteBufferRead, ByteBufferWrite};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq, Derivative)]
+#[derive(
+    Debug,
+    Copy,
+    Clone,
+    Serialize,
+    Deserialize,
+    PartialEq,
+    Eq,
+    Derivative,
+    ByteBufferWrite,
+    ByteBufferRead,
+)]
 #[derivative(Default)]
 pub struct Item {
     pub num: u32,
@@ -20,6 +31,7 @@ impl Item {
     }
 }
 
+/*
 impl ByteBufferRead for Item {
     fn read_from_buffer(buffer: &mut ByteBuffer) -> bytey::Result<Self> {
         let mut item = Self::new(buffer.read::<u32>()?);
@@ -58,7 +70,7 @@ impl ByteBufferRead for Item {
     }
 }
 
-impl ByteBufferWrite for &Item {
+impl ByteBufferWrite for Item {
     fn write_to_buffer(&self, buffer: &mut ByteBuffer) -> bytey::Result<()> {
         buffer.write(self.num)?;
         buffer.write(self.val)?;
@@ -87,6 +99,36 @@ impl ByteBufferWrite for &Item {
         Ok(())
     }
 }
+
+impl ByteBufferWrite for &Item {
+    fn write_to_buffer(&self, buffer: &mut ByteBuffer) -> bytey::Result<()> {
+        buffer.write(self.num)?;
+        buffer.write(self.val)?;
+        buffer.write(self.level)?;
+        for i in 0..5 {
+            buffer.write(self.data[i])?;
+        }
+        Ok(())
+    }
+    fn write_to_buffer_le(&self, buffer: &mut ByteBuffer) -> bytey::Result<()> {
+        buffer.write_le(self.num)?;
+        buffer.write_le(self.val)?;
+        buffer.write_le(self.level)?;
+        for i in 0..5 {
+            buffer.write_le(self.data[i])?;
+        }
+        Ok(())
+    }
+    fn write_to_buffer_be(&self, buffer: &mut ByteBuffer) -> bytey::Result<()> {
+        buffer.write_be(self.num)?;
+        buffer.write_be(self.val)?;
+        buffer.write_be(self.level)?;
+        for i in 0..5 {
+            buffer.write_be(self.data[i])?;
+        }
+        Ok(())
+    }
+}*/
 
 #[inline]
 pub fn val_add_rem(val: &mut u16, add: &mut u16, max: u16) -> u16 {

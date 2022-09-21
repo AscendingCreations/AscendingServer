@@ -2,8 +2,26 @@ use crate::{gametypes::*, items::*, npcs::Npc, players::*, tasks::*};
 use bytey::{ByteBufferRead, ByteBufferWrite};
 use serde::{Deserialize, Serialize};
 
+impl ToBuffer for u64 {
+    fn to_buffer(&self, buffer: &mut bytey::ByteBuffer) -> Result<()> {
+        buffer.write(self)?;
+        Ok(())
+    }
+}
+
 //Only 42 of these can be sent per Packet
-#[derive(Copy, Clone, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    Deserialize,
+    Serialize,
+    PartialEq,
+    Eq,
+    ByteBufferRead,
+    ByteBufferWrite,
+)]
 pub struct MovePacket {
     //34
     pub id: u64,
@@ -14,11 +32,7 @@ pub struct MovePacket {
 
 impl ToBuffer for MovePacket {
     fn to_buffer(&self, buffer: &mut bytey::ByteBuffer) -> Result<()> {
-        buffer.write(self.id)?;
-        buffer.write(self.position)?;
-        buffer.write(self.warp)?;
-        buffer.write(self.dir)?;
-        Ok(())
+        Ok(self.write_to_buffer(buffer)?)
     }
 }
 
@@ -50,6 +64,12 @@ pub struct DirPacket {
     pub dir: u8,
 }
 
+impl ToBuffer for DirPacket {
+    fn to_buffer(&self, buffer: &mut bytey::ByteBuffer) -> Result<()> {
+        Ok(self.write_to_buffer(buffer)?)
+    }
+}
+
 impl DirPacket {
     pub fn new(id: u64, dir: u8) -> Self {
         Self { id, dir }
@@ -73,13 +93,30 @@ pub struct DeathPacket {
     pub life: DeathType,
 }
 
+impl ToBuffer for DeathPacket {
+    fn to_buffer(&self, buffer: &mut bytey::ByteBuffer) -> Result<()> {
+        Ok(self.write_to_buffer(buffer)?)
+    }
+}
+
 impl DeathPacket {
     pub fn new(id: u64, life: DeathType) -> Self {
         Self { id, life }
     }
 }
 
-#[derive(Copy, Clone, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    Deserialize,
+    Serialize,
+    PartialEq,
+    Eq,
+    ByteBufferRead,
+    ByteBufferWrite,
+)]
 pub struct NpcSpawnPacket {
     pub dir: u8,
     pub hidden: bool,
@@ -96,6 +133,12 @@ pub struct NpcSpawnPacket {
     pub sprite: u32,
     pub vital: [i32; VITALS_MAX],
     pub vitalmax: [i32; VITALS_MAX],
+}
+
+impl ToBuffer for NpcSpawnPacket {
+    fn to_buffer(&self, buffer: &mut bytey::ByteBuffer) -> Result<()> {
+        Ok(self.write_to_buffer(buffer)?)
+    }
 }
 
 impl NpcSpawnPacket {
@@ -118,7 +161,18 @@ impl NpcSpawnPacket {
     }
 }
 
-#[derive(Copy, Clone, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    Deserialize,
+    Serialize,
+    PartialEq,
+    Eq,
+    ByteBufferRead,
+    ByteBufferWrite,
+)]
 pub struct PlayerSpawnPacket {
     pub access: UserAccess,
     pub dir: u8,
@@ -136,6 +190,12 @@ pub struct PlayerSpawnPacket {
     pub sprite: u8,
     pub vital: [i32; VITALS_MAX],
     pub vitalmax: [i32; VITALS_MAX],
+}
+
+impl ToBuffer for PlayerSpawnPacket {
+    fn to_buffer(&self, buffer: &mut bytey::ByteBuffer) -> Result<()> {
+        Ok(self.write_to_buffer(buffer)?)
+    }
 }
 
 impl PlayerSpawnPacket {
@@ -160,13 +220,21 @@ impl PlayerSpawnPacket {
     }
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PartialEq, Eq, ByteBufferRead, ByteBufferWrite,
+)]
 pub struct MessagePacket {
     //336 bytes 4 messages per packet
     pub channel: ChatChannel,       //1
     pub head: String,               //74
     pub msg: String,                //256
     pub access: Option<UserAccess>, //5
+}
+
+impl ToBuffer for MessagePacket {
+    fn to_buffer(&self, buffer: &mut bytey::ByteBuffer) -> Result<()> {
+        Ok(self.write_to_buffer(buffer)?)
+    }
 }
 
 impl MessagePacket {
@@ -185,12 +253,29 @@ impl MessagePacket {
     }
 }
 
-#[derive(Copy, Clone, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    Deserialize,
+    Serialize,
+    PartialEq,
+    Eq,
+    ByteBufferRead,
+    ByteBufferWrite,
+)]
 pub struct MapItemPacket {
     //3 messages per packet
     pub id: u64, //Items map ID
     pub position: Position,
     pub item: Item,
+}
+
+impl ToBuffer for MapItemPacket {
+    fn to_buffer(&self, buffer: &mut bytey::ByteBuffer) -> Result<()> {
+        Ok(self.write_to_buffer(buffer)?)
+    }
 }
 
 impl MapItemPacket {
