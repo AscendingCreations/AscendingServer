@@ -1,6 +1,4 @@
-use crate::{
-    containers::*, gameloop::*, gametypes::*, items::*, players::*, socket::*, sql::*, time_ext::*,
-};
+use crate::{containers::*, gameloop::*, gametypes::*, items::*, socket::*, sql::*, time_ext::*};
 use unwrap_helpers::*;
 
 #[derive(Clone, Debug, Derivative)]
@@ -20,7 +18,6 @@ pub struct Player {
     #[derivative(Default(value = "MyInstant::now()"))]
     pub mapitemtimer: MyInstant,
     pub access: UserAccess,
-    pub achievements: Achievements,
     pub using: IsUsingType,
     pub status: OnlineType,
     #[derivative(Default(value = "ByteBuffer::with_capacity(8192).unwrap()"))]

@@ -1,5 +1,5 @@
 use crate::{
-    containers::Storage, gameloop::*, gametypes::*, maps::*, players::*, socket::*, sql::*,
+    containers::Storage, gameloop::*, gametypes::*, maps::*, players::*, sql::*,
 };
 use bytey::ByteBuffer;
 use chrono::Duration;
@@ -42,10 +42,10 @@ pub fn handle_data(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result
 }
 
 fn handle_register(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result<()> {
-    let username = data.read_str()?;
-    let password = data.read_str()?;
-    let email = data.read_str()?;
-    let name = data.read_str()?;
+    let username = data.read::<String>()?;
+    let password = data.read::<String>()?;
+    let email = data.read::<String>()?;
+    let name = data.read::<String>()?;
     let sprite: u8 = data.read()?;
     let hair: u8 = data.read()?;
 
@@ -153,8 +153,8 @@ fn handle_register(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result
 }
 
 fn handle_login(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result<()> {
-    let username = data.read_str()?;
-    let password = data.read_str()?;
+    let username = data.read::<String>()?;
+    let password = data.read::<String>()?;
     let appmajor = data.read::<u16>()? as usize;
     let appminior = data.read::<u16>()? as usize;
     let apprevision = data.read::<u16>()? as usize;
@@ -608,8 +608,8 @@ fn handle_message(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result<
 
         let channel: MessageChannel = data.read()?;
 
-        let msg = data.read_str()?;
-        let name = data.read_str()?;
+        let msg = data.read::<String>()?;
+        let name = data.read::<String>()?;
 
         if msg.len() >= 256 {
             return send_fltalert(

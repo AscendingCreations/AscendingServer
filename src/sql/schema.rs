@@ -1,18 +1,5 @@
 diesel::table! {
     use diesel::sql_types::*;
-    achievements (uid) {
-        uid -> BigInt,
-        daykills -> Integer,
-        nightkills -> Integer,
-        survivekill -> Integer,
-        revivals -> Integer,
-        deaths -> Integer,
-        npckilled -> Array<Integer>,
-    }
-}
-
-diesel::table! {
-    use diesel::sql_types::*;
     equipment (uid) {
         uid -> BigInt,
         id -> SmallInt,

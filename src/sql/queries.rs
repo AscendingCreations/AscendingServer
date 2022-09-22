@@ -76,10 +76,6 @@ pub fn new_player(
         .returning(players::uid)
         .get_result(conn)?;
 
-    insert_into(achievements::table)
-        .values(&PGAchievements::new(&user.achievements, uid))
-        .execute(conn)?;
-
     insert_into(equipment::table)
         .values(&PGEquipItem::new(&user.equip, uid))
         .execute(conn)?;
@@ -100,11 +96,6 @@ pub fn load_player(
         .filter(player_ret::uid.eq(user.accid))
         .first::<PGPlayerWithID>(conn)?
         .into_player(user);
-
-    achievements::table
-        .filter(achievements::uid.eq(user.accid))
-        .first::<PGAchievements>(conn)?
-        .into_achievements(&mut user.achievements);
 
     PGEquipItem::array_into_items(
         equipment::table
@@ -148,16 +139,6 @@ pub fn update_equipment(
 ) -> Result<()> {
     diesel::update(equipment::table)
         .set(&PGEquipItem::single(&user.equip, user.accid, slot))
-        .execute(conn)?;
-    Ok(())
-}
-
-pub fn update_achievements(
-    conn: &mut PgConnection,
-    user: &mut crate::players::Player,
-) -> Result<()> {
-    diesel::update(achievements::table)
-        .set(&PGAchievements::new(&user.achievements, user.accid))
         .execute(conn)?;
     Ok(())
 }

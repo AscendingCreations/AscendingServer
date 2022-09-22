@@ -1,4 +1,3 @@
-mod achievestruct;
 mod equipmentstruct;
 mod integers;
 mod invstruct;
@@ -8,7 +7,6 @@ mod queries;
 mod schema;
 mod sql_enums;
 
-pub use achievestruct::PGAchievements;
 pub use equipmentstruct::PGEquipItem;
 pub use integers::*;
 pub use invstruct::PGInvItem;
