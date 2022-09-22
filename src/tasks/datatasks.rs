@@ -28,15 +28,18 @@ pub enum DataTaskToken {
     NpcUnload(MapPosition),
     NpcAttack(MapPosition),
     NpcSpawn(MapPosition),
+    NpcVitals(MapPosition),
     PlayerMove(MapPosition),
     PlayerDir(MapPosition),
     PlayerDeath(MapPosition),
     PlayerUnload(MapPosition),
     PlayerAttack(MapPosition),
     PlayerSpawn(MapPosition),
+    PlayerVitals(MapPosition),
     MapChat(MapPosition),
     ItemUnload(MapPosition),
     ItemLoad(MapPosition),
+    GlobalChat,
 }
 
 impl DataTaskToken {
@@ -95,29 +98,56 @@ impl DataTaskToken {
             | DataTaskToken::ItemUnload(_) => 173,
             DataTaskToken::NpcSpawn(_) => 11,
             DataTaskToken::PlayerSpawn(_) => 6,
-            DataTaskToken::MapChat(_) => 4, // This one might be more special since it will range heavily.
+            DataTaskToken::MapChat(_) | DataTaskToken::GlobalChat => 4, // This one might be more special since it will range heavily.
             DataTaskToken::ItemLoad(_) => 28,
+            DataTaskToken::NpcVitals(_) | DataTaskToken::PlayerVitals(_) => 43,
         }
     }
 
     /// Id of the packet for the data type.
     pub fn packet_id(&self) -> u32 {
         match self {
-            DataTaskToken::NpcMove(_) => ServerPackets::Playermove as u32,
-            DataTaskToken::PlayerMove(_) => ServerPackets::Playermove as u32,
-            DataTaskToken::NpcDir(_) => ServerPackets::Playerdir as u32,
-            DataTaskToken::PlayerDir(_) => ServerPackets::Playerdir as u32,
-            DataTaskToken::NpcDeath(_) => ServerPackets::Playerdir as u32,
-            DataTaskToken::PlayerDeath(_) => ServerPackets::Playerdir as u32,
-            DataTaskToken::NpcUnload(_) => ServerPackets::Playerdir as u32,
-            DataTaskToken::PlayerUnload(_) => ServerPackets::Playerdir as u32,
-            DataTaskToken::NpcAttack(_) => ServerPackets::Playerdir as u32,
-            DataTaskToken::PlayerAttack(_) => ServerPackets::Playerdir as u32,
-            DataTaskToken::ItemUnload(_) => ServerPackets::Playerdir as u32,
-            DataTaskToken::NpcSpawn(_) => ServerPackets::Playerdir as u32,
-            DataTaskToken::PlayerSpawn(_) => ServerPackets::Playerdir as u32,
-            DataTaskToken::MapChat(_) => ServerPackets::Playerdir as u32,
-            DataTaskToken::ItemLoad(_) => ServerPackets::Playerdir as u32,
+            DataTaskToken::NpcMove(_) => ServerPackets::NpcMove as u32,
+            DataTaskToken::PlayerMove(_) => ServerPackets::PlayerMove as u32,
+            DataTaskToken::NpcDir(_) => ServerPackets::NpcDir as u32,
+            DataTaskToken::PlayerDir(_) => ServerPackets::PlayerDir as u32,
+            DataTaskToken::NpcDeath(_) => ServerPackets::NpcDeath as u32,
+            DataTaskToken::PlayerDeath(_) => ServerPackets::PlayerDeath as u32,
+            DataTaskToken::NpcUnload(_) => ServerPackets::NpcUnload as u32,
+            DataTaskToken::PlayerUnload(_) => ServerPackets::PlayerUnload as u32,
+            DataTaskToken::NpcAttack(_) => ServerPackets::NpcAttack as u32,
+            DataTaskToken::PlayerAttack(_) => ServerPackets::PlayerAttack as u32,
+            DataTaskToken::NpcVitals(_) => ServerPackets::NpcVital as u32,
+            DataTaskToken::PlayerVitals(_) => ServerPackets::PlayerVitals as u32,
+            DataTaskToken::ItemUnload(_) => ServerPackets::MapItemsUnload as u32,
+            DataTaskToken::NpcSpawn(_) => ServerPackets::NpcData as u32,
+            DataTaskToken::PlayerSpawn(_) => ServerPackets::PlayerSpawn as u32,
+            DataTaskToken::MapChat(_) => ServerPackets::ChatMsg as u32,
+            DataTaskToken::GlobalChat => ServerPackets::ChatMsg as u32,
+            DataTaskToken::ItemLoad(_) => ServerPackets::MapItems as u32,
+        }
+    }
+
+    pub fn send(&self, world: &Storage, buf: &ByteBuffer) {
+        match self {
+            DataTaskToken::NpcMove(mappos)
+            | DataTaskToken::PlayerMove(mappos)
+            | DataTaskToken::NpcDir(mappos)
+            | DataTaskToken::PlayerDir(mappos)
+            | DataTaskToken::NpcDeath(mappos)
+            | DataTaskToken::PlayerDeath(mappos)
+            | DataTaskToken::NpcUnload(mappos)
+            | DataTaskToken::PlayerUnload(mappos)
+            | DataTaskToken::NpcAttack(mappos)
+            | DataTaskToken::PlayerAttack(mappos)
+            | DataTaskToken::ItemUnload(mappos)
+            | DataTaskToken::NpcSpawn(mappos)
+            | DataTaskToken::PlayerSpawn(mappos)
+            | DataTaskToken::MapChat(mappos)
+            | DataTaskToken::ItemLoad(mappos)
+            | DataTaskToken::PlayerVitals(mappos)
+            | DataTaskToken::NpcVitals(mappos) => send_to_maps(world, *mappos, buf, None),
+            DataTaskToken::GlobalChat => send_to_all(world, buf),
         }
     }
 }

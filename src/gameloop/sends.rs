@@ -10,7 +10,7 @@ pub fn send_infomsg(
 ) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(128)?;
 
-    buf.write(ServerPackets::Alertmsg)?;
+    buf.write(ServerPackets::AlertMsg)?;
     buf.write(message)?;
     buf.write(close_socket)?;
     buf.finish()?;
@@ -28,7 +28,7 @@ pub fn send_fltalert(
 ) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(128)?;
 
-    buf.write(ServerPackets::Fltalert)?;
+    buf.write(ServerPackets::FltAlert)?;
     buf.write(ftltype)?;
     buf.write(message)?;
     buf.finish()?;
@@ -41,7 +41,7 @@ pub fn send_fltalert(
 pub fn send_loginok(world: &Storage, socket_id: usize) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(16)?;
 
-    buf.write(ServerPackets::Loginok)?;
+    buf.write(ServerPackets::LoginOk)?;
     buf.write(world.time.borrow().hour)?;
     buf.write(world.time.borrow().min)?;
     buf.finish()?;
@@ -54,7 +54,7 @@ pub fn send_loginok(world: &Storage, socket_id: usize) -> Result<()> {
 pub fn send_updatemap(world: &Storage, user: &Player) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(16)?;
 
-    buf.write(ServerPackets::Updatemap)?;
+    buf.write(ServerPackets::UpdateMap)?;
     buf.finish()?;
 
     send_to(world, user.socket_id, &buf);
@@ -73,7 +73,7 @@ pub fn send_mapitem(
     if let Some(item) = map.items.get(id as usize) {
         let mut buf = ByteBuffer::new_packet_with(64)?;
 
-        buf.write(ServerPackets::Mapitem)?;
+        buf.write(ServerPackets::MapItems)?;
         buf.write(id)?;
         buf.write(item.item)?;
         buf.write(item.pos)?;
@@ -95,7 +95,7 @@ pub fn playerdata(world: &Storage, id: u64) -> Option<ByteBuffer> {
     if let Some(refplayer) = world.players.borrow().get(id as usize) {
         let player = refplayer.borrow();
 
-        buf.write(ServerPackets::Playerdata).ok()?;
+        buf.write(ServerPackets::PlayerData).ok()?;
         buf.write(id).ok()?;
         buf.write(&player.name).ok()?;
         buf.write(player.access).ok()?;
@@ -127,7 +127,7 @@ pub fn send_dir(world: &Storage, user: &Player, toself: bool) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(16)?;
     let closure = |toself, id| if toself { Some(id) } else { None };
 
-    buf.write(ServerPackets::Playerdir)?;
+    buf.write(ServerPackets::PlayerDir)?;
     buf.write(user.e.dir)?;
     buf.finish()?;
 
@@ -145,7 +145,7 @@ pub fn send_dir(world: &Storage, user: &Player, toself: bool) -> Result<()> {
 pub fn send_move(world: &Storage, user: &Player, warp: bool) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(24)?;
 
-    buf.write(ServerPackets::Playermove)?;
+    buf.write(ServerPackets::PlayerMove)?;
     buf.write(user.e.get_id())?;
     buf.write(user.e.pos)?;
     buf.write(user.e.dir)?;
@@ -170,7 +170,7 @@ pub fn send_mapswitch(
 ) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(24)?;
 
-    buf.write(ServerPackets::Playermapswap)?;
+    buf.write(ServerPackets::PlayerMapSwap)?;
     buf.write(user.e.get_id())?;
     buf.write(user.e.pos)?;
     buf.write(user.e.dir)?;
@@ -237,7 +237,7 @@ pub fn send_data_remove_all(world: &Storage, id: u64, datatype: u8) -> Result<()
 pub fn send_vitals(world: &Storage, user: &Player) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(32)?;
 
-    buf.write(ServerPackets::Playervitals)?;
+    buf.write(ServerPackets::PlayerVitals)?;
     buf.write(user.e.vital)?;
     buf.write(user.e.vitalmax)?;
     buf.finish()?;
@@ -251,7 +251,7 @@ pub fn send_vitals(world: &Storage, user: &Player) -> Result<()> {
 pub fn send_inv(world: &Storage, user: &Player) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(6500)?;
 
-    buf.write(ServerPackets::Playerinv)?;
+    buf.write(ServerPackets::PlayerInv)?;
     buf.write(user.inv)?;
     buf.finish()?;
 
@@ -264,7 +264,7 @@ pub fn send_inv(world: &Storage, user: &Player) -> Result<()> {
 pub fn send_invslot(world: &Storage, user: &Player, id: usize) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(32)?;
 
-    buf.write(ServerPackets::Playerinvslot)?;
+    buf.write(ServerPackets::PlayerInvSlot)?;
     buf.write(id)?;
     buf.write(user.inv[id])?;
     buf.finish()?;
@@ -279,7 +279,7 @@ pub fn send_attack(world: &Storage, user: &Player, toself: bool) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(16)?;
     let closure = |toself, id| if toself { Some(id) } else { None };
 
-    buf.write(ServerPackets::Playerattack)?;
+    buf.write(ServerPackets::PlayerAttack)?;
     buf.write(user.e.get_id())?;
     buf.finish()?;
 
@@ -297,7 +297,7 @@ pub fn send_attack(world: &Storage, user: &Player, toself: bool) -> Result<()> {
 pub fn send_equipment(world: &Storage, user: &Player) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(16)?;
 
-    buf.write(ServerPackets::Playerequipment)?;
+    buf.write(ServerPackets::PlayerEquipment)?;
     buf.write(user.equip)?;
     buf.finish()?;
 
@@ -310,7 +310,7 @@ pub fn send_equipment(world: &Storage, user: &Player) -> Result<()> {
 pub fn send_level(world: &Storage, user: &Player) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(16)?;
 
-    buf.write(ServerPackets::Playerlevel)?;
+    buf.write(ServerPackets::PlayerLevel)?;
     buf.write(user.e.level)?;
     buf.write(user.levelexp)?;
     buf.finish()?;
@@ -323,7 +323,7 @@ pub fn send_level(world: &Storage, user: &Player) -> Result<()> {
 pub fn send_money(world: &Storage, user: &Player) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(16)?;
 
-    buf.write(ServerPackets::Playermoney)?;
+    buf.write(ServerPackets::PlayerMoney)?;
     buf.write(user.vals)?;
     buf.finish()?;
 
@@ -336,7 +336,7 @@ pub fn send_life_status(world: &Storage, user: &Player, toself: bool) -> Result<
     let mut buf = ByteBuffer::new_packet_with(16)?;
     let closure = |toself, id| if toself { Some(id) } else { None };
 
-    buf.write(ServerPackets::Playerdeathstatus)?;
+    buf.write(ServerPackets::PlayerDeath)?;
     buf.write(user.e.get_id())?;
     buf.write(user.e.life)?;
     buf.finish()?;
@@ -355,7 +355,7 @@ pub fn send_action(world: &Storage, user: &Player, toself: bool) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(16)?;
     let closure = |toself, id| if toself { Some(id) } else { None };
 
-    buf.write(ServerPackets::Playerdir)?;
+    buf.write(ServerPackets::PlayerAction)?;
     buf.write(user.e.dir)?;
     buf.finish()?;
 
@@ -373,7 +373,7 @@ pub fn send_pvp(world: &Storage, user: &Player, toself: bool) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(16)?;
     let closure = |toself, id| if toself { Some(id) } else { None };
 
-    buf.write(ServerPackets::Playerdir)?;
+    buf.write(ServerPackets::PlayerPvp)?;
     buf.write(user.pvpon)?;
     buf.finish()?;
 
@@ -391,7 +391,7 @@ pub fn send_pk(world: &Storage, user: &Player, toself: bool) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(16)?;
     let closure = |toself, id| if toself { Some(id) } else { None };
 
-    buf.write(ServerPackets::Playerdir)?;
+    buf.write(ServerPackets::PlayerPk)?;
     buf.write(user.pk)?;
     buf.finish()?;
 
@@ -415,7 +415,7 @@ pub fn send_message(
 ) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(msg.len() + head.len() + 32)?;
 
-    buf.write(ServerPackets::Playermsg)?;
+    buf.write(ServerPackets::ChatMsg)?;
     buf.write(chan)?;
     buf.write(head)?;
     buf.write(msg)?;
@@ -424,10 +424,8 @@ pub fn send_message(
 
     match chan {
         MessageChannel::Map => send_to_maps(world, user.e.pos.map, &buf, None),
-        MessageChannel::Global | MessageChannel::Trade | MessageChannel::Help => {
-            send_to_all(world, &buf)
-        }
-        MessageChannel::Party => {}
+        MessageChannel::Global => send_to_all(world, &buf),
+        MessageChannel::Party | MessageChannel::Trade | MessageChannel::Help => {}
         MessageChannel::Private => {
             if let Some(i) = id {
                 send_to(world, i, &buf);

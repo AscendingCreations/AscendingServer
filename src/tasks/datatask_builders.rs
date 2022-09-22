@@ -162,24 +162,16 @@ impl NpcSpawnPacket {
 }
 
 #[derive(
-    Copy,
-    Clone,
-    Debug,
-    Default,
-    Deserialize,
-    Serialize,
-    PartialEq,
-    Eq,
-    ByteBufferRead,
-    ByteBufferWrite,
+    Clone, Debug, Default, Deserialize, Serialize, PartialEq, Eq, ByteBufferRead, ByteBufferWrite,
 )]
 pub struct PlayerSpawnPacket {
+    //Player global ID
+    pub id: u64,
+    pub name: String,
     pub access: UserAccess,
     pub dir: u8,
     pub equip: [Item; EQUIPMENT_TYPE_MAX],
     pub hidden: bool,
-    //Player global ID
-    pub id: u64,
     pub level: i32,
     pub life: DeathType,
     pub pdamage: u32,
@@ -201,6 +193,7 @@ impl ToBuffer for PlayerSpawnPacket {
 impl PlayerSpawnPacket {
     pub fn new(player: &Player) -> Self {
         Self {
+            name: player.name.clone(),
             dir: player.e.dir,
             hidden: player.e.hidden,
             id: player.e.etype.get_id() as u64,
@@ -270,6 +263,7 @@ pub struct MapItemPacket {
     pub id: u64, //Items map ID
     pub position: Position,
     pub item: Item,
+    pub owner: Option<u64>,
 }
 
 impl ToBuffer for MapItemPacket {
@@ -279,7 +273,46 @@ impl ToBuffer for MapItemPacket {
 }
 
 impl MapItemPacket {
-    pub fn new(id: u64, position: Position, item: Item) -> Self {
-        Self { id, position, item }
+    pub fn new(id: u64, position: Position, item: Item, owner: Option<u64>) -> Self {
+        Self {
+            id,
+            position,
+            item,
+            owner,
+        }
+    }
+}
+
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    Deserialize,
+    Serialize,
+    PartialEq,
+    Eq,
+    ByteBufferRead,
+    ByteBufferWrite,
+)]
+pub struct VitalsPacket {
+    pub id: u64,
+    pub vital: [i32; VITALS_MAX],
+    pub vitalmax: [i32; VITALS_MAX],
+}
+
+impl ToBuffer for VitalsPacket {
+    fn to_buffer(&self, buffer: &mut bytey::ByteBuffer) -> Result<()> {
+        Ok(self.write_to_buffer(buffer)?)
+    }
+}
+
+impl VitalsPacket {
+    pub fn new(id: u64, vital: [i32; VITALS_MAX], vitalmax: [i32; VITALS_MAX]) -> Self {
+        Self {
+            id,
+            vital,
+            vitalmax,
+        }
     }
 }
