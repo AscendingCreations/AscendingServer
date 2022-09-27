@@ -1,13 +1,6 @@
-use crate::{gametypes::*, items::*, npcs::Npc, players::*, tasks::*};
+use crate::{gametypes::*, items::*, npcs::Npc, players::*};
 use bytey::{ByteBufferRead, ByteBufferWrite};
 use serde::{Deserialize, Serialize};
-
-impl ToBuffer for u64 {
-    fn to_buffer(&self, buffer: &mut bytey::ByteBuffer) -> Result<()> {
-        buffer.write(self)?;
-        Ok(())
-    }
-}
 
 //Only 42 of these can be sent per Packet
 #[derive(
@@ -28,12 +21,6 @@ pub struct MovePacket {
     pub position: Position, //24 bytes
     pub warp: bool,
     pub dir: u8,
-}
-
-impl ToBuffer for MovePacket {
-    fn to_buffer(&self, buffer: &mut bytey::ByteBuffer) -> Result<()> {
-        Ok(self.write_to_buffer(buffer)?)
-    }
 }
 
 impl MovePacket {
@@ -64,12 +51,6 @@ pub struct DirPacket {
     pub dir: u8,
 }
 
-impl ToBuffer for DirPacket {
-    fn to_buffer(&self, buffer: &mut bytey::ByteBuffer) -> Result<()> {
-        Ok(self.write_to_buffer(buffer)?)
-    }
-}
-
 impl DirPacket {
     pub fn new(id: u64, dir: u8) -> Self {
         Self { id, dir }
@@ -91,12 +72,6 @@ impl DirPacket {
 pub struct DeathPacket {
     pub id: u64,
     pub life: DeathType,
-}
-
-impl ToBuffer for DeathPacket {
-    fn to_buffer(&self, buffer: &mut bytey::ByteBuffer) -> Result<()> {
-        Ok(self.write_to_buffer(buffer)?)
-    }
 }
 
 impl DeathPacket {
@@ -133,12 +108,6 @@ pub struct NpcSpawnPacket {
     pub sprite: u32,
     pub vital: [i32; VITALS_MAX],
     pub vitalmax: [i32; VITALS_MAX],
-}
-
-impl ToBuffer for NpcSpawnPacket {
-    fn to_buffer(&self, buffer: &mut bytey::ByteBuffer) -> Result<()> {
-        Ok(self.write_to_buffer(buffer)?)
-    }
 }
 
 impl NpcSpawnPacket {
@@ -184,12 +153,6 @@ pub struct PlayerSpawnPacket {
     pub vitalmax: [i32; VITALS_MAX],
 }
 
-impl ToBuffer for PlayerSpawnPacket {
-    fn to_buffer(&self, buffer: &mut bytey::ByteBuffer) -> Result<()> {
-        Ok(self.write_to_buffer(buffer)?)
-    }
-}
-
 impl PlayerSpawnPacket {
     pub fn new(player: &Player) -> Self {
         Self {
@@ -222,12 +185,6 @@ pub struct MessagePacket {
     pub head: String,               //74
     pub msg: String,                //256
     pub access: Option<UserAccess>, //5
-}
-
-impl ToBuffer for MessagePacket {
-    fn to_buffer(&self, buffer: &mut bytey::ByteBuffer) -> Result<()> {
-        Ok(self.write_to_buffer(buffer)?)
-    }
 }
 
 impl MessagePacket {
@@ -266,12 +223,6 @@ pub struct MapItemPacket {
     pub owner: Option<u64>,
 }
 
-impl ToBuffer for MapItemPacket {
-    fn to_buffer(&self, buffer: &mut bytey::ByteBuffer) -> Result<()> {
-        Ok(self.write_to_buffer(buffer)?)
-    }
-}
-
 impl MapItemPacket {
     pub fn new(id: u64, position: Position, item: Item, owner: Option<u64>) -> Self {
         Self {
@@ -299,12 +250,6 @@ pub struct VitalsPacket {
     pub id: u64,
     pub vital: [i32; VITALS_MAX],
     pub vitalmax: [i32; VITALS_MAX],
-}
-
-impl ToBuffer for VitalsPacket {
-    fn to_buffer(&self, buffer: &mut bytey::ByteBuffer) -> Result<()> {
-        Ok(self.write_to_buffer(buffer)?)
-    }
 }
 
 impl VitalsPacket {

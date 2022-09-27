@@ -13,12 +13,6 @@ this leaves you with 1384 bytes to play with per packet.
 * player Size 226 bytes can send up to 6 per packet.
 */
 
-//For Data task translation to a byte buffer.
-pub trait ToBuffer {
-    /// Used to write the data type to the buffer.
-    fn to_buffer(&self, buffer: &mut ByteBuffer) -> Result<()>;
-}
-
 //Token uses the Maps position to Store in the IndexMap.
 #[derive(Copy, Clone, Debug, Hash, PartialEq, Eq)]
 pub enum DataTaskToken {
@@ -43,11 +37,11 @@ pub enum DataTaskToken {
 }
 
 impl DataTaskToken {
-    pub fn add_task<T: ToBuffer>(self, world: &Storage, data: &T) -> Result<()> {
+    pub fn add_task<T: ByteBufferWrite>(self, world: &Storage, data: &T) -> Result<()> {
         match world.map_cache.borrow_mut().entry(self) {
             Entry::Vacant(v) => {
                 let mut buffer = new_cache(self.packet_id())?;
-                data.to_buffer(&mut buffer)?;
+                data.write_to_buffer(&mut buffer)?;
                 v.insert(vec![(1, buffer)]);
             }
             Entry::Occupied(mut o) => {
@@ -56,14 +50,14 @@ impl DataTaskToken {
                 if buffers.is_empty() {
                     let mut buffer = new_cache(self.packet_id())?;
                     //write the data into the packet.
-                    data.to_buffer(&mut buffer)?;
+                    data.write_to_buffer(&mut buffer)?;
                     //push it to the buffer list.
                     buffers.push((1, buffer));
                 } else {
                     let (count, buffer) = buffers
                         .last_mut()
                         .ok_or(AscendingError::PacketCacheNotFound(self))?;
-                    data.to_buffer(buffer)?;
+                    data.write_to_buffer(buffer)?;
                     *count += 1;
 
                     // If buffer is full lets make another one thats empty.
