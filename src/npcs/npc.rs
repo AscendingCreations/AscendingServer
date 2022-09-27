@@ -1,4 +1,4 @@
-use crate::{containers::*, gametypes::*, time_ext::MyInstant};
+use crate::{containers::*, gametypes::*, tasks::*, time_ext::MyInstant};
 use unwrap_helpers::*;
 
 #[derive(Clone, Debug, Derivative)]
@@ -45,10 +45,11 @@ impl Npc {
     }
 
     #[inline(always)]
-    pub fn set_npc_dir(&mut self, _world: &Storage, dir: u8) {
+    pub fn set_npc_dir(&mut self, world: &Storage, dir: u8) {
         if self.e.dir != dir {
             self.e.dir = dir;
-            //TODO: send dir turn to players.
+            let _ = DataTaskToken::NpcDir(self.e.pos.map)
+                .add_task(world, &DirPacket::new(self.e.get_id() as u64, dir));
         }
     }
 
@@ -66,7 +67,6 @@ impl Npc {
         oldpos
     }
 
-    //TODO: Update to use MAP (x,y,group)
     #[inline(always)]
     pub fn switch_maps(&mut self, world: &Storage, pos: Position) -> Position {
         let oldpos = self.e.pos;

@@ -1,4 +1,4 @@
-use crate::{containers::Storage, gameloop::*, gametypes::*, npcs::*};
+use crate::{containers::Storage, gametypes::*, npcs::*, tasks::*};
 use chrono::Duration;
 use unwrap_helpers::*;
 
@@ -25,6 +25,7 @@ pub fn update_npcs(world: &Storage) {
                             .in_range(npcdata.spawntime.0, npcdata.spawntime.1)
                         {
                             npc.e.life = DeathType::UnSpawned;
+                            unloadnpcs.push(npc.e.get_id());
                             continue;
                         }
 
@@ -67,7 +68,8 @@ pub fn update_npcs(world: &Storage) {
                         if map_data.borrow().is_blocked_tile(npc.e.spawn) {
                             npc.e.life = DeathType::Alive;
                             map_data.borrow_mut().add_entity_to_grid(npc.e.spawn);
-                            //TODO: Send npc to maps.packets or buffer of packets per map.
+                            let _ = DataTaskToken::NpcSpawn(npc.e.pos.map)
+                                .add_task(world, &NpcSpawnPacket::new(&npc));
                         }
                     }
                 }
@@ -78,7 +80,8 @@ pub fn update_npcs(world: &Storage) {
 
     for i in unloadnpcs {
         if let Some(npc) = world.remove_npc(i) {
-            let _ = send_data_remove(world, i as u64, npc.e.pos.map, 0);
+            let _ =
+                DataTaskToken::NpcUnload(npc.e.pos.map).add_task(world, &(npc.e.get_id() as u64));
         }
     }
 }

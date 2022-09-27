@@ -23,13 +23,16 @@ pub enum DataTaskToken {
     NpcAttack(MapPosition),
     NpcSpawn(MapPosition),
     NpcVitals(MapPosition),
+    NpcDamage(MapPosition),
     PlayerMove(MapPosition),
     PlayerDir(MapPosition),
     PlayerDeath(MapPosition),
     PlayerUnload(MapPosition),
     PlayerAttack(MapPosition),
     PlayerSpawn(MapPosition),
+    PlayerLevel(MapPosition),
     PlayerVitals(MapPosition),
+    PlayerDamage(MapPosition),
     MapChat(MapPosition),
     ItemUnload(MapPosition),
     ItemLoad(MapPosition),
@@ -90,6 +93,8 @@ impl DataTaskToken {
             | DataTaskToken::NpcAttack(_)
             | DataTaskToken::PlayerAttack(_)
             | DataTaskToken::ItemUnload(_) => 173,
+            DataTaskToken::PlayerLevel(_) => 69,
+            DataTaskToken::NpcDamage(_) | DataTaskToken::PlayerDamage(_) => 86,
             DataTaskToken::NpcSpawn(_) => 11,
             DataTaskToken::PlayerSpawn(_) => 6,
             DataTaskToken::MapChat(_) | DataTaskToken::GlobalChat => 4, // This one might be more special since it will range heavily.
@@ -119,11 +124,15 @@ impl DataTaskToken {
             DataTaskToken::MapChat(_) => ServerPackets::ChatMsg as u32,
             DataTaskToken::GlobalChat => ServerPackets::ChatMsg as u32,
             DataTaskToken::ItemLoad(_) => ServerPackets::MapItems as u32,
+            DataTaskToken::NpcDamage(_) => ServerPackets::MapItems as u32, //TODO: Make a packet ID for Damages. This is to display the damage done to a player/npc on hit.
+            DataTaskToken::PlayerDamage(_) => ServerPackets::MapItems as u32,
+            DataTaskToken::PlayerLevel(_) => ServerPackets::PlayerLevel as u32,
         }
     }
 
     pub fn send(&self, world: &Storage, buf: ByteBuffer) {
         match self {
+            DataTaskToken::GlobalChat => send_to_all(world, buf),
             DataTaskToken::NpcMove(mappos)
             | DataTaskToken::PlayerMove(mappos)
             | DataTaskToken::NpcDir(mappos)
@@ -140,8 +149,10 @@ impl DataTaskToken {
             | DataTaskToken::MapChat(mappos)
             | DataTaskToken::ItemLoad(mappos)
             | DataTaskToken::PlayerVitals(mappos)
+            | DataTaskToken::PlayerLevel(mappos)
+            | DataTaskToken::PlayerDamage(mappos)
+            | DataTaskToken::NpcDamage(mappos)
             | DataTaskToken::NpcVitals(mappos) => send_to_maps(world, *mappos, buf, None),
-            DataTaskToken::GlobalChat => send_to_all(world, buf),
         }
     }
 }

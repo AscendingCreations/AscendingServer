@@ -219,6 +219,7 @@ pub struct PGPlayerLevel {
     uid: i64,
     level: i32,
     levelexp: i64,
+    vital: Vec<i32>,
 }
 
 impl PGPlayerLevel {
@@ -227,6 +228,7 @@ impl PGPlayerLevel {
             uid: user.accid,
             level: user.e.level,
             levelexp: user.levelexp as i64,
+            vital: user.e.vital.to_vec(),
         }
     }
 }

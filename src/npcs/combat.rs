@@ -1,4 +1,4 @@
-use crate::{containers::Storage, gametypes::*, maps::*, npcs::*};
+use crate::{containers::Storage, gametypes::*, maps::*, npcs::*, tasks::*};
 use rand::{thread_rng, Rng};
 
 pub fn entity_cast_check(_world: &Storage, caster: &Entity, target: &Entity, range: i32) -> bool {
@@ -73,18 +73,39 @@ pub fn npc_combat(world: &Storage, npc: &mut Npc, base: &NpcData) {
         match entitytype {
             EntityType::Player(i, _accid) => {
                 if let Some(target) = world.players.borrow().get(i as usize) {
-                    let damage = npc_combat_damage(&target.borrow().e, npc, base);
-                    target.borrow_mut().damage_player(damage)
+                    let mut target = target.borrow_mut();
+                    let damage = npc_combat_damage(&target.e, npc, base);
+                    target.damage_player(damage);
 
-                    //TODO Send Attack And Damage packets here.
+                    let _ = DataTaskToken::NpcAttack(npc.e.pos.map)
+                        .add_task(world, &(npc.e.get_id() as u64));
+                    let _ = DataTaskToken::PlayerVitals(npc.e.pos.map).add_task(
+                        world,
+                        &VitalsPacket::new(
+                            target.e.get_id() as u64,
+                            target.e.vital,
+                            target.e.vitalmax,
+                        ),
+                    );
+                    //TODO Send Attack Msg/Damage
                 }
             }
             EntityType::Npc(i) => {
                 if let Some(target) = world.npcs.borrow().get(i as usize) {
-                    let damage = npc_combat_damage(&target.borrow().e, npc, base);
-                    target.borrow_mut().damage_npc(damage)
+                    let mut target = target.borrow_mut();
+                    let damage = npc_combat_damage(&target.e, npc, base);
+                    target.damage_npc(damage);
 
-                    //TODO Send Attack And Damage packets here.
+                    let _ = DataTaskToken::NpcAttack(npc.e.pos.map)
+                        .add_task(world, &(npc.e.etype.get_id() as u64));
+                    let _ = DataTaskToken::NpcVitals(npc.e.pos.map).add_task(
+                        world,
+                        &VitalsPacket::new(
+                            target.e.get_id() as u64,
+                            target.e.vital,
+                            target.e.vitalmax,
+                        ),
+                    );
                 }
             }
             EntityType::Map(_) | EntityType::None => {}

@@ -1,4 +1,6 @@
-use crate::{containers::*, gameloop::*, gametypes::*, items::*, socket::*, sql::*, time_ext::*};
+use crate::{
+    containers::*, gameloop::*, gametypes::*, items::*, socket::*, sql::*, tasks::*, time_ext::*,
+};
 use unwrap_helpers::*;
 
 #[derive(Clone, Debug, Derivative)]
@@ -47,9 +49,9 @@ impl Player {
     pub fn set_dir(&mut self, world: &Storage, dir: u8) {
         if self.e.dir != dir {
             self.e.dir = dir;
-            if let Err(i) = send_dir(world, self, false) {
-                println!("{:?}", i);
-            }
+
+            let _ = DataTaskToken::PlayerDir(self.e.pos.map)
+                .add_task(world, &DirPacket::new(self.e.get_id() as u64, dir));
         }
     }
 

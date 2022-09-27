@@ -20,15 +20,17 @@ pub struct MovePacket {
     pub id: u64,
     pub position: Position, //24 bytes
     pub warp: bool,
+    pub switch: bool,
     pub dir: u8,
 }
 
 impl MovePacket {
-    pub fn new(id: u64, position: Position, warp: bool, dir: u8) -> Self {
+    pub fn new(id: u64, position: Position, warp: bool, switch: bool, dir: u8) -> Self {
         Self {
             id,
             position,
             warp,
+            switch,
             dir,
         }
     }
@@ -258,6 +260,41 @@ impl VitalsPacket {
             id,
             vital,
             vitalmax,
+        }
+    }
+}
+
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PartialEq, Eq, ByteBufferRead, ByteBufferWrite,
+)]
+pub struct DamagePacket {
+    //16 bytes per packet
+    pub id: u64,     //8
+    pub damage: u64, //8
+}
+
+impl DamagePacket {
+    pub fn new(id: u64, damage: u64) -> Self {
+        Self { id, damage }
+    }
+}
+
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PartialEq, Eq, ByteBufferRead, ByteBufferWrite,
+)]
+pub struct LevelPacket {
+    //20 bytes
+    pub id: u64,       //8
+    pub level: i32,    //4
+    pub levelexp: u64, //8
+}
+
+impl LevelPacket {
+    pub fn new(id: u64, level: i32, levelexp: u64) -> Self {
+        Self {
+            id,
+            level,
+            levelexp,
         }
     }
 }

@@ -39,17 +39,30 @@ pub fn update_players(world: &Storage) {
 }
 
 impl Player {
+    //TODO: Add Result<(), AscendingError> to all Functions that return nothing.
     pub fn warp(&mut self, world: &Storage, new_pos: Position, dir: u8) {
         self.e.dir = dir;
 
         if self.e.pos.map != new_pos.map {
             let oldpos = self.switch_maps(world, new_pos);
-            let _ = send_mapswitch(world, self, oldpos.map, true);
+            let _ = DataTaskToken::PlayerMove(oldpos.map).add_task(
+                world,
+                &MovePacket::new(self.e.get_id() as u64, new_pos, true, false, self.e.dir),
+            );
+            let _ = DataTaskToken::PlayerMove(new_pos.map).add_task(
+                world,
+                &MovePacket::new(self.e.get_id() as u64, new_pos, true, false, self.e.dir),
+            );
+            let _ = DataTaskToken::PlayerSpawn(new_pos.map)
+                .add_task(world, &PlayerSpawnPacket::new(self));
             init_data_lists(world, self, oldpos.map);
             //send_weather();
         } else {
             self.swap_pos(world, new_pos);
-            let _ = send_move(world, self, true);
+            let _ = DataTaskToken::PlayerMove(new_pos.map).add_task(
+                world,
+                &MovePacket::new(self.e.get_id() as u64, new_pos, false, false, self.e.dir),
+            );
         }
 
         self.movesavecount += 1;
@@ -91,11 +104,24 @@ impl Player {
 
         if new_pos.map != self.e.pos.map {
             let oldpos = self.switch_maps(world, new_pos);
-            let _ = send_mapswitch(world, self, oldpos.map, false);
+            let _ = DataTaskToken::PlayerMove(oldpos.map).add_task(
+                world,
+                &MovePacket::new(self.e.get_id() as u64, new_pos, false, true, self.e.dir),
+            );
+            let _ = DataTaskToken::PlayerMove(new_pos.map).add_task(
+                world,
+                &MovePacket::new(self.e.get_id() as u64, new_pos, false, true, self.e.dir),
+            );
+            let _ = DataTaskToken::PlayerSpawn(new_pos.map)
+                .add_task(world, &PlayerSpawnPacket::new(self));
+
             init_data_lists(world, self, oldpos.map);
         } else {
             self.swap_pos(world, new_pos);
-            let _ = send_move(world, self, false);
+            let _ = DataTaskToken::PlayerMove(self.e.pos.map).add_task(
+                world,
+                &MovePacket::new(self.e.get_id() as u64, self.e.pos, false, false, self.e.dir),
+            );
         }
 
         true
@@ -138,7 +164,10 @@ impl Player {
 
         let _ = send_vitals(world, self);
         let _ = send_level(world, self);
-        let _ = update_level(&mut world.pgconn.borrow_mut(), self);
+        let _ = DataTaskToken::PlayerVitals(self.e.pos.map).add_task(
+            world,
+            &VitalsPacket::new(self.e.get_id() as u64, self.e.vital, self.e.vitalmax),
+        );
         let _ = update_level(&mut world.pgconn.borrow_mut(), self);
     }
 

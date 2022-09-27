@@ -1,4 +1,4 @@
-use crate::{containers::Storage, gametypes::*, maps::*, npcs::*};
+use crate::{containers::Storage, gametypes::*, maps::*, npcs::*, tasks::*};
 use chrono::Duration;
 
 pub fn movement(world: &Storage, npc: &mut Npc, _base: &NpcData) {
@@ -108,13 +108,23 @@ pub fn movement(world: &Storage, npc: &mut Npc, _base: &NpcData) {
             npc.e.dir = next.1;
 
             if next.0.map != npc.e.pos.map {
+                let old_map = npc.e.pos.map;
                 npc.switch_maps(world, next.0);
-
-                //TODO: send map switch here
-                // Let client know what npc and to what map. let the client do the full removal
+                //Send this Twice one to the old map and one to the new. Just in case people in outermaps did not get it yet.
+                let _ = DataTaskToken::NpcMove(old_map).add_task(
+                    world,
+                    &MovePacket::new(npc.e.get_id() as u64, next.0, false, true, next.1),
+                );
+                let _ = DataTaskToken::NpcMove(next.0.map).add_task(
+                    world,
+                    &MovePacket::new(npc.e.get_id() as u64, next.0, false, true, next.1),
+                );
             } else {
                 npc.swap_pos(world, next.0);
-                //TODO: NPC move packet here
+                let _ = DataTaskToken::NpcMove(next.0.map).add_task(
+                    world,
+                    &MovePacket::new(npc.e.get_id() as u64, next.0, false, false, next.1),
+                );
             }
         }
     }
