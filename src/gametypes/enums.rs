@@ -352,8 +352,8 @@ pub enum ToolType {
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Default)]
 pub enum OnlineType {
-    #[default]
     None,
+    #[default]
     Accepted,
     Online,
 }

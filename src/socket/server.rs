@@ -55,13 +55,12 @@ impl Server {
                 let mut client = Client::new(stream, token);
                 client.register(&world.poll.borrow_mut())?;
 
-                let id =
+                client.playerid =
                     unwrap_or_return!(accept_connection(token.0, addr.to_string(), world), || {
                         drop(client.stream);
                         Ok(())
                     });
 
-                client.playerid = id;
                 self.clients.insert(token, RefCell::new(client));
             } else {
                 drop(stream);

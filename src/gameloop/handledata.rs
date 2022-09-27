@@ -1,6 +1,4 @@
-use crate::{
-    containers::Storage, gameloop::*, gametypes::*, maps::*, players::*, sql::*,
-};
+use crate::{containers::Storage, gameloop::*, gametypes::*, maps::*, players::*, sql::*};
 use bytey::ByteBuffer;
 use chrono::Duration;
 use phf::phf_map;

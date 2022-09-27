@@ -2,7 +2,7 @@ use crate::{containers::*, gameloop::*, gametypes::*, items::*, socket::*, sql::
 use unwrap_helpers::*;
 
 #[derive(Clone, Debug, Derivative)]
-#[derivative(Default(new = "true"))]
+#[derivative(Default)]
 pub struct Player {
     pub e: Entity,
     pub name: String,
@@ -34,6 +34,15 @@ pub struct Player {
 }
 
 impl Player {
+    #[inline(always)]
+    pub fn new(socket_id: usize, addr: String) -> Self {
+        Self {
+            socket_id,
+            addr,
+            ..Default::default()
+        }
+    }
+
     #[inline(always)]
     pub fn set_dir(&mut self, world: &Storage, dir: u8) {
         if self.e.dir != dir {

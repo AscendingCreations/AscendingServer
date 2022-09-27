@@ -128,7 +128,7 @@ impl DataTaskToken {
         }
     }
 
-    pub fn send(&self, world: &Storage, buf: &ByteBuffer) {
+    pub fn send(&self, world: &Storage, buf: ByteBuffer) {
         match self {
             DataTaskToken::NpcMove(mappos)
             | DataTaskToken::PlayerMove(mappos)

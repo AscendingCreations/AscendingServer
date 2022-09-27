@@ -171,23 +171,19 @@ impl Client {
     pub fn write(&mut self, world: &Storage) {
         let mut count: usize = 0;
 
+        //make sure the player exists before we send anything.
         if let Some(_player) = world.players.borrow().get(self.playerid) {
             loop {
-                let mut buffer = match self.sends.pop() {
-                    Some(buffer) => buffer,
+                let mut packet = match self.sends.pop() {
+                    Some(packet) => packet,
                     None => {
                         self.sends.shrink_to_fit();
                         return;
                     }
                 };
 
-                match self.stream.write(buffer.as_array()) {
-                    Ok(n) => {
-                        if n == 0 {
-                            self.state = ClientState::Closing;
-                            return;
-                        }
-
+                match self.stream.write_all(packet.as_array()) {
+                    Ok(()) => {
                         count += 1;
 
                         if count >= 25 {
@@ -199,9 +195,10 @@ impl Client {
                         }
                     }
                     Err(ref err) if err.kind() == io::ErrorKind::WouldBlock => {
-                        break;
+                        //Operation would block so we insert it back in to try again later.
+                        self.sends.push(packet);
+                        return;
                     }
-                    Err(ref err) if err.kind() == io::ErrorKind::Interrupted => continue,
                     Err(_) => {
                         self.state = ClientState::Closing;
                         return;
@@ -240,8 +237,8 @@ impl Client {
     }
 
     #[inline]
-    pub fn send(&mut self, poll: &mio::Poll, buf: &ByteBuffer) {
-        self.sends.insert(0, buf.clone());
+    pub fn send(&mut self, poll: &mio::Poll, buf: ByteBuffer) {
+        self.sends.insert(0, buf);
         let state = self.poll_state;
 
         match state {
@@ -275,30 +272,28 @@ pub fn accept_connection(socketid: usize, addr: String, world: &Storage) -> Opti
         return None;
     }
 
-    let mut player = Player::new();
-    player.socket_id = socketid;
-    player.addr = addr;
-    let id = world.add_player(player);
-    Some(id)
+    Some(world.add_player(Player::new(socketid, addr)))
 }
 
 #[inline]
-pub fn send_to(world: &Storage, id: usize, buf: &ByteBuffer) {
+pub fn send_to(world: &Storage, id: usize, buf: ByteBuffer) {
     if let Some(mut client) = world.server.borrow().get_mut(mio::Token(id)) {
         client.send(&world.poll.borrow(), buf);
     }
 }
 
 #[inline]
-pub fn send_to_all(world: &Storage, buf: &ByteBuffer) {
-    for id in &*world.player_ids.borrow() {
+pub fn send_to_all(world: &Storage, buf: ByteBuffer) {
+    let player_ids = world.player_ids.borrow();
+
+    for id in &*player_ids {
         if let Some(player) = world.players.borrow().get(*id) {
             if let Some(mut client) = world
                 .server
                 .borrow()
                 .get_mut(mio::Token(player.borrow().socket_id))
             {
-                client.send(&world.poll.borrow(), buf);
+                client.send(&world.poll.borrow(), buf.clone());
             }
         }
     }
@@ -308,13 +303,13 @@ pub fn send_to_all(world: &Storage, buf: &ByteBuffer) {
 pub fn send_to_maps(
     world: &Storage,
     position: MapPosition,
-    buf: &ByteBuffer,
+    buf: ByteBuffer,
     avoidindex: Option<usize>,
 ) {
     for m in get_surrounding(position, true) {
-        let map = unwrap_continue!(world.maps.get(&m));
+        let map = unwrap_continue!(world.maps.get(&m)).borrow();
 
-        for id in &map.borrow().players {
+        for id in &map.players {
             if avoidindex.map(|value| value == *id).unwrap_or(false) {
                 continue;
             }
@@ -325,7 +320,7 @@ pub fn send_to_maps(
                     .borrow()
                     .get_mut(mio::Token(player.borrow().socket_id))
                 {
-                    client.send(&world.poll.borrow(), buf);
+                    client.send(&world.poll.borrow(), buf.clone());
                 }
             }
         }
