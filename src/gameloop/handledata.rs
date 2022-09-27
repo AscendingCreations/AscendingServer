@@ -1,4 +1,6 @@
-use crate::{containers::Storage, gameloop::*, gametypes::*, maps::*, players::*, sql::*};
+use crate::{
+    containers::Storage, gameloop::*, gametypes::*, maps::*, players::*, sql::*, tasks::*,
+};
 use bytey::ByteBuffer;
 use chrono::Duration;
 use phf::phf_map;
@@ -480,7 +482,7 @@ fn handle_pickup(world: &Storage, _data: &mut ByteBuffer, uid: usize) -> Result<
         if let Some(id) = remid {
             if let Some(map) = world.maps.get(&id.0) {
                 map.borrow_mut().remove_item(id.1);
-                let _ = send_data_remove(world, id.1 as u64, id.0, 3);
+                let _ = DataTaskToken::ItemUnload(id.0).add_task(world, &(id.1 as u64));
             }
         }
 
@@ -546,8 +548,18 @@ fn handle_dropitem(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result
         )
         .borrow_mut();
 
-        map.add_mapitem(mapitem);
+        
+        let _ = DataTaskToken::ItemLoad(player.e.pos.map).add_task(
+            world,
+            &MapItemPacket::new(
+                mapitem.id,
+                mapitem.pos,
+                mapitem.item,
+                Some(mapitem.ownerid),
+            ),
+        );
 
+        map.add_mapitem(mapitem);
         return Ok(());
     }
 

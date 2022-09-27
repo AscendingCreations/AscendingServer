@@ -1,4 +1,4 @@
-use crate::{containers::Storage, gametypes::*, players::*, socket::*};
+use crate::{containers::Storage, gametypes::*, players::*, socket::*, tasks::*};
 use unwrap_helpers::*;
 
 #[inline]
@@ -150,34 +150,6 @@ pub fn send_move(world: &Storage, user: &Player, warp: bool) -> Result<()> {
     if warp {
         send_to_maps(world, user.e.pos.map, buf, None);
     } else {
-        send_to_maps(world, user.e.pos.map, buf, Some(user.e.get_id()));
-    }
-
-    Ok(())
-}
-
-#[inline]
-pub fn send_mapswitch(
-    world: &Storage,
-    user: &Player,
-    oldmap: MapPosition,
-    warp: bool,
-) -> Result<()> {
-    let mut buf = ByteBuffer::new_packet_with(24)?;
-
-    buf.write(ServerPackets::PlayerMapSwap)?;
-    buf.write(user.e.get_id())?;
-    buf.write(user.e.pos)?;
-    buf.write(user.e.dir)?;
-    buf.write(oldmap)?;
-    buf.write(warp)?;
-    buf.finish()?;
-
-    if warp {
-        send_to_maps(world, oldmap, buf.clone(), None);
-        send_to_maps(world, user.e.pos.map, buf, None);
-    } else {
-        send_to_maps(world, oldmap, buf.clone(), Some(user.e.get_id()));
         send_to_maps(world, user.e.pos.map, buf, Some(user.e.get_id()));
     }
 
@@ -383,27 +355,42 @@ pub fn send_message(
     chan: MessageChannel,
     id: Option<usize>,
 ) -> Result<()> {
-    let mut buf = ByteBuffer::new_packet_with(msg.len() + head.len() + 32)?;
-
-    buf.write(ServerPackets::ChatMsg)?;
-    buf.write(chan)?;
-    buf.write(head)?;
-    buf.write(msg)?;
-    buf.write(user.access)?;
-    buf.finish()?;
-
     match chan {
-        MessageChannel::Map => send_to_maps(world, user.e.pos.map, buf, None),
-        MessageChannel::Global => send_to_all(world, buf),
+        MessageChannel::Map => DataTaskToken::MapChat(user.e.pos.map).add_task(
+            world,
+            &MessagePacket::new(chan, head, msg, Some(user.access)),
+        )?,
+        MessageChannel::Global => DataTaskToken::GlobalChat.add_task(
+            world,
+            &MessagePacket::new(chan, head, msg, Some(user.access)),
+        )?,
         MessageChannel::Party | MessageChannel::Trade | MessageChannel::Help => {}
         MessageChannel::Private => {
+            let mut buf = ByteBuffer::new_packet_with(msg.len() + head.len() + 32)?;
+
+            buf.write(ServerPackets::ChatMsg)?;
+            buf.write(chan)?;
+            buf.write(head)?;
+            buf.write(msg)?;
+            buf.write(user.access)?;
+            buf.finish()?;
+
             if let Some(i) = id {
                 send_to(world, i, buf);
             }
         }
         MessageChannel::Guild => {}
-        MessageChannel::Quest => send_to(world, user.socket_id, buf),
-        MessageChannel::Npc => send_to(world, user.socket_id, buf),
+        MessageChannel::Quest | MessageChannel::Npc => {
+            let mut buf = ByteBuffer::new_packet_with(msg.len() + head.len() + 32)?;
+
+            buf.write(ServerPackets::ChatMsg)?;
+            buf.write(chan)?;
+            buf.write(head)?;
+            buf.write(msg)?;
+            buf.write(user.access)?;
+            buf.finish()?;
+            send_to(world, user.socket_id, buf);
+        }
     }
 
     Ok(())

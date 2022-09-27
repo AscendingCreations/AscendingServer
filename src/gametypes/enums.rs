@@ -714,6 +714,7 @@ impl From<&MapPos> for MapPosDir {
     Copy,
     Clone,
     Debug,
+    Default,
     PartialEq,
     Eq,
     Serialize_repr,
@@ -723,6 +724,7 @@ impl From<&MapPos> for MapPosDir {
 )]
 #[repr(u8)]
 pub enum MessageChannel {
+    #[default]
     Map,
     Global,
     Trade,

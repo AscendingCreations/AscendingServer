@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
     ByteBufferRead,
 )]
 #[derivative(Default)]
-pub struct Item {
+pub struct Item { //17 bytes
     pub num: u32,
     pub val: u16,
     #[derivative(Default(value = "1"))]

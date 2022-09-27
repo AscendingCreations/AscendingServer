@@ -183,7 +183,7 @@ impl PlayerSpawnPacket {
 )]
 pub struct MessagePacket {
     //336 bytes 4 messages per packet
-    pub channel: ChatChannel,       //1
+    pub channel: MessageChannel,    //1
     pub head: String,               //74
     pub msg: String,                //256
     pub access: Option<UserAccess>, //5
@@ -191,7 +191,7 @@ pub struct MessagePacket {
 
 impl MessagePacket {
     pub fn new(
-        channel: ChatChannel,
+        channel: MessageChannel,
         head: String,
         msg: String,
         access: Option<UserAccess>,
@@ -221,12 +221,12 @@ pub struct MapItemPacket {
     //3 messages per packet
     pub id: u64, //Items map ID
     pub position: Position,
-    pub item: Item,
-    pub owner: Option<u64>,
+    pub item: Item,         //
+    pub owner: Option<i64>, //9
 }
 
 impl MapItemPacket {
-    pub fn new(id: u64, position: Position, item: Item, owner: Option<u64>) -> Self {
+    pub fn new(id: u64, position: Position, item: Item, owner: Option<i64>) -> Self {
         Self {
             id,
             position,
