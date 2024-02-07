@@ -44,7 +44,7 @@ impl PGPlayer {
         password: String,
     ) -> PGPlayer {
         let argon = Argon2::default();
-        let hashed_password = if let Ok(salt) = SaltString::b64_encode(SALT) {
+        let hashed_password = if let Ok(salt) = SaltString::encode_b64(SALT) {
             if let Ok(hash) = argon.hash_password(password.as_bytes(), &salt) {
                 hash.to_string()
             } else {

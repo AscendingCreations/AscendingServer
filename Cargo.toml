@@ -7,31 +7,32 @@ license = "MIT OR Apache-2.0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-thiserror = "1.0.38"
-serde = { version = "1.0.152", features = ["derive"] }
-serde_repr = "0.1.10"
-slab = "0.4.7"
-mio = { version = "0.8.5", features = ["os-poll", "net"] }
-diesel = { version = "2.0.2", features = [
+thiserror = "1.0.56"
+serde = { version = "1.0.196", features = ["derive"] }
+serde_repr = "0.1.18"
+slab = "0.4.9"
+mio = { version = "0.8.10", features = ["os-poll", "net"] }
+diesel = { version = "2.1.4", features = [
     "postgres",
     "extras",
     "64-column-tables",
 ] }
-chrono = { version = "0.4.23", features = ["serde"] }
-diesel-derive-enum = { version = "2.0.0-rc.0", features = ["postgres"] }
-phf = { version = "0.11.1", features = ["macros"] }
-regex = "1.7.0"
+chrono = { version = "0.4.33", features = ["serde"] }
+diesel-derive-enum = { version = "2.1.0", features = ["postgres"] }
+phf = { version = "0.11.2", features = ["macros"] }
+regex = "1.10.3"
 derivative = "2.2.0"
-serde-big-array = "0.4.1"
+serde-big-array = "0.5.1"
 bit_op = "0.1.1"
 rand = "0.8.5"
 unwrap_helpers = "0.3"
-bytey = {version = "0.3.0", git = "https://github.com/AscendingCreations/bytey.git", branch = "skippy"}
-indexmap = "1.9.2"
+bytey = {version = "0.3.0", git = "https://github.com/Stefanowhb/bytey.git"}
+indexmap = "2.2.2"
 ritehash = "0.2.0" #FXHash for maps
-byteorder = { version = "1.4.3", default-features = false }
-argon2 = "0.4.1"
-password-hash = { version = "0.4.2", features = ["rand_core"] }
+byteorder = { version = "1.5.0", default-features = false }
+argon2 = "0.5.3"
+password-hash = { version = "0.5.0", features = ["rand_core"] }
+hecs = "0.10.4"
 
 [profile.dev]
 opt-level = 0

@@ -18,7 +18,7 @@ use serde_repr::*;
     ByteBufferWrite,
 )]
 #[DbValueStyle = "PascalCase"]
-#[DieselTypePath = "crate::sql::UserAccessMapping"]
+#[ExistingTypePath = "crate::sql::UserAccessMapping"]
 #[repr(u8)]
 pub enum UserAccess {
     #[default]
@@ -253,7 +253,7 @@ pub enum EquipmentType {
     ByteBufferWrite,
 )]
 #[DbValueStyle = "PascalCase"]
-#[DieselTypePath = "crate::sql::VitalTypesMapping"]
+#[ExistingTypePath = "crate::sql::VitalTypesMapping"]
 #[repr(u8)]
 pub enum VitalTypes {
     Hp,
@@ -393,7 +393,7 @@ pub enum NpcMode {
     ByteBufferWrite,
 )]
 #[DbValueStyle = "PascalCase"]
-#[DieselTypePath = "crate::sql::LogTypeMapping"]
+#[ExistingTypePath = "crate::sql::LogTypeMapping"]
 #[repr(u8)]
 pub enum LogType {
     Login,

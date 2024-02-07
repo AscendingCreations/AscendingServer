@@ -8,7 +8,6 @@ mod schema;
 mod sql_enums;
 
 pub use equipmentstruct::PGEquipItem;
-pub use integers::*;
 pub use invstruct::PGInvItem;
 pub use logstruct::PGLog;
 pub use playerstruct::*;

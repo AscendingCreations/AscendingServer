@@ -27,7 +27,7 @@ pub struct MyDate(pub chrono::NaiveDate);
 
 impl MyDate {
     pub fn now() -> MyDate {
-        MyDate(Utc::today().naive_utc())
+        MyDate(Utc::now().date_naive())
     }
 
     pub fn add_days(&mut self, days: i64) {
@@ -59,7 +59,7 @@ impl ToSql<sql_types::Date, Pg> for MyDate {
     fn to_sql<'b>(&'b self, out: &mut Output<'b, '_, Pg>) -> serialize::Result {
         let days_since_epoch: i64 = self
             .0
-            .signed_duration_since(NaiveDate::from_ymd(2000, 1, 1))
+            .signed_duration_since(NaiveDate::from_ymd_opt(2000, 1, 1).unwrap_or_default())
             .num_days();
 
         out.write_i32::<NetworkEndian>(days_since_epoch as i32)
@@ -71,7 +71,9 @@ impl ToSql<sql_types::Date, Pg> for MyDate {
 impl FromSql<sql_types::Date, Pg> for MyDate {
     fn from_sql(bytes: diesel::backend::RawValue<'_, Pg>) -> deserialize::Result<Self> {
         let PgDate(offset) = FromSql::<sql_types::Date, Pg>::from_sql(bytes)?;
-        match NaiveDate::from_ymd(2000, 1, 1).checked_add_signed(Duration::days(i64::from(offset)))
+        match NaiveDate::from_ymd_opt(2000, 1, 1)
+            .unwrap_or_default()
+            .checked_add_signed(Duration::days(i64::from(offset)))
         {
             Some(date) => Ok(MyDate(date)),
             None => {
