@@ -45,7 +45,7 @@ impl Npc {
     }
 
     #[inline(always)]
-    pub fn set_npc_dir(&mut self, world: &Storage, dir: u8) {
+    pub fn set_npc_dir(&mut self, world: &mut hecs::World, storage: &Storage, dir: u8) {
         if self.e.dir != dir {
             self.e.dir = dir;
             let _ = DataTaskToken::NpcDir(self.e.pos.map)
@@ -54,7 +54,12 @@ impl Npc {
     }
 
     #[inline(always)]
-    pub fn swap_pos(&mut self, world: &Storage, pos: Position) -> Position {
+    pub fn swap_pos(
+        &mut self,
+        world: &mut hecs::World,
+        storage: &Storage,
+        pos: Position,
+    ) -> Position {
         let oldpos = self.e.pos;
         if oldpos != pos {
             self.e.pos = pos;
@@ -68,7 +73,12 @@ impl Npc {
     }
 
     #[inline(always)]
-    pub fn switch_maps(&mut self, world: &Storage, pos: Position) -> Position {
+    pub fn switch_maps(
+        &mut self,
+        world: &mut hecs::World,
+        storage: &Storage,
+        pos: Position,
+    ) -> Position {
         let oldpos = self.e.pos;
         let mut map = unwrap_or_return!(world.maps.get(&self.e.pos.map), oldpos).borrow_mut();
         map.remove_npc(self.e.get_id());

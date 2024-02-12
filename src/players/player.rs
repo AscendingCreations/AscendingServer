@@ -1,24 +1,26 @@
+use std::sync::{Arc, Mutex};
+
 use crate::{
     containers::*, gameloop::*, gametypes::*, items::*, socket::*, sql::*, tasks::*, time_ext::*,
 };
+use hecs::*;
 use unwrap_helpers::*;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Bundle)]
 pub struct Socket {
     // IP address
     pub addr: String,
     // Socket ID
-    pub socket_id: usize,
+    pub id: usize,
     // Packet Buffer
-    // #[derivative(Default(value = "ByteBuffer::with_capacity(8192).unwrap()"))]
     pub buffer: ByteBuffer,
 }
 
 impl Socket {
     #[inline(always)]
-    pub fn new(socket_id: usize, addr: String) -> Result<Self> {
+    pub fn new(id: usize, addr: String) -> Result<Self> {
         Ok(Self {
-            socket_id,
+            id,
             addr,
             buffer: ByteBuffer::with_capacity(8192)?,
         })
@@ -82,7 +84,7 @@ pub struct Player {
 
 /*impl Player {
     #[inline(always)]
-    pub fn set_dir(&mut self, world: &Storage, dir: u8) {
+    pub fn set_dir(&mut self, world: &mut hecs::World, storage: &Storage, dir: u8) {
         if self.e.dir != dir {
             self.e.dir = dir;
 
@@ -92,7 +94,7 @@ pub struct Player {
     }
 
     #[inline(always)]
-    pub fn swap_pos(&mut self, world: &Storage, pos: Position) -> Position {
+    pub fn swap_pos(&mut self, world: &mut hecs::World, storage: &Storage, pos: Position) -> Position {
         let oldpos = self.e.pos;
         if oldpos != pos {
             self.e.pos = pos;
@@ -106,7 +108,7 @@ pub struct Player {
     }
 
     #[inline(always)]
-    pub fn switch_maps(&mut self, world: &Storage, pos: Position) -> Position {
+    pub fn switch_maps(&mut self, world: &mut hecs::World, storage: &Storage, pos: Position) -> Position {
         let oldpos = self.e.pos;
         let mut map = unwrap_or_return!(world.maps.get(&self.e.pos.map), oldpos).borrow_mut();
         map.remove_player(world, self.e.get_id());
@@ -159,7 +161,7 @@ pub struct Player {
     }
 }*/
 
-/* 
+/*
 #[inline]
 pub fn give_vals(world: &Storage, user: &mut Player, amount: u64) -> u64 {
     let rem = u64::MAX.saturating_sub(user.vals);

@@ -156,19 +156,19 @@ pub enum EntityType {
     #[default]
     None,
     Player(Entity, i64), //ArrID, AccID used for comparison if still same player.
-    Npc(u64),
+    Npc(Entity),
     Map(Position),
 }
 
 impl EntityType {
-    pub fn get_id(&self) -> usize {
+    pub fn get_id(&self) -> Entity {
         match self {
-            EntityType::Player(i, _) | EntityType::Npc(i) => *i as usize,
-            _ => 0,
+            EntityType::Player(i, _) | EntityType::Npc(i) => *i,
+            _ => Entity(hecs::Entity::DANGLING),
         }
     }
 
-    pub fn get_pos(&self, world: &Storage) -> Option<Position> {
+    pub fn get_pos(&self, world: &mut hecs::World, storage: &Storage) -> Option<Position> {
         match self {
             EntityType::Map(position) => Some(*position),
             EntityType::Player(i, _) => world

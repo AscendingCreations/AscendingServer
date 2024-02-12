@@ -89,7 +89,7 @@ impl Position {
         }
     }
 
-    pub fn update_pos_map(&mut self, world: &Storage) -> bool {
+    pub fn update_pos_map(&mut self, world: &mut hecs::World, storage: &Storage) -> bool {
         let set_pos = |pos: &mut Position, mappos, x, y| -> bool {
             let mapid = unwrap_or_return!(get_dir_mapid(world, pos.map, mappos), false);
 

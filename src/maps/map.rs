@@ -89,7 +89,7 @@ impl MapData {
         self.move_grid[pos.as_tile()].1 = true;
     }
 
-    pub fn add_player(&mut self, world: &Storage, id: usize) {
+    pub fn add_player(&mut self, world: &mut hecs::World, storage: &Storage, id: usize) {
         self.players.insert(id);
 
         for i in self.get_surrounding(true) {
@@ -107,7 +107,7 @@ impl MapData {
         self.npcs.insert(id);
     }
 
-    pub fn remove_player(&mut self, world: &Storage, id: usize) {
+    pub fn remove_player(&mut self, world: &mut hecs::World, storage: &Storage, id: usize) {
         self.players.remove(&id);
 
         for i in self.get_surrounding(true) {

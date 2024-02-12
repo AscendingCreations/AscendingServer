@@ -40,7 +40,7 @@ pub fn update_players(world: &Storage) {
 
 impl Player {
     //TODO: Add Result<(), AscendingError> to all Functions that return nothing.
-    pub fn warp(&mut self, world: &Storage, new_pos: Position, dir: u8) {
+    pub fn warp(&mut self, world: &mut hecs::World, storage: &Storage, new_pos: Position, dir: u8) {
         self.e.dir = dir;
 
         if self.e.pos.map != new_pos.map {
@@ -73,7 +73,7 @@ impl Player {
         }
     }
 
-    pub fn movement(&mut self, world: &Storage, dir: u8) -> bool {
+    pub fn movement(&mut self, world: &mut hecs::World, storage: &Storage, dir: u8) -> bool {
         let adj = [(0, -1), (1, 0), (0, 1), (-1, 0)];
         let mut new_pos = Position::new(
             self.e.pos.x + adj[dir as usize].0,
@@ -127,7 +127,14 @@ impl Player {
         true
     }
 
-    pub fn earn_exp(&mut self, world: &Storage, victimlevel: i32, expval: i64, spercent: f64) {
+    pub fn earn_exp(
+        &mut self,
+        world: &mut hecs::World,
+        storage: &Storage,
+        victimlevel: i32,
+        expval: i64,
+        spercent: f64,
+    ) {
         let mut giveexp = expval;
 
         if self.e.level >= MAX_LVL as i32 || expval == 0 {
@@ -200,7 +207,7 @@ impl Player {
         self.e.level * 25
     }
 
-    pub fn get_weapon_damage(&self, world: &Storage) -> (i16, i16) {
+    pub fn get_weapon_damage(&self, world: &mut hecs::World, storage: &Storage) -> (i16, i16) {
         let mut dmg = (0, 0);
 
         if self.equip[EquipmentType::Weapon as usize].val > 0 {
@@ -216,7 +223,7 @@ impl Player {
         dmg
     }
 
-    pub fn get_armor_defense(&self, world: &Storage) -> (i16, i16) {
+    pub fn get_armor_defense(&self, world: &mut hecs::World, storage: &Storage) -> (i16, i16) {
         let mut defense = (0i16, 0i16);
 
         for i in EquipmentType::Helmet as usize..=EquipmentType::Accessory2 as usize {
@@ -229,7 +236,13 @@ impl Player {
         defense
     }
 
-    pub fn repair_equipment(&mut self, world: &Storage, slot: usize, repair_per: f32) {
+    pub fn repair_equipment(
+        &mut self,
+        world: &mut hecs::World,
+        storage: &Storage,
+        slot: usize,
+        repair_per: f32,
+    ) {
         if let Some(item) = world.bases.items.get(self.equip[slot].num as usize) {
             if !item.repairable || self.equip[slot].data[0] == self.equip[slot].data[1] {
                 return;

@@ -39,7 +39,7 @@ impl Server {
         })
     }
 
-    pub fn accept(&mut self, world: &Storage) -> Result<()> {
+    pub fn accept(&mut self, world: &mut hecs::World, storage: &Storage) -> Result<()> {
         /* Wait for a new connection to accept and try to grab a token from the bag. */
         loop {
             let (stream, addr) = match self.listener.accept() {

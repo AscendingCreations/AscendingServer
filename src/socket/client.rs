@@ -87,46 +87,51 @@ impl Client {
         }
     }
 
-    pub fn process(&mut self, event: &mio::event::Event, world: &Storage) -> Result<()> {
+    pub fn process(
+        &mut self,
+        event: &mio::event::Event,
+        world: &mut hecs::World,
+        storage: &Storage,
+    ) -> Result<()> {
         self.poll_state.set(SocketPollState::None);
 
         if event.is_readable() {
-            self.read(world);
+            self.read(world, storage);
         }
 
         if event.is_writable() {
-            self.write(world);
+            self.write(world, storage);
         }
 
         match self.state {
-            ClientState::Closing => self.close_socket(world)?,
-            _ => self.reregister(&world.poll.borrow_mut())?,
+            ClientState::Closing => self.close_socket(world, storage)?,
+            _ => self.reregister(&storage.poll.borrow_mut())?,
         }
 
         Ok(())
     }
 
     #[inline]
-    pub fn set_to_closing(&mut self, world: &Storage) {
+    pub fn set_to_closing(&mut self, world: &mut hecs::World, storage: &Storage) {
         self.state = ClientState::Closing;
         self.poll_state.add(SocketPollState::Write);
-        self.reregister(&world.poll.borrow_mut()).unwrap();
+        self.reregister(&storage.poll.borrow_mut()).unwrap();
     }
 
     #[inline]
-    pub fn close_socket(&mut self, world: &Storage) -> Result<()> {
+    pub fn close_socket(&mut self, world: &mut hecs::World, storage: &Storage) -> Result<()> {
         match self.state {
             ClientState::Closed => Ok(()),
             _ => {
                 self.stream.shutdown(std::net::Shutdown::Both)?;
                 self.state = ClientState::Closed;
-                disconnect(self.playerid, world);
+                disconnect(self.playerid, world, storage);
                 Ok(())
             }
         }
     }
 
-    pub fn read(&mut self, world: &Storage) {
+    pub fn read(&mut self, world: &mut hecs::World, storage: &Storage) {
         if let Some(player) = world.players.borrow().get(self.playerid) {
             let pos = player.borrow().buffer.cursor();
             let _ = player
@@ -168,7 +173,7 @@ impl Client {
         }
     }
 
-    pub fn write(&mut self, world: &Storage) {
+    pub fn write(&mut self, world: &mut hecs::World, storage: &Storage) {
         let mut count: usize = 0;
 
         //make sure the player exists before we send anything.
@@ -256,7 +261,7 @@ impl Client {
 }
 
 #[inline]
-pub fn disconnect(playerid: usize, world: &Storage) {
+pub fn disconnect(playerid: usize, world: &mut hecs::World, storage: &Storage) {
     if let Some(player) = world.remove_player(playerid) {
         if let Some(map) = world.maps.get(&player.e.pos.map) {
             map.borrow_mut().remove_player(world, playerid);
@@ -267,12 +272,17 @@ pub fn disconnect(playerid: usize, world: &Storage) {
 }
 
 #[inline]
-pub fn accept_connection(socketid: usize, addr: String, world: &Storage) -> Option<usize> {
-    if world.players.borrow().len() + 1 >= MAX_PLAYERS {
+pub fn accept_connection(
+    socketid: usize,
+    addr: String,
+    world: &mut hecs::World,
+    storage: &Storage,
+) -> Option<Entity> {
+    if storage.player_ids.borrow().len() + 1 >= MAX_PLAYERS {
         return None;
     }
 
-    Some(world.add_player(Player::new(socketid, addr)))
+    Some(storage.add_player(world, socketid, addr))
 }
 
 #[inline]

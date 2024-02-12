@@ -3,7 +3,7 @@ use crate::{
     gametypes::*,
     maps::*,
     npcs::*,
-    players::Player,
+    players::*,
     socket::*,
     tasks::{DataTaskToken, MapSwitchTasks},
     time_ext::MyInstant,
@@ -14,12 +14,12 @@ use mio::Poll;
 use std::cell::RefCell;
 
 pub struct Storage {
-    pub players: RefCell<slab::Slab<RefCell<Player>>>,
+    //pub players: RefCell<slab::Slab<RefCell<Player>>>,
     pub npcs: RefCell<slab::Slab<RefCell<Npc>>>,
-    pub player_ids: RefCell<IndexSet<usize>>,
+    pub player_ids: RefCell<IndexSet<Entity>>,
     pub recv_ids: RefCell<IndexSet<usize>>,
-    pub npc_ids: RefCell<IndexSet<usize>>,
-    pub player_names: RefCell<HashMap<String, usize>>, //for player names to ID's
+    pub npc_ids: RefCell<IndexSet<Entity>>,
+    pub player_names: RefCell<HashMap<String, Entity>>, //for player names to ID's
     pub maps: IndexMap<MapPosition, RefCell<MapData>>,
     //This is for buffering the specific packets needing to send.
     pub map_cache: RefCell<HashMap<DataTaskToken, Vec<(u32, ByteBuffer)>>>,
@@ -46,7 +46,8 @@ impl Storage {
         let server = Server::new(&mut poll, SERVERCONNECTION, MAXCONNECTIONS).ok()?;
 
         Some(Self {
-            players: RefCell::new(slab::Slab::new()),
+            //we will just comment it out for now as we go along and remove later.
+            //players: RefCell::new(slab::Slab::new()),
             npcs: RefCell::new(slab::Slab::new()),
             player_ids: RefCell::new(IndexSet::default()),
             recv_ids: RefCell::new(IndexSet::default()),
@@ -65,32 +66,38 @@ impl Storage {
         })
     }
 
-    pub fn add_npc(&self, npc: Npc) -> usize {
+    pub fn add_npc(&self, world: &mut hecs::World, npc: Npc) -> usize {
         let mut npcs = self.npcs.borrow_mut();
         let id = npcs.insert(RefCell::new(npc));
         let npc = npcs.get_mut(id).unwrap();
 
-        npc.borrow_mut().e.etype = EntityType::Npc(id as u64);
-        self.npc_ids.borrow_mut().insert(id);
+        //npc.borrow_mut().e.etype = EntityType::Npc(id as u64);
+        // self.npc_ids.borrow_mut().insert(id);
         id
     }
 
-    pub fn remove_npc(&self, id: usize) -> Option<Npc> {
+    pub fn remove_npc(&self, world: &mut hecs::World, id: usize) -> Option<Npc> {
         if !self.npcs.borrow().contains(id) {
             return None;
         }
 
         let removed = self.npcs.borrow_mut().remove(id).into_inner();
-        self.npc_ids.borrow_mut().remove(&id);
+        //self.npc_ids.borrow_mut().remove(&id);
 
-        self.maps
-            .get(&removed.e.pos.map)?
-            .borrow_mut()
-            .remove_entity_from_grid(removed.e.pos);
+        /*self.maps
+        .get(&removed.e.pos.map)?
+        .borrow_mut()
+        .remove_entity_from_grid(removed.e.pos);*/
         Some(removed)
     }
 
-    pub fn add_player(&self, player: Player) -> usize {
+    //lets just add the starter parts this will help use change player data around later if they where booted due to
+    //bad connection but reconnected right away. this should help prevent login issues due to account is still logged in.
+    pub fn add_player(&self, world: &mut hecs::World, id: usize, addr: String) -> Result<Entity> {
+        let socket = Socket::new(id, addr)?;
+
+        let identity = world.spawn((WorldEntityType::Player, socket, OnlineType::Accepted));
+
         let mut players = self.players.borrow_mut();
         let id = players.insert(RefCell::new(player));
         let playerref = players.get_mut(id).unwrap();
