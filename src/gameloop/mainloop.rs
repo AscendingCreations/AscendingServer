@@ -3,8 +3,9 @@ use crate::{
     time_ext::MyInstant,
 };
 use chrono::Duration;
+use hecs::{Entity, World};
 
-pub fn game_loop(world: &Storage) {
+pub fn game_loop(world: &mut World, storage: &Storage) {
     let mut tick: MyInstant;
     let mut tmr100: MyInstant = MyInstant::now();
     let mut tmr500: MyInstant = MyInstant::now();

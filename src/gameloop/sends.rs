@@ -1,5 +1,5 @@
 use crate::{containers::Storage, gametypes::*, players::*, socket::*, tasks::*};
-use bytey::ByteBuffer;
+use bytey::byte;
 use unwrap_helpers::*;
 
 #[inline]

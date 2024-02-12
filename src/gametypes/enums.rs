@@ -118,6 +118,27 @@ impl AIBehavior {
     }
 }
 
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    PartialEq,
+    Eq,
+    Default,
+    Deserialize,
+    Serialize,
+    ByteBufferRead,
+    ByteBufferWrite,
+)]
+// Used to seperate Entity data within Hecs World.
+pub enum WorldEntityType {
+    #[default]
+    None,
+    Player,
+    Npc,
+    Map,
+}
+
 //used to pass and to Target Entity's
 #[derive(
     Copy,
@@ -134,7 +155,7 @@ impl AIBehavior {
 pub enum EntityType {
     #[default]
     None,
-    Player(u64, i64), //ArrID, AccID used for comparison if still same player.
+    Player(Entity, i64), //ArrID, AccID used for comparison if still same player.
     Npc(u64),
     Map(Position),
 }
@@ -481,11 +502,11 @@ impl IsUsingType {
 )]
 #[repr(u8)]
 pub enum DeathType {
+    #[default]
     Alive,
     Spirit,
     Dead,
     UnSpawned,
-    #[default]
     Spawning,
 }
 

@@ -3,48 +3,84 @@ use crate::{
 };
 use unwrap_helpers::*;
 
+#[derive(Clone, Debug)]
+pub struct Socket {
+    // IP address
+    pub addr: String,
+    // Socket ID
+    pub socket_id: usize,
+    // Packet Buffer
+    // #[derivative(Default(value = "ByteBuffer::with_capacity(8192).unwrap()"))]
+    pub buffer: ByteBuffer,
+}
+
+impl Socket {
+    #[inline(always)]
+    pub fn new(socket_id: usize, addr: String) -> Result<Self> {
+        Ok(Self {
+            socket_id,
+            addr,
+            buffer: ByteBuffer::with_capacity(8192)?,
+        })
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct Account {
+    pub name: String,
+    pub passresetcode: Option<String>,
+    pub id: i64,
+}
+
+#[derive(Clone, Debug, Derivative)]
+pub struct PlayerItemTimer {
+    #[derivative(Default(value = "MyInstant::now()"))]
+    pub itemtimer: MyInstant,
+}
+
+#[derive(Clone, Debug, Derivative)]
+pub struct PlayerMapTimer {
+    #[derivative(Default(value = "MyInstant::now()"))]
+    pub mapitemtimer: MyInstant,
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct Inventory {
+    pub items: Vec<Item>,
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct Equipment {
+    pub items: Vec<Item>,
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct Sprite {
+    pub id: u32,
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct Money {
+    pub vals: u64,
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct MapSwitchTasks {
+    pub tasks: Vec<usize>,
+}
+
 #[derive(Clone, Debug, Derivative)]
 #[derivative(Default)]
 pub struct Player {
-    pub e: Entity,
-    pub name: String,
-    pub addr: String,
-    pub passresetcode: Option<String>,
-    pub accid: i64,
     pub levelexp: u64,
-    pub vals: u64,
-    pub socket_id: usize,
     pub useditemid: u32,
-    #[derivative(Default(value = "MyInstant::now()"))]
-    pub itemtimer: MyInstant,
-    #[derivative(Default(value = "MyInstant::now()"))]
-    pub mapitemtimer: MyInstant,
-    pub access: UserAccess,
-    pub using: IsUsingType,
-    pub status: OnlineType,
-    #[derivative(Default(value = "ByteBuffer::with_capacity(8192).unwrap()"))]
-    pub buffer: ByteBuffer,
-    #[derivative(Default(value = "[Item::default(); MAX_INV]"))]
-    pub inv: [Item; MAX_INV],
-    pub equip: [Item; EQUIPMENT_TYPE_MAX],
     pub resetcount: i16,
-    pub sprite: u8,
     pub pvpon: bool,
     pub pk: bool,
     pub movesavecount: u16,
-    pub map_switch_tasks: Vec<usize>,
 }
 
-impl Player {
-    #[inline(always)]
-    pub fn new(socket_id: usize, addr: String) -> Self {
-        Self {
-            socket_id,
-            addr,
-            ..Default::default()
-        }
-    }
-
+/*impl Player {
     #[inline(always)]
     pub fn set_dir(&mut self, world: &Storage, dir: u8) {
         if self.e.dir != dir {
@@ -121,8 +157,9 @@ impl Player {
         self.e.vital[VitalTypes::Hp as usize] =
             self.e.vital[VitalTypes::Hp as usize].saturating_sub(damage);
     }
-}
+}*/
 
+/* 
 #[inline]
 pub fn give_vals(world: &Storage, user: &mut Player, amount: u64) -> u64 {
     let rem = u64::MAX.saturating_sub(user.vals);
@@ -170,4 +207,4 @@ pub fn take_vals(world: &Storage, user: &mut Player, amount: u64) {
         format!("You Lost {} Vals.", cur),
         FtlType::Money,
     );
-}
+}*/

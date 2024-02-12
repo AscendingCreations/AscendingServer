@@ -30,6 +30,7 @@ use containers::Storage;
 //use bytey::ByteBuffer;
 //use bytey::{ByteBufferRead, ByteBufferWrite};
 //use time_ext::{MyDuration, MyInstant};
+use hecs::World;
 
 #[macro_use]
 extern crate diesel;
@@ -41,12 +42,14 @@ fn read_line() -> String {
 }
 
 fn main() {
-    let world = match Storage::new() {
+    let storage = match Storage::new() {
         Some(n) => n,
         None => return,
     };
 
-    game_loop(&world);
+    let mut world = World::new();
+
+    game_loop(&mut world, &storage);
     println!("done. Press enter to exit program.");
 
     let _ret = read_line();
