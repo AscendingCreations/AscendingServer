@@ -68,7 +68,7 @@ impl SocketPollState {
 pub struct Client {
     pub stream: TcpStream,
     pub token: mio::Token,
-    pub playerid: usize,
+    pub playerid: Entity,
     pub state: ClientState,
     pub sends: Vec<ByteBuffer>,
     pub poll_state: SocketPollState,

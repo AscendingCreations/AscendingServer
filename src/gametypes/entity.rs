@@ -2,6 +2,7 @@ use bytey::{ByteBufferError, ByteBufferRead, ByteBufferWrite};
 use serde::{Deserialize, Serialize};
 
 use crate::{gametypes::*, time_ext::MyInstant};
+use std::ops::{Deref, DerefMut};
 
 #[derive(Derivative, Debug, Clone, PartialEq, Eq)]
 #[derivative(Default)]
@@ -83,9 +84,25 @@ pub struct Attacking(pub bool);
 #[derivative(Default)]
 pub struct Level(#[derivative(Default(value = "1"))] pub i32);
 
-//shared data between player and npc
+//the World ID stored in our own Wrapper for Packet sending etc.
+//This will help ensure we dont try to deal with outdated stuff if we use
+// the entire ID rather than just its internal ID.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Deserialize, Serialize)]
 pub struct Entity(pub hecs::Entity);
+
+impl Deref for Entity {
+    type Target = hecs::Entity;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for Entity {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
 
 /*
 pub etype: EntityType,
