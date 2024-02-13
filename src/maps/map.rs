@@ -44,7 +44,7 @@ pub struct MapData {
     //updated data for map seperate from Map itself as base should be Readonly / clone.
     pub itemids: IndexSet<usize>,
     pub npcs: IndexSet<usize>,
-    pub players: IndexSet<usize>,
+    pub players: IndexSet<Entity>,
     #[derivative(Default(value = "slab::Slab::with_capacity(16)"))]
     pub items: slab::Slab<MapItem>,
     pub zones: [u64; 5], //contains the NPC spawn Count of each Zone.
@@ -89,7 +89,7 @@ impl MapData {
         self.move_grid[pos.as_tile()].1 = true;
     }
 
-    pub fn add_player(&mut self, world: &mut hecs::World, storage: &Storage, id: usize) {
+    pub fn add_player(&mut self, world: &mut hecs::World, storage: &Storage, id: Entity) {
         self.players.insert(id);
 
         for i in self.get_surrounding(true) {
@@ -107,12 +107,13 @@ impl MapData {
         self.npcs.insert(id);
     }
 
-    pub fn remove_player(&mut self, world: &mut hecs::World, storage: &Storage, id: usize) {
-        self.players.remove(&id);
+    pub fn remove_player(&mut self, world: &mut hecs::World, storage: &Storage, id: Entity) {
+        self.players.swap_remove(&id);
 
+        //we set the surrounding maps to have players on them if the player is within 1 map of them.
         for i in self.get_surrounding(true) {
             if i != self.position {
-                unwrap_continue!(world.maps.get(&i))
+                unwrap_continue!(storage.maps.get(&i))
                     .borrow_mut()
                     .players_on_map -= 1;
             }

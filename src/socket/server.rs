@@ -53,13 +53,15 @@ impl Server {
             if let Some(token) = token {
                 /* We got a unique token, now let's register the new connection. */
                 let mut client = Client::new(stream, token);
-                client.register(&world.poll.borrow_mut())?;
+                client.register(&storage.poll.borrow_mut())?;
 
-                client.playerid =
-                    unwrap_or_return!(accept_connection(token.0, addr.to_string(), world), || {
+                client.playerid = unwrap_or_return!(
+                    accept_connection(token.0, addr.to_string(), world, storage),
+                    || {
                         drop(client.stream);
                         Ok(())
-                    });
+                    }
+                );
 
                 self.clients.insert(token, RefCell::new(client));
             } else {

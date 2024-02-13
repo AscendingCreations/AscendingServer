@@ -35,6 +35,7 @@ pub const MAX_TILE: usize = MAP_MAX_X * MAP_MAX_Y - 1;
 pub const MAX_NPCS: usize = 1000;
 pub const MAX_ITEMS: usize = 2000;
 pub const MAX_PLAYERS: usize = 1000;
+pub const MAX_SOCKET_PLAYERS: usize = 2000;
 
 pub const MAX_WORLD_NPCS: usize = 100_000;
 pub const NPCS_SPAWNCAP: usize = 10;

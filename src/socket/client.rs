@@ -261,9 +261,9 @@ impl Client {
 }
 
 #[inline]
-pub fn disconnect(playerid: usize, world: &mut hecs::World, storage: &Storage) {
-    if let Some(player) = world.remove_player(playerid) {
-        if let Some(map) = world.maps.get(&player.e.pos.map) {
+pub fn disconnect(playerid: Entity, world: &mut hecs::World, storage: &Storage) {
+    if let Some((socket, position)) = storage.remove_player(world, playerid) {
+        if let Some(map) = storage.maps.get(&position.map) {
             map.borrow_mut().remove_player(world, playerid);
             //todo Add save for player world here.
             //todo Add Update Players on map here.
@@ -278,11 +278,11 @@ pub fn accept_connection(
     world: &mut hecs::World,
     storage: &Storage,
 ) -> Option<Entity> {
-    if storage.player_ids.borrow().len() + 1 >= MAX_PLAYERS {
+    if storage.player_ids.borrow().len() + 1 >= MAX_SOCKET_PLAYERS {
         return None;
     }
 
-    storage.add_player(world, socketid, addr).ok()
+    storage.add_empty_player(world, socketid, addr).ok()
 }
 
 #[inline]
