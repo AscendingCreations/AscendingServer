@@ -93,35 +93,52 @@ impl Storage {
 
     //lets just add the starter parts this will help use change player data around later if they where booted due to
     //bad connection but reconnected right away. this should help prevent login issues due to account is still logged in.
-    pub fn add_player(&self, world: &mut hecs::World, id: usize, addr: String) -> Result<Entity> {
+    /*pub fn add_player(&self, world: &mut hecs::World, id: usize, addr: String) -> Result<Entity> {
         let socket = Socket::new(id, addr)?;
 
         let identity = world.spawn((WorldEntityType::Player, socket, OnlineType::Accepted));
+        world.insert(identity, (EntityType::Player(Entity(identity), 0)))
 
-        let mut players = self.players.borrow_mut();
-        let id = players.insert(RefCell::new(player));
-        let playerref = players.get_mut(id).unwrap();
-        let mut player = playerref.borrow_mut();
 
-        player.e.etype = EntityType::Player(id as u64, player.accid);
+        player.e.etype = EntityType::Player(Entity(identity), 0);
         self.player_names
             .borrow_mut()
             .insert(player.name.clone(), id);
         self.player_ids.borrow_mut().insert(id);
         id
+    }*/
+
+    pub fn add_empty_player(
+        &self,
+        world: &mut hecs::World,
+        id: usize,
+        addr: String,
+    ) -> Result<Entity> {
+        let socket = Socket::new(id, addr)?;
+
+        let identity = world.spawn((
+            WorldEntityType::Player,
+            socket,
+            OnlineType::Accepted,
+            Position::default(),
+        ));
+        world.insert_one(identity, EntityType::Player(Entity(identity), 0));
+
+        Ok(Entity(identity))
     }
 
-    pub fn remove_player(&self, id: usize) -> Option<Player> {
-        if !self.players.borrow().contains(id) {
-            return None;
+    pub fn remove_player(&self, world: &mut hecs::World, id: Entity) -> Option<(Socket, Position)> {
+        // only removes the Components in the Fisbone ::<>
+        let ret = world.remove::<(Socket, Position)>(id.0).ok();
+        let account = world.remove::<(Account,)>(id.0).ok();
+        //Removes Everything related to the Entity.
+        world.despawn(id.0);
+
+        if let Some((account,)) = account {
+            self.player_names.borrow_mut().remove(&account.name);
         }
 
-        let removed = self.players.borrow_mut().remove(id);
-        let _oldid = self
-            .player_names
-            .borrow_mut()
-            .remove(&removed.borrow_mut().name);
-        self.player_ids.borrow_mut().remove(&id);
-        Some(removed.into_inner())
+        self.player_ids.borrow_mut().swap_remove(&id);
+        ret
     }
 }

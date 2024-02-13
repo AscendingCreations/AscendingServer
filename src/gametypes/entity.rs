@@ -87,7 +87,7 @@ pub struct Level(#[derivative(Default(value = "1"))] pub i32);
 //the World ID stored in our own Wrapper for Packet sending etc.
 //This will help ensure we dont try to deal with outdated stuff if we use
 // the entire ID rather than just its internal ID.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Deserialize, Serialize, Hash)]
 pub struct Entity(pub hecs::Entity);
 
 impl Deref for Entity {

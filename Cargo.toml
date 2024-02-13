@@ -26,7 +26,7 @@ serde-big-array = "0.5.1"
 bit_op = "0.1.1"
 rand = "0.8.5"
 unwrap_helpers = "0.3"
-bytey = {version = "0.3.0", git = "https://github.com/Stefanowhb/bytey.git", branch = "nonnull"}
+bytey = {version = "0.3.0", git = "https://github.com/Stefanowhb/bytey.git"}
 indexmap = "2.2.2"
 ritehash = "0.2.0" #FXHash for maps
 byteorder = { version = "1.5.0", default-features = false }

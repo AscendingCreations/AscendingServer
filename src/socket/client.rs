@@ -282,7 +282,7 @@ pub fn accept_connection(
         return None;
     }
 
-    Some(storage.add_player(world, socketid, addr))
+    storage.add_player(world, socketid, addr).ok()
 }
 
 #[inline]
