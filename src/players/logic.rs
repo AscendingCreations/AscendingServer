@@ -4,261 +4,357 @@ use crate::{
 use chrono::Duration;
 use std::cmp;
 
-pub fn update_players(world: &Storage) {
-    let tick = *world.gettick.borrow();
+use hecs::World;
 
-    for i in &*world.player_ids.borrow() {
-        if let Some(player) = world.players.borrow().get(*i) {
-            let mut player = player.borrow_mut();
+pub fn update_players(world: &mut World, storage: &Storage) {
+    let tick = *storage.gettick.borrow();
 
-            if player.e.life.is_spirit() {
-                //timers
-                if player.e.deathtimer < tick {
-                    player.e.life = DeathType::Alive;
-                    let _ = send_life_status(world, &player, true);
-                    let spawn = player.e.spawn;
-                    let dir = player.e.dir;
+    for (entity, (_, 
+            (deathtimer, 
+            life, 
+            dir, 
+            spawn,
+            killcount,
+            vitals))) in world
+        .query::<((&WorldEntityType, &OnlineType), 
+            (&DeathTimer, 
+            &mut DeathType, 
+            &Dir, 
+            &Spawn,
+            &mut KillCount,
+            &mut Vitals))>()
+        .iter()
+        .filter(|(_entity, 
+            ((worldentitytype, onlinetype), _))| {
+            **worldentitytype == WorldEntityType::Player && **onlinetype == OnlineType::Online
+        })
+    {
+        if *life == DeathType::Spirit {
+            //timers
+            if *deathtimer.0 < tick {
+                *life = DeathType::Alive;
+                let _ = send_life_status(world, &Entity(entity), true);
+                player_warp(world, storage, &Entity(entity), &spawn.pos, dir.0);
 
-                    player.warp(world, spawn, dir);
-
-                    //lets heal them fully on revival.
-                    for i in 0..VITALS_MAX {
-                        player.e.vital[i] = player.e.vitalmax[i];
-                    }
-
-                    //todo: party stuff here
+                //lets heal them fully on revival.
+                for i in 0..VITALS_MAX {
+                    vitals.vital[i] = vitals.vitalmax[i];
                 }
 
-                //remove kill count after a while this is used to cut experiance from campers.
-                if player.e.killcount > 0 && player.e.killcounttimer < tick {
-                    player.e.killcount = 0;
-                }
+                //todo: party stuff here
+            }
+
+            if killcount.count > 0 && killcount.killcounttimer < tick {
+                killcount.count = 0;
             }
         }
     }
 }
 
-impl Player {
-    //TODO: Add Result<(), AscendingError> to all Functions that return nothing.
-    pub fn warp(&mut self, world: &mut hecs::World, storage: &Storage, new_pos: Position, dir: u8) {
-        self.e.dir = dir;
+//TODO: Add Result<(), AscendingError> to all Functions that return nothing.
+pub fn player_warp(world: &mut hecs::World, storage: &Storage, player: &Entity, new_pos: &Position, dir: u8) {
+    if let Ok(mut result) = 
+        world.query_one::<(
+            &mut Dir,
+            &mut Spawn,
+            &mut Player)>(player.0) {
+        if let Some((player_dir,
+            player_spawn,
+            player_data)) = result.get() {
+        
+            player_dir.0 = dir;
 
-        if self.e.pos.map != new_pos.map {
-            let oldpos = self.switch_maps(world, new_pos);
-            let _ = DataTaskToken::PlayerMove(oldpos.map).add_task(
-                world,
-                &MovePacket::new(self.e.get_id() as u64, new_pos, true, false, self.e.dir),
-            );
-            let _ = DataTaskToken::PlayerMove(new_pos.map).add_task(
-                world,
-                &MovePacket::new(self.e.get_id() as u64, new_pos, true, false, self.e.dir),
-            );
-            let _ = DataTaskToken::PlayerSpawn(new_pos.map)
-                .add_task(world, &PlayerSpawnPacket::new(self));
-            init_data_lists(world, self, oldpos.map);
-            //send_weather();
-        } else {
-            self.swap_pos(world, new_pos);
-            let _ = DataTaskToken::PlayerMove(new_pos.map).add_task(
-                world,
-                &MovePacket::new(self.e.get_id() as u64, new_pos, false, false, self.e.dir),
-            );
-        }
-
-        self.movesavecount += 1;
-
-        if self.movesavecount >= 25 {
-            let _ = update_pos(&mut world.pgconn.borrow_mut(), self);
-            self.movesavecount = 0;
-        }
-    }
-
-    pub fn movement(&mut self, world: &mut hecs::World, storage: &Storage, dir: u8) -> bool {
-        let adj = [(0, -1), (1, 0), (0, 1), (-1, 0)];
-        let mut new_pos = Position::new(
-            self.e.pos.x + adj[dir as usize].0,
-            self.e.pos.y + adj[dir as usize].1,
-            self.e.pos.map,
-        );
-
-        self.e.dir = dir;
-
-        if !new_pos.update_pos_map(world) {
-            self.warp(world, self.e.pos, dir);
-            return false;
-        }
-
-        if map_path_blocked(world, self.e.pos, new_pos, dir) {
-            self.warp(world, self.e.pos, dir);
-            return false;
-        }
-
-        //TODO: Process Tile step actions here
-
-        self.movesavecount += 1;
-
-        if self.movesavecount >= 25 {
-            let _ = update_pos(&mut world.pgconn.borrow_mut(), self);
-            self.movesavecount = 0;
-        }
-
-        if new_pos.map != self.e.pos.map {
-            let oldpos = self.switch_maps(world, new_pos);
-            let _ = DataTaskToken::PlayerMove(oldpos.map).add_task(
-                world,
-                &MovePacket::new(self.e.get_id() as u64, new_pos, false, true, self.e.dir),
-            );
-            let _ = DataTaskToken::PlayerMove(new_pos.map).add_task(
-                world,
-                &MovePacket::new(self.e.get_id() as u64, new_pos, false, true, self.e.dir),
-            );
-            let _ = DataTaskToken::PlayerSpawn(new_pos.map)
-                .add_task(world, &PlayerSpawnPacket::new(self));
-
-            init_data_lists(world, self, oldpos.map);
-        } else {
-            self.swap_pos(world, new_pos);
-            let _ = DataTaskToken::PlayerMove(self.e.pos.map).add_task(
-                world,
-                &MovePacket::new(self.e.get_id() as u64, self.e.pos, false, false, self.e.dir),
-            );
-        }
-
-        true
-    }
-
-    pub fn earn_exp(
-        &mut self,
-        world: &mut hecs::World,
-        storage: &Storage,
-        victimlevel: i32,
-        expval: i64,
-        spercent: f64,
-    ) {
-        let mut giveexp = expval;
-
-        if self.e.level >= MAX_LVL as i32 || expval == 0 {
-            return;
-        }
-
-        giveexp = (giveexp as f64 * spercent) as i64;
-
-        self.e.incombat = true;
-        self.e.combattimer = *world.gettick.borrow() + Duration::milliseconds(2000);
-
-        let leveldifference = victimlevel - self.e.level;
-
-        if (1..=5).contains(&leveldifference) {
-            giveexp = (giveexp as f64 * 1.1) as i64;
-        } else if leveldifference <= -1 {
-            giveexp += (giveexp as f64 * (leveldifference as f64 * 0.1)) as i64;
-        }
-
-        self.levelexp += cmp::max(giveexp, 1) as u64;
-
-        while self.levelexp >= self.get_next_lvl_exp() && self.e.level != MAX_LVL as i32 {
-            self.e.level += 1;
-            self.levelexp = self.levelexp.saturating_sub(self.get_next_lvl_exp());
-            self.e.vitalmax[VitalTypes::Hp as usize] = self.calc_max_hp();
-            self.e.vitalmax[VitalTypes::Mp as usize] = self.calc_max_mp();
-
-            for i in 0..VitalTypes::Count as usize {
-                self.e.vital[i] = self.e.add_up_vital(i);
+            if player_spawn.pos.map != new_pos.map {
+                let old_pos = player_switch_maps(world, storage, player, new_pos.clone());
+                let _ = DataTaskToken::PlayerMove(old_pos.map).add_task(
+                    world, storage, 
+                    &MovePacket::new(player, new_pos, true, false, player_dir.0),
+                );
+                let _ = DataTaskToken::PlayerMove(new_pos.map).add_task(
+                    world, storage, 
+                    &MovePacket::new(player, new_pos, true, false, player_dir.0),
+                );
+                let _ = DataTaskToken::PlayerSpawn(new_pos.map)
+                    .add_task(world, storage,
+                        &PlayerSpawnPacket::new(player));
+                init_data_lists(world, storage, player, old_pos.map);
+                //send_weather();
+            } else {
+                player_swap_pos(world, storage, player, new_pos.clone());
+                let _ = DataTaskToken::PlayerMove(new_pos.map).add_task(
+                    world, storage, 
+                    &MovePacket::new(player, new_pos, false, false, player_dir.0),
+                );
             }
 
-            let _ = send_fltalert(world, self.socket_id, "Level Up!.".into(), FtlType::Level);
-        }
-
-        let _ = send_vitals(world, self);
-        let _ = send_level(world, self);
-        let _ = DataTaskToken::PlayerVitals(self.e.pos.map).add_task(
-            world,
-            &VitalsPacket::new(self.e.get_id() as u64, self.e.vital, self.e.vitalmax),
-        );
-        let _ = update_level(&mut world.pgconn.borrow_mut(), self);
-    }
-
-    pub fn get_next_lvl_exp(&self) -> u64 {
-        let exp_per_level = match self.e.level {
-            1..=10 => 100,
-            11..=20 => 250,
-            21..=30 => 400,
-            31..=40 => 550,
-            41..=50 => 700,
-            51..=60 => 850,
-            61..=70 => 1000,
-            71..=80 => 1150,
-            81..=90 => 1300,
-            91..=100 => 1450,
-            101..=120 => 2000,
-            121..=150 => 3000,
-            151..=199 => 4000,
-            _ => 0,
-        };
-
-        self.e.level as u64 * exp_per_level as u64
-    }
-
-    pub fn calc_max_hp(&self) -> i32 {
-        self.e.level * 25
-    }
-
-    pub fn calc_max_mp(&self) -> i32 {
-        self.e.level * 25
-    }
-
-    pub fn get_weapon_damage(&self, world: &mut hecs::World, storage: &Storage) -> (i16, i16) {
-        let mut dmg = (0, 0);
-
-        if self.equip[EquipmentType::Weapon as usize].val > 0 {
-            if let Some(item) = world
-                .bases
-                .items
-                .get(self.equip[EquipmentType::Weapon as usize].num as usize)
-            {
-                dmg = (item.data[0], item.data[1]);
+            player_data.movesavecount += 1;
+            if player_data.movesavecount >= 25 {
+                let _ = update_pos(&mut storage.pgconn.borrow_mut(), player);
+                player_data.movesavecount = 0;
             }
         }
-
-        dmg
     }
+}
 
-    pub fn get_armor_defense(&self, world: &mut hecs::World, storage: &Storage) -> (i16, i16) {
-        let mut defense = (0i16, 0i16);
+pub fn player_movement(world: &mut hecs::World, storage: &Storage, player: &Entity, dir: u8) -> bool {
+    if let Ok(mut result) = 
+        world.query_one::<(
+            &mut Dir,
+            &mut Spawn,
+            &mut Player)>(player.0) {
+        if let Some((player_dir,
+            player_spawn,
+            player_data)) = result.get() {
+            
+            let adj = [(0, -1), (1, 0), (0, 1), (-1, 0)];
+            let mut new_pos = Position::new(
+                player_spawn.pos.x + adj[dir as usize].0,
+                player_spawn.pos.y + adj[dir as usize].1,
+                player_spawn.pos.map,
+            );
 
-        for i in EquipmentType::Helmet as usize..=EquipmentType::Accessory2 as usize {
-            if let Some(item) = world.bases.items.get(self.equip[i].num as usize) {
-                defense.0 = defense.0.saturating_add(item.data[0]);
-                defense.1 = defense.1.saturating_add(item.data[1]);
+            player_dir.0 = dir;
+
+            if !new_pos.update_pos_map(world, storage) {
+                player_warp(world, storage, player, &player_spawn.pos, dir);
+                return false;
             }
+
+            if map_path_blocked(storage, player_spawn.pos, new_pos, dir) {
+                player_warp(world, storage, player, &player_spawn.pos, dir);
+                return false;
+            }
+
+            //TODO: Process Tile step actions here
+
+            player_data.movesavecount += 1;
+
+            if player_data.movesavecount >= 25 {
+                let _ = update_pos(&mut storage.pgconn.borrow_mut(), player);
+                player_data.movesavecount = 0;
+            }
+
+            if new_pos.map != player_spawn.pos.map {
+                let oldpos = player_switch_maps(world, storage, player, new_pos);
+                let _ = DataTaskToken::PlayerMove(oldpos.map).add_task(
+                    world, storage,
+                    &MovePacket::new(player, new_pos, false, true, player_dir.0),
+                );
+                let _ = DataTaskToken::PlayerMove(new_pos.map).add_task(
+                    world, storage,
+                    &MovePacket::new(player, new_pos, false, true, player_dir.0),
+                );
+                let _ = DataTaskToken::PlayerSpawn(new_pos.map)
+                    .add_task(world, storage, &PlayerSpawnPacket::new(player));
+
+                init_data_lists(world, storage, player, oldpos.map);
+            } else {
+                player_swap_pos(world, storage, player, new_pos);
+                let _ = DataTaskToken::PlayerMove(player_spawn.pos.map).add_task(
+                    world, storage, 
+                    &MovePacket::new(player, player_spawn.pos, false, false, player_dir.0),
+                );
+            }
+
+            return true;
         }
-
-        defense
     }
+    false
+}
 
-    pub fn repair_equipment(
-        &mut self,
-        world: &mut hecs::World,
-        storage: &Storage,
-        slot: usize,
-        repair_per: f32,
-    ) {
-        if let Some(item) = world.bases.items.get(self.equip[slot].num as usize) {
-            if !item.repairable || self.equip[slot].data[0] == self.equip[slot].data[1] {
+pub fn player_earn_exp(
+    world: &mut hecs::World,
+    storage: &Storage,
+    player: &Entity,
+    victimlevel: i32,
+    expval: i64,
+    spercent: f64,
+) {
+    if let Ok(mut result) = 
+        world.query_one::<(
+            &mut Vitals,
+            &mut Player,
+            &mut Spawn,
+            &mut Level,
+            &mut Combat,
+            &mut InCombat,
+            &Socket,)>(player.0) {
+        if let Some((player_vital,
+            player_data,
+            player_spawn,
+            player_level,
+            combat_timer,
+            in_combat,
+            Socket,)) = result.get() {
+            
+            let mut giveexp = expval;
+
+            if player_level.0 >= MAX_LVL as i32 || expval == 0 {
                 return;
             }
 
-            let repair_amount = (self.equip[slot].data[0] as f32 * repair_per) as i16;
-            let repair_amount = cmp::min(
-                repair_amount,
-                self.equip[slot].data[0] - self.equip[slot].data[1],
+            giveexp = (giveexp as f64 * spercent) as i64;
+
+            in_combat.0 = true;
+            combat_timer.0 = *storage.gettick.borrow() + Duration::milliseconds(2000);
+
+            let leveldifference = victimlevel - player_level.0;
+
+            if (1..=5).contains(&leveldifference) {
+                giveexp = (giveexp as f64 * 1.1) as i64;
+            } else if leveldifference <= -1 {
+                giveexp += (giveexp as f64 * (leveldifference as f64 * 0.1)) as i64;
+            }
+
+            player_data.levelexp += cmp::max(giveexp, 1) as u64;
+
+            while player_data.levelexp >= player_get_next_lvl_exp(world, player) && player_level.0 != MAX_LVL as i32 {
+                player_level.0 += 1;
+                player_data.levelexp = player_data.levelexp.saturating_sub(player_get_next_lvl_exp(world, player));
+                player_vital.vitalmax[VitalTypes::Hp as usize] = player_calc_max_hp(world, player);
+                player_vital.vitalmax[VitalTypes::Mp as usize] = player_calc_max_mp(world, player);
+
+                for i in 0..VitalTypes::Count as usize {
+                    player_vital.vital[i] = player_add_up_vital(world, player, i);
+                }
+
+                let _ = send_fltalert(storage, Socket.id, "Level Up!.".into(), FtlType::Level);
+            }
+
+            let _ = send_vitals(world, player);
+            let _ = send_level(world, player);
+            let _ = DataTaskToken::PlayerVitals(player_spawn.pos.map).add_task(
+                world, storage,
+                &VitalsPacket::new(player, player_vital.vital, player_vital.vitalmax),
             );
+            let _ = update_level(&mut storage.pgconn.borrow_mut(), player);
+        }
+    }
+}
 
-            self.equip[slot].data[0] = self.equip[slot].data[0].saturating_add(repair_amount);
-            //TODO: CalculateStats();
+pub fn player_get_next_lvl_exp(world: &mut hecs::World, player: &Entity) -> u64 {
+    if let Ok(mut result) = 
+        world.query_one::<&Level>(player.0) {
+        if let Some(player_level) = result.get() {
+            let exp_per_level = match player_level.0 {
+                1..=10 => 100,
+                11..=20 => 250,
+                21..=30 => 400,
+                31..=40 => 550,
+                41..=50 => 700,
+                51..=60 => 850,
+                61..=70 => 1000,
+                71..=80 => 1150,
+                81..=90 => 1300,
+                91..=100 => 1450,
+                101..=120 => 2000,
+                121..=150 => 3000,
+                151..=199 => 4000,
+                _ => 0,
+            };
+        
+            return player_level.0 as u64 * exp_per_level as u64
+        }
+    }
+    0
+}
 
-            let _ = send_equipment(world, self);
-            let _ = update_equipment(&mut world.pgconn.borrow_mut(), self, slot);
+pub fn player_calc_max_hp(world: &mut hecs::World, player: &Entity) -> i32 {
+    if let Ok(mut result) = 
+        world.query_one::<&Level>(player.0) {
+        if let Some(player_level) = result.get() {
+            return player_level.0 * 25;
+        }
+    }
+    0
+}
+
+pub fn player_calc_max_mp(world: &mut hecs::World, player: &Entity) -> i32 {
+    if let Ok(mut result) = 
+        world.query_one::<&Level>(player.0) {
+        if let Some(player_level) = result.get() {
+            return player_level.0 * 25;
+        }
+    }
+    0
+}
+
+pub fn player_get_weapon_damage(world: &mut hecs::World, storage: &Storage, player: &Entity) -> (i16, i16) {
+    if let Ok(mut result) = 
+        world.query_one::<&mut Equipment>(player.0) {
+        if let Some(player_equipment) = result.get() {
+            
+            let mut dmg = (0, 0);
+
+            if player_equipment.items[EquipmentType::Weapon as usize].val > 0 {
+                if let Some(item) = storage
+                    .bases
+                    .items
+                    .get(player_equipment.items[EquipmentType::Weapon as usize].num as usize)
+                {
+                    dmg = (item.data[0], item.data[1]);
+                }
+            }
+
+            return dmg;
+        }
+    }
+    (0, 0)
+}
+
+pub fn player_get_armor_defense(world: &mut hecs::World, storage: &Storage, player: &Entity) -> (i16, i16) {
+    if let Ok(mut result) = 
+        world.query_one::<&mut Equipment>(player.0) {
+        if let Some(player_equipment) = result.get() {
+
+            let mut defense = (0i16, 0i16);
+
+            for i in EquipmentType::Helmet as usize..=EquipmentType::Accessory2 as usize {
+                if let Some(item) = storage
+                    .bases
+                    .items
+                    .get(player_equipment.items[i].num as usize) {
+                    defense.0 = defense.0.saturating_add(item.data[0]);
+                    defense.1 = defense.1.saturating_add(item.data[1]);
+                }
+            }
+
+            return defense;
+        }
+    }
+    (0, 0)
+}
+
+pub fn player_repair_equipment(
+    world: &mut hecs::World,
+    storage: &Storage,
+    player: &Entity,
+    slot: usize,
+    repair_per: f32,
+) {
+    if let Ok(mut result) = 
+        world.query_one::<&mut Equipment>(player.0) {
+        if let Some(player_equipment) = result.get() {
+            if let Some(item) = storage
+                .bases
+                .items
+                .get(player_equipment.items[slot].num as usize) {
+                if !item.repairable || player_equipment.items[slot].data[0] == player_equipment.items[slot].data[1] {
+                    return;
+                }
+
+                let repair_amount = (player_equipment.items[slot].data[0] as f32 * repair_per) as i16;
+                let repair_amount = cmp::min(
+                    repair_amount,
+                    player_equipment.items[slot].data[0] - player_equipment.items[slot].data[1],
+                );
+
+                player_equipment.items[slot].data[0] = player_equipment.items[slot].data[0].saturating_add(repair_amount);
+                //TODO: CalculateStats();
+
+                let _ = send_equipment(world, self);
+                let _ = update_equipment(&mut storage.pgconn.borrow_mut(), player, slot);
+            }
         }
     }
 }

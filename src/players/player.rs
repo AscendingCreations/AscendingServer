@@ -82,6 +82,65 @@ pub struct Player {
     pub movesavecount: u16,
 }
 
+#[inline(always)]
+pub fn player_switch_maps(world: &mut hecs::World, storage: &Storage, player: &crate::Entity, new_pos: Position) -> Position {
+    if let Ok(mut result) = 
+        world.query_one::<&mut Spawn>(player.0) {
+        if let Some(player_spawn) = result.get() {
+            let old_spawn = player_spawn.clone();
+            let mut map = unwrap_or_return!(storage.maps.get(&player_spawn.pos.map), old_spawn.pos).borrow_mut();
+            map.remove_player(world, storage, *player);
+            map.remove_entity_from_grid(player_spawn.pos);
+
+            let mut map = unwrap_or_return!(storage.maps.get(&new_pos.map), old_spawn.pos).borrow_mut();
+            map.add_player(world, storage, *player);
+            map.add_entity_to_grid(new_pos);
+
+            player_spawn.pos = new_pos;
+            return old_spawn.pos;
+        }
+    }
+    Position::default()
+}
+
+#[inline(always)]
+pub fn player_swap_pos(world: &mut hecs::World, storage: &Storage, player: &crate::Entity, pos: Position) -> Position {
+    if let Ok(mut result) = 
+        world.query_one::<&mut Spawn>(player.0) {
+        if let Some(player_spawn) = result.get() {
+
+            let old_spawn = player_spawn.clone();
+
+            if old_spawn.pos != pos {
+                player_spawn.pos = pos;
+
+                let mut map = unwrap_or_return!(storage.maps.get(&old_spawn.pos.map), old_spawn.pos).borrow_mut();
+                map.remove_entity_from_grid(old_spawn.pos);
+                map.add_entity_to_grid(pos);
+            }
+
+            return old_spawn.pos;
+        }
+    }
+    Position::default()
+}
+
+pub fn player_add_up_vital(world: &mut hecs::World, player: &crate::Entity, vital: usize) -> i32 {
+    if let Ok(mut result) = 
+        world.query_one::<&mut Vitals>(player.0) {
+        if let Some(player_vital) = result.get() {
+            let hp = player_vital.vitalmax[vital].saturating_add(player_vital.vitalbuffs[vital]);
+
+            if hp.is_negative() || hp == 0 {
+                return 1;
+            } else {
+                return hp;
+            }
+        }
+    }
+    1
+}
+
 /*impl Player {
     #[inline(always)]
     pub fn set_dir(&mut self, world: &mut hecs::World, storage: &Storage, dir: u8) {

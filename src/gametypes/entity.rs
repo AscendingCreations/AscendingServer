@@ -84,6 +84,11 @@ pub struct Attacking(pub bool);
 #[derivative(Default)]
 pub struct Level(#[derivative(Default(value = "1"))] pub i32);
 
+#[derive(Derivative, Debug, Clone, PartialEq, Eq)]
+pub struct InCombat(pub bool);
+
+
+
 //the World ID stored in our own Wrapper for Packet sending etc.
 //This will help ensure we dont try to deal with outdated stuff if we use
 // the entire ID rather than just its internal ID.
@@ -106,7 +111,6 @@ impl DerefMut for Entity {
 
 /*
 pub etype: EntityType,
-    pub life: DeathType,
     pub mode: NpcMode, //Player is always None
 impl Entity {
     pub fn get_id(&self) -> usize {
@@ -116,16 +120,6 @@ impl Entity {
     pub fn reset_target(&mut self) {
         self.targettype = EntityType::None;
         self.targetpos = Position::default();
-    }
-
-    pub fn add_up_vital(&self, vital: usize) -> i32 {
-        let hp = self.vitalmax[vital].saturating_add(self.vitalbuffs[vital]);
-
-        if hp.is_negative() || hp == 0 {
-            1
-        } else {
-            hp
-        }
     }
 }*/
 

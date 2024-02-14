@@ -18,7 +18,7 @@ pub fn game_loop(world: &mut World, storage: &Storage) {
 
         if tick > tmr100 {
             update_npcs(world);
-            update_players(world);
+            update_players(world, storage);
             tmr100 = tick + Duration::milliseconds(100);
         }
 

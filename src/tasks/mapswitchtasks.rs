@@ -36,7 +36,7 @@ pub enum MapSwitchTasks {
     Items(MapSwitchTask),  //2
 }
 
-pub fn init_data_lists(world: &Storage, user: &mut Player, oldmap: MapPosition) {
+pub fn init_data_lists(world: &hecs::World, storage: &Storage, user: &Entity, oldmap: MapPosition) {
     //Remove old tasks and replace with new ones during map switching.
     while let Some(i) = user.map_switch_tasks.pop() {
         world.map_switch_tasks.borrow_mut().remove(i);

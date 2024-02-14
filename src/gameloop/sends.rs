@@ -1,6 +1,7 @@
 use crate::{containers::Storage, gametypes::*, players::*, socket::*, tasks::*};
 use bytey::byte;
 use unwrap_helpers::*;
+use hecs::World;
 
 #[inline]
 pub fn send_infomsg(
@@ -295,7 +296,7 @@ pub fn send_money(world: &Storage, user: &Player) -> Result<()> {
 }
 
 #[inline]
-pub fn send_life_status(world: &Storage, user: &Player, toself: bool) -> Result<()> {
+pub fn send_life_status(world: &World, user: &Entity, toself: bool) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(16)?;
     let closure = |toself, id| if toself { Some(id) } else { None };
 
