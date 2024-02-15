@@ -94,7 +94,7 @@ impl MapData {
 
         for i in self.get_surrounding(true) {
             if i != self.position {
-                unwrap_continue!(world.maps.get(&i))
+                unwrap_continue!(storage.maps.get(&i))
                     .borrow_mut()
                     .players_on_map += 1;
             }

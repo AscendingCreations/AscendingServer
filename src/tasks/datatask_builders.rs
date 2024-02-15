@@ -133,15 +133,15 @@ impl NpcSpawnPacket {
 }
 
 #[derive(
-    Clone, Debug, Default, Deserialize, Serialize, PartialEq, Eq, ByteBufferRead, ByteBufferWrite,
+    Clone, Debug, Deserialize, Serialize, PartialEq, Eq, ByteBufferRead, ByteBufferWrite,
 )]
 pub struct PlayerSpawnPacket {
     //Player global ID
-    pub id: u64,
+    pub id: crate::Entity,
     pub name: String,
     pub access: UserAccess,
     pub dir: u8,
-    pub equip: [Item; EQUIPMENT_TYPE_MAX],
+    pub equip: Equipment,
     pub hidden: bool,
     pub level: i32,
     pub life: DeathType,
@@ -156,24 +156,25 @@ pub struct PlayerSpawnPacket {
 }
 
 impl PlayerSpawnPacket {
-    pub fn new(player: &Player) -> Self {
+    pub fn new(world: &mut hecs::World, player: &Entity) -> Self {
+        let data = world.entity(player.0).expect("Could not get Entity");
         Self {
-            name: player.name.clone(),
-            dir: player.e.dir,
-            hidden: player.e.hidden,
-            id: player.e.etype.get_id() as u64,
-            level: player.e.level,
-            life: player.e.life,
-            pdamage: player.e.pdamage,
-            pdefense: player.e.pdefense,
-            position: player.e.pos,
-            sprite: player.sprite,
-            vital: player.e.vital,
-            vitalmax: player.e.vitalmax,
-            access: player.access,
-            equip: player.equip,
-            pk: player.pk,
-            pvpon: player.pvpon,
+            name: data.get::<&Account>().expect("Could not find Account").name.clone(),
+            dir: data.get::<&Dir>().expect("Could not find Dir").0,
+            hidden: data.get::<&Hidden>().expect("Could not find Hidden").0,
+            id: *player,
+            level: data.get::<&Level>().expect("Could not find Level").0,
+            life: *data.get::<&DeathType>().expect("Could not find DeathType"),
+            pdamage: data.get::<&Physical>().expect("Could not find Physical").damage,
+            pdefense: data.get::<&Physical>().expect("Could not find Physical").defense,
+            position: *data.get::<&Position>().expect("Could not find Position"),
+            sprite: data.get::<&Sprite>().expect("Could not find Sprite").id as u8,
+            vital: data.get::<&Vitals>().expect("Could not find Vitals").vital,
+            vitalmax: data.get::<&Vitals>().expect("Could not find Vitals").vitalmax,
+            access: *data.get::<&UserAccess>().expect("Could not find UserAccess"),
+            equip: *data.get::<&Equipment>().expect("Could not find Equipment"),
+            pk: data.get::<&Player>().expect("Could not find Player").pk,
+            pvpon: data.get::<&Player>().expect("Could not find Player").pvpon,
         }
     }
 }

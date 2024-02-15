@@ -36,10 +36,10 @@ pub enum MapSwitchTasks {
     Items(MapSwitchTask),  //2
 }
 
-pub fn init_data_lists(world: &hecs::World, storage: &Storage, user: &Entity, oldmap: MapPosition) {
+pub fn init_data_lists(world: &hecs::World, storage: &Storage, user: &crate::Entity, oldmap: MapPosition) {
     //Remove old tasks and replace with new ones during map switching.
     while let Some(i) = user.map_switch_tasks.pop() {
-        world.map_switch_tasks.borrow_mut().remove(i);
+        storage.map_switch_tasks.borrow_mut().remove(i);
     }
 
     //setup the old and new information so we know what to remove and add for.
@@ -66,7 +66,7 @@ pub fn init_data_lists(world: &hecs::World, storage: &Storage, user: &Entity, ol
 
     //get the old map npcs, players and items so we can send remove requests.
     for m in get_surrounding(oldmap, true) {
-        if let Some(map) = world.maps.get(&m) {
+        if let Some(map) = storage.maps.get(&m) {
             for id in &map.borrow().players {
                 old_players.0.push(*id as u64);
                 old_players.1.insert(*id as u64);
@@ -84,7 +84,7 @@ pub fn init_data_lists(world: &hecs::World, storage: &Storage, user: &Entity, ol
         }
     }
 
-    if let Some(map) = world.maps.get(&user.e.pos.map) {
+    if let Some(map) = storage.maps.get(&user.e.pos.map) {
         //Only get the New id's not in Old for the Vec we use the old data to deturmine what use to exist.
         //This gets them for the main map the rest we will cycle thru.
         //We do this to get the main maps data first.
@@ -140,7 +140,7 @@ pub fn init_data_lists(world: &hecs::World, storage: &Storage, user: &Entity, ol
     }
 
     let _ = send_data_remove_list(
-        world,
+        storage,
         user.e.get_id(),
         &old_players
             .0
@@ -152,7 +152,7 @@ pub fn init_data_lists(world: &hecs::World, storage: &Storage, user: &Entity, ol
     );
 
     let _ = send_data_remove_list(
-        world,
+        storage,
         user.e.get_id(),
         &old_npcs
             .0
@@ -163,7 +163,7 @@ pub fn init_data_lists(world: &hecs::World, storage: &Storage, user: &Entity, ol
         0,
     );
     let _ = send_data_remove_list(
-        world,
+        storage,
         user.e.get_id(),
         &old_items
             .0
@@ -175,19 +175,19 @@ pub fn init_data_lists(world: &hecs::World, storage: &Storage, user: &Entity, ol
     );
 
     user.map_switch_tasks.push(
-        world
+        storage
             .map_switch_tasks
             .borrow_mut()
             .insert(MapSwitchTasks::Player(task_player)),
     );
     user.map_switch_tasks.push(
-        world
+        storage
             .map_switch_tasks
             .borrow_mut()
             .insert(MapSwitchTasks::Npc(task_npc)),
     );
     user.map_switch_tasks.push(
-        world
+        storage
             .map_switch_tasks
             .borrow_mut()
             .insert(MapSwitchTasks::Items(task_item)),

@@ -46,7 +46,7 @@ impl DataTaskToken {
         storage: &Storage,
         data: &T,
     ) -> Result<()> {
-        match world.map_cache.borrow_mut().entry(self) {
+        match storage.map_cache.borrow_mut().entry(self) {
             Entry::Vacant(v) => {
                 let mut buffer = new_cache(self.packet_id())?;
                 data.write_to_buffer(&mut buffer)?;
@@ -79,7 +79,7 @@ impl DataTaskToken {
             }
         }
 
-        world.map_cache_ids.borrow_mut().insert(self);
+        storage.map_cache_ids.borrow_mut().insert(self);
 
         Ok(())
     }
@@ -137,7 +137,7 @@ impl DataTaskToken {
 
     pub fn send(&self, world: &mut hecs::World, storage: &Storage, buf: ByteBuffer) {
         match self {
-            DataTaskToken::GlobalChat => send_to_all(world, buf),
+            DataTaskToken::GlobalChat => send_to_all(storage, buf),
             DataTaskToken::NpcMove(mappos)
             | DataTaskToken::PlayerMove(mappos)
             | DataTaskToken::NpcDir(mappos)
@@ -157,7 +157,7 @@ impl DataTaskToken {
             | DataTaskToken::PlayerLevel(mappos)
             | DataTaskToken::PlayerDamage(mappos)
             | DataTaskToken::NpcDamage(mappos)
-            | DataTaskToken::NpcVitals(mappos) => send_to_maps(world, *mappos, buf, None),
+            | DataTaskToken::NpcVitals(mappos) => send_to_maps(storage, *mappos, buf, None),
         }
     }
 }

@@ -13,14 +13,14 @@ pub fn update_players(world: &mut World, storage: &Storage) {
             (deathtimer, 
             life, 
             dir, 
-            spawn,
+            position,
             killcount,
             vitals))) in world
         .query::<((&WorldEntityType, &OnlineType), 
             (&DeathTimer, 
             &mut DeathType, 
             &Dir, 
-            &Spawn,
+            &Position,
             &mut KillCount,
             &mut Vitals))>()
         .iter()
@@ -34,7 +34,7 @@ pub fn update_players(world: &mut World, storage: &Storage) {
             if *deathtimer.0 < tick {
                 *life = DeathType::Alive;
                 let _ = send_life_status(world, &Entity(entity), true);
-                player_warp(world, storage, &Entity(entity), &spawn.pos, dir.0);
+                player_warp(world, storage, &Entity(entity), &position, dir.0);
 
                 //lets heal them fully on revival.
                 for i in 0..VITALS_MAX {
@@ -56,15 +56,15 @@ pub fn player_warp(world: &mut hecs::World, storage: &Storage, player: &Entity, 
     if let Ok(mut result) = 
         world.query_one::<(
             &mut Dir,
-            &mut Spawn,
+            &mut Position,
             &mut Player)>(player.0) {
         if let Some((player_dir,
-            player_spawn,
+            player_position,
             player_data)) = result.get() {
         
             player_dir.0 = dir;
 
-            if player_spawn.pos.map != new_pos.map {
+            if player_position.map != new_pos.map {
                 let old_pos = player_switch_maps(world, storage, player, new_pos.clone());
                 let _ = DataTaskToken::PlayerMove(old_pos.map).add_task(
                     world, storage, 
@@ -89,7 +89,7 @@ pub fn player_warp(world: &mut hecs::World, storage: &Storage, player: &Entity, 
 
             player_data.movesavecount += 1;
             if player_data.movesavecount >= 25 {
-                let _ = update_pos(&mut storage.pgconn.borrow_mut(), player);
+                let _ = update_pos(&mut storage.pgconn.borrow_mut(), world, player);
                 player_data.movesavecount = 0;
             }
         }
@@ -100,28 +100,28 @@ pub fn player_movement(world: &mut hecs::World, storage: &Storage, player: &Enti
     if let Ok(mut result) = 
         world.query_one::<(
             &mut Dir,
-            &mut Spawn,
+            &mut Position,
             &mut Player)>(player.0) {
         if let Some((player_dir,
-            player_spawn,
+            player_position,
             player_data)) = result.get() {
             
             let adj = [(0, -1), (1, 0), (0, 1), (-1, 0)];
             let mut new_pos = Position::new(
-                player_spawn.pos.x + adj[dir as usize].0,
-                player_spawn.pos.y + adj[dir as usize].1,
-                player_spawn.pos.map,
+                player_position.x + adj[dir as usize].0,
+                player_position.y + adj[dir as usize].1,
+                player_position.map,
             );
 
             player_dir.0 = dir;
 
             if !new_pos.update_pos_map(world, storage) {
-                player_warp(world, storage, player, &player_spawn.pos, dir);
+                player_warp(world, storage, player, &player_position, dir);
                 return false;
             }
 
-            if map_path_blocked(storage, player_spawn.pos, new_pos, dir) {
-                player_warp(world, storage, player, &player_spawn.pos, dir);
+            if map_path_blocked(storage, *player_position, new_pos, dir) {
+                player_warp(world, storage, player, &player_position, dir);
                 return false;
             }
 
@@ -134,7 +134,7 @@ pub fn player_movement(world: &mut hecs::World, storage: &Storage, player: &Enti
                 player_data.movesavecount = 0;
             }
 
-            if new_pos.map != player_spawn.pos.map {
+            if new_pos.map != player_position.map {
                 let oldpos = player_switch_maps(world, storage, player, new_pos);
                 let _ = DataTaskToken::PlayerMove(oldpos.map).add_task(
                     world, storage,
@@ -150,9 +150,9 @@ pub fn player_movement(world: &mut hecs::World, storage: &Storage, player: &Enti
                 init_data_lists(world, storage, player, oldpos.map);
             } else {
                 player_swap_pos(world, storage, player, new_pos);
-                let _ = DataTaskToken::PlayerMove(player_spawn.pos.map).add_task(
+                let _ = DataTaskToken::PlayerMove(player_position.map).add_task(
                     world, storage, 
-                    &MovePacket::new(player, player_spawn.pos, false, false, player_dir.0),
+                    &MovePacket::new(player, player_position, false, false, player_dir.0),
                 );
             }
 
@@ -174,14 +174,14 @@ pub fn player_earn_exp(
         world.query_one::<(
             &mut Vitals,
             &mut Player,
-            &mut Spawn,
+            &mut Position,
             &mut Level,
             &mut Combat,
             &mut InCombat,
             &Socket,)>(player.0) {
         if let Some((player_vital,
             player_data,
-            player_spawn,
+            player_position,
             player_level,
             combat_timer,
             in_combat,
@@ -223,106 +223,109 @@ pub fn player_earn_exp(
 
             let _ = send_vitals(world, player);
             let _ = send_level(world, player);
-            let _ = DataTaskToken::PlayerVitals(player_spawn.pos.map).add_task(
+            let _ = DataTaskToken::PlayerVitals(player_position.map).add_task(
                 world, storage,
                 &VitalsPacket::new(player, player_vital.vital, player_vital.vitalmax),
             );
-            let _ = update_level(&mut storage.pgconn.borrow_mut(), player);
+            let _ = update_level(&mut storage.pgconn.borrow_mut(), world, player);
         }
     }
 }
 
 pub fn player_get_next_lvl_exp(world: &mut hecs::World, player: &Entity) -> u64 {
-    if let Ok(mut result) = 
-        world.query_one::<&Level>(player.0) {
-        if let Some(player_level) = result.get() {
-            let exp_per_level = match player_level.0 {
-                1..=10 => 100,
-                11..=20 => 250,
-                21..=30 => 400,
-                31..=40 => 550,
-                41..=50 => 700,
-                51..=60 => 850,
-                61..=70 => 1000,
-                71..=80 => 1150,
-                81..=90 => 1300,
-                91..=100 => 1450,
-                101..=120 => 2000,
-                121..=150 => 3000,
-                151..=199 => 4000,
-                _ => 0,
-            };
+    let mut query = 
+        world.query_one::<&Level>(player.0).expect("player_get_next_lvl_exp could not find query");
+    
+    if let Some(player_level) = query.get() {
+        let exp_per_level = match player_level.0 {
+            1..=10 => 100,
+            11..=20 => 250,
+            21..=30 => 400,
+            31..=40 => 550,
+            41..=50 => 700,
+            51..=60 => 850,
+            61..=70 => 1000,
+            71..=80 => 1150,
+            81..=90 => 1300,
+            91..=100 => 1450,
+            101..=120 => 2000,
+            121..=150 => 3000,
+            151..=199 => 4000,
+            _ => 0,
+        };
         
-            return player_level.0 as u64 * exp_per_level as u64
-        }
+        player_level.0 as u64 * exp_per_level as u64
+    } else {
+        0
     }
-    0
 }
 
 pub fn player_calc_max_hp(world: &mut hecs::World, player: &Entity) -> i32 {
-    if let Ok(mut result) = 
-        world.query_one::<&Level>(player.0) {
-        if let Some(player_level) = result.get() {
-            return player_level.0 * 25;
-        }
+    let mut query = 
+        world.query_one::<&Level>(player.0).expect("player_calc_max_hp could not find query");
+    
+    if let Some(player_level) = query.get() {
+        player_level.0 * 25
+    } else {
+        0
     }
-    0
 }
 
 pub fn player_calc_max_mp(world: &mut hecs::World, player: &Entity) -> i32 {
-    if let Ok(mut result) = 
-        world.query_one::<&Level>(player.0) {
-        if let Some(player_level) = result.get() {
-            return player_level.0 * 25;
-        }
+    let mut query = 
+        world.query_one::<&Level>(player.0).expect("player_calc_max_mp could not find query");
+    
+    if let Some(player_level) = query.get() {
+        player_level.0 * 25
+    } else {
+        0
     }
-    0
 }
 
 pub fn player_get_weapon_damage(world: &mut hecs::World, storage: &Storage, player: &Entity) -> (i16, i16) {
-    if let Ok(mut result) = 
-        world.query_one::<&mut Equipment>(player.0) {
-        if let Some(player_equipment) = result.get() {
-            
-            let mut dmg = (0, 0);
+    let mut query = 
+        world.query_one::<&mut Equipment>(player.0).expect("player_get_weapon_damage could not find query");
 
-            if player_equipment.items[EquipmentType::Weapon as usize].val > 0 {
-                if let Some(item) = storage
-                    .bases
-                    .items
-                    .get(player_equipment.items[EquipmentType::Weapon as usize].num as usize)
-                {
-                    dmg = (item.data[0], item.data[1]);
-                }
+    if let Some(player_equipment) = query.get() {
+        let mut dmg = (0, 0);
+
+        if player_equipment.items[EquipmentType::Weapon as usize].val > 0 {
+            if let Some(item) = storage
+                .bases
+                .items
+                .get(player_equipment.items[EquipmentType::Weapon as usize].num as usize)
+            {
+                dmg = (item.data[0], item.data[1]);
             }
-
-            return dmg;
         }
+
+        dmg
+    } else {
+        (0, 0)
     }
-    (0, 0)
 }
 
 pub fn player_get_armor_defense(world: &mut hecs::World, storage: &Storage, player: &Entity) -> (i16, i16) {
-    if let Ok(mut result) = 
-        world.query_one::<&mut Equipment>(player.0) {
-        if let Some(player_equipment) = result.get() {
+    let mut query = 
+        world.query_one::<&mut Equipment>(player.0).expect("player_get_armor_defense could not find query");
+    
+    if let Some(player_equipment) = query.get() {
+        let mut defense = (0i16, 0i16);
 
-            let mut defense = (0i16, 0i16);
-
-            for i in EquipmentType::Helmet as usize..=EquipmentType::Accessory2 as usize {
-                if let Some(item) = storage
-                    .bases
-                    .items
-                    .get(player_equipment.items[i].num as usize) {
-                    defense.0 = defense.0.saturating_add(item.data[0]);
-                    defense.1 = defense.1.saturating_add(item.data[1]);
-                }
+        for i in EquipmentType::Helmet as usize..=EquipmentType::Accessory2 as usize {
+            if let Some(item) = storage
+                .bases
+                .items
+                .get(player_equipment.items[i].num as usize) {
+                defense.0 = defense.0.saturating_add(item.data[0]);
+                defense.1 = defense.1.saturating_add(item.data[1]);
             }
-
-            return defense;
         }
+
+        defense
+    } else {
+        (0, 0)
     }
-    (0, 0)
 }
 
 pub fn player_repair_equipment(
@@ -353,7 +356,7 @@ pub fn player_repair_equipment(
                 //TODO: CalculateStats();
 
                 let _ = send_equipment(world, self);
-                let _ = update_equipment(&mut storage.pgconn.borrow_mut(), player, slot);
+                let _ = update_equipment(&mut storage.pgconn.borrow_mut(), world, player, slot);
             }
         }
     }

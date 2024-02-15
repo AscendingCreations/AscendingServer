@@ -1,4 +1,4 @@
-use crate::{containers::*, sql::*, AscendingError, Result};
+use crate::{containers::*, players::*, sql::*, AscendingError, Result};
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use diesel::{self, insert_into, prelude::*};
 
@@ -66,22 +66,27 @@ pub fn check_existance(
 
 pub fn new_player(
     conn: &mut PgConnection,
-    user: &crate::players::Player,
+    world: &mut hecs::World,
+    player: &crate::Entity,
     username: String,
     email: String,
     password: String,
 ) -> Result<()> {
+    let data = world.entity(player.0).expect("Could not get Entity");
+    let inv = data.get::<&Inventory>().expect("Could not find Inventory");
+    let equip = data.get::<&Equipment>().expect("Could not find Equipment");
+
     let uid: i64 = insert_into(players::table)
-        .values(&PGPlayer::new(user, username, email, password))
+        .values(&PGPlayer::new(world, player, username, email, password))
         .returning(players::uid)
         .get_result(conn)?;
 
     insert_into(equipment::table)
-        .values(&PGEquipItem::new(&user.equip, uid))
+        .values(&PGEquipItem::new(&equip.items, uid))
         .execute(conn)?;
 
     insert_into(invitems::table)
-        .values(&PGInvItem::new(&user.inv, uid))
+        .values(&PGInvItem::new(&inv.items, uid))
         .execute(conn)?;
 
     Ok(())
@@ -90,115 +95,132 @@ pub fn new_player(
 pub fn load_player(
     _: &Storage,
     conn: &mut PgConnection,
-    user: &mut crate::players::Player,
+    world: &mut hecs::World,
+    player: &crate::Entity,
 ) -> Result<()> {
+    let data = world.entity(player.0).expect("Could not get Entity");
+    let inv = data.get::<&Inventory>().expect("Could not find Inventory");
+    let account = data.get::<&Account>().expect("Could not find Account");
+    let equip = data.get::<&Equipment>().expect("Could not find Equipment");
+
     player_ret::table
-        .filter(player_ret::uid.eq(user.accid))
+        .filter(player_ret::uid.eq(account.id))
         .first::<PGPlayerWithID>(conn)?
-        .into_player(user);
+        .into_player(player);
 
     PGEquipItem::array_into_items(
         equipment::table
-            .filter(equipment::uid.eq(user.accid))
+            .filter(equipment::uid.eq(account.id))
             .load::<PGEquipItem>(conn)?,
-        &mut user.equip,
+        &mut equip.items,
     );
 
     PGInvItem::array_into_items(
         invitems::table
-            .filter(invitems::uid.eq(user.accid))
+            .filter(invitems::uid.eq(account.id))
             .load::<PGInvItem>(conn)?,
-        &mut user.inv,
+        &mut inv.items,
     );
 
     Ok(())
 }
 
-pub fn update_player(conn: &mut PgConnection, user: &mut crate::players::Player) -> Result<()> {
+pub fn update_player(conn: &mut PgConnection, world: &mut hecs::World, player: &crate::Entity) -> Result<()> {
     diesel::update(players::table)
-        .set(&PGPlayerLogOut::new(user))
+        .set(&PGPlayerLogOut::new(world, player))
         .execute(conn)?;
     Ok(())
 }
 
 pub fn update_inv(
     conn: &mut PgConnection,
-    user: &mut crate::players::Player,
+    world: &mut hecs::World,
+    player: &crate::Entity,
     slot: usize,
 ) -> Result<()> {
+    let data = world.entity(player.0).expect("Could not get Entity");
+    let inv = data.get::<&Inventory>().expect("Could not find Inventory");
+    let account = data.get::<&Account>().expect("Could not find Account");
+
     diesel::update(invitems::table)
-        .set(&PGInvItem::single(&user.inv, user.accid, slot))
+        .set(&PGInvItem::single(&inv.items, account.id, slot))
         .execute(conn)?;
     Ok(())
 }
 
 pub fn update_equipment(
     conn: &mut PgConnection,
-    user: &mut crate::players::Player,
+    world: &mut hecs::World,
+    player: &crate::Entity,
     slot: usize,
 ) -> Result<()> {
+    let data = world.entity(player.0).expect("Could not get Entity");
+    let equip = data.get::<&Equipment>().expect("Could not find Equipment");
+    let account = data.get::<&Account>().expect("Could not find Account");
+
     diesel::update(equipment::table)
-        .set(&PGEquipItem::single(&user.equip, user.accid, slot))
+        .set(&PGEquipItem::single(&equip.items, account.id, slot))
         .execute(conn)?;
     Ok(())
 }
 
-pub fn update_address(conn: &mut PgConnection, user: &mut crate::players::Player) -> Result<()> {
+pub fn update_address(conn: &mut PgConnection, world: &mut hecs::World, player: &crate::Entity) -> Result<()> {
     diesel::update(players::table)
-        .set(&PGPlayerAddress::new(user))
+        .set(&PGPlayerAddress::new(world, player))
         .execute(conn)?;
     Ok(())
 }
 
-pub fn update_playerdata(conn: &mut PgConnection, user: &mut crate::players::Player) -> Result<()> {
+pub fn update_playerdata(conn: &mut PgConnection, world: &mut hecs::World, player: &crate::Entity) -> Result<()> {
     diesel::update(players::table)
-        .set(&PGPlayerData::new(user))
+        .set(&PGPlayerData::new(world, player))
         .execute(conn)?;
     Ok(())
 }
 
 pub fn update_passreset(
     conn: &mut PgConnection,
-    user: &mut crate::players::Player,
+    world: &mut hecs::World,
+    player: &crate::Entity,
     resetpassword: Option<String>,
 ) -> Result<()> {
     diesel::update(players::table)
-        .set(&PGPlayerPassReset::new(user, resetpassword))
+        .set(&PGPlayerPassReset::new(world, player, resetpassword))
         .execute(conn)?;
     Ok(())
 }
 
-pub fn update_spawn(conn: &mut PgConnection, user: &mut crate::players::Player) -> Result<()> {
+pub fn update_spawn(conn: &mut PgConnection, world: &mut hecs::World, player: &crate::Entity) -> Result<()> {
     diesel::update(players::table)
-        .set(&PGPlayerSpawn::new(user))
+        .set(&PGPlayerSpawn::new(world, player))
         .execute(conn)?;
     Ok(())
 }
 
-pub fn update_pos(conn: &mut PgConnection, user: &mut crate::players::Player) -> Result<()> {
+pub fn update_pos(conn: &mut PgConnection, world: &mut hecs::World, player: &crate::Entity) -> Result<()> {
     diesel::update(players::table)
-        .set(&PGPlayerPos::new(user))
+        .set(&PGPlayerPos::new(world, player))
         .execute(conn)?;
     Ok(())
 }
 
-pub fn update_currency(conn: &mut PgConnection, user: &mut crate::players::Player) -> Result<()> {
+pub fn update_currency(conn: &mut PgConnection, world: &mut hecs::World, player: &crate::Entity) -> Result<()> {
     diesel::update(players::table)
-        .set(&PGPlayerCurrency::new(user))
+        .set(&PGPlayerCurrency::new(world, player))
         .execute(conn)?;
     Ok(())
 }
 
-pub fn update_level(conn: &mut PgConnection, user: &mut crate::players::Player) -> Result<()> {
+pub fn update_level(conn: &mut PgConnection, world: &mut hecs::World, player: &crate::Entity) -> Result<()> {
     diesel::update(players::table)
-        .set(&PGPlayerLevel::new(user))
+        .set(&PGPlayerLevel::new(world, player))
         .execute(conn)?;
     Ok(())
 }
 
-pub fn update_resetcount(conn: &mut PgConnection, user: &mut crate::players::Player) -> Result<()> {
+pub fn update_resetcount(conn: &mut PgConnection, world: &mut hecs::World, player: &crate::Entity) -> Result<()> {
     diesel::update(players::table)
-        .set(&PGPlayerReset::new(user))
+        .set(&PGPlayerReset::new(world, player))
         .execute(conn)?;
     Ok(())
 }
