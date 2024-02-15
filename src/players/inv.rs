@@ -1,9 +1,9 @@
 use crate::{containers::*, gameloop::*, gametypes::*, items::*, players::*, sql::*};
 
 #[inline]
-pub fn save_item(world: &Storage, user: &mut Player, slot: usize) {
-    let _ = update_inv(&mut world.pgconn.borrow_mut(), user, slot);
-    let _ = send_invslot(world, user, slot);
+pub fn save_item(world: &mut hecs::World, storage: &Storage, entity: &Entity, slot: usize) {
+    let _ = update_inv(&mut storage.pgconn.borrow_mut(), world, entity, slot);
+    let _ = send_invslot(world, storage, entity, slot);
 }
 
 #[inline]
@@ -75,13 +75,13 @@ pub fn find_slot(
 pub fn auto_set_inv_item(
     world: &mut hecs::World, 
     storage: &Storage,
-    player: &crate::Entity,
+    entity: &crate::Entity,
     item: &mut Item,
     base: &ItemData,
     invtype: InvType,
 ) -> u16 {
     let mut query = 
-        world.query_one::<&mut Inventory>(player.0).expect("auto_set_inv_item could not find query");
+        world.query_one::<&mut Inventory>(entity.0).expect("auto_set_inv_item could not find query");
 
     if let Some(player_inv) = query.get() {
 
@@ -92,12 +92,12 @@ pub fn auto_set_inv_item(
             if player_inv.items[slot].val == 0 {
                 player_inv.items[slot] = *item;
                 item.val = 0;
-                save_item(world, player, slot);
+                save_item(world, storage, entity, slot);
                 break;
             }
 
             rem = val_add_rem(&mut player_inv.items[slot].val, &mut item.val, base.stacklimit);
-            save_item(world, player, slot);
+            save_item(world, storage, entity, slot);
 
             if rem == 0 {
                 break;
@@ -114,7 +114,7 @@ pub fn auto_set_inv_item(
 pub fn set_inv_item(
     world: &mut hecs::World, 
     storage: &Storage,
-    player: &crate::Entity,
+    entity: &crate::Entity,
     item: &mut Item,
     base: &ItemData,
     slot: usize,
@@ -122,7 +122,7 @@ pub fn set_inv_item(
     invtype: InvType,
 ) -> u16 {
     let mut query = 
-        world.query_one::<&mut Inventory>(player.0).expect("set_inv_item could not find query");
+        world.query_one::<&mut Inventory>(entity.0).expect("set_inv_item could not find query");
 
     if let Some(player_inv) = query.get() {
         let mut rem = 0u16;
@@ -132,7 +132,7 @@ pub fn set_inv_item(
             player_inv.items[slot] = *item;
             player_inv.items[slot].val = item_min;
             item.val = item.val.saturating_sub(item_min);
-            save_item(world, player, slot);
+            save_item(world, storage, entity, slot);
             return 0;
         }
 
@@ -144,13 +144,13 @@ pub fn set_inv_item(
                 base.stacklimit,
             );
 
-            save_item(world, player, slot);
+            save_item(world, storage, entity, slot);
 
             if item_min > 0 {
                 let mut itemtemp = *item;
                 itemtemp.val = item_min;
 
-                rem = auto_set_inv_item(world, storage, player, &mut itemtemp, base, invtype);
+                rem = auto_set_inv_item(world, storage, entity, &mut itemtemp, base, invtype);
 
                 if rem < item_min {
                     item.val = item.val.saturating_sub(item_min.saturating_sub(rem));
@@ -167,20 +167,20 @@ pub fn set_inv_item(
 #[inline]
 pub fn give_item(world: &mut hecs::World, 
     storage: &Storage,
-    player: &crate::Entity,
+    entity: &crate::Entity,
     item: &mut Item,
 ) -> u16 {
     let base = &storage.bases.items[item.num as usize];
     let invtype = get_inv_itemtype(base);
 
-    auto_set_inv_item(world, storage, player, item, base, invtype)
+    auto_set_inv_item(world, storage, entity, item, base, invtype)
 }
 
 #[inline]
 pub fn set_inv_slot(
     world: &mut hecs::World, 
     storage: &Storage,
-    player: &crate::Entity,
+    entity: &crate::Entity,
     item: &mut Item,
     slot: usize,
     amount: u16,
@@ -192,20 +192,20 @@ pub fn set_inv_slot(
         return None;
     }
 
-    Some(set_inv_item(world, storage, player, item, base, slot, amount, invtype))
+    Some(set_inv_item(world, storage, entity, item, base, slot, amount, invtype))
 }
 
 #[inline]
 pub fn take_inv_items(
     world: &mut hecs::World, 
     storage: &Storage,
-    player: &crate::Entity,
+    entity: &crate::Entity,
     num: u32,
     mut amount: u16,
     invtype: InvType,
 ) -> u16 {
     let mut query = 
-        world.query_one::<&mut Inventory>(player.0).expect("set_inv_item could not find query");
+        world.query_one::<&mut Inventory>(entity.0).expect("set_inv_item could not find query");
 
     if let Some(player_inv) = query.get() {
         let scope = get_inv_scope(invtype);
@@ -215,7 +215,7 @@ pub fn take_inv_items(
                 player_inv.items[slot].val = player_inv.items[slot].val.saturating_sub(amount);
                 amount = player_inv.items[slot].val;
 
-                save_item(world, player, slot);
+                save_item(world, storage, entity, slot);
 
                 if amount == 0 {
                     return 0;
@@ -233,31 +233,31 @@ pub fn take_inv_items(
 pub fn take_item(
     world: &mut hecs::World, 
     storage: &Storage,
-    player: &crate::Entity,
+    entity: &crate::Entity,
     num: u32,
     amount: u16,
 ) -> u16 {
     let base = &storage.bases.items[num as usize];
     let invtype = get_inv_itemtype(base);
 
-    take_inv_items(world, storage, player, num, amount, invtype)
+    take_inv_items(world, storage, entity, num, amount, invtype)
 }
 
 #[inline]
 pub fn take_itemslot(
     world: &mut hecs::World, 
     storage: &Storage,
-    player: &crate::Entity,
+    entity: &crate::Entity,
     slot: usize, 
     mut amount: u16,
 ) -> u16 {
     let mut query = 
-        world.query_one::<&mut Inventory>(player.0).expect("set_inv_item could not find query");
+        world.query_one::<&mut Inventory>(entity.0).expect("set_inv_item could not find query");
 
     if let Some(player_inv) = query.get() {
         amount = std::cmp::min(amount, player_inv.items[slot].val);
         player_inv.items[slot].val = player_inv.items[slot].val.saturating_sub(amount);
-        save_item(world, player, slot);
+        save_item(world, storage, entity, slot);
 
         player_inv.items[slot].val
     } else {

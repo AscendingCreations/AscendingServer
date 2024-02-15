@@ -101,29 +101,29 @@ impl Server {
     }
 }
 
-pub fn poll_events(world: &Storage) -> Result<()> {
+pub fn poll_events(world: &mut hecs::World, storage: &Storage) -> Result<()> {
     let mut events = Events::with_capacity(1024);
 
-    world
+    storage
         .poll
         .borrow_mut()
         .poll(&mut events, Some(Duration::from_millis(100)))?;
     for event in events.iter() {
         match event.token() {
             SERVER => {
-                world.server.borrow_mut().accept(world)?;
-                world.poll.borrow_mut().registry().reregister(
-                    &mut world.server.borrow_mut().listener,
+                storage.server.borrow_mut().accept(world, storage)?;
+                storage.poll.borrow_mut().registry().reregister(
+                    &mut storage.server.borrow_mut().listener,
                     SERVER,
                     mio::Interest::READABLE,
                 )?;
             }
             token => {
-                if let Some(mut a) = world.server.borrow_mut().get_mut(token) {
-                    a.process(event, world)?;
+                if let Some(mut a) = storage.server.borrow_mut().get_mut(token) {
+                    a.process(event, world, storage)?;
 
                     if a.state == ClientState::Closed {
-                        world.server.borrow_mut().remove(token);
+                        storage.server.borrow_mut().remove(token);
                     }
                 }
             }

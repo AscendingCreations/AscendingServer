@@ -156,8 +156,8 @@ pub struct PlayerSpawnPacket {
 }
 
 impl PlayerSpawnPacket {
-    pub fn new(world: &mut hecs::World, player: &Entity) -> Self {
-        let data = world.entity(player.0).expect("Could not get Entity");
+    pub fn new(world: &mut hecs::World, entity: &Entity) -> Self {
+        let data = world.entity(entity.0).expect("Could not get Entity");
         Self {
             name: data.get::<&Account>().expect("Could not find Account").name.clone(),
             dir: data.get::<&Dir>().expect("Could not find Dir").0,

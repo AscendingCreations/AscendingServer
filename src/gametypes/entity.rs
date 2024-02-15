@@ -100,6 +100,12 @@ impl Deref for Entity {
 
     fn deref(&self) -> &Self::Target {
         &self.0
+    }    
+}
+
+impl Default for Entity {
+    fn default() -> Self {
+        Self(hecs::Entity::DANGLING)
     }
 }
 

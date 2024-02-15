@@ -7,7 +7,7 @@ use phf::phf_map;
 use regex::Regex;
 use unwrap_helpers::*;
 
-type PacketFunction = fn(&Storage, &mut ByteBuffer, usize) -> Result<()>;
+type PacketFunction = fn(&mut hecs::World, &Storage, &mut ByteBuffer, &Entity) -> Result<()>;
 
 static PACKET_MAP: phf::Map<u32, PacketFunction> = phf_map! {
     0u32 => handle_register,
@@ -16,32 +16,32 @@ static PACKET_MAP: phf::Map<u32, PacketFunction> = phf_map! {
     3u32 => handle_move,
 };
 
-pub fn handle_data(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result<()> {
+pub fn handle_data(world: &mut hecs::World, storage: &Storage, data: &mut ByteBuffer, entity: &Entity) -> Result<()> {
     let id: u32 = data.read()?;
 
-    if let Some(user) = world.players.borrow().get(uid) {
-        match user.borrow().status {
-            OnlineType::Online => {
-                if id <= 1 {
-                    return Err(AscendingError::MultiLogin);
-                }
+    let onlinetype = world.get::<&OnlineType>(entity.0).expect("Could not find OnlineType");
+
+    match *onlinetype {
+        OnlineType::Online => {
+            if id <= 1 {
+                return Err(AscendingError::MultiLogin);
             }
-            OnlineType::Accepted => {
-                if id > 1 {
-                    return Err(AscendingError::PacketManipulation { name: "".into() });
-                }
-            }
-            OnlineType::None => {
+        }
+        OnlineType::Accepted => {
+            if id > 1 {
                 return Err(AscendingError::PacketManipulation { name: "".into() });
             }
+        }
+        OnlineType::None => {
+            return Err(AscendingError::PacketManipulation { name: "".into() });
         }
     }
 
     let fun = unwrap_or_return!(PACKET_MAP.get(&id), Err(AscendingError::InvalidPacket));
-    fun(world, data, uid)
+    fun(world, storage, data, entity)
 }
 
-fn handle_register(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result<()> {
+fn handle_register(world: &mut hecs::World, storage: &Storage, data: &mut ByteBuffer, entity: &Entity) -> Result<()> {
     let username = data.read::<String>()?;
     let password = data.read::<String>()?;
     let email = data.read::<String>()?;
@@ -49,8 +49,7 @@ fn handle_register(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result
     let sprite: u8 = data.read()?;
     let hair: u8 = data.read()?;
 
-    if let Some(p) = world.players.borrow().get(uid) {
-        let mut user = p.borrow_mut();
+    if let Ok(data) = world.entity(entity.0) {
         let email_regex = Regex::new(
             r"^([a-z0-9_+]([a-z0-9_+.]*[a-z0-9_+])?)@([a-z0-9]+([\-\.]{1}[a-z0-9]+)*\.[a-z]{2,6})",
         )?;
@@ -60,8 +59,8 @@ fn handle_register(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result
             || !name.chars().all(is_name_acceptable)
         {
             return send_infomsg(
-                world,
-                user.socket_id,
+                storage,
+                data.get::<&Socket>().expect("Could not find Socket").id,
                 "Username, Name, or Password contains unaccepted Characters".into(),
                 0,
             );
@@ -69,8 +68,8 @@ fn handle_register(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result
 
         if username.len() >= 64 || name.len() >= 64 {
             return send_infomsg(
-                world,
-                user.socket_id,
+                storage,
+                data.get::<&Socket>().expect("Could not find Socket").id,
                 "Username or Name has too many Characters, 64 Characters Max".into(),
                 0,
             );
@@ -78,8 +77,8 @@ fn handle_register(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result
 
         if password.len() >= 128 {
             return send_infomsg(
-                world,
-                user.socket_id,
+                storage,
+                data.get::<&Socket>().expect("Could not find Socket").id,
                 "Password has too many Characters, 128 Characters Max".into(),
                 0,
             );
@@ -87,36 +86,36 @@ fn handle_register(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result
 
         if !email_regex.is_match(&email) || hair >= 8 || sprite >= 6 {
             return send_infomsg(
-                world,
-                user.socket_id,
+                storage,
+                data.get::<&Socket>().expect("Could not find Socket").id,
                 "Email must be an actual email.".into(),
                 0,
             );
         }
 
-        match check_existance(&mut world.pgconn.borrow_mut(), &username, &name, &email) {
+        match check_existance(&mut storage.pgconn.borrow_mut(), &username, &name, &email) {
             Ok(i) => match i {
                 0 => {}
                 1 => {
                     return send_infomsg(
-                        world,
-                        user.socket_id,
+                        storage,
+                        data.get::<&Socket>().expect("Could not find Socket").id,
                         "Username Exists. Please try Another.".into(),
                         0,
                     )
                 }
                 2 => {
                     return send_infomsg(
-                        world,
-                        user.socket_id,
+                        storage,
+                        data.get::<&Socket>().expect("Could not find Socket").id,
                         "Character Name Exists. Please try Another.".into(),
                         0,
                     )
                 }
                 3 => {
                     return send_infomsg(
-                        world,
-                        user.socket_id,
+                        storage,
+                        data.get::<&Socket>().expect("Could not find Socket").id,
                         "Email Already Exists. Please Try Another.".into(),
                         0,
                     )
@@ -126,12 +125,15 @@ fn handle_register(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result
             Err(_) => return Err(AscendingError::UserNotFound),
         }
 
-        user.name = name;
-        user.sprite = sprite;
+        if let mut account = data.get::<&mut Account>().expect("Could not find Account") 
+            { account.name = name };
+        if let mut player_sprite = data.get::<&mut Sprite>().expect("Could not find Sprite") 
+            { player_sprite.id = sprite as u32 };
 
         if new_player(
-            &mut world.pgconn.borrow_mut(),
-            &user,
+            &mut storage.pgconn.borrow_mut(),
+            world,
+            entity,
             username,
             password,
             email,
@@ -139,42 +141,43 @@ fn handle_register(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result
         .is_err()
         {
             return send_infomsg(
-                world,
-                user.socket_id,
+                storage,
+                data.get::<&Socket>().expect("Could not find Socket").id,
                 "There was an Issue Creating the player account. Please Contact Support.".into(),
                 0,
             );
         }
 
-        return send_infomsg(world, user.socket_id, "Account Was Created. Please wait for the Verification code sent to your email before logging in.".into(), 1);
+        return send_infomsg(storage, data.get::<&Socket>().expect("Could not find Socket").id,
+             "Account Was Created. Please wait for the Verification code sent to your email before logging in.".into(), 1);
     }
 
     Err(AscendingError::InvalidSocket)
 }
 
-fn handle_login(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result<()> {
+fn handle_login(world: &mut hecs::World, storage: &Storage, data: &mut ByteBuffer, entity: &Entity) -> Result<()> {
     let username = data.read::<String>()?;
     let password = data.read::<String>()?;
     let appmajor = data.read::<u16>()? as usize;
     let appminior = data.read::<u16>()? as usize;
     let apprevision = data.read::<u16>()? as usize;
 
-    if let Some(p) = world.players.borrow().get(uid) {
+    if let Ok(data) = world.entity(entity.0) {
         if username.len() >= 64 || password.len() >= 128 {
             return send_infomsg(
-                world,
-                p.borrow().socket_id,
+                storage,
+                data.get::<&Socket>().expect("Could not find Socket").id,
                 "Account does not Exist or Password is not Correct.".into(),
                 0,
             );
         }
 
-        let id = find_player(&mut world.pgconn.borrow_mut(), &username, &password)?;
+        let id = find_player(&mut storage.pgconn.borrow_mut(), &username, &password)?;
         let id = unwrap_or_return!(
             id,
             send_infomsg(
-                world,
-                p.borrow().socket_id,
+                storage,
+                data.get::<&Socket>().expect("Could not find Socket").id,
                 "Account does not Exist or Password is not Correct.".into(),
                 1,
             )
@@ -182,20 +185,23 @@ fn handle_login(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result<()
 
         if APP_MAJOR > appmajor && APP_MINOR > appminior && APP_REVISION > apprevision {
             return send_infomsg(
-                world,
-                p.borrow().socket_id,
+                storage,
+                data.get::<&Socket>().expect("Could not find Socket").id,
                 "Client needs to be updated.".into(),
                 1,
             );
         }
 
-        p.borrow_mut().accid = id;
+        if let mut account = data.get::<&mut Account>().expect("Could not find Account") 
+            { account.id = id };
 
-        if let Err(_e) = load_player(world, &mut world.pgconn.borrow_mut(), &mut p.borrow_mut()) {
-            return send_infomsg(world, p.borrow().socket_id, "Error Loading User.".into(), 1);
+        if let Err(_e) = load_player(storage, &mut storage.pgconn.borrow_mut(), world, entity) {
+            return send_infomsg(storage, 
+                data.get::<&Socket>().expect("Could not find Socket").id,
+                "Error Loading User.".into(), 1);
         }
 
-        send_loginok(world, p.borrow().socket_id)?;
+        send_loginok(storage, data.get::<&Socket>().expect("Could not find Socket").id)?;
 
         //joingame(index);
         return Ok(());
@@ -204,11 +210,11 @@ fn handle_login(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result<()
     Err(AscendingError::InvalidSocket)
 }
 
-fn handle_move(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result<()> {
-    if let Some(user) = world.players.borrow().get(uid) {
-        if !user.borrow().e.life.is_alive()
-            || user.borrow().using.inuse()
-            || user.borrow().e.stunned
+fn handle_move(world: &mut hecs::World, storage: &Storage, data: &mut ByteBuffer, entity: &Entity) -> Result<()> {
+    if let Ok(data) = world.entity(entity.0) {
+        if !data.get::<&DeathType>().expect("Could not find Socket").is_alive()
+            || data.get::<&IsUsingType>().expect("Could not find Socket").inuse()
+            || data.get::<&Stunned>().expect("Could not find Socket").0
         {
             return Ok(());
         }
@@ -231,8 +237,8 @@ fn handle_move(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result<()>
     Err(AscendingError::InvalidSocket)
 }
 
-fn handle_dir(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result<()> {
-    if let Some(user) = world.players.borrow().get(uid) {
+fn handle_dir(world: &mut hecs::World, storage: &Storage, data: &mut ByteBuffer, entity: &Entity) -> Result<()> {
+    if let Ok(data) = world.entity(entity.0) {
         if !user.borrow().e.life.is_alive() || user.borrow().using.inuse() {
             return Ok(());
         }
@@ -253,8 +259,8 @@ fn handle_dir(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result<()> 
     Err(AscendingError::InvalidSocket)
 }
 
-fn handle_attack(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result<()> {
-    if let Some(user) = world.players.borrow().get(uid) {
+fn handle_attack(world: &mut hecs::World, storage: &Storage, data: &mut ByteBuffer, entity: &Entity) -> Result<()> {
+    if let Ok(data) = world.entity(entity.0) {
         if !user.borrow().e.life.is_alive()
             || user.borrow().using.inuse()
             || user.borrow().e.attacking
@@ -281,8 +287,8 @@ fn handle_attack(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result<(
     Err(AscendingError::InvalidSocket)
 }
 
-fn handle_useitem(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result<()> {
-    if let Some(user) = world.players.borrow().get(uid) {
+fn handle_useitem(world: &mut hecs::World, storage: &Storage, data: &mut ByteBuffer, entity: &Entity) -> Result<()> {
+    if let Ok(data) = world.entity(entity.0) {
         if !user.borrow().e.life.is_alive()
             || user.borrow().using.inuse()
             || user.borrow().e.attacking
@@ -303,9 +309,8 @@ fn handle_useitem(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result<
     Err(AscendingError::InvalidSocket)
 }
 
-fn handle_unequip(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result<()> {
-    if let Some(user) = world.players.borrow().get(uid) {
-        let mut player = user.borrow_mut();
+fn handle_unequip(world: &mut hecs::World, storage: &Storage, data: &mut ByteBuffer, entity: &Entity) -> Result<()> {
+    if let Ok(data) = world.entity(entity.0) {
         if !player.e.life.is_alive()
             || player.using.inuse()
             || player.e.attacking
@@ -342,9 +347,8 @@ fn handle_unequip(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result<
     Err(AscendingError::InvalidSocket)
 }
 
-fn handle_switchinvslot(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result<()> {
-    if let Some(user) = world.players.borrow().get(uid) {
-        let mut player = user.borrow_mut();
+fn handle_switchinvslot(world: &mut hecs::World, storage: &Storage, data: &mut ByteBuffer, entity: &Entity) -> Result<()> {
+    if let Ok(data) = world.entity(entity.0) {
         if !player.e.life.is_alive()
             || player.using.inuse()
             || player.e.attacking
@@ -403,9 +407,8 @@ fn handle_switchinvslot(world: &Storage, data: &mut ByteBuffer, uid: usize) -> R
     Err(AscendingError::InvalidSocket)
 }
 
-fn handle_pickup(world: &Storage, _data: &mut ByteBuffer, uid: usize) -> Result<()> {
-    if let Some(user) = world.players.borrow().get(uid) {
-        let mut player = user.borrow_mut();
+fn handle_pickup(world: &mut hecs::World, storage: &Storage, _data: &mut ByteBuffer, entity: &Entity) -> Result<()> {
+    if let Ok(data) = world.entity(entity.0) {
         let mut remid: Option<(MapPosition, usize)> = None;
 
         if !player.e.life.is_alive()
@@ -493,9 +496,8 @@ fn handle_pickup(world: &Storage, _data: &mut ByteBuffer, uid: usize) -> Result<
     Err(AscendingError::InvalidSocket)
 }
 
-fn handle_dropitem(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result<()> {
-    if let Some(user) = world.players.borrow().get(uid) {
-        let mut player = user.borrow_mut();
+fn handle_dropitem(world: &mut hecs::World, storage: &Storage, data: &mut ByteBuffer, entity: &Entity) -> Result<()> {
+    if let Ok(data) = world.entity(entity.0) {
         if !player.e.life.is_alive()
             || player.using.inuse()
             || player.e.attacking
@@ -566,9 +568,8 @@ fn handle_dropitem(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result
     Err(AscendingError::InvalidSocket)
 }
 
-fn handle_deleteitem(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result<()> {
-    if let Some(user) = world.players.borrow().get(uid) {
-        let mut player = user.borrow_mut();
+fn handle_deleteitem(world: &mut hecs::World, storage: &Storage, data: &mut ByteBuffer, entity: &Entity) -> Result<()> {
+    if let Ok(data) = world.entity(entity.0) {
         if !player.e.life.is_alive()
             || player.using.inuse()
             || player.e.attacking
@@ -603,9 +604,8 @@ fn handle_deleteitem(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Resu
     Err(AscendingError::InvalidSocket)
 }
 
-fn handle_message(world: &Storage, data: &mut ByteBuffer, uid: usize) -> Result<()> {
-    if let Some(user) = world.players.borrow().get(uid) {
-        let player = user.borrow();
+fn handle_message(world: &mut hecs::World, storage: &Storage, data: &mut ByteBuffer, entity: &Entity) -> Result<()> {
+    if let Ok(data) = world.entity(entity.0) {
         let mut usersocket: Option<usize> = None;
 
         if !player.e.life.is_alive()

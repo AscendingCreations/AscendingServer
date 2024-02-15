@@ -46,7 +46,7 @@ pub struct PGPlayer {
 impl PGPlayer {
     pub fn new(
         world: &mut hecs::World,
-        player: &Entity,
+        entity: &Entity,
         username: String,
         email: String,
         password: String,
@@ -62,7 +62,7 @@ impl PGPlayer {
             String::from("FailedPasswordHash")
         };
 
-        let data = world.entity(player.0).expect("Could not get Entity");
+        let data = world.entity(entity.0).expect("Could not get Entity");
         PGPlayer {
             name: data.get::<&Account>().expect("Could not find Account").name.clone(),
             address: data.get::<&Socket>().expect("Could not find Socket").addr.clone(),
@@ -112,8 +112,8 @@ pub struct PGPlayerWithID {
 }
 
 impl PGPlayerWithID {
-    pub fn new(world: &mut hecs::World, player: &Entity) -> PGPlayerWithID {
-        let data = world.entity(player.0).expect("Could not get Entity");
+    pub fn new(world: &mut hecs::World, entity: &Entity) -> PGPlayerWithID {
+        let data = world.entity(entity.0).expect("Could not get Entity");
         PGPlayerWithID {
             uid: data.get::<&Account>().expect("Could not find Account").id,
             name: data.get::<&Account>().expect("Could not find Account").name.clone(),
@@ -135,8 +135,8 @@ impl PGPlayerWithID {
         }
     }
 
-    pub fn into_player(self, world: &mut hecs::World, player: &Entity) {
-        let data = world.entity(player.0).expect("Could not get Entity");
+    pub fn into_player(self, world: &mut hecs::World, entity: &Entity) {
+        let data = world.entity(entity.0).expect("Could not get Entity");
         if let mut account = data.get::<&mut Account>().expect("Could not find Account") {
             account.id = self.uid;
             account.name = self.name.clone()
@@ -192,8 +192,8 @@ pub struct PGPlayerLogOut {
 }
 
 impl PGPlayerLogOut {
-    pub fn new(world: &mut hecs::World, player: &Entity) -> PGPlayerLogOut {
-        let data = world.entity(player.0).expect("Could not get Entity");
+    pub fn new(world: &mut hecs::World, entity: &Entity) -> PGPlayerLogOut {
+        let data = world.entity(entity.0).expect("Could not get Entity");
         PGPlayerLogOut {
             uid: data.get::<&Account>().expect("Could not find Account").id,
             itemtimer: data.get::<&PlayerItemTimer>().expect("Could not find PlayerItemTimer").itemtimer,
@@ -215,8 +215,8 @@ pub struct PGPlayerReset {
 }
 
 impl PGPlayerReset {
-    pub fn new(world: &mut hecs::World, player: &Entity) -> PGPlayerReset {
-        let data = world.entity(player.0).expect("Could not get Entity");
+    pub fn new(world: &mut hecs::World, entity: &Entity) -> PGPlayerReset {
+        let data = world.entity(entity.0).expect("Could not get Entity");
         PGPlayerReset {
             uid: data.get::<&Account>().expect("Could not find Account").id,
             resetcount: data.get::<&Player>().expect("Could not find Player").resetcount,
@@ -233,8 +233,8 @@ pub struct PGPlayerAddress {
 }
 
 impl PGPlayerAddress {
-    pub fn new(world: &mut hecs::World, player: &Entity) -> PGPlayerAddress {
-        let data = world.entity(player.0).expect("Could not get Entity");
+    pub fn new(world: &mut hecs::World, entity: &Entity) -> PGPlayerAddress {
+        let data = world.entity(entity.0).expect("Could not get Entity");
         PGPlayerAddress {
             uid: data.get::<&Account>().expect("Could not find Account").id,
             address: data.get::<&Socket>().expect("Could not find Socket").addr.clone(),
@@ -253,8 +253,8 @@ pub struct PGPlayerLevel {
 }
 
 impl PGPlayerLevel {
-    pub fn new(world: &mut hecs::World, player: &Entity) -> PGPlayerLevel {
-        let data = world.entity(player.0).expect("Could not get Entity");
+    pub fn new(world: &mut hecs::World, entity: &Entity) -> PGPlayerLevel {
+        let data = world.entity(entity.0).expect("Could not get Entity");
         PGPlayerLevel {
             uid: data.get::<&Account>().expect("Could not find Account").id,
             level: data.get::<&Level>().expect("Could not find Level").0,
@@ -273,8 +273,8 @@ pub struct PGPlayerData {
 }
 
 impl PGPlayerData {
-    pub fn new(world: &mut hecs::World, player: &Entity) -> PGPlayerData {
-        let data = world.entity(player.0).expect("Could not get Entity");
+    pub fn new(world: &mut hecs::World, entity: &Entity) -> PGPlayerData {
+        let data = world.entity(entity.0).expect("Could not get Entity");
         PGPlayerData {
             uid: data.get::<&Account>().expect("Could not find Account").id,
             data: data.get::<&EntityData>().expect("Could not find EntityData").0.to_vec(),
@@ -291,8 +291,8 @@ pub struct PGPlayerPassReset {
 }
 
 impl PGPlayerPassReset {
-    pub fn new(world: &mut hecs::World, player: &Entity, pass: Option<String>) -> PGPlayerPassReset {
-        let data = world.entity(player.0).expect("Could not get Entity");
+    pub fn new(world: &mut hecs::World, entity: &Entity, pass: Option<String>) -> PGPlayerPassReset {
+        let data = world.entity(entity.0).expect("Could not get Entity");
         PGPlayerPassReset {
             uid: data.get::<&Account>().expect("Could not find Account").id,
             passresetcode: pass,
@@ -309,8 +309,8 @@ pub struct PGPlayerSpawn {
 }
 
 impl PGPlayerSpawn {
-    pub fn new(world: &mut hecs::World, player: &Entity) -> PGPlayerSpawn {
-        let data = world.entity(player.0).expect("Could not get Entity");
+    pub fn new(world: &mut hecs::World, entity: &Entity) -> PGPlayerSpawn {
+        let data = world.entity(entity.0).expect("Could not get Entity");
         PGPlayerSpawn {
             uid: data.get::<&Account>().expect("Could not find Account").id,
             spawn: data.get::<&Spawn>().expect("Could not find Spawn").pos,
@@ -327,8 +327,8 @@ pub struct PGPlayerPos {
 }
 
 impl PGPlayerPos {
-    pub fn new(world: &mut hecs::World, player: &Entity) -> PGPlayerPos {
-        let data = world.entity(player.0).expect("Could not get Entity");
+    pub fn new(world: &mut hecs::World, entity: &Entity) -> PGPlayerPos {
+        let data = world.entity(entity.0).expect("Could not get Entity");
         PGPlayerPos {
             uid: data.get::<&Account>().expect("Could not find Account").id,
             pos: *data.get::<&Position>().expect("Could not find Position").clone(),
@@ -345,8 +345,8 @@ pub struct PGPlayerCurrency {
 }
 
 impl PGPlayerCurrency {
-    pub fn new(world: &mut hecs::World, player: &Entity) -> PGPlayerCurrency {
-        let data = world.entity(player.0).expect("Could not get Entity");
+    pub fn new(world: &mut hecs::World, entity: &Entity) -> PGPlayerCurrency {
+        let data = world.entity(entity.0).expect("Could not get Entity");
         PGPlayerCurrency {
             uid: data.get::<&Account>().expect("Could not find Account").id,
             vals: data.get::<&Money>().expect("Could not find Money").vals as i64,

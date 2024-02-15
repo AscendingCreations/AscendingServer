@@ -13,8 +13,8 @@ pub fn game_loop(world: &mut World, storage: &Storage) {
     let mut tmr60000: MyInstant = MyInstant::now();
 
     loop {
-        let _ = world.gettick.replace(MyInstant::now());
-        tick = *world.gettick.borrow();
+        let _ = storage.gettick.replace(MyInstant::now());
+        tick = *storage.gettick.borrow();
 
         if tick > tmr100 {
             update_npcs(world);
@@ -23,7 +23,7 @@ pub fn game_loop(world: &mut World, storage: &Storage) {
         }
 
         if tick > tmr500 {
-            if let Err(e) = update_maps(world) {
+            if let Err(e) = update_maps(storage) {
                 println!("Error: {:?}", e);
             }
             tmr500 = tick + Duration::milliseconds(500);
@@ -34,7 +34,7 @@ pub fn game_loop(world: &mut World, storage: &Storage) {
         }
 
         if tick > tmr60000 {
-            let mut time = world.time.borrow_mut();
+            let mut time = storage.time.borrow_mut();
             time.min += 1;
             if time.min >= 60 {
                 time.min = 0;
@@ -46,11 +46,11 @@ pub fn game_loop(world: &mut World, storage: &Storage) {
             tmr60000 = tick + Duration::milliseconds(60000);
         }
 
-        if let Err(e) = poll_events(world) {
+        if let Err(e) = poll_events(world, storage) {
             println!("Poll event error: {:?}", e);
         }
 
-        process_packets(world);
+        process_packets(world, storage);
     }
 }
 
@@ -75,15 +75,15 @@ pub fn get_length(world: &Storage, buffer: &mut ByteBuffer, id: usize) -> Option
     }
 }
 
-pub fn process_packets(world: &Storage) {
+pub fn process_packets(world: &hecs::World, storage: &Storage) {
     let mut count: usize;
     let mut rem_arr: Vec<usize> = Vec::with_capacity(32);
     let mut length: u64;
 
-    'user_loop: for i in &*world.recv_ids.borrow() {
+    'user_loop: for i in &*storage.recv_ids.borrow() {
         count = 0;
 
-        if let Some(player) = world.players.borrow().get(*i) {
+        if let Some(player) = storage.players.borrow().get(*i) {
             let socket_id = player.borrow().socket_id;
 
             loop {
@@ -105,9 +105,9 @@ pub fn process_packets(world: &Storage) {
                             Some(n) => n,
                             None => {
                                 if let Some(mut client) =
-                                    world.server.borrow().get_mut(mio::Token(socket_id))
+                                    storage.server.borrow().get_mut(mio::Token(socket_id))
                                 {
-                                    client.set_to_closing(world);
+                                    client.set_to_closing(world, storage);
                                 }
 
                                 rem_arr.push(*i);
@@ -115,11 +115,11 @@ pub fn process_packets(world: &Storage) {
                             }
                         };
 
-                    if handle_data(world, &mut buffer, *i).is_err() {
+                    if handle_data(world, storage, &mut buffer, *i).is_err() {
                         if let Some(mut client) =
-                            world.server.borrow().get_mut(mio::Token(socket_id))
+                            storage.server.borrow().get_mut(mio::Token(socket_id))
                         {
-                            client.set_to_closing(world);
+                            client.set_to_closing(world, storage);
                         }
 
                         rem_arr.push(*i);
@@ -134,10 +134,10 @@ pub fn process_packets(world: &Storage) {
                         .move_cursor(player.borrow().buffer.cursor() - 8);
 
                     if let Some(mut client) =
-                        world.server.borrow_mut().get_mut(mio::Token(socket_id))
+                        storage.server.borrow_mut().get_mut(mio::Token(socket_id))
                     {
                         client.poll_state.add(SocketPollState::Read);
-                        client.reregister(&world.poll.borrow_mut()).unwrap();
+                        client.reregister(&storage.poll.borrow_mut()).unwrap();
                     }
 
                     rem_arr.push(*i);
@@ -160,6 +160,6 @@ pub fn process_packets(world: &Storage) {
     }
 
     for i in rem_arr {
-        world.recv_ids.borrow_mut().remove(&i);
+        storage.recv_ids.borrow_mut().remove(&i);
     }
 }

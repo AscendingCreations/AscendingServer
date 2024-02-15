@@ -1,4 +1,4 @@
-use crate::{containers::Storage, gametypes::*, maps::*, players::Player, socket::*};
+use crate::{containers::Storage, gametypes::*, maps::*, players::*, socket::*};
 use mio::{net::TcpStream, Interest};
 use std::io::{self, Read, Write};
 use unwrap_helpers::*;
@@ -264,7 +264,7 @@ impl Client {
 pub fn disconnect(playerid: Entity, world: &mut hecs::World, storage: &Storage) {
     if let Some((socket, position)) = storage.remove_player(world, playerid) {
         if let Some(map) = storage.maps.get(&position.map) {
-            map.borrow_mut().remove_player(world, playerid);
+            map.borrow_mut().remove_player(world, storage, playerid);
             //todo Add save for player world here.
             //todo Add Update Players on map here.
         }
@@ -286,52 +286,63 @@ pub fn accept_connection(
 }
 
 #[inline]
-pub fn send_to(world: &Storage, id: usize, buf: ByteBuffer) {
-    if let Some(mut client) = world.server.borrow().get_mut(mio::Token(id)) {
-        client.send(&world.poll.borrow(), buf);
+pub fn send_to(storage: &Storage, id: usize, buf: ByteBuffer) {
+    if let Some(mut client) = storage.server.borrow().get_mut(mio::Token(id)) {
+        client.send(&storage.poll.borrow(), buf);
     }
 }
 
 #[inline]
-pub fn send_to_all(world: &Storage, buf: ByteBuffer) {
-    let player_ids = world.player_ids.borrow();
-
-    for id in &*player_ids {
-        if let Some(player) = world.players.borrow().get(*id) {
-            if let Some(mut client) = world
-                .server
-                .borrow()
-                .get_mut(mio::Token(player.borrow().socket_id))
-            {
-                client.send(&world.poll.borrow(), buf.clone());
-            }
+pub fn send_to_all(world: &hecs::World, storage: &Storage, buf: ByteBuffer) {
+    for (_entity, (_, socket)) in world
+        .query::<((&WorldEntityType, &OnlineType), &Socket)>()
+        .iter()
+        .filter(|(_entity, 
+            ((worldentitytype, onlinetype), _))| {
+                **worldentitytype == WorldEntityType::Player && **onlinetype == OnlineType::Online
+        })
+    {
+        if let Some(mut client) = storage
+            .server
+            .borrow()
+            .get_mut(mio::Token(socket.id))
+        {
+            client.send(&storage.poll.borrow(), buf.clone());
         }
     }
 }
 
 #[inline]
 pub fn send_to_maps(
-    world: &Storage,
+    world: &hecs::World,
+    storage: &Storage,
     position: MapPosition,
     buf: ByteBuffer,
-    avoidindex: Option<usize>,
+    avoidindex: Option<Entity>,
 ) {
     for m in get_surrounding(position, true) {
-        let map = unwrap_continue!(world.maps.get(&m)).borrow();
+        let map = unwrap_continue!(storage.maps.get(&m)).borrow();
 
-        for id in &map.players {
-            if avoidindex.map(|value| value == *id).unwrap_or(false) {
+        for (_entity, (_, socket)) in world
+            .query::<((&WorldEntityType, &OnlineType, &Position), &Socket)>()
+            .iter()
+            .filter(|(_entity, 
+                ((worldentitytype, onlinetype, pos), _))| {
+                    **worldentitytype == WorldEntityType::Player && **onlinetype == OnlineType::Online &&
+                    pos.map == map.position
+            })
+        {
+            // ToDo: Avoid index
+            /*if avoidindex.map(|value| value == *id).unwrap_or(false) {
                 continue;
-            }
+            }*/
 
-            if let Some(player) = world.players.borrow().get(*id) {
-                if let Some(mut client) = world
-                    .server
-                    .borrow()
-                    .get_mut(mio::Token(player.borrow().socket_id))
-                {
-                    client.send(&world.poll.borrow(), buf.clone());
-                }
+            if let Some(mut client) = storage
+                .server
+                .borrow()
+                .get_mut(mio::Token(socket.id))
+            {
+                client.send(&storage.poll.borrow(), buf.clone());
             }
         }
     }

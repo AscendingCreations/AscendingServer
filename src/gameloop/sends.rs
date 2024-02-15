@@ -1,11 +1,11 @@
 use crate::{containers::Storage, gametypes::*, players::*, socket::*, tasks::*};
-use bytey::byte;
+use bytey::ByteBuffer;
 use unwrap_helpers::*;
 use hecs::World;
 
 #[inline]
 pub fn send_infomsg(
-    world: &Storage,
+    storage: &Storage,
     socket_id: usize,
     message: String,
     close_socket: u8,
@@ -17,13 +17,13 @@ pub fn send_infomsg(
     buf.write(close_socket)?;
     buf.finish()?;
 
-    send_to(world, socket_id, buf);
+    send_to(storage, socket_id, buf);
     Ok(())
 }
 
 #[inline]
 pub fn send_fltalert(
-    world: &Storage,
+    storage: &Storage,
     socket_id: usize,
     message: String,
     ftltype: FtlType,
@@ -35,43 +35,46 @@ pub fn send_fltalert(
     buf.write(message)?;
     buf.finish()?;
 
-    send_to(world, socket_id, buf);
+    send_to(storage, socket_id, buf);
     Ok(())
 }
 
 #[inline]
-pub fn send_loginok(world: &Storage, socket_id: usize) -> Result<()> {
+pub fn send_loginok(storage: &Storage, socket_id: usize) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(16)?;
 
     buf.write(ServerPackets::LoginOk)?;
-    buf.write(world.time.borrow().hour)?;
-    buf.write(world.time.borrow().min)?;
+    buf.write(storage.time.borrow().hour)?;
+    buf.write(storage.time.borrow().min)?;
     buf.finish()?;
 
-    send_to(world, socket_id, buf);
+    send_to(storage, socket_id, buf);
     Ok(())
 }
 
 #[inline]
-pub fn send_updatemap(world: &Storage, user: &Player) -> Result<()> {
+pub fn send_updatemap(world: &World, storage: &Storage, entity: &Entity) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(16)?;
 
     buf.write(ServerPackets::UpdateMap)?;
     buf.finish()?;
 
-    send_to(world, user.socket_id, buf);
+    let socket = world.get::<&Socket>(entity.0).expect("Could not find Socket");
+
+    send_to(storage, socket.id, buf);
     Ok(())
 }
 
 #[inline]
 pub fn send_mapitem(
-    world: &Storage,
+    world: &World,
+    storage: &Storage,
     position: MapPosition,
     id: u64,
     sendto: Option<usize>,
 ) -> Result<()> {
     let map =
-        &unwrap_or_return!(world.maps.get(&position), Err(AscendingError::Unhandled)).borrow();
+        &unwrap_or_return!(storage.maps.get(&position), Err(AscendingError::Unhandled)).borrow();
     if let Some(item) = map.items.get(id as usize) {
         let mut buf = ByteBuffer::new_packet_with(64)?;
 
@@ -82,84 +85,84 @@ pub fn send_mapitem(
         buf.finish()?;
 
         if let Some(socket_id) = sendto {
-            send_to(world, socket_id, buf);
+            send_to(storage, socket_id, buf);
         } else {
-            send_to_maps(world, position, buf, None);
+            send_to_maps(world, storage, position, buf, None);
         }
     }
     Ok(())
 }
 
 #[inline]
-pub fn playerdata(world: &Storage, id: u64) -> Option<ByteBuffer> {
+pub fn playerdata(world: &World, storage: &Storage, entity: &Entity) -> Option<ByteBuffer> {
     let mut buf = ByteBuffer::new_packet_with(512).ok()?;
 
-    if let Some(refplayer) = world.players.borrow().get(id as usize) {
-        let player = refplayer.borrow();
+    let data = world.entity(entity.0).expect("Could not get Entity");
 
-        buf.write(ServerPackets::PlayerData).ok()?;
-        buf.write(id).ok()?;
-        buf.write(&player.name).ok()?;
-        buf.write(player.access).ok()?;
-        buf.write(player.sprite).ok()?;
-        buf.write(player.e.pos).ok()?;
-        buf.write(player.e.dir).ok()?;
-        buf.write(player.e.level).ok()?;
-        buf.write(player.levelexp).ok()?;
-        buf.write(player.e.vital).ok()?;
-        buf.write(player.e.vitalmax).ok()?;
-        buf.write(player.equip).ok()?;
-        buf.write(player.using).ok()?;
-        buf.write(player.resetcount).ok()?;
-        buf.write(player.e.life).ok()?;
-        buf.write(player.e.hidden).ok()?;
-        buf.write(player.e.attacking).ok()?;
-        buf.write(player.pvpon).ok()?;
-        buf.write(player.pk).ok()?;
-        buf.finish().ok()?;
+    buf.write(ServerPackets::PlayerData).ok()?;
+    buf.write(*entity).ok()?;
+    buf.write(&data.get::<&Account>().expect("Could not find Account").name.clone()).ok()?;
+    buf.write(*data.get::<&UserAccess>().expect("Could not find UserAccess")).ok()?;
+    buf.write(data.get::<&Sprite>().expect("Could not find Sprite").id).ok()?;
+    buf.write(*data.get::<&Position>().expect("Could not find Position")).ok()?;
+    buf.write(data.get::<&Dir>().expect("Could not find Dir").0).ok()?;
+    buf.write(data.get::<&Level>().expect("Could not find Level").0).ok()?;
+    buf.write(data.get::<&Player>().expect("Could not find Player").levelexp).ok()?;
+    buf.write(data.get::<&Vitals>().expect("Could not find Vitals").vital).ok()?;
+    buf.write(data.get::<&Vitals>().expect("Could not find Vitals").vitalmax).ok()?;
+    buf.write(data.get::<&Equipment>().expect("Could not find Equipment").items).ok()?;
+    buf.write(*data.get::<&IsUsingType>().expect("Could not find IsUsingType")).ok()?;
+    buf.write(data.get::<&Player>().expect("Could not find Player").resetcount).ok()?;
+    buf.write(*data.get::<&DeathType>().expect("Could not find DeathType")).ok()?;
+    buf.write(data.get::<&Hidden>().expect("Could not find Hidden").0).ok()?;
+    buf.write(data.get::<&Attacking>().expect("Could not find Attacking").0).ok()?;
+    buf.write(data.get::<&Player>().expect("Could not find Player").pvpon).ok()?;
+    buf.write(data.get::<&Player>().expect("Could not find Player").pk).ok()?;
+    buf.finish().ok()?;
 
-        return Some(buf);
-    }
-
-    None
+    return Some(buf);
 }
 
 #[inline]
-pub fn send_dir(world: &Storage, user: &Player, toself: bool) -> Result<()> {
+pub fn send_dir(world: &World, storage: &Storage, entity: &Entity, toself: bool) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(16)?;
     let closure = |toself, id| if toself { Some(id) } else { None };
 
     buf.write(ServerPackets::PlayerDir)?;
-    buf.write(user.e.dir)?;
+    buf.write(world.get::<&Dir>(entity.0).expect("Could not find Dir").0)?;
     buf.finish()?;
 
-    send_to_maps(world, user.e.pos.map, buf, closure(toself, user.e.get_id()));
+    send_to_maps(world, storage, 
+        world.get::<&Position>(entity.0).expect("Could not find Position").map,
+        buf, closure(toself, *entity));
 
     Ok(())
 }
 
 #[inline]
-pub fn send_move(world: &Storage, user: &Player, warp: bool) -> Result<()> {
+pub fn send_move(world: &World, storage: &Storage, entity: &Entity, warp: bool) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(24)?;
 
+    let pos = world.get::<&Position>(entity.0).expect("Could not find Position");
+
     buf.write(ServerPackets::PlayerMove)?;
-    buf.write(user.e.get_id())?;
-    buf.write(user.e.pos)?;
-    buf.write(user.e.dir)?;
+    buf.write(*entity)?;
+    buf.write(*pos)?;
+    buf.write(world.get::<&Dir>(entity.0).expect("Could not find Dir").0)?;
     buf.write(warp)?;
     buf.finish()?;
 
     if warp {
-        send_to_maps(world, user.e.pos.map, buf, None);
+        send_to_maps(world, storage, pos.map, buf, None);
     } else {
-        send_to_maps(world, user.e.pos.map, buf, Some(user.e.get_id()));
+        send_to_maps(world, storage, pos.map, buf, Some(*entity));
     }
 
     Ok(())
 }
 
 pub fn send_data_remove_list(
-    world: &Storage,
+    storage: &Storage,
     playerid: usize,
     remove: &[u64],
     datatype: u8,
@@ -171,12 +174,12 @@ pub fn send_data_remove_list(
     buf.write(remove.to_vec())?;
     buf.finish()?;
 
-    send_to(world, playerid, buf);
+    send_to(storage, playerid, buf);
 
     Ok(())
 }
 
-pub fn send_data_remove(world: &Storage, id: u64, map: MapPosition, datatype: u8) -> Result<()> {
+pub fn send_data_remove(world: &World, storage: &Storage, id: u64, map: MapPosition, datatype: u8) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(24)?;
 
     buf.write(ServerPackets::Dataremove)?;
@@ -184,12 +187,12 @@ pub fn send_data_remove(world: &Storage, id: u64, map: MapPosition, datatype: u8
     buf.write(id)?;
     buf.finish()?;
 
-    send_to_maps(world, map, buf, None);
+    send_to_maps(world, storage, map, buf, None);
 
     Ok(())
 }
 
-pub fn send_data_remove_all(world: &Storage, id: u64, datatype: u8) -> Result<()> {
+pub fn send_data_remove_all(world: &World, storage: &Storage, id: u64, datatype: u8) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(24)?;
 
     buf.write(ServerPackets::Dataremove)?;
@@ -197,174 +200,198 @@ pub fn send_data_remove_all(world: &Storage, id: u64, datatype: u8) -> Result<()
     buf.write(id)?;
     buf.finish()?;
 
-    send_to_all(world, buf);
+    send_to_all(world, storage, buf);
 
     Ok(())
 }
 
 #[inline]
-pub fn send_vitals(world: &Storage, user: &Player) -> Result<()> {
+pub fn send_vitals(world: &World, storage: &Storage, entity: &Entity) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(32)?;
 
+    let vitals = world.get::<&Vitals>(entity.0).expect("Could not find Vitals");
+
     buf.write(ServerPackets::PlayerVitals)?;
-    buf.write(user.e.vital)?;
-    buf.write(user.e.vitalmax)?;
+    buf.write(vitals.vital)?;
+    buf.write(vitals.vitalmax)?;
     buf.finish()?;
 
-    send_to_maps(world, user.e.pos.map, buf, None);
+    send_to_maps(world, storage, 
+        world.get::<&Position>(entity.0).expect("Could not find Position").map, 
+        buf, None);
 
     Ok(())
 }
 
 #[inline]
-pub fn send_inv(world: &Storage, user: &Player) -> Result<()> {
+pub fn send_inv(world: &World, storage: &Storage, entity: &Entity) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(6500)?;
 
     buf.write(ServerPackets::PlayerInv)?;
-    buf.write(user.inv)?;
+    buf.write(world.get::<&Inventory>(entity.0).expect("Could not find Inventory").items)?;
     buf.finish()?;
 
-    send_to(world, user.socket_id, buf);
+    send_to(storage, 
+        world.get::<&Socket>(entity.0).expect("Could not find Socket").id, buf);
 
     Ok(())
 }
 
 #[inline]
-pub fn send_invslot(world: &Storage, user: &Player, id: usize) -> Result<()> {
+pub fn send_invslot(world: &World, storage: &Storage, entity: &Entity, id: usize) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(32)?;
 
     buf.write(ServerPackets::PlayerInvSlot)?;
     buf.write(id)?;
-    buf.write(user.inv[id])?;
+    buf.write(world.get::<&Inventory>(entity.0).expect("Could not find Inventory").items[id])?;
     buf.finish()?;
 
-    send_to(world, user.socket_id, buf);
+    send_to(storage, 
+        world.get::<&Socket>(entity.0).expect("Could not find Socket").id, buf);
 
     Ok(())
 }
 
 #[inline]
-pub fn send_attack(world: &Storage, user: &Player, toself: bool) -> Result<()> {
+pub fn send_attack(world: &World, storage: &Storage, entity: &Entity, toself: bool) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(16)?;
     let closure = |toself, id| if toself { Some(id) } else { None };
 
     buf.write(ServerPackets::PlayerAttack)?;
-    buf.write(user.e.get_id())?;
+    buf.write(*entity)?;
     buf.finish()?;
 
-    send_to_maps(world, user.e.pos.map, buf, closure(toself, user.e.get_id()));
+    send_to_maps(world, storage, 
+        world.get::<&Position>(entity.0).expect("Could not find Position").map, 
+        buf, closure(toself, *entity));
 
     Ok(())
 }
 
 #[inline]
-pub fn send_equipment(world: &Storage, user: &Player) -> Result<()> {
+pub fn send_equipment(world: &World, storage: &Storage, entity: &Entity) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(16)?;
 
     buf.write(ServerPackets::PlayerEquipment)?;
-    buf.write(user.equip)?;
+    buf.write(world.get::<&Equipment>(entity.0).expect("Could not find Equipment").items)?;
     buf.finish()?;
 
-    send_to_maps(world, user.e.pos.map, buf, None);
+    send_to_maps(world, storage, 
+        world.get::<&Position>(entity.0).expect("Could not find Position").map, 
+        buf, None);
 
     Ok(())
 }
 
 #[inline]
-pub fn send_level(world: &Storage, user: &Player) -> Result<()> {
+pub fn send_level(world: &World, storage: &Storage, entity: &Entity) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(16)?;
 
     buf.write(ServerPackets::PlayerLevel)?;
-    buf.write(user.e.level)?;
-    buf.write(user.levelexp)?;
+    buf.write(world.get::<&Level>(entity.0).expect("Could not find Level").0)?;
+    buf.write(world.get::<&Player>(entity.0).expect("Could not find Player").levelexp)?;
     buf.finish()?;
 
-    send_to(world, user.socket_id, buf);
+    send_to(storage, 
+        world.get::<&Socket>(entity.0).expect("Could not find Socket").id, buf);
     Ok(())
 }
 
 #[inline]
-pub fn send_money(world: &Storage, user: &Player) -> Result<()> {
+pub fn send_money(world: &World, storage: &Storage, entity: &Entity) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(16)?;
 
     buf.write(ServerPackets::PlayerMoney)?;
-    buf.write(user.vals)?;
+    buf.write(world.get::<&Money>(entity.0).expect("Could not find Money").vals)?;
     buf.finish()?;
 
-    send_to(world, user.socket_id, buf);
+    send_to(storage, 
+        world.get::<&Socket>(entity.0).expect("Could not find Socket").id, buf);
     Ok(())
 }
 
 #[inline]
-pub fn send_life_status(world: &World, user: &Entity, toself: bool) -> Result<()> {
+pub fn send_life_status(world: &World, storage: &Storage, entity: &Entity, toself: bool) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(16)?;
     let closure = |toself, id| if toself { Some(id) } else { None };
 
     buf.write(ServerPackets::PlayerDeath)?;
-    buf.write(user.e.get_id())?;
-    buf.write(user.e.life)?;
+    buf.write(*entity)?;
+    buf.write(*world.get::<&DeathType>(entity.0).expect("Could not find DeathType"))?;
     buf.finish()?;
 
-    send_to_maps(world, user.e.pos.map, buf, closure(toself, user.e.get_id()));
+    send_to_maps(world, storage, 
+        world.get::<&Position>(entity.0).expect("Could not find Position").map, 
+        buf, closure(toself, *entity));
     Ok(())
 }
 
 #[inline]
-pub fn send_action(world: &Storage, user: &Player, toself: bool) -> Result<()> {
+pub fn send_action(world: &World, storage: &Storage, entity: &Entity, toself: bool) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(16)?;
     let closure = |toself, id| if toself { Some(id) } else { None };
 
     buf.write(ServerPackets::PlayerAction)?;
-    buf.write(user.e.dir)?;
+    buf.write(world.get::<&Dir>(entity.0).expect("Could not find Dir").0)?;
     buf.finish()?;
 
-    send_to_maps(world, user.e.pos.map, buf, closure(toself, user.e.get_id()));
+    send_to_maps(world, storage, 
+        world.get::<&Position>(entity.0).expect("Could not find Position").map, buf, closure(toself, *entity));
     Ok(())
 }
 
 #[inline]
-pub fn send_pvp(world: &Storage, user: &Player, toself: bool) -> Result<()> {
+pub fn send_pvp(world: &World, storage: &Storage, entity: &Entity, toself: bool) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(16)?;
     let closure = |toself, id| if toself { Some(id) } else { None };
 
     buf.write(ServerPackets::PlayerPvp)?;
-    buf.write(user.pvpon)?;
+    buf.write(world.get::<&Player>(entity.0).expect("Could not find Player").pvpon)?;
     buf.finish()?;
 
-    send_to_maps(world, user.e.pos.map, buf, closure(toself, user.e.get_id()));
+    send_to_maps(world, storage, 
+        world.get::<&Position>(entity.0).expect("Could not find Position").map, 
+        buf, closure(toself, *entity));
     Ok(())
 }
 
 #[inline]
-pub fn send_pk(world: &Storage, user: &Player, toself: bool) -> Result<()> {
+pub fn send_pk(world: &World, storage: &Storage, entity: &Entity, toself: bool) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(16)?;
     let closure = |toself, id| if toself { Some(id) } else { None };
 
     buf.write(ServerPackets::PlayerPk)?;
-    buf.write(user.pk)?;
+    buf.write(world.get::<&Player>(entity.0).expect("Could not find Player").pk)?;
     buf.finish()?;
 
-    send_to_maps(world, user.e.pos.map, buf, closure(toself, user.e.get_id()));
+    send_to_maps(world, storage, 
+        world.get::<&Position>(entity.0).expect("Could not find Position").map, 
+        buf, closure(toself, *entity));
     Ok(())
 }
 
 #[inline]
 pub fn send_message(
-    world: &Storage,
-    user: &Player,
+    world: &mut World, 
+    storage: &Storage,
+    entity: &Entity,
     msg: String,
     head: String,
     chan: MessageChannel,
     id: Option<usize>,
 ) -> Result<()> {
+
+    let access = world.get::<&UserAccess>(entity.0).expect("Could not find UserAccess");
+
     match chan {
-        MessageChannel::Map => DataTaskToken::MapChat(user.e.pos.map).add_task(
-            world,
-            &MessagePacket::new(chan, head, msg, Some(user.access)),
+        MessageChannel::Map => DataTaskToken::MapChat(
+            world.get::<&Position>(entity.0).expect("Could not find Position").map).add_task(
+            world, storage,
+            &MessagePacket::new(chan, head, msg, Some(*access)),
         )?,
         MessageChannel::Global => DataTaskToken::GlobalChat.add_task(
-            world,
-            &MessagePacket::new(chan, head, msg, Some(user.access)),
+            world, storage,
+            &MessagePacket::new(chan, head, msg, Some(*access)),
         )?,
         MessageChannel::Party | MessageChannel::Trade | MessageChannel::Help => {}
         MessageChannel::Private => {
@@ -374,11 +401,11 @@ pub fn send_message(
             buf.write(chan)?;
             buf.write(head)?;
             buf.write(msg)?;
-            buf.write(user.access)?;
+            buf.write(*access)?;
             buf.finish()?;
 
             if let Some(i) = id {
-                send_to(world, i, buf);
+                send_to(storage, i, buf);
             }
         }
         MessageChannel::Guild => {}
@@ -389,9 +416,10 @@ pub fn send_message(
             buf.write(chan)?;
             buf.write(head)?;
             buf.write(msg)?;
-            buf.write(user.access)?;
+            buf.write(*access)?;
             buf.finish()?;
-            send_to(world, user.socket_id, buf);
+            send_to(storage, 
+                world.get::<&Socket>(entity.0).expect("Could not find Socket").id, buf);
         }
     }
 
