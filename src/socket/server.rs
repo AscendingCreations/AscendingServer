@@ -48,21 +48,22 @@ impl Server {
                 Err(e) => return Err(e.into()),
             };
 
-            let token = self.tokens.pop_front();
+            if let Some(token) = self.tokens.pop_front() {
+                // Attempt to Create a Empty Player Entity.
+                let entity = match accept_connection(token.0, addr.to_string(), world, storage) {
+                    Some(e) => e,
+                    None => {
+                        drop(stream);
+                        return Ok(());
+                    }
+                };
 
-            if let Some(token) = token {
-                /* We got a unique token, now let's register the new connection. */
-                let mut client = Client::new(stream, token);
+                // Lets make the Client to handle hwo we send packets.
+                let mut client = Client::new(stream, token, entity);
+                //Register the Poll to the client for recv and Sending
                 client.register(&storage.poll.borrow_mut())?;
 
-                client.playerid = unwrap_or_return!(
-                    accept_connection(token.0, addr.to_string(), world, storage),
-                    || {
-                        drop(client.stream);
-                        Ok(())
-                    }
-                );
-
+                // insert client into handled list.
                 self.clients.insert(token, RefCell::new(client));
             } else {
                 drop(stream);

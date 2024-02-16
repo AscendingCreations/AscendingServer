@@ -68,7 +68,7 @@ impl SocketPollState {
 pub struct Client {
     pub stream: TcpStream,
     pub token: mio::Token,
-    pub playerid: Entity,
+    pub entity: Entity,
     pub state: ClientState,
     pub sends: Vec<ByteBuffer>,
     pub poll_state: SocketPollState,
@@ -76,11 +76,11 @@ pub struct Client {
 
 impl Client {
     #[inline]
-    pub fn new(stream: TcpStream, token: mio::Token) -> Client {
+    pub fn new(stream: TcpStream, token: mio::Token, entity: Entity) -> Client {
         Client {
             stream,
             token,
-            playerid: Entity::default(),
+            entity,
             state: ClientState::Open,
             sends: Vec::with_capacity(32),
             poll_state: SocketPollState::Read,
@@ -125,19 +125,17 @@ impl Client {
             _ => {
                 self.stream.shutdown(std::net::Shutdown::Both)?;
                 self.state = ClientState::Closed;
-                disconnect(self.playerid, world, storage);
+                disconnect(self.entity, world, storage);
                 Ok(())
             }
         }
     }
 
     pub fn read(&mut self, world: &mut hecs::World, storage: &Storage) {
-        if let Ok(data) = world.entity(self.playerid.0) {
-            let mut socket = *data.get::<&mut Socket>().expect("Could not find Socket");
-            let pos = socket.buffer.cursor();
-            let _ = socket
-                .buffer
-                .move_cursor(socket.buffer.length());
+        if let Ok(data) = world.entity(self.entity.0) {
+            let mut socket = data.get::<&mut Socket>().expect("Could not find Socket");
+            let (pos, length) = (socket.buffer.cursor(), socket.buffer.length());
+            let _ = socket.buffer.move_cursor(length);
 
             loop {
                 let mut buf: [u8; 2048] = [0; 2048];
@@ -163,10 +161,8 @@ impl Client {
 
             let _ = socket.buffer.move_cursor(pos);
 
-            if !socket.buffer.is_empty()
-                && !storage.recv_ids.borrow().contains(&self.playerid)
-            {
-                storage.recv_ids.borrow_mut().insert(self.playerid);
+            if !socket.buffer.is_empty() && !storage.recv_ids.borrow().contains(&self.entity) {
+                storage.recv_ids.borrow_mut().insert(self.entity);
             }
         } else {
             self.poll_state.add(SocketPollState::Read);
@@ -177,7 +173,7 @@ impl Client {
         let mut count: usize = 0;
 
         //make sure the player exists before we send anything.
-        if let Ok(_player) = world.entity(self.playerid.0) {
+        if let Ok(_player) = world.entity(self.entity.0) {
             loop {
                 let mut packet = match self.sends.pop() {
                     Some(packet) => packet,
@@ -297,16 +293,11 @@ pub fn send_to_all(world: &hecs::World, storage: &Storage, buf: ByteBuffer) {
     for (_entity, (_, socket)) in world
         .query::<((&WorldEntityType, &OnlineType), &Socket)>()
         .iter()
-        .filter(|(_entity, 
-            ((worldentitytype, onlinetype), _))| {
-                **worldentitytype == WorldEntityType::Player && **onlinetype == OnlineType::Online
+        .filter(|(_entity, ((worldentitytype, onlinetype), _))| {
+            **worldentitytype == WorldEntityType::Player && **onlinetype == OnlineType::Online
         })
     {
-        if let Some(mut client) = storage
-            .server
-            .borrow()
-            .get_mut(mio::Token(socket.id))
-        {
+        if let Some(mut client) = storage.server.borrow().get_mut(mio::Token(socket.id)) {
             client.send(&storage.poll.borrow(), buf.clone());
         }
     }
@@ -326,10 +317,10 @@ pub fn send_to_maps(
         for (_entity, (_, socket)) in world
             .query::<((&WorldEntityType, &OnlineType, &Position), &Socket)>()
             .iter()
-            .filter(|(_entity, 
-                ((worldentitytype, onlinetype, pos), _))| {
-                    **worldentitytype == WorldEntityType::Player && **onlinetype == OnlineType::Online &&
-                    pos.map == map.position
+            .filter(|(_entity, ((worldentitytype, onlinetype, pos), _))| {
+                **worldentitytype == WorldEntityType::Player
+                    && **onlinetype == OnlineType::Online
+                    && pos.map == map.position
             })
         {
             // ToDo: Avoid index
@@ -337,11 +328,7 @@ pub fn send_to_maps(
                 continue;
             }*/
 
-            if let Some(mut client) = storage
-                .server
-                .borrow()
-                .get_mut(mio::Token(socket.id))
-            {
+            if let Some(mut client) = storage.server.borrow().get_mut(mio::Token(socket.id)) {
                 client.send(&storage.poll.borrow(), buf.clone());
             }
         }
