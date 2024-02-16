@@ -134,8 +134,8 @@ impl Client {
     pub fn read(&mut self, world: &mut hecs::World, storage: &Storage) {
         if let Ok(data) = world.entity(self.entity.0) {
             let mut socket = data.get::<&mut Socket>().expect("Could not find Socket");
-            let (pos, length) = (socket.buffer.cursor(), socket.buffer.length());
-            let _ = socket.buffer.move_cursor(length);
+            let pos = socket.buffer.cursor();
+            let _ = socket.buffer.move_cursor_to_end();
 
             loop {
                 let mut buf: [u8; 2048] = [0; 2048];
