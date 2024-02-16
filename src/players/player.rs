@@ -3,6 +3,8 @@ use std::sync::{Arc, Mutex};
 use crate::{
     containers::*, gameloop::*, gametypes::*, items::*, socket::*, sql::*, tasks::*, time_ext::*,
 };
+use bytey::{ByteBufferRead, ByteBufferWrite};
+use serde::{Deserialize, Serialize};
 use hecs::*;
 use phf::Map;
 use unwrap_helpers::*;
@@ -52,7 +54,7 @@ pub struct Inventory {
     pub items: Vec<Item>,
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(PartialEq, Eq, Clone, Debug, Default, Deserialize, Serialize, ByteBufferRead, ByteBufferWrite)]
 pub struct Equipment {
     pub items: Vec<Item>,
 }

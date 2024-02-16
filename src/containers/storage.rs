@@ -17,7 +17,7 @@ pub struct Storage {
     //pub players: RefCell<slab::Slab<RefCell<Player>>>,
     pub npcs: RefCell<slab::Slab<RefCell<Npc>>>,
     pub player_ids: RefCell<IndexSet<Entity>>,
-    pub recv_ids: RefCell<IndexSet<usize>>,
+    pub recv_ids: RefCell<IndexSet<Entity>>,
     pub npc_ids: RefCell<IndexSet<Entity>>,
     pub player_names: RefCell<HashMap<String, Entity>>, //for player names to ID's
     pub maps: IndexMap<MapPosition, RefCell<MapData>>,

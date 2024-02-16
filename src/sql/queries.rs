@@ -98,7 +98,7 @@ pub fn load_player(
     world: &mut hecs::World,
     entity: &crate::Entity,
 ) -> Result<()> {
-    let data = world.entity(player.0).expect("Could not get Entity");
+    let data = world.entity(entity.0).expect("Could not get Entity");
     let inv = data.get::<&Inventory>().expect("Could not find Inventory");
     let account = data.get::<&Account>().expect("Could not find Account");
     let equip = data.get::<&Equipment>().expect("Could not find Equipment");
@@ -106,7 +106,7 @@ pub fn load_player(
     player_ret::table
         .filter(player_ret::uid.eq(account.id))
         .first::<PGPlayerWithID>(conn)?
-        .into_player(entity);
+        .into_player(world, entity);
 
     PGEquipItem::array_into_items(
         equipment::table

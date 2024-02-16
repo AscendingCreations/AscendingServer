@@ -80,7 +80,7 @@ impl Client {
         Client {
             stream,
             token,
-            playerid: 0,
+            playerid: Entity::default(),
             state: ClientState::Open,
             sends: Vec::with_capacity(32),
             poll_state: SocketPollState::Read,
@@ -132,12 +132,12 @@ impl Client {
     }
 
     pub fn read(&mut self, world: &mut hecs::World, storage: &Storage) {
-        if let Some(player) = world.players.borrow().get(self.playerid) {
-            let pos = player.borrow().buffer.cursor();
-            let _ = player
-                .borrow_mut()
+        if let Ok(data) = world.entity(self.playerid.0) {
+            let mut socket = *data.get::<&mut Socket>().expect("Could not find Socket");
+            let pos = socket.buffer.cursor();
+            let _ = socket
                 .buffer
-                .move_cursor(player.borrow().buffer.length());
+                .move_cursor(socket.buffer.length());
 
             loop {
                 let mut buf: [u8; 2048] = [0; 2048];
@@ -147,7 +147,7 @@ impl Client {
                         return;
                     }
                     Ok(n) => {
-                        if player.borrow_mut().buffer.write_slice(&buf[0..n]).is_err() {
+                        if socket.buffer.write_slice(&buf[0..n]).is_err() {
                             self.state = ClientState::Closing;
                             return;
                         }
@@ -161,12 +161,12 @@ impl Client {
                 }
             }
 
-            let _ = player.borrow_mut().buffer.move_cursor(pos);
+            let _ = socket.buffer.move_cursor(pos);
 
-            if !player.borrow().buffer.is_empty()
-                && !world.recv_ids.borrow().contains(&self.playerid)
+            if !socket.buffer.is_empty()
+                && !storage.recv_ids.borrow().contains(&self.playerid)
             {
-                world.recv_ids.borrow_mut().insert(self.playerid);
+                storage.recv_ids.borrow_mut().insert(self.playerid);
             }
         } else {
             self.poll_state.add(SocketPollState::Read);
@@ -177,7 +177,7 @@ impl Client {
         let mut count: usize = 0;
 
         //make sure the player exists before we send anything.
-        if let Some(_player) = world.players.borrow().get(self.playerid) {
+        if let Ok(_player) = world.entity(self.playerid.0) {
             loop {
                 let mut packet = match self.sends.pop() {
                     Some(packet) => packet,
@@ -187,7 +187,7 @@ impl Client {
                     }
                 };
 
-                match self.stream.write_all(packet.as_array()) {
+                match self.stream.write_all(packet.as_slice()) {
                     Ok(()) => {
                         count += 1;
 

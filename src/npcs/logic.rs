@@ -1,8 +1,9 @@
 use crate::{containers::Storage, gametypes::*, npcs::*, tasks::*};
 use chrono::Duration;
 use unwrap_helpers::*;
+use hecs::World;
 
-pub fn update_npcs(world: &Storage) {
+pub fn update_npcs(world: &World, storage: &Storage) {
     let tick = *world.gettick.borrow();
     let mut unloadnpcs = Vec::new();
 

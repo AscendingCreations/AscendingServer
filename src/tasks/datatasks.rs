@@ -137,7 +137,7 @@ impl DataTaskToken {
 
     pub fn send(&self, world: &mut hecs::World, storage: &Storage, buf: ByteBuffer) {
         match self {
-            DataTaskToken::GlobalChat => send_to_all(storage, buf),
+            DataTaskToken::GlobalChat => send_to_all(world, storage, buf),
             DataTaskToken::NpcMove(mappos)
             | DataTaskToken::PlayerMove(mappos)
             | DataTaskToken::NpcDir(mappos)
@@ -157,7 +157,7 @@ impl DataTaskToken {
             | DataTaskToken::PlayerLevel(mappos)
             | DataTaskToken::PlayerDamage(mappos)
             | DataTaskToken::NpcDamage(mappos)
-            | DataTaskToken::NpcVitals(mappos) => send_to_maps(storage, *mappos, buf, None),
+            | DataTaskToken::NpcVitals(mappos) => send_to_maps(world, storage, *mappos, buf, None),
         }
     }
 }

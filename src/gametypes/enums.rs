@@ -171,16 +171,8 @@ impl EntityType {
     pub fn get_pos(&self, world: &mut hecs::World, storage: &Storage) -> Option<Position> {
         match self {
             EntityType::Map(position) => Some(*position),
-            EntityType::Player(i, _) => world
-                .players
-                .borrow()
-                .get(*i as usize)
-                .map(|target| target.borrow().e.pos),
-            EntityType::Npc(i) => world
-                .npcs
-                .borrow()
-                .get(*i as usize)
-                .map(|target| target.borrow().e.pos),
+            EntityType::Player(i, _) => Some(*world.get::<&Position>(i.0).expect("Could not find Position")),
+            EntityType::Npc(i) => Some(*world.get::<&Position>(i.0).expect("Could not find Position")),
             EntityType::None => None,
         }
     }

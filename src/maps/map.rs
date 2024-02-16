@@ -290,16 +290,16 @@ pub fn map_offset_range(
     None
 }
 
-pub fn get_maps_in_range(world: &Storage, pos: &Position, range: i32) -> Vec<MapPos> {
+pub fn get_maps_in_range(storage: &Storage, pos: &Position, range: i32) -> Vec<MapPos> {
     let mut arr: Vec<MapPos> = Vec::new();
-    unwrap_or_return!(world.bases.maps.get(&pos.map), Vec::new());
+    unwrap_or_return!(storage.bases.maps.get(&pos.map), Vec::new());
 
     arr.push(MapPos::Center(pos.map));
 
     if pos.x - range < 0 && pos.y - range < 0 {
         let pos = pos.map.map_offset(MapPosDir::UpLeft);
 
-        if world.bases.maps.get(&pos).is_some() {
+        if storage.bases.maps.get(&pos).is_some() {
             arr.push(MapPos::UpLeft(pos));
         }
     }
@@ -307,7 +307,7 @@ pub fn get_maps_in_range(world: &Storage, pos: &Position, range: i32) -> Vec<Map
     if pos.x - range < 0 && pos.y + range >= MAP_MAX_Y as i32 {
         let pos = pos.map.map_offset(MapPosDir::DownLeft);
 
-        if world.bases.maps.get(&pos).is_some() {
+        if storage.bases.maps.get(&pos).is_some() {
             arr.push(MapPos::DownLeft(pos));
         }
     }
@@ -315,7 +315,7 @@ pub fn get_maps_in_range(world: &Storage, pos: &Position, range: i32) -> Vec<Map
     if pos.x + range < 0 && pos.y - range < 0 {
         let pos = pos.map.map_offset(MapPosDir::UpRight);
 
-        if world.bases.maps.get(&pos).is_some() {
+        if storage.bases.maps.get(&pos).is_some() {
             arr.push(MapPos::UpRight(pos));
         }
     }
@@ -323,7 +323,7 @@ pub fn get_maps_in_range(world: &Storage, pos: &Position, range: i32) -> Vec<Map
     if pos.x + range < 0 && pos.y + range >= MAP_MAX_Y as i32 {
         let pos = pos.map.map_offset(MapPosDir::DownRight);
 
-        if world.bases.maps.get(&pos).is_some() {
+        if storage.bases.maps.get(&pos).is_some() {
             arr.push(MapPos::DownRight(pos));
         }
     }
@@ -331,7 +331,7 @@ pub fn get_maps_in_range(world: &Storage, pos: &Position, range: i32) -> Vec<Map
     if pos.x - range < 0 {
         let pos = pos.map.map_offset(MapPosDir::Left);
 
-        if world.bases.maps.get(&pos).is_some() {
+        if storage.bases.maps.get(&pos).is_some() {
             arr.push(MapPos::Left(pos));
         }
     }
@@ -339,7 +339,7 @@ pub fn get_maps_in_range(world: &Storage, pos: &Position, range: i32) -> Vec<Map
     if pos.x + range >= MAP_MAX_X as i32 {
         let pos = pos.map.map_offset(MapPosDir::Right);
 
-        if world.bases.maps.get(&pos).is_some() {
+        if storage.bases.maps.get(&pos).is_some() {
             arr.push(MapPos::Right(pos));
         }
     }
@@ -347,7 +347,7 @@ pub fn get_maps_in_range(world: &Storage, pos: &Position, range: i32) -> Vec<Map
     if pos.y - range < 0 {
         let pos = pos.map.map_offset(MapPosDir::Up);
 
-        if world.bases.maps.get(&pos).is_some() {
+        if storage.bases.maps.get(&pos).is_some() {
             arr.push(MapPos::Up(pos));
         }
     }
@@ -355,7 +355,7 @@ pub fn get_maps_in_range(world: &Storage, pos: &Position, range: i32) -> Vec<Map
     if pos.y + range >= MAP_MAX_Y as i32 {
         let pos = pos.map.map_offset(MapPosDir::Down);
 
-        if world.bases.maps.get(&pos).is_some() {
+        if storage.bases.maps.get(&pos).is_some() {
             arr.push(MapPos::Down(pos));
         }
     }

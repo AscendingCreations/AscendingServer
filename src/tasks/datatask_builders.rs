@@ -17,7 +17,7 @@ use serde::{Deserialize, Serialize};
 )]
 pub struct MovePacket {
     //34
-    pub id: u64,
+    pub entity: Entity,
     pub position: Position, //24 bytes
     pub warp: bool,
     pub switch: bool,
@@ -25,9 +25,9 @@ pub struct MovePacket {
 }
 
 impl MovePacket {
-    pub fn new(id: u64, position: Position, warp: bool, switch: bool, dir: u8) -> Self {
+    pub fn new(entity: Entity, position: Position, warp: bool, switch: bool, dir: u8) -> Self {
         Self {
-            id,
+            entity,
             position,
             warp,
             switch,
@@ -49,13 +49,13 @@ impl MovePacket {
     ByteBufferWrite,
 )]
 pub struct DirPacket {
-    pub id: u64,
+    pub entity: Entity,
     pub dir: u8,
 }
 
 impl DirPacket {
-    pub fn new(id: u64, dir: u8) -> Self {
-        Self { id, dir }
+    pub fn new(entity: Entity, dir: u8) -> Self {
+        Self { entity, dir }
     }
 }
 
@@ -72,13 +72,13 @@ impl DirPacket {
     ByteBufferWrite,
 )]
 pub struct DeathPacket {
-    pub id: u64,
+    pub entity: Entity,
     pub life: DeathType,
 }
 
 impl DeathPacket {
-    pub fn new(id: u64, life: DeathType) -> Self {
-        Self { id, life }
+    pub fn new(entity: Entity, life: DeathType) -> Self {
+        Self { entity, life }
     }
 }
 
@@ -137,7 +137,7 @@ impl NpcSpawnPacket {
 )]
 pub struct PlayerSpawnPacket {
     //Player global ID
-    pub id: crate::Entity,
+    pub entity: crate::Entity,
     pub name: String,
     pub access: UserAccess,
     pub dir: u8,
@@ -162,7 +162,7 @@ impl PlayerSpawnPacket {
             name: data.get::<&Account>().expect("Could not find Account").name.clone(),
             dir: data.get::<&Dir>().expect("Could not find Dir").0,
             hidden: data.get::<&Hidden>().expect("Could not find Hidden").0,
-            id: *player,
+            entity: *entity,
             level: data.get::<&Level>().expect("Could not find Level").0,
             life: *data.get::<&DeathType>().expect("Could not find DeathType"),
             pdamage: data.get::<&Physical>().expect("Could not find Physical").damage,
@@ -250,15 +250,15 @@ impl MapItemPacket {
     ByteBufferWrite,
 )]
 pub struct VitalsPacket {
-    pub id: u64,
+    pub entity: Entity,
     pub vital: [i32; VITALS_MAX],
     pub vitalmax: [i32; VITALS_MAX],
 }
 
 impl VitalsPacket {
-    pub fn new(id: u64, vital: [i32; VITALS_MAX], vitalmax: [i32; VITALS_MAX]) -> Self {
+    pub fn new(entity: Entity, vital: [i32; VITALS_MAX], vitalmax: [i32; VITALS_MAX]) -> Self {
         Self {
-            id,
+            entity,
             vital,
             vitalmax,
         }
@@ -270,13 +270,13 @@ impl VitalsPacket {
 )]
 pub struct DamagePacket {
     //16 bytes per packet
-    pub id: u64,     //8
+    pub entity: Entity,     //8
     pub damage: u64, //8
 }
 
 impl DamagePacket {
-    pub fn new(id: u64, damage: u64) -> Self {
-        Self { id, damage }
+    pub fn new(entity: Entity, damage: u64) -> Self {
+        Self { entity, damage }
     }
 }
 
@@ -285,15 +285,15 @@ impl DamagePacket {
 )]
 pub struct LevelPacket {
     //20 bytes
-    pub id: u64,       //8
+    pub entity: Entity,       //8
     pub level: i32,    //4
     pub levelexp: u64, //8
 }
 
 impl LevelPacket {
-    pub fn new(id: u64, level: i32, levelexp: u64) -> Self {
+    pub fn new(entity: Entity, level: i32, levelexp: u64) -> Self {
         Self {
-            id,
+            entity,
             level,
             levelexp,
         }

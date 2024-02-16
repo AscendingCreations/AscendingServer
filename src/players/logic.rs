@@ -31,7 +31,7 @@ pub fn update_players(world: &mut World, storage: &Storage) {
     {
         if *life == DeathType::Spirit {
             //timers
-            if *deathtimer.0 < tick {
+            if deathtimer.0 < tick {
                 *life = DeathType::Alive;
                 let _ = send_life_status(world, storage, &Entity(entity), true);
                 player_warp(world, storage, &Entity(entity), &position, dir.0);
@@ -68,11 +68,11 @@ pub fn player_warp(world: &mut hecs::World, storage: &Storage, entity: &Entity, 
                 let old_pos = player_switch_maps(world, storage, entity, new_pos.clone());
                 let _ = DataTaskToken::PlayerMove(old_pos.map).add_task(
                     world, storage, 
-                    &MovePacket::new(entity, new_pos, true, false, player_dir.0),
+                    &MovePacket::new(*entity, *new_pos, true, false, player_dir.0),
                 );
                 let _ = DataTaskToken::PlayerMove(new_pos.map).add_task(
                     world, storage, 
-                    &MovePacket::new(entity, new_pos, true, false, player_dir.0),
+                    &MovePacket::new(*entity, *new_pos, true, false, player_dir.0),
                 );
                 let _ = DataTaskToken::PlayerSpawn(new_pos.map)
                     .add_task(world, storage,
@@ -83,7 +83,7 @@ pub fn player_warp(world: &mut hecs::World, storage: &Storage, entity: &Entity, 
                 player_swap_pos(world, storage, entity, new_pos.clone());
                 let _ = DataTaskToken::PlayerMove(new_pos.map).add_task(
                     world, storage, 
-                    &MovePacket::new(entity, new_pos, false, false, player_dir.0),
+                    &MovePacket::new(*entity, *new_pos, false, false, player_dir.0),
                 );
             }
 
@@ -138,11 +138,11 @@ pub fn player_movement(world: &mut hecs::World, storage: &Storage, entity: &Enti
                 let oldpos = player_switch_maps(world, storage, entity, new_pos);
                 let _ = DataTaskToken::PlayerMove(oldpos.map).add_task(
                     world, storage,
-                    &MovePacket::new(entity, new_pos, false, true, player_dir.0),
+                    &MovePacket::new(*entity, new_pos, false, true, player_dir.0),
                 );
                 let _ = DataTaskToken::PlayerMove(new_pos.map).add_task(
                     world, storage,
-                    &MovePacket::new(entity, new_pos, false, true, player_dir.0),
+                    &MovePacket::new(*entity, new_pos, false, true, player_dir.0),
                 );
                 let _ = DataTaskToken::PlayerSpawn(new_pos.map)
                     .add_task(world, storage, &PlayerSpawnPacket::new(world, entity));
@@ -152,7 +152,7 @@ pub fn player_movement(world: &mut hecs::World, storage: &Storage, entity: &Enti
                 player_swap_pos(world, storage, entity, new_pos);
                 let _ = DataTaskToken::PlayerMove(player_position.map).add_task(
                     world, storage, 
-                    &MovePacket::new(entity, player_position, false, false, player_dir.0),
+                    &MovePacket::new(*entity, *player_position, false, false, player_dir.0),
                 );
             }
 
@@ -225,7 +225,7 @@ pub fn player_earn_exp(
             let _ = send_level(world, storage, entity);
             let _ = DataTaskToken::PlayerVitals(player_position.map).add_task(
                 world, storage,
-                &VitalsPacket::new(entity, player_vital.vital, player_vital.vitalmax),
+                &VitalsPacket::new(*entity, player_vital.vital, player_vital.vitalmax),
             );
             let _ = update_level(&mut storage.pgconn.borrow_mut(), world, entity);
         }

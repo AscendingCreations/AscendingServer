@@ -85,7 +85,8 @@ pub fn update_maps(world: &Storage) -> Result<()> {
                 //Lets Spawn the npcs here;
                 for (spawn, zone, npc_id) in spawnable.drain(..) {
                     let global_npc_id = world.add_npc(
-                        world
+                            world,
+                            Storage,
                             .bases
                             .npcs
                             .get(npc_id as usize)

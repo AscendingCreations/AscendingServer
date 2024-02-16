@@ -115,7 +115,7 @@ pub fn init_data_lists(world: &hecs::World, storage: &Storage, user: &crate::Ent
         //Then we get the rest of the maps so it sends and loads last.
         for m in get_surrounding(user.e.pos.map, true) {
             if m != user.e.pos.map {
-                if let Some(map) = world.maps.get(&m) {
+                if let Some(map) = storage.maps.get(&m) {
                     for id in &map.borrow().players {
                         if !old_players.1.contains(&(*id as u64)) {
                             task_player.currentids.push(*id as u64);
@@ -174,19 +174,19 @@ pub fn init_data_lists(world: &hecs::World, storage: &Storage, user: &crate::Ent
         3,
     );
 
-    user.map_switch_tasks.push(
+    storage.map_switch_tasks.push(
         storage
             .map_switch_tasks
             .borrow_mut()
             .insert(MapSwitchTasks::Player(task_player)),
     );
-    user.map_switch_tasks.push(
+    storage.map_switch_tasks.push(
         storage
             .map_switch_tasks
             .borrow_mut()
             .insert(MapSwitchTasks::Npc(task_npc)),
     );
-    user.map_switch_tasks.push(
+    storage.map_switch_tasks.push(
         storage
             .map_switch_tasks
             .borrow_mut()
