@@ -3,12 +3,12 @@ use rand::{thread_rng, Rng};
 use std::cmp::min;
 use unwrap_helpers::{unwrap_continue, ToOption};
 
-pub fn update_maps(world: &Storage) -> Result<()> {
+pub fn update_maps(world: &mut hecs::World, storage: &Storage) -> Result<()> {
     let mut rng = thread_rng();
     let mut spawnable = Vec::new();
-    let mut len = world.npcs.borrow().len();
+    let mut len = storage.npc_ids.borrow().len();
 
-    for (position, map_data) in &world.maps {
+    for (position, map_data) in &storage.maps {
         // Only Spawn is a player is on or near a the map.
         if map_data.borrow().players_on_map() {
             //get this so we can Add to it each time without needing to borrow() npcs again.
@@ -17,7 +17,7 @@ pub fn update_maps(world: &Storage) -> Result<()> {
 
             //Spawn NPC's if the max npc's per world is not yet reached.
             if len < MAX_WORLD_NPCS {
-                let map = world
+                let map = storage
                     .bases
                     .maps
                     .get(position)
@@ -38,8 +38,8 @@ pub fn update_maps(world: &Storage) -> Result<()> {
                         //Lets Do this for each npc;
                         for npc in zone_npcs {
                             let npc_id = unwrap_continue!(*npc);
-                            let game_time = world.time.borrow();
-                            let (from, to) = world
+                            let game_time = storage.time.borrow();
+                            let (from, to) = storage
                                 .bases
                                 .npcs
                                 .get(npc_id as usize)
@@ -84,16 +84,9 @@ pub fn update_maps(world: &Storage) -> Result<()> {
                 let mut data = map_data.borrow_mut();
                 //Lets Spawn the npcs here;
                 for (spawn, zone, npc_id) in spawnable.drain(..) {
-                    let global_npc_id = world.add_npc(
-                            world,
-                            Storage,
-                            .bases
-                            .npcs
-                            .get(npc_id as usize)
-                            .ok_or(AscendingError::NpcNotFound(npc_id))?
-                            .new_npc(spawn, zone, npc_id),
-                    );
-                    data.add_npc(global_npc_id);
+                    if let Ok(id) = storage.add_npc(world, npc_id) {
+                        data.add_npc(id);
+                    }
                 }
             }
         }

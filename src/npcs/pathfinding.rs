@@ -29,14 +29,14 @@ impl PathNode {
 }
 
 pub fn path_map_switch(
-    world: &Storage,
+    storage: &Storage,
     allowed_maps: &HashSet<MapPosition>,
     cur_pos: Position,
     next_pos: &mut Position,
     movedir: u8,
 ) -> bool {
     let set_pos = |next_pos: &mut Position, mappos, x, y| -> bool {
-        let mapid = unwrap_or_return!(get_dir_mapid(world, next_pos.map, mappos), false);
+        let mapid = unwrap_or_return!(get_dir_mapid(storage, next_pos.map, mappos), false);
 
         *next_pos = match allowed_maps.get(&mapid) {
             Some(_) => Position::new(x, y, mapid),
@@ -59,7 +59,7 @@ pub fn path_map_switch(
 }
 
 pub fn a_star_path(
-    world: &Storage,
+    storage: &Storage,
     start: Position,
     dir: u8,
     stop: Position,
@@ -120,7 +120,7 @@ pub fn a_star_path(
             );
 
             if !path_map_switch(
-                world,
+                storage,
                 &allowed_maps,
                 current_node.pos,
                 &mut node_pos,
@@ -129,7 +129,7 @@ pub fn a_star_path(
                 continue;
             }
 
-            if map_path_blocked(world, current_node.pos, node_pos, i as u8)
+            if map_path_blocked(storage, current_node.pos, node_pos, i as u8)
                 && (node_pos.x != start.x || node_pos.y != start.y || node_pos.map != start.map)
                 && (node_pos.x != stop.x || node_pos.y != stop.y || node_pos.map != stop.map)
             {
@@ -169,7 +169,7 @@ pub fn a_star_path(
     None
 }
 
-pub fn npc_rand_movement(world: &Storage, pos: Position, dir: u8) -> Vec<(Position, u8)> {
+pub fn npc_rand_movement(storage: &Storage, pos: Position, dir: u8) -> Vec<(Position, u8)> {
     let mut rng = thread_rng();
     let adjacent = [(0, -1), (1, 0), (0, 1), (-1, 0)];
     let mut path = Vec::with_capacity(16);
@@ -185,11 +185,11 @@ pub fn npc_rand_movement(world: &Storage, pos: Position, dir: u8) -> Vec<(Positi
             lastpos.map,
         );
 
-        if !path_map_switch(world, &allowed_maps, lastpos, &mut node_pos, movedir as u8) {
+        if !path_map_switch(storage, &allowed_maps, lastpos, &mut node_pos, movedir as u8) {
             continue;
         }
 
-        if map_path_blocked(world, lastpos, node_pos, movedir as u8) && lastdir != movedir {
+        if map_path_blocked(storage, lastpos, node_pos, movedir as u8) && lastdir != movedir {
             path.push((lastpos, movedir as u8));
         } else {
             path.insert(0, (node_pos, movedir as u8));

@@ -3,86 +3,93 @@ use chrono::Duration;
 use unwrap_helpers::*;
 use hecs::World;
 
-pub fn update_npcs(world: &World, storage: &Storage) {
-    let tick = *world.gettick.borrow();
+pub fn update_npcs(world: &mut World, storage: &Storage) {
+    let tick = *storage.gettick.borrow();
     let mut unloadnpcs = Vec::new();
 
-    for i in &*world.npc_ids.borrow() {
-        if let Some(npc) = world.npcs.borrow().get(*i) {
-            let mut npc = npc.borrow_mut();
+    for id in &*storage.npc_ids.borrow() {
+        let data = world.entity(id.0).expect("Could not get Entity");
+        match *data.get::<&DeathType>().expect("Could not find DeathType") {
+            DeathType::Alive => {
+                if data.get::<&NpcDespawns>().expect("Could not find NpcDespawns").0 && 
+                    data.get::<&NpcTimer>().expect("Could not find NpcTimer").despawntimer <= tick {
+                    if let mut deathtype = data.get::<&mut DeathType>().expect("Could not find DeathType")
+                        { *deathtype = DeathType::UnSpawned }
+                    unloadnpcs.push(*id);
+                    continue;
+                }
 
-            match npc.e.life {
-                DeathType::Alive => {
-                    if npc.despawns && npc.despawntimer <= tick {
-                        npc.e.life = DeathType::UnSpawned;
-                        unloadnpcs.push(*i);
+                if let Some(npcdata) = storage.bases.npcs
+                    .get(data.get::<&NpcIndex>().expect("Could not find NpcIndex").0 as usize) {
+                    if !storage
+                        .time
+                        .borrow()
+                        .in_range(npcdata.spawntime.0, npcdata.spawntime.1)
+                    {
+                        if let mut deathtype = data.get::<&mut DeathType>().expect("Could not find DeathType")
+                            { *deathtype = DeathType::UnSpawned }
+                        unloadnpcs.push(*id);
                         continue;
                     }
 
-                    if let Some(npcdata) = world.bases.npcs.get(npc.num as usize) {
-                        if !world
-                            .time
+                    //targeting
+                    if npcdata.can_target
+                        && unwrap_continue!(storage.maps
+                            .get(&data.get::<&Position>().expect("Could not find Position").map))
                             .borrow()
-                            .in_range(npcdata.spawntime.0, npcdata.spawntime.1)
-                        {
-                            npc.e.life = DeathType::UnSpawned;
-                            unloadnpcs.push(npc.e.get_id());
-                            continue;
-                        }
-
-                        //targeting
-                        if npcdata.can_target
-                            && unwrap_continue!(world.maps.get(&npc.e.pos.map))
-                                .borrow()
-                                .players_on_map()
-                        {
-                            targeting(world, &mut npc, npcdata);
-                        }
-
-                        //movement
-                        if npcdata.can_move && npc.e.movetimer <= tick {
-                            movement(world, &mut npc, npcdata);
-                            npc.e.movetimer = tick + Duration::milliseconds(npcdata.movement_wait);
-                        }
-
-                        //attacking
-                        if npc.e.life.is_alive()
-                            && npcdata.can_attack
-                            && unwrap_continue!(world.maps.get(&npc.e.pos.map))
-                                .borrow()
-                                .players_on_map()
-                            && npc.e.attacktimer < tick
-                        {
-                            npc_combat(world, &mut npc, npcdata);
-                        }
-
-                        if npc.e.incombat && npc.e.combattimer < tick {}
+                            .players_on_map()
+                    {
+                        targeting(world, storage, id, npcdata);
                     }
-                }
 
-                DeathType::UnSpawned => unloadnpcs.push(*i),
-                DeathType::Spawning => {
-                    if npc.spawntimer < tick {
-                        let map_data = unwrap_continue!(world.maps.get(&npc.e.spawn.map));
-
-                        //make sure we can spawn here before even spawning them.
-                        if map_data.borrow().is_blocked_tile(npc.e.spawn) {
-                            npc.e.life = DeathType::Alive;
-                            map_data.borrow_mut().add_entity_to_grid(npc.e.spawn);
-                            let _ = DataTaskToken::NpcSpawn(npc.e.pos.map)
-                                .add_task(world, &NpcSpawnPacket::new(&npc));
-                        }
+                    //movement
+                    if npcdata.can_move && data.get::<&MoveTimer>().expect("Could not find MoveTimer").0 <= tick {
+                        npc_movement(world, storage, id, npcdata);
+                        if let mut movetimer = data.get::<&mut MoveTimer>().expect("Could not find MoveTimer") 
+                            { movetimer.0 = tick + Duration::milliseconds(npcdata.movement_wait) }
                     }
+
+                    //attacking
+                    if data.get::<&DeathType>().expect("Could not find DeathType").is_alive()
+                        && npcdata.can_attack
+                        && unwrap_continue!(storage.maps
+                            .get(&data.get::<&Position>().expect("Could not find Position").map))
+                            .borrow()
+                            .players_on_map()
+                        && data.get::<&AttackTimer>().expect("Could not find AttackTimer").0 < tick
+                    {
+                        npc_combat(world, storage, id, npcdata);
+                    }
+
+                    if data.get::<&InCombat>().expect("Could not find InCombat").0 &&
+                        data.get::<&Combat>().expect("Could not find Combat").0 < tick {}
                 }
-                _ => {}
             }
+
+            DeathType::UnSpawned => unloadnpcs.push(*id),
+            DeathType::Spawning => {
+                if data.get::<&NpcTimer>().expect("Could not find MoveTimer").spawntimer < tick {
+                    let map_data = unwrap_continue!(storage.maps
+                        .get(&data.get::<&Spawn>().expect("Could not find Spawn").pos.map));
+
+                    //make sure we can spawn here before even spawning them.
+                    if map_data.borrow().is_blocked_tile(data.get::<&Spawn>().expect("Could not find Spawn").pos) {
+                        if let mut deathtype = data.get::<&mut DeathType>().expect("Could not find DeathType")
+                            { *deathtype = DeathType::Alive }
+                        map_data.borrow_mut().add_entity_to_grid(data.get::<&Spawn>().expect("Could not find Spawn").pos);
+                        let _ = DataTaskToken::NpcSpawn(data.get::<&Spawn>().expect("Could not find Spawn").pos.map)
+                            .add_task(world, storage, &NpcSpawnPacket::new(world, id));
+                    }
+                }
+            }
+            _ => {}
         }
     }
 
     for i in unloadnpcs {
-        if let Some(npc) = world.remove_npc(i) {
+        if let Some(pos) = storage.remove_npc(world, i) {
             let _ =
-                DataTaskToken::NpcUnload(npc.e.pos.map).add_task(world, &(npc.e.get_id() as u64));
+                DataTaskToken::NpcUnload(pos.map).add_task(world, storage, &(i));
         }
     }
 }

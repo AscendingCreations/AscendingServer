@@ -42,11 +42,11 @@ impl Map {
 pub struct MapData {
     pub position: MapPosition,
     //updated data for map seperate from Map itself as base should be Readonly / clone.
-    pub itemids: IndexSet<usize>,
-    pub npcs: IndexSet<usize>,
+    pub itemids: IndexSet<Entity>,
+    pub npcs: IndexSet<Entity>,
     pub players: IndexSet<Entity>,
-    #[derivative(Default(value = "slab::Slab::with_capacity(16)"))]
-    pub items: slab::Slab<MapItem>,
+    //#[derivative(Default(value = "slab::Slab::with_capacity(16)"))]
+    //pub items: slab::Slab<MapItem>,
     pub zones: [u64; 5], //contains the NPC spawn Count of each Zone.
     #[derivative(Default(value = "[(0, false, 0); MAP_MAX_X * MAP_MAX_Y]"))]
     pub move_grid: [(u8, bool, u8); MAP_MAX_X * MAP_MAX_Y], // (count, False=tile|True=Npc or player, Dir Blocking)
@@ -63,12 +63,14 @@ impl MapData {
         self.players_on_map > 0
     }
 
-    pub fn add_mapitem(&mut self, mapitem: MapItem) {
-        let id = self.items.insert(mapitem);
-        let mut item = self.items.get_mut(id).unwrap();
-
-        item.id = id as u64;
-        self.itemids.insert(id);
+    pub fn add_mapitem(&mut self, world: &mut hecs::World, mapitem: MapItem) -> Entity {
+        let id = world.spawn((
+            WorldEntityType::MapItem,
+            mapitem,
+        ));
+        world.insert_one(id, EntityType::MapItem(Entity(id)));
+        self.itemids.insert(Entity(id));
+        Entity(id)
     }
 
     pub fn is_blocked_tile(&self, pos: Position) -> bool {
@@ -103,7 +105,7 @@ impl MapData {
         self.players_on_map += 1;
     }
 
-    pub fn add_npc(&mut self, id: usize) {
+    pub fn add_npc(&mut self, id: Entity) {
         self.npcs.insert(id);
     }
 
@@ -122,17 +124,17 @@ impl MapData {
         self.players_on_map -= 1;
     }
 
-    pub fn remove_npc(&mut self, id: usize) {
-        self.npcs.remove(&id);
+    pub fn remove_npc(&mut self, id: Entity) {
+        self.npcs.swap_remove(&id);
     }
 
-    pub fn remove_item(&mut self, id: usize) {
-        if !self.items.contains(id) {
+    pub fn remove_item(&mut self, id: Entity) {
+        /*if !self.items.contains(id) {
             return;
-        }
+        }*/
 
-        self.items.remove(id);
-        self.itemids.remove(&id);
+        //self.items.remove(id);
+        self.itemids.swap_remove(&id);
     }
 }
 
@@ -169,12 +171,12 @@ pub fn check_surrounding(
 }
 
 pub fn get_dir_mapid(
-    world: &Storage,
+    storage: &Storage,
     position: MapPosition,
     dir: MapPosDir,
 ) -> Option<MapPosition> {
     let offset = position.map_offset(dir);
-    let _ = world.bases.maps.get(&offset)?;
+    let _ = storage.bases.maps.get(&offset)?;
     Some(offset)
 }
 
@@ -364,35 +366,35 @@ pub fn get_maps_in_range(storage: &Storage, pos: &Position, range: i32) -> Vec<M
 }
 
 pub fn map_path_blocked(
-    world: &Storage,
+    storage: &Storage,
     cur_pos: Position,
     next_pos: Position,
     movedir: u8,
 ) -> bool {
     let blocked = match movedir {
         0 => {
-            if let Some(map) = world.maps.get(&cur_pos.map) {
+            if let Some(map) = storage.maps.get(&cur_pos.map) {
                 map.borrow().move_grid[cur_pos.as_tile()].2.get(B0) == 0b00000001
             } else {
                 true
             }
         }
         1 => {
-            if let Some(map) = world.maps.get(&cur_pos.map) {
+            if let Some(map) = storage.maps.get(&cur_pos.map) {
                 map.borrow().move_grid[cur_pos.as_tile()].2.get(B3) == 0b00001000
             } else {
                 true
             }
         }
         2 => {
-            if let Some(map) = world.maps.get(&cur_pos.map) {
+            if let Some(map) = storage.maps.get(&cur_pos.map) {
                 map.borrow().move_grid[cur_pos.as_tile()].2.get(B1) == 0b00000010
             } else {
                 true
             }
         }
         _ => {
-            if let Some(map) = world.maps.get(&cur_pos.map) {
+            if let Some(map) = storage.maps.get(&cur_pos.map) {
                 map.borrow().move_grid[cur_pos.as_tile()].2.get(B2) == 0b00000100
             } else {
                 true
@@ -401,7 +403,7 @@ pub fn map_path_blocked(
     };
 
     if !blocked {
-        return unwrap_or_return!(world.maps.get(&next_pos.map), true)
+        return unwrap_or_return!(storage.maps.get(&next_pos.map), true)
             .borrow()
             .is_blocked_tile(next_pos);
     }

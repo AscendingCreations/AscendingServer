@@ -72,14 +72,14 @@ pub fn new_player(
     email: String,
     password: String,
 ) -> Result<()> {
-    let data = world.entity(entity.0).expect("Could not get Entity");
-    let inv = data.get::<&Inventory>().expect("Could not find Inventory");
-    let equip = data.get::<&Equipment>().expect("Could not find Equipment");
-
     let uid: i64 = insert_into(players::table)
         .values(&PGPlayer::new(world, entity, username, email, password))
         .returning(players::uid)
         .get_result(conn)?;
+
+    let data = world.entity(entity.0).expect("Could not get Entity");
+    let inv = data.get::<&Inventory>().expect("Could not find Inventory");
+    let equip = data.get::<&Equipment>().expect("Could not find Equipment");
 
     insert_into(equipment::table)
         .values(&PGEquipItem::new(&equip.items, uid))
@@ -98,28 +98,27 @@ pub fn load_player(
     world: &mut hecs::World,
     entity: &crate::Entity,
 ) -> Result<()> {
-    let data = world.entity(entity.0).expect("Could not get Entity");
-    let inv = data.get::<&Inventory>().expect("Could not find Inventory");
-    let account = data.get::<&Account>().expect("Could not find Account");
-    let equip = data.get::<&Equipment>().expect("Could not find Equipment");
+    let accountid = world.get::<&Account>(entity.0).expect("Could not find Account").id.clone();
 
     player_ret::table
-        .filter(player_ret::uid.eq(account.id))
+        .filter(player_ret::uid.eq(accountid))
         .first::<PGPlayerWithID>(conn)?
         .into_player(world, entity);
 
+    let mut equip = world.get::<&Equipment>(entity.0).expect("Could not find Equipment").items.clone();
     PGEquipItem::array_into_items(
         equipment::table
-            .filter(equipment::uid.eq(account.id))
+            .filter(equipment::uid.eq(accountid))
             .load::<PGEquipItem>(conn)?,
-        &mut equip.items,
+        &mut equip,
     );
 
+    let mut inv = world.get::<&Equipment>(entity.0).expect("Could not find Equipment").items.clone();
     PGInvItem::array_into_items(
         invitems::table
-            .filter(invitems::uid.eq(account.id))
+            .filter(invitems::uid.eq(accountid))
             .load::<PGInvItem>(conn)?,
-        &mut inv.items,
+        &mut inv,
     );
 
     Ok(())

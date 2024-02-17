@@ -1,4 +1,4 @@
-use crate::{containers::Storage, gametypes::*, players::*, socket::*, tasks::*};
+use crate::{containers::Storage, gametypes::*, players::*, socket::*, tasks::*, maps::*};
 use bytey::ByteBuffer;
 use unwrap_helpers::*;
 use hecs::World;
@@ -67,21 +67,24 @@ pub fn send_updatemap(world: &World, storage: &Storage, entity: &Entity) -> Resu
 
 #[inline]
 pub fn send_mapitem(
-    world: &World,
+    world: &mut hecs::World,
     storage: &Storage,
     position: MapPosition,
-    id: u64,
+    id: Entity,
     sendto: Option<usize>,
 ) -> Result<()> {
     let map =
         &unwrap_or_return!(storage.maps.get(&position), Err(AscendingError::Unhandled)).borrow();
-    if let Some(item) = map.items.get(id as usize) {
+    if let Some(item) = map.itemids.get(&id) {
+        let itemdata = world.get::<&MapItem>(item.0).expect("Could not get MapItem").item.clone();
+        let itempos = world.get::<&MapItem>(item.0).expect("Could not get MapItem").pos.clone();
+
         let mut buf = ByteBuffer::new_packet_with(64)?;
 
         buf.write(ServerPackets::MapItems)?;
-        buf.write(id)?;
-        buf.write(item.item)?;
-        buf.write(item.pos)?;
+        buf.write(*item)?;
+        buf.write(itemdata)?;
+        buf.write(itempos)?;
         buf.finish()?;
 
         if let Some(socket_id) = sendto {
@@ -164,7 +167,7 @@ pub fn send_move(world: &World, storage: &Storage, entity: &Entity, warp: bool) 
 pub fn send_data_remove_list(
     storage: &Storage,
     playerid: usize,
-    remove: &[u64],
+    remove: &[Entity],
     datatype: u8,
 ) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(24)?;

@@ -24,7 +24,7 @@ pub fn game_loop(world: &mut World, storage: &Storage) {
         }
 
         if tick > tmr500 {
-            if let Err(e) = update_maps(storage) {
+            if let Err(e) = update_maps(world, storage) {
                 println!("Error: {:?}", e);
             }
             tmr500 = tick + Duration::milliseconds(500);
@@ -85,15 +85,21 @@ pub fn process_packets(world: &mut World, storage: &Storage) {
         count = 0;
 
         //if let Some(player) = storage.players.borrow().get(*i) {
-        for (entity, (_, socket)) in world
+        /*for (entity, (_, socket)) in world
             .query::<((&WorldEntityType, &OnlineType), &Socket)>()
             .iter()
             .filter(|(_entity, 
                 ((worldentitytype, onlinetype), _))| {
                 **worldentitytype == WorldEntityType::Player && **onlinetype == OnlineType::Online
             })
-        {
-            let socket_id = socket.id;
+        {*/
+        for entity in storage.player_ids.borrow().iter() {
+            if !is_player_online(world, entity) {
+                continue;
+            }
+
+            let mut socket = world.get::<&mut Socket>(entity.0).expect("Could not get Socket").clone();
+            let socket_id = world.get::<&Socket>(entity.0).expect("Could not get Socket").id.clone();
 
             loop {
                 length = match get_length(world, storage, &mut socket.buffer, socket_id) {
@@ -124,7 +130,7 @@ pub fn process_packets(world: &mut World, storage: &Storage) {
                             }
                         };
 
-                    if handle_data(world, storage, &mut buffer, &Entity(entity)).is_err() {
+                    if handle_data(world, storage, &mut buffer, entity).is_err() {
                         if let Some(mut client) =
                             storage.server.borrow().get_mut(mio::Token(socket_id))
                         {

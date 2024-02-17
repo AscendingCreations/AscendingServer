@@ -19,9 +19,9 @@ static PACKET_MAP: phf::Map<u32, PacketFunction> = phf_map! {
 pub fn handle_data(world: &mut hecs::World, storage: &Storage, data: &mut ByteBuffer, entity: &Entity) -> Result<()> {
     let id: u32 = data.read()?;
 
-    let onlinetype = world.get::<&OnlineType>(entity.0).expect("Could not find OnlineType");
+    let onlinetype = *world.get::<&OnlineType>(entity.0).expect("Could not find OnlineType");
 
-    match *onlinetype {
+    match onlinetype {
         OnlineType::Online => {
             if id <= 1 {
                 return Err(AscendingError::MultiLogin);
@@ -49,7 +49,10 @@ fn handle_register(world: &mut hecs::World, storage: &Storage, data: &mut ByteBu
     let sprite: u8 = data.read()?;
     let hair: u8 = data.read()?;
 
-    if let Ok(query) = world.entity(entity.0) {
+    let socket_id = world.get::<&Socket>(entity.0).expect("Could not find Socket").id.clone();
+
+    //if let Ok(query) = world.entity(entity.0) {
+    if let Some(p) = storage.player_ids.borrow().get(entity) {
         let email_regex = Regex::new(
             r"^([a-z0-9_+]([a-z0-9_+.]*[a-z0-9_+])?)@([a-z0-9]+([\-\.]{1}[a-z0-9]+)*\.[a-z]{2,6})",
         )?;
@@ -60,7 +63,7 @@ fn handle_register(world: &mut hecs::World, storage: &Storage, data: &mut ByteBu
         {
             return send_infomsg(
                 storage,
-                query.get::<&Socket>().expect("Could not find Socket").id,
+                socket_id,
                 "Username, Name, or Password contains unaccepted Characters".into(),
                 0,
             );
@@ -69,7 +72,7 @@ fn handle_register(world: &mut hecs::World, storage: &Storage, data: &mut ByteBu
         if username.len() >= 64 || name.len() >= 64 {
             return send_infomsg(
                 storage,
-                query.get::<&Socket>().expect("Could not find Socket").id,
+                socket_id,
                 "Username or Name has too many Characters, 64 Characters Max".into(),
                 0,
             );
@@ -78,7 +81,7 @@ fn handle_register(world: &mut hecs::World, storage: &Storage, data: &mut ByteBu
         if password.len() >= 128 {
             return send_infomsg(
                 storage,
-                query.get::<&Socket>().expect("Could not find Socket").id,
+                socket_id,
                 "Password has too many Characters, 128 Characters Max".into(),
                 0,
             );
@@ -87,7 +90,7 @@ fn handle_register(world: &mut hecs::World, storage: &Storage, data: &mut ByteBu
         if !email_regex.is_match(&email) || hair >= 8 || sprite >= 6 {
             return send_infomsg(
                 storage,
-                query.get::<&Socket>().expect("Could not find Socket").id,
+                socket_id,
                 "Email must be an actual email.".into(),
                 0,
             );
@@ -99,7 +102,7 @@ fn handle_register(world: &mut hecs::World, storage: &Storage, data: &mut ByteBu
                 1 => {
                     return send_infomsg(
                         storage,
-                        query.get::<&Socket>().expect("Could not find Socket").id,
+                        socket_id,
                         "Username Exists. Please try Another.".into(),
                         0,
                     )
@@ -107,7 +110,7 @@ fn handle_register(world: &mut hecs::World, storage: &Storage, data: &mut ByteBu
                 2 => {
                     return send_infomsg(
                         storage,
-                        query.get::<&Socket>().expect("Could not find Socket").id,
+                        socket_id,
                         "Character Name Exists. Please try Another.".into(),
                         0,
                     )
@@ -115,7 +118,7 @@ fn handle_register(world: &mut hecs::World, storage: &Storage, data: &mut ByteBu
                 3 => {
                     return send_infomsg(
                         storage,
-                        query.get::<&Socket>().expect("Could not find Socket").id,
+                        socket_id,
                         "Email Already Exists. Please Try Another.".into(),
                         0,
                     )
@@ -125,9 +128,9 @@ fn handle_register(world: &mut hecs::World, storage: &Storage, data: &mut ByteBu
             Err(_) => return Err(AscendingError::UserNotFound),
         }
 
-        if let mut account = query.get::<&mut Account>().expect("Could not find Account") 
+        if let mut account = world.get::<&mut Account>(p.0).expect("Could not find Account") 
             { account.name = name };
-        if let mut player_sprite = query.get::<&mut Sprite>().expect("Could not find Sprite") 
+        if let mut player_sprite = world.get::<&mut Sprite>(p.0).expect("Could not find Sprite") 
             { player_sprite.id = sprite as u32 };
 
         if new_player(
@@ -142,13 +145,13 @@ fn handle_register(world: &mut hecs::World, storage: &Storage, data: &mut ByteBu
         {
             return send_infomsg(
                 storage,
-                query.get::<&Socket>().expect("Could not find Socket").id,
+                socket_id,
                 "There was an Issue Creating the player account. Please Contact Support.".into(),
                 0,
             );
         }
 
-        return send_infomsg(storage, query.get::<&Socket>().expect("Could not find Socket").id,
+        return send_infomsg(storage, socket_id,
              "Account Was Created. Please wait for the Verification code sent to your email before logging in.".into(), 1);
     }
 
@@ -162,11 +165,13 @@ fn handle_login(world: &mut hecs::World, storage: &Storage, data: &mut ByteBuffe
     let appminior = data.read::<u16>()? as usize;
     let apprevision = data.read::<u16>()? as usize;
 
-    if let Ok(query) = world.entity(entity.0) {
+    let socket_id = world.get::<&Socket>(entity.0).expect("Could not find Socket").id.clone();
+
+    if let Some(p) = storage.player_ids.borrow().get(entity) {
         if username.len() >= 64 || password.len() >= 128 {
             return send_infomsg(
                 storage,
-                query.get::<&Socket>().expect("Could not find Socket").id,
+                socket_id,
                 "Account does not Exist or Password is not Correct.".into(),
                 0,
             );
@@ -177,7 +182,7 @@ fn handle_login(world: &mut hecs::World, storage: &Storage, data: &mut ByteBuffe
             id,
             send_infomsg(
                 storage,
-                query.get::<&Socket>().expect("Could not find Socket").id,
+                socket_id,
                 "Account does not Exist or Password is not Correct.".into(),
                 1,
             )
@@ -186,22 +191,22 @@ fn handle_login(world: &mut hecs::World, storage: &Storage, data: &mut ByteBuffe
         if APP_MAJOR > appmajor && APP_MINOR > appminior && APP_REVISION > apprevision {
             return send_infomsg(
                 storage,
-                query.get::<&Socket>().expect("Could not find Socket").id,
+                socket_id,
                 "Client needs to be updated.".into(),
                 1,
             );
         }
 
-        if let mut account = query.get::<&mut Account>().expect("Could not find Account") 
+        if let mut account = world.get::<&mut Account>(p.0).expect("Could not find Account")
             { account.id = id };
 
         if let Err(_e) = load_player(storage, &mut storage.pgconn.borrow_mut(), world, entity) {
             return send_infomsg(storage, 
-                query.get::<&Socket>().expect("Could not find Socket").id,
+                socket_id,
                 "Error Loading User.".into(), 1);
         }
 
-        send_loginok(storage, query.get::<&Socket>().expect("Could not find Socket").id)?;
+        send_loginok(storage, socket_id)?;
 
         //joingame(index);
         return Ok(());
@@ -319,35 +324,36 @@ fn handle_useitem(world: &mut hecs::World, storage: &Storage, data: &mut ByteBuf
 }
 
 fn handle_unequip(world: &mut hecs::World, storage: &Storage, data: &mut ByteBuffer, entity: &Entity) -> Result<()> {
-    if let Ok(query) = world.entity(entity.0) {
-        if !query.get::<&DeathType>().expect("Could not find DeathType").is_alive()
-            || query.get::<&IsUsingType>().expect("Could not find IsUsingType").inuse()
-            || query.get::<&Attacking>().expect("Could not find Attacking").0
-            || query.get::<&Stunned>().expect("Could not find Stunned").0
-            || query.get::<&PlayerItemTimer>().expect("Could not find PlayerItemTimer").itemtimer > *storage.gettick.borrow()
+    if let Some(p) = storage.player_ids.borrow().get(entity) {
+        if !world.get::<&DeathType>(p.0).expect("Could not find DeathType").is_alive()
+            || world.get::<&IsUsingType>(p.0).expect("Could not find IsUsingType").inuse()
+            || world.get::<&Attacking>(p.0).expect("Could not find Attacking").0
+            || world.get::<&Stunned>(p.0).expect("Could not find Stunned").0
+            || world.get::<&PlayerItemTimer>(p.0).expect("Could not find PlayerItemTimer").itemtimer > *storage.gettick.borrow()
         {
             return Ok(());
         }
 
         let slot = data.read::<u16>()? as usize;
 
-        if slot >= EQUIPMENT_TYPE_MAX || query.get::<&Equipment>().expect("Could not find Equipment").items[slot].val == 0 {
+        if slot >= EQUIPMENT_TYPE_MAX || world.get::<&Equipment>(p.0).expect("Could not find Equipment").items[slot].val == 0 {
             return Ok(());
         }
 
-        let mut item = query.get::<&Equipment>().expect("Could not find Equipment").items[slot];
-        let rem = give_item(world, storage, entity, &mut item);
+        let mut item = world.get::<&Equipment>(p.0).expect("Could not find Equipment").items[slot];
+        let entity_data = entity.clone();
+        let rem = give_item(world, storage, &entity_data, &mut item);
 
         if rem > 0 {
             return send_fltalert(
                 storage,
-                query.get::<&Socket>().expect("Could not find Socket").id,
+                world.get::<&Socket>(p.0).expect("Could not find Socket").id,
                 "Could not unequiped. No inventory space.".into(),
                 FtlType::Error,
             );
         }
 
-        if let mut equipment = query.get::<&mut Equipment>().expect("Could not find Equipment") 
+        if let mut equipment = world.get::<&mut Equipment>(p.0).expect("Could not find Equipment") 
             { equipment.items[slot] = item };
 
         let _ = update_equipment(&mut storage.pgconn.borrow_mut(), world, entity, slot);
@@ -359,12 +365,12 @@ fn handle_unequip(world: &mut hecs::World, storage: &Storage, data: &mut ByteBuf
 }
 
 fn handle_switchinvslot(world: &mut hecs::World, storage: &Storage, data: &mut ByteBuffer, entity: &Entity) -> Result<()> {
-    if let Ok(query) = world.entity(entity.0) {
-        if !query.get::<&DeathType>().expect("Could not find DeathType").is_alive()
-            || query.get::<&IsUsingType>().expect("Could not find IsUsingType").inuse()
-            || query.get::<&Attacking>().expect("Could not find Attacking").0
-            || query.get::<&Stunned>().expect("Could not find Stunned").0
-            || query.get::<&PlayerItemTimer>().expect("Could not find PlayerItemTimer").itemtimer > *storage.gettick.borrow()
+    if let Some(p) = storage.player_ids.borrow().get(entity) {
+        if !world.get::<&DeathType>(p.0).expect("Could not find DeathType").is_alive()
+            || world.get::<&IsUsingType>(p.0).expect("Could not find IsUsingType").inuse()
+            || world.get::<&Attacking>(p.0).expect("Could not find Attacking").0
+            || world.get::<&Stunned>(p.0).expect("Could not find Stunned").0
+            || world.get::<&PlayerItemTimer>(p.0).expect("Could not find PlayerItemTimer").itemtimer > *storage.gettick.borrow()
         {
             return Ok(());
         }
@@ -374,39 +380,39 @@ fn handle_switchinvslot(world: &mut hecs::World, storage: &Storage, data: &mut B
         let amount = data.read::<u16>()?;
 
         if oldslot >= MAX_INV || newslot >= MAX_INV || 
-            query.get::<&Inventory>().expect("Could not find Inventory").items[oldslot].val == 0 {
+            world.get::<&Inventory>(p.0).expect("Could not find Inventory").items[oldslot].val == 0 {
             return Ok(());
         }
 
         let base1 = &storage.bases.items[
-            query.get::<&Inventory>().expect("Could not find Inventory").items[oldslot].num as usize];
+            world.get::<&Inventory>(p.0).expect("Could not find Inventory").items[oldslot].num as usize];
         let invtype = get_inv_itemtype(base1);
 
         if get_inv_type(oldslot) != invtype || get_inv_type(newslot) != invtype {
             return Ok(());
         }
 
-        let mut itemold = query.get::<&Inventory>().expect("Could not find Inventory").items[oldslot];
+        let mut itemold = world.get::<&Inventory>(p.0).expect("Could not find Inventory").items[oldslot];
 
-        if query.get::<&Inventory>().expect("Could not find Inventory").items[newslot].val > 0 {
-            if query.get::<&Inventory>().expect("Could not find Inventory").items[newslot].num == 
-                query.get::<&Inventory>().expect("Could not find Inventory").items[oldslot].num {
+        if world.get::<&Inventory>(p.0).expect("Could not find Inventory").items[newslot].val > 0 {
+            if world.get::<&Inventory>(p.0).expect("Could not find Inventory").items[newslot].num == 
+                world.get::<&Inventory>(p.0).expect("Could not find Inventory").items[oldslot].num {
                 set_inv_slot(world, storage, entity, &mut itemold, newslot, amount);
-                if let mut inv = query.get::<&mut Inventory>().expect("Could not find Inventory") 
+                if let mut inv = world.get::<&mut Inventory>(p.0).expect("Could not find Inventory") 
                     { inv.items[oldslot] = itemold };
                 save_item(world, storage, entity, oldslot);
-            } else if query.get::<&Inventory>().expect("Could not find Inventory").items[oldslot].val == amount {
-                let itemnew = query.get::<&Inventory>().expect("Could not find Inventory").items[newslot];
-                if let mut inv = query.get::<&mut Inventory>().expect("Could not find Inventory") 
+            } else if world.get::<&Inventory>(p.0).expect("Could not find Inventory").items[oldslot].val == amount {
+                let itemnew = world.get::<&Inventory>(p.0).expect("Could not find Inventory").items[newslot];
+                if let mut inv = world.get::<&mut Inventory>(p.0).expect("Could not find Inventory") 
                     { inv.items[newslot] = itemold };
-                if let mut inv = query.get::<&mut Inventory>().expect("Could not find Inventory") 
+                if let mut inv = world.get::<&mut Inventory>(p.0).expect("Could not find Inventory") 
                     { inv.items[oldslot] = itemnew };
                 save_item(world, storage, entity, newslot);
                 save_item(world, storage, entity, oldslot);
             } else {
                 return send_fltalert(
                         storage,
-                        query.get::<&Socket>().expect("Could not find Socket").id,
+                        world.get::<&Socket>(p.0).expect("Could not find Socket").id,
                         "Can not swap slots with a different containing items unless you swap everything."
                             .into(),
                         FtlType::Error
@@ -414,7 +420,7 @@ fn handle_switchinvslot(world: &mut hecs::World, storage: &Storage, data: &mut B
             }
         } else {
             set_inv_slot(world, storage, entity, &mut itemold, newslot, amount);
-            if let mut inv = query.get::<&mut Inventory>().expect("Could not find Inventory") 
+            if let mut inv = world.get::<&mut Inventory>(p.0).expect("Could not find Inventory") 
                 { inv.items[oldslot] = itemold };
             save_item(world, storage, entity, oldslot);
         }
@@ -426,43 +432,44 @@ fn handle_switchinvslot(world: &mut hecs::World, storage: &Storage, data: &mut B
 }
 
 fn handle_pickup(world: &mut hecs::World, storage: &Storage, _data: &mut ByteBuffer, entity: &Entity) -> Result<()> {
-    if let Ok(query) = world.entity(entity.0) {
-        let mut remid: Option<(MapPosition, usize)> = None;
+    if let Some(p) = storage.player_ids.borrow().get(entity) {
+        let mut remid: Option<(MapPosition, Entity)> = None;
 
-        if !query.get::<&DeathType>().expect("Could not find DeathType").is_alive()
-            || query.get::<&IsUsingType>().expect("Could not find IsUsingType").inuse()
-            || query.get::<&Attacking>().expect("Could not find Attacking").0
-            || query.get::<&Stunned>().expect("Could not find Stunned").0
-            || query.get::<&PlayerMapTimer>().expect("Could not find PlayerMapTimer").mapitemtimer > *storage.gettick.borrow()
+        if !world.get::<&DeathType>(p.0).expect("Could not find DeathType").is_alive()
+            || world.get::<&IsUsingType>(p.0).expect("Could not find IsUsingType").inuse()
+            || world.get::<&Attacking>(p.0).expect("Could not find Attacking").0
+            || world.get::<&Stunned>(p.0).expect("Could not find Stunned").0
+            || world.get::<&PlayerMapTimer>(p.0).expect("Could not find PlayerMapTimer").mapitemtimer > *storage.gettick.borrow()
         {
             return Ok(());
         }
 
-        let mapids = get_maps_in_range(storage, &query.get::<&Position>().expect("Could not find Position"), 1);
+        let mapids = get_maps_in_range(storage, &world.get::<&Position>(p.0).expect("Could not find Position"), 1);
 
         'remremove: for id in mapids {
             if let Some(x) = id.get() {
                 let mut map = unwrap_continue!(storage.maps.get(&x)).borrow_mut();
-                let _ = unwrap_continue!(storage.bases.maps.get(&query.get::<&Position>().expect("Could not find Position").map));
+                let _ = unwrap_continue!(storage.bases.maps.get(&world.get::<&Position>(p.0).expect("Could not find Position").map));
                 let ids = map.itemids.clone();
 
                 for i in ids {
-                    if query.get::<&Position>().expect("Could not find Position")
-                        .checkdistance(map.items[i].pos.map_offset(id.into()))
+                    let mut mapitems = world.get::<&mut MapItem>(i.0).expect("Could not get MapItem").clone();
+                    if world.get::<&Position>(p.0).expect("Could not find Position")
+                        .checkdistance(mapitems.pos.map_offset(id.into()))
                         <= 1
                     {
-                        if map.items[i].item.num == 0 {
-                            let rem = player_give_vals(world, storage, entity, map.items[i].item.val as u64);
-                            map.items[i].item.val = rem as u16;
+                        if mapitems.item.num == 0 {
+                            let rem = player_give_vals(world, storage, entity, mapitems.item.val as u64);
+                            mapitems.item.val = rem as u16;
 
                             if rem == 0 {
                                 remid = Some((x, i));
                                 break 'remremove;
                             }
                         } else {
-                            let amount = map.items[i].item.val;
-                            let rem = give_item(world, storage, entity, &mut map.items[i].item);
-                            let item = &storage.bases.items[map.items[i].item.num as usize];
+                            let amount = mapitems.item.val;
+                            let rem = give_item(world, storage, entity, &mut mapitems.item);
+                            let item = &storage.bases.items[mapitems.item.num as usize];
 
                             if rem == 0 {
                                 let st = match amount {
@@ -472,7 +479,7 @@ fn handle_pickup(world: &mut hecs::World, storage: &Storage, _data: &mut ByteBuf
 
                                 let _ = send_fltalert(
                                     storage,
-                                    query.get::<&Socket>().expect("Could not find Socket").id,
+                                    world.get::<&Socket>(p.0).expect("Could not find Socket").id,
                                     format!("You picked up {} {}{}.", amount, item.name, st),
                                     FtlType::Item,
                                 );
@@ -485,7 +492,7 @@ fn handle_pickup(world: &mut hecs::World, storage: &Storage, _data: &mut ByteBuf
 
                                 let _ = send_fltalert(
                                         storage,
-                                        query.get::<&Socket>().expect("Could not find Socket").id,
+                                        world.get::<&Socket>(p.0).expect("Could not find Socket").id,
                                         format!("You picked up {} {}{}. Your inventory is Full so some items remain.", amount, item.name, st),
                                         FtlType::Item,
                                     );
@@ -500,12 +507,12 @@ fn handle_pickup(world: &mut hecs::World, storage: &Storage, _data: &mut ByteBuf
 
         if let Some(id) = remid {
             if let Some(map) = storage.maps.get(&id.0) {
-                map.borrow_mut().remove_item(id.1);
-                let _ = DataTaskToken::ItemUnload(id.0).add_task(world, storage, &(id.1 as u64));
+                map.borrow_mut().remove_item(id.1); 
+                let _ = DataTaskToken::ItemUnload(id.0).add_task(world, storage, &(id.1));
             }
         }
 
-        if let mut mapitemtimer = query.get::<&mut PlayerMapTimer>().expect("Could not find PlayerMapTimer") 
+        if let mut mapitemtimer = world.get::<&mut PlayerMapTimer>(p.0).expect("Could not find PlayerMapTimer") 
             { mapitemtimer.mapitemtimer = *storage.gettick.borrow() + Duration::milliseconds(100); };
         return Ok(());
     }
@@ -514,11 +521,11 @@ fn handle_pickup(world: &mut hecs::World, storage: &Storage, _data: &mut ByteBuf
 }
 
 fn handle_dropitem(world: &mut hecs::World, storage: &Storage, data: &mut ByteBuffer, entity: &Entity) -> Result<()> {
-    if let Ok(query) = world.entity(entity.0) {
-        if !query.get::<&DeathType>().expect("Could not find DeathType").is_alive()
-            || query.get::<&IsUsingType>().expect("Could not find IsUsingType").inuse()
-            || query.get::<&Attacking>().expect("Could not find Attacking").0
-            || query.get::<&Stunned>().expect("Could not find Stunned").0
+    if let Some(p) = storage.player_ids.borrow().get(entity) {
+        if !world.get::<&DeathType>(p.0).expect("Could not find DeathType").is_alive()
+            || world.get::<&IsUsingType>(p.0).expect("Could not find IsUsingType").inuse()
+            || world.get::<&Attacking>(p.0).expect("Could not find Attacking").0
+            || world.get::<&Stunned>(p.0).expect("Could not find Stunned").0
         {
             return Ok(());
         }
@@ -527,14 +534,14 @@ fn handle_dropitem(world: &mut hecs::World, storage: &Storage, data: &mut ByteBu
         let amount = data.read::<u16>()?;
 
         if slot >= MAX_INV || 
-            query.get::<&Inventory>().expect("Could not find Inventory").items[slot].val == 0 ||
+        world.get::<&Inventory>(p.0).expect("Could not find Inventory").items[slot].val == 0 ||
             amount == 0 {
             return Ok(());
         }
 
         //make sure it exists first.
         let _ = unwrap_or_return!(
-            storage.bases.maps.get(&query.get::<&Position>().expect("Could not find Position").map),
+            storage.bases.maps.get(&world.get::<&Position>(p.0).expect("Could not find Position").map),
             Err(AscendingError::Unhandled)
         );
 
@@ -542,7 +549,7 @@ fn handle_dropitem(world: &mut hecs::World, storage: &Storage, data: &mut ByteBu
             InvType::Quest | InvType::Key => {
                 return send_fltalert(
                     storage,
-                    query.get::<&Socket>().expect("Could not find Socket").id,
+                    world.get::<&Socket>(p.0).expect("Could not find Socket").id,
                     "You can not drop key or Quest items.".into(),
                     FtlType::Error,
                 );
@@ -552,36 +559,36 @@ fn handle_dropitem(world: &mut hecs::World, storage: &Storage, data: &mut ByteBu
 
         let mut mapitem = MapItem::new(0);
 
-        mapitem.item = query.get::<&Inventory>().expect("Could not find Inventory").items[slot];
-        mapitem.despawn = match *query.get::<&UserAccess>().expect("Could not find UserAccess") {
+        mapitem.item = world.get::<&Inventory>(p.0).expect("Could not find Inventory").items[slot];
+        mapitem.despawn = match *world.get::<&UserAccess>(p.0).expect("Could not find UserAccess") {
             UserAccess::Admin => None,
             _ => Some(*storage.gettick.borrow() + Duration::milliseconds(600000)),
         };
         mapitem.ownertimer = Some(*storage.gettick.borrow() + Duration::milliseconds(5000));
-        mapitem.ownerid = query.get::<&Account>().expect("Could not find Account").id;
-        mapitem.pos = *query.get::<&Position>().expect("Could not find Position");
+        mapitem.ownerid = world.get::<&Account>(p.0).expect("Could not find Account").id;
+        mapitem.pos = *world.get::<&Position>(p.0).expect("Could not find Position");
 
         let leftover = take_itemslot(world, storage, entity, slot, amount);
         mapitem.item.val -= leftover;
         let mut map = unwrap_or_return!(
-            storage.maps.get(&query.get::<&Position>().expect("Could not find Position").map),
+            storage.maps.get(&world.get::<&Position>(p.0).expect("Could not find Position").map),
             Err(AscendingError::Unhandled)
         )
         .borrow_mut();
 
-        
-        let _ = DataTaskToken::ItemLoad(query.get::<&Position>().expect("Could not find Position").map).add_task(
+        let id = map.add_mapitem(world, mapitem.clone());
+        let pos = *world.get::<&Position>(p.0).expect("Could not find Position").clone();
+        let _ = DataTaskToken::ItemLoad(pos.map).add_task(
             world,
             storage,
             &MapItemPacket::new(
-                mapitem.id,
+                id,
                 mapitem.pos,
                 mapitem.item,
                 Some(mapitem.ownerid),
             ),
         );
-
-        map.add_mapitem(mapitem);
+        
         return Ok(());
     }
 

@@ -1,4 +1,4 @@
-use crate::{containers::*, gametypes::*};
+use crate::{containers::*, gametypes::*, maps::MapItem};
 use bytey::{ByteBufferRead, ByteBufferWrite};
 use diesel_derive_enum::DbEnum;
 use serde::{Deserialize, Serialize};
@@ -136,6 +136,7 @@ pub enum WorldEntityType {
     None,
     Player,
     Npc,
+    MapItem,
     Map,
 }
 
@@ -157,13 +158,14 @@ pub enum EntityType {
     None,
     Player(Entity, i64), //ArrID, AccID used for comparison if still same player.
     Npc(Entity),
+    MapItem(Entity),
     Map(Position),
 }
 
 impl EntityType {
     pub fn get_id(&self) -> Entity {
         match self {
-            EntityType::Player(i, _) | EntityType::Npc(i) => *i,
+            EntityType::Player(i, _) | EntityType::Npc(i) | EntityType::MapItem(i) => *i,
             _ => Entity(hecs::Entity::DANGLING),
         }
     }
@@ -173,6 +175,7 @@ impl EntityType {
             EntityType::Map(position) => Some(*position),
             EntityType::Player(i, _) => Some(*world.get::<&Position>(i.0).expect("Could not find Position")),
             EntityType::Npc(i) => Some(*world.get::<&Position>(i.0).expect("Could not find Position")),
+            EntityType::MapItem(i) => Some(world.get::<&MapItem>(i.0).expect("Could not find MapItem").pos),
             EntityType::None => None,
         }
     }
@@ -187,6 +190,10 @@ impl EntityType {
 
     pub fn is_npc(&self) -> bool {
         matches!(self, EntityType::Npc(_))
+    }
+
+    pub fn is_mapitem(&self) -> bool {
+        matches!(self, EntityType::MapItem(_))
     }
 
     pub fn is_none(&self) -> bool {

@@ -6,7 +6,6 @@ use crate::{
 use bytey::{ByteBufferRead, ByteBufferWrite};
 use serde::{Deserialize, Serialize};
 use hecs::*;
-use phf::Map;
 use unwrap_helpers::*;
 
 #[derive(Clone, Debug, Bundle)]
@@ -83,6 +82,11 @@ pub struct Player {
     pub pvpon: bool,
     pub pk: bool,
     pub movesavecount: u16,
+}
+
+pub fn is_player_online(world: &mut hecs::World, entity: &crate::Entity) -> bool {
+    *world.get::<&WorldEntityType>(entity.0).expect("Could not find WorldEntityType") == WorldEntityType::Player &&
+        *world.get::<&OnlineType>(entity.0).expect("Could not find WorldEntityType") == OnlineType::Online
 }
 
 #[inline(always)]

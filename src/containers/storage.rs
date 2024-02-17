@@ -2,7 +2,7 @@ use crate::{
     containers::{Bases, HashMap, IndexMap, IndexSet},
     gametypes::*,
     maps::*,
-    npcs::*,
+    npcs::{NpcData, *},
     players::*,
     socket::*,
     tasks::{DataTaskToken, MapSwitchTasks},
@@ -11,11 +11,11 @@ use crate::{
 use bytey::ByteBuffer;
 use diesel::prelude::*;
 use mio::Poll;
-use std::cell::RefCell;
+use std::{borrow::Borrow, cell::RefCell};
 
 pub struct Storage {
     //pub players: RefCell<slab::Slab<RefCell<Player>>>,
-    pub npcs: RefCell<slab::Slab<RefCell<Npc>>>,
+    //pub npcs: RefCell<slab::Slab<RefCell<Npc>>>,
     pub player_ids: RefCell<IndexSet<Entity>>,
     pub recv_ids: RefCell<IndexSet<Entity>>,
     pub npc_ids: RefCell<IndexSet<Entity>>,
@@ -48,7 +48,7 @@ impl Storage {
         Some(Self {
             //we will just comment it out for now as we go along and remove later.
             //players: RefCell::new(slab::Slab::new()),
-            npcs: RefCell::new(slab::Slab::new()),
+            //npcs: RefCell::new(slab::Slab::new()),
             player_ids: RefCell::new(IndexSet::default()),
             recv_ids: RefCell::new(IndexSet::default()),
             npc_ids: RefCell::new(IndexSet::default()),
@@ -66,7 +66,7 @@ impl Storage {
         })
     }
 
-    pub fn add_npc(&self, world: &mut hecs::World, npc: Npc) -> usize {
+    /*pub fn add_npc(&self, world: &mut hecs::World, npc: Npc) -> usize {
         let mut npcs = self.npcs.borrow_mut();
         let id = npcs.insert(RefCell::new(npc));
         let npc = npcs.get_mut(id).unwrap();
@@ -89,7 +89,7 @@ impl Storage {
         .borrow_mut()
         .remove_entity_from_grid(removed.e.pos);*/
         Some(removed)
-    }
+    }*/
 
     //lets just add the starter parts this will help use change player data around later if they where booted due to
     //bad connection but reconnected right away. this should help prevent login issues due to account is still logged in.
@@ -140,5 +140,63 @@ impl Storage {
 
         self.player_ids.borrow_mut().swap_remove(&id);
         ret
+    }
+
+    pub fn add_npc(
+        &self,
+        world: &mut hecs::World,
+        npc_id: u64,
+    ) -> Result<Entity> {
+        let npcdata = NpcData::load_npc(npc_id).expect("Cannot find NPC");
+        
+        let identity = world.spawn((
+            WorldEntityType::Npc,
+            Position::default(),
+            NpcIndex::default(),
+            NpcTimer::default(),
+            NpcAITimer::default(),
+            NpcDespawns::default(),
+            NpcMoving::default(),
+            NpcRetreating::default(),
+            NpcWalkToSpawn::default(),
+            NpcMoves::default(),
+            NpcSpawnedZone::default(),
+            Dir::default(),
+            MoveTimer::default(),
+            EntityData::default(),
+            Sprite::default(),
+        ));
+        world.insert(identity, (
+            Spawn::default(),
+            NpcMode::Normal,
+            Hidden::default(),
+        ));
+
+        if !npcdata.behaviour.is_friendly() {
+            world.insert(identity, (
+                Level::default(),
+                Vitals::default(),
+                NpcHitBy::default(),
+                Target::default(),
+                AttackTimer::default(),
+                DeathTimer::default(),
+                Combat::default(),
+                Physical::default(),
+                Stunned::default(),
+                Attacking::default(),
+                InCombat::default(),
+            )).expect("Failed to add additional NPC Data");
+        }
+        world.insert_one(identity, EntityType::Npc(Entity(identity)));
+
+        Ok(Entity(identity))
+    }
+
+    pub fn remove_npc(&self, world: &mut hecs::World, id: Entity) -> Option<Position> {
+        let ret = *world.get::<&Position>(id.0).expect("Failed to load Position").clone();
+        //Removes Everything related to the Entity.
+        world.despawn(id.0);
+        self.npc_ids.borrow_mut().swap_remove(&id);
+        Some(ret)
     }
 }

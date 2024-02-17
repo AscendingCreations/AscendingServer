@@ -4,6 +4,7 @@ use crate::{
     gametypes::MapPosition,
     maps::*,
     players::*,
+    gametypes::*,
 };
 
 /* Information Packet Data Portion Worse case is 1420 bytes
@@ -15,12 +16,12 @@ use crate::{
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct MapSwitchTask {
-    ownerid: usize,
-    currentids: Vec<u64>,
+    ownerid: Entity,
+    currentids: Vec<Entity>,
 }
 
 impl MapSwitchTask {
-    pub fn new(ownerid: usize) -> MapSwitchTask {
+    pub fn new(ownerid: Entity) -> MapSwitchTask {
         MapSwitchTask {
             ownerid,
             currentids: Vec::with_capacity(32),
@@ -37,103 +38,109 @@ pub enum MapSwitchTasks {
 }
 
 pub fn init_data_lists(world: &hecs::World, storage: &Storage, user: &crate::Entity, oldmap: MapPosition) {
+    let data = world.entity(user.0).expect("Could not get Entity");
+
     //Remove old tasks and replace with new ones during map switching.
-    while let Some(i) = user.map_switch_tasks.pop() {
+    while let Some(i) = 
+        data.get::<&mut crate::players::MapSwitchTasks>().expect("Could not find MapSwitchTasks").tasks.pop() {
         storage.map_switch_tasks.borrow_mut().remove(i);
     }
 
     //setup the old and new information so we know what to remove and add for.
     let mut old_players = (
-        Vec::<u64>::with_capacity(32),
-        HashSet::<u64>::with_capacity_and_hasher(32, Default::default()),
+        Vec::<crate::Entity>::with_capacity(32),
+        HashSet::<crate::Entity>::with_capacity_and_hasher(32, Default::default()),
     );
     let mut old_npcs = (
-        Vec::<u64>::with_capacity(32),
-        HashSet::<u64>::with_capacity_and_hasher(32, Default::default()),
+        Vec::<crate::Entity>::with_capacity(32),
+        HashSet::<crate::Entity>::with_capacity_and_hasher(32, Default::default()),
     );
-    let mut old_items = (
-        Vec::<u64>::with_capacity(32),
-        HashSet::<u64>::with_capacity_and_hasher(32, Default::default()),
-    );
-    let mut new_players = HashSet::<u64>::with_capacity_and_hasher(32, Default::default());
-    let mut new_npcs = HashSet::<u64>::with_capacity_and_hasher(32, Default::default());
-    let mut new_items = HashSet::<u64>::with_capacity_and_hasher(32, Default::default());
+    /*let mut old_items = (
+        Vec::<crate::Entity>::with_capacity(32),
+        HashSet::<crate::Entity>::with_capacity_and_hasher(32, Default::default()),
+    );*/
+    let mut new_players = HashSet::<crate::Entity>::with_capacity_and_hasher(32, Default::default());
+    let mut new_npcs = HashSet::<crate::Entity>::with_capacity_and_hasher(32, Default::default());
+    //let mut new_items = HashSet::<crate::Entity>::with_capacity_and_hasher(32, Default::default());
 
     //create the data tasks to be ran against.
-    let mut task_player = MapSwitchTask::new(user.e.get_id());
-    let mut task_npc = MapSwitchTask::new(user.e.get_id());
-    let mut task_item = MapSwitchTask::new(user.e.get_id());
+    let mut task_player = MapSwitchTask::new(*user);
+    let mut task_npc = MapSwitchTask::new(*user);
+    //let mut task_item = MapSwitchTask::new(*user);
 
     //get the old map npcs, players and items so we can send remove requests.
     for m in get_surrounding(oldmap, true) {
         if let Some(map) = storage.maps.get(&m) {
             for id in &map.borrow().players {
-                old_players.0.push(*id as u64);
-                old_players.1.insert(*id as u64);
+                old_players.0.push(*id);
+                old_players.1.insert(*id);
             }
 
             for id in &map.borrow().npcs {
-                old_npcs.0.push(*id as u64);
-                old_npcs.1.insert(*id as u64);
+                old_npcs.0.push(*id);
+                old_npcs.1.insert(*id);
             }
 
-            for id in &map.borrow().itemids {
-                old_items.0.push(*id as u64);
-                old_items.1.insert(*id as u64);
-            }
+            /*for id in &map.borrow().itemids {
+                old_items.0.push(*id);
+                old_items.1.insert(*id); 
+            }*/
         }
     }
 
-    if let Some(map) = storage.maps.get(&user.e.pos.map) {
+    if let Some(map) = 
+        storage.maps
+            .get(&data.get::<&Position>().expect("Could not find Position").map) {
         //Only get the New id's not in Old for the Vec we use the old data to deturmine what use to exist.
         //This gets them for the main map the rest we will cycle thru.
         //We do this to get the main maps data first.
         for id in &map.borrow().players {
-            if !old_players.1.contains(&(*id as u64)) {
-                task_player.currentids.push(*id as u64);
+            if !old_players.1.contains(&(*id)) {
+                task_player.currentids.push(*id);
             }
 
-            new_players.insert(*id as u64);
+            new_players.insert(*id);
         }
 
         for id in &map.borrow().npcs {
-            if !old_npcs.1.contains(&(*id as u64)) {
-                task_npc.currentids.push(*id as u64);
+            if !old_npcs.1.contains(&(*id)) {
+                task_npc.currentids.push(*id);
             }
 
-            new_npcs.insert(*id as u64);
+            new_npcs.insert(*id);
         }
 
-        for id in &map.borrow().itemids {
-            if !old_items.1.contains(&(*id as u64)) {
-                task_item.currentids.push(*id as u64);
+        /*for id in &map.borrow().itemids {
+            if !old_items.1.contains(&(*id)) {
+                task_item.currentids.push(*id);
             }
 
-            new_items.insert(*id as u64);
-        }
+            new_items.insert(*id);
+        }*/
 
         //Then we get the rest of the maps so it sends and loads last.
-        for m in get_surrounding(user.e.pos.map, true) {
-            if m != user.e.pos.map {
+        for m in 
+            get_surrounding(data.get::<&Position>().expect("Could not find Position").map, true) {
+            if m != data.get::<&Position>().expect("Could not find Position").map {
                 if let Some(map) = storage.maps.get(&m) {
                     for id in &map.borrow().players {
-                        if !old_players.1.contains(&(*id as u64)) {
-                            task_player.currentids.push(*id as u64);
+                        if !old_players.1.contains(&(*id)) {
+                            task_player.currentids.push(*id);
                         }
-                        new_players.insert(*id as u64);
+                        new_players.insert(*id);
                     }
                     for id in &map.borrow().npcs {
-                        if !old_npcs.1.contains(&(*id as u64)) {
-                            task_npc.currentids.push(*id as u64);
+                        if !old_npcs.1.contains(&(*id)) {
+                            task_npc.currentids.push(*id);
                         }
-                        new_npcs.insert(*id as u64);
+                        new_npcs.insert(*id);
                     }
-                    for id in &map.borrow().itemids {
-                        if !old_items.1.contains(&(*id as u64)) {
-                            task_item.currentids.push(*id as u64);
+                    /*for id in &map.borrow().itemids {
+                        if !old_items.1.contains(&(*id)) {
+                            task_item.currentids.push(*id);
                         }
-                        new_items.insert(*id as u64);
-                    }
+                        new_items.insert(*id);
+                    }*/
                 }
             }
         }
@@ -141,55 +148,61 @@ pub fn init_data_lists(world: &hecs::World, storage: &Storage, user: &crate::Ent
 
     let _ = send_data_remove_list(
         storage,
-        user.e.get_id(),
+        data.get::<&Socket>().expect("Could not find Position").id,
         &old_players
             .0
             .iter()
             .copied()
             .filter(|id| !new_players.contains(id))
-            .collect::<Vec<u64>>(),
+            .collect::<Vec<Entity>>(),
         1,
     );
 
     let _ = send_data_remove_list(
         storage,
-        user.e.get_id(),
+        data.get::<&Socket>().expect("Could not find Position").id,
         &old_npcs
             .0
             .iter()
             .copied()
             .filter(|id| !new_npcs.contains(id))
-            .collect::<Vec<u64>>(),
+            .collect::<Vec<Entity>>(),
         0,
     );
-    let _ = send_data_remove_list(
+    /*let _ = send_data_remove_list(
         storage,
-        user.e.get_id(),
+        data.get::<&Socket>().expect("Could not find Position").id,
         &old_items
             .0
             .iter()
             .copied()
             .filter(|id| !new_items.contains(id))
-            .collect::<Vec<u64>>(),
+            .collect::<Vec<Entity>>(),
         3,
-    );
+    );*/
 
-    storage.map_switch_tasks.push(
-        storage
-            .map_switch_tasks
-            .borrow_mut()
-            .insert(MapSwitchTasks::Player(task_player)),
-    );
-    storage.map_switch_tasks.push(
-        storage
-            .map_switch_tasks
-            .borrow_mut()
-            .insert(MapSwitchTasks::Npc(task_npc)),
-    );
-    storage.map_switch_tasks.push(
-        storage
-            .map_switch_tasks
-            .borrow_mut()
-            .insert(MapSwitchTasks::Items(task_item)),
-    );
+    if let mut mapswitchtasks = data.get::<&mut crate::players::MapSwitchTasks>().expect("Could not find MapSwitchTasks") {
+        mapswitchtasks.tasks.push(
+            storage
+                .map_switch_tasks
+                .borrow_mut()
+                .insert(MapSwitchTasks::Player(task_player)),
+        );
+    }
+    if let mut mapswitchtasks = data.get::<&mut crate::players::MapSwitchTasks>().expect("Could not find MapSwitchTasks") {
+        mapswitchtasks.tasks.push(
+            storage
+                .map_switch_tasks
+                .borrow_mut()
+                .insert(MapSwitchTasks::Player(task_npc)),
+        );
+    }
+    /*if let mut mapswitchtasks = data.get::<&mut crate::players::MapSwitchTasks>().expect("Could not find MapSwitchTasks") {
+        mapswitchtasks.tasks.push(
+            storage
+                .map_switch_tasks
+                .borrow_mut()
+                .insert(MapSwitchTasks::Player(task_item)),
+        );
+    }*/
 }

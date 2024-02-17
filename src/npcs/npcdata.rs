@@ -1,4 +1,4 @@
-use crate::{gametypes::*, npcs::Npc, time_ext::MyInstant};
+use crate::{gametypes::*, npcs::*, time_ext::MyInstant};
 use rand::{thread_rng, Rng};
 use serde::{Deserialize, Serialize};
 
@@ -40,7 +40,7 @@ pub struct NpcData {
 }
 
 impl NpcData {
-    pub fn new_npc(&self, spawn: Position, zone: usize, npc_id: u64) -> Npc {
+    /*pub fn new_npc(&self, spawn: Position, zone: usize, npc_id: u64) -> Npc {
         Npc {
             num: npc_id,
             spawntimer: MyInstant::from_dur(self.spawn_wait),
@@ -66,7 +66,7 @@ impl NpcData {
             mode: NpcMode::Normal,
             ..Default::default()
         }
-    }
+    }*/
 
     pub fn is_agressive(&self) -> bool {
         self.behaviour.is_agressive()

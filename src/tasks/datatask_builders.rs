@@ -1,4 +1,4 @@
-use crate::{gametypes::*, items::*, npcs::Npc, players::*};
+use crate::{gametypes::*, items::*, npcs::*, players::*};
 use bytey::{ByteBufferRead, ByteBufferWrite};
 use serde::{Deserialize, Serialize};
 
@@ -98,7 +98,7 @@ pub struct NpcSpawnPacket {
     pub dir: u8,
     pub hidden: bool,
     //Npc global ID
-    pub id: u64,
+    pub entity: Entity,
     pub level: i32,
     pub life: DeathType,
     pub mode: NpcMode,
@@ -113,21 +113,22 @@ pub struct NpcSpawnPacket {
 }
 
 impl NpcSpawnPacket {
-    pub fn new(npc: &Npc) -> Self {
+    pub fn new(world: &mut hecs::World, entity: &Entity) -> Self {
+        let data = world.entity(entity.0).expect("Could not get Entity");
         Self {
-            dir: npc.e.dir,
-            hidden: npc.e.hidden,
-            id: npc.e.etype.get_id() as u64,
-            level: npc.e.level,
-            life: npc.e.life,
-            mode: npc.e.mode,
-            num: npc.num,
-            pdamage: npc.e.pdamage,
-            pdefense: npc.e.pdefense,
-            position: npc.e.pos,
-            sprite: npc.sprite,
-            vital: npc.e.vital,
-            vitalmax: npc.e.vitalmax,
+            dir: data.get::<&Dir>().expect("Could not find Dir").0,
+            hidden: data.get::<&Hidden>().expect("Could not find Hidden").0,
+            entity: *entity,
+            level: data.get::<&Level>().expect("Could not find Level").0,
+            life: *data.get::<&DeathType>().expect("Could not find DeathType"),
+            mode: *data.get::<&NpcMode>().expect("Could not find NpcMode"),
+            num: data.get::<&NpcIndex>().expect("Could not find NpcIndex").0,
+            pdamage: data.get::<&Physical>().expect("Could not find Physical").damage,
+            pdefense: data.get::<&Physical>().expect("Could not find Physical").defense,
+            position: *data.get::<&Position>().expect("Could not find Position"),
+            sprite: data.get::<&Sprite>().expect("Could not find Sprite").id,
+            vital: data.get::<&Vitals>().expect("Could not find Vitals").vital,
+            vitalmax: data.get::<&Vitals>().expect("Could not find Vitals").vitalmax,
         }
     }
 }
@@ -158,6 +159,7 @@ pub struct PlayerSpawnPacket {
 impl PlayerSpawnPacket {
     pub fn new(world: &mut hecs::World, entity: &Entity) -> Self {
         let data = world.entity(entity.0).expect("Could not get Entity");
+
         Self {
             name: data.get::<&Account>().expect("Could not find Account").name.clone(),
             dir: data.get::<&Dir>().expect("Could not find Dir").0,
@@ -172,7 +174,9 @@ impl PlayerSpawnPacket {
             vital: data.get::<&Vitals>().expect("Could not find Vitals").vital,
             vitalmax: data.get::<&Vitals>().expect("Could not find Vitals").vitalmax,
             access: *data.get::<&UserAccess>().expect("Could not find UserAccess"),
-            equip: *data.get::<&Equipment>().expect("Could not find Equipment"),
+            equip: Equipment {
+                items: data.get::<&Equipment>().expect("Could not find Equipment").items.clone(),
+            },
             pk: data.get::<&Player>().expect("Could not find Player").pk,
             pvpon: data.get::<&Player>().expect("Could not find Player").pvpon,
         }
@@ -220,14 +224,14 @@ impl MessagePacket {
 )]
 pub struct MapItemPacket {
     //3 messages per packet
-    pub id: u64, //Items map ID
+    pub id: Entity, //Items map ID
     pub position: Position,
     pub item: Item,         //
     pub owner: Option<i64>, //9
 }
 
 impl MapItemPacket {
-    pub fn new(id: u64, position: Position, item: Item, owner: Option<i64>) -> Self {
+    pub fn new(id: Entity, position: Position, item: Item, owner: Option<i64>) -> Self {
         Self {
             id,
             position,

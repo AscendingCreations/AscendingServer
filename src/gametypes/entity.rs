@@ -85,7 +85,8 @@ pub struct Attacking(pub bool);
 pub struct Level(#[derivative(Default(value = "1"))] pub i32);
 
 #[derive(Derivative, Debug, Clone, PartialEq, Eq)]
-pub struct InCombat(pub bool);
+#[derivative(Default)]
+pub struct InCombat(#[derivative(Default(value = "false"))] pub bool);
 
 
 
