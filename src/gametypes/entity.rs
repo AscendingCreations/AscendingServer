@@ -1,4 +1,5 @@
 use bytey::{ByteBufferError, ByteBufferRead, ByteBufferWrite};
+use hecs::World;
 use serde::{Deserialize, Serialize};
 
 use crate::{gametypes::*, time_ext::MyInstant};
@@ -88,8 +89,6 @@ pub struct Level(#[derivative(Default(value = "1"))] pub i32);
 #[derivative(Default)]
 pub struct InCombat(#[derivative(Default(value = "false"))] pub bool);
 
-
-
 //the World ID stored in our own Wrapper for Packet sending etc.
 //This will help ensure we dont try to deal with outdated stuff if we use
 // the entire ID rather than just its internal ID.
@@ -101,7 +100,7 @@ impl Deref for Entity {
 
     fn deref(&self) -> &Self::Target {
         &self.0
-    }    
+    }
 }
 
 impl Default for Entity {
@@ -183,5 +182,12 @@ impl ByteBufferRead for Entity {
                 },
             )?,
         ))
+    }
+}
+
+pub fn get_or_default<T: Default + Send + Sync>(world: &World, entity: &Entity) -> T {
+    match world.get::<&T>(entity.0) {
+        Ok(t) => *t,
+        Err(_) => T::default(),
     }
 }
