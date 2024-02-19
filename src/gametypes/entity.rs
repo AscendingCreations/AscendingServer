@@ -185,9 +185,59 @@ impl ByteBufferRead for Entity {
     }
 }
 
-pub fn get_or_default<T: Default + Send + Sync>(world: &World, entity: &Entity) -> T {
-    match world.get::<&T>(entity.0) {
-        Ok(t) => *t,
-        Err(_) => T::default(),
+pub trait WorldExtras {
+    fn get_or_default<T>(&self, entity: &Entity) -> T
+    where
+        T: Default + Send + Sync + Copy + 'static;
+    fn cloned_get_or_default<T>(&self, entity: &Entity) -> T
+    where
+        T: Default + Send + Sync + Copy + 'static;
+    fn get_or_panic<T>(&self, entity: &Entity) -> T
+    where
+        T: Default + Send + Sync + Copy + 'static;
+    fn cloned_get_or_panic<T>(&self, entity: &Entity) -> T
+    where
+        T: Default + Send + Sync + Copy + 'static;
+}
+
+impl WorldExtras for World {
+    fn get_or_default<T>(&self, entity: &Entity) -> T
+    where
+        T: Default + Send + Sync + Copy + 'static,
+    {
+        match self.get::<&T>(entity.0) {
+            Ok(t) => *t,
+            Err(_) => T::default(),
+        }
+    }
+
+    fn cloned_get_or_default<T>(&self, entity: &Entity) -> T
+    where
+        T: Default + Send + Sync + Copy + 'static,
+    {
+        match self.get::<&T>(entity.0) {
+            Ok(t) => (*t).clone(),
+            Err(_) => T::default(),
+        }
+    }
+
+    fn get_or_panic<T>(&self, entity: &Entity) -> T
+    where
+        T: Default + Send + Sync + Copy + 'static,
+    {
+        match self.get::<&T>(entity.0) {
+            Ok(t) => *t,
+            Err(e) => panic!("Component error: {:?}", e),
+        }
+    }
+
+    fn cloned_get_or_panic<T>(&self, entity: &Entity) -> T
+    where
+        T: Default + Send + Sync + Copy + 'static,
+    {
+        match self.get::<&T>(entity.0) {
+            Ok(t) => (*t).clone(),
+            Err(e) => panic!("Component error: {:?}", e),
+        }
     }
 }

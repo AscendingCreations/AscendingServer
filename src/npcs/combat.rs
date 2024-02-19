@@ -26,8 +26,8 @@ pub fn try_cast(
         return false;
     }
 
-    let caster_pos = get_or_default::<Position>(world, caster);
-    let npc_mode = get_or_default::<NpcMode>(world, caster);
+    let caster_pos = world.get_or_default::<Position>(caster);
+    let npc_mode = world.get_or_default::<NpcMode>(caster);
 
     match target {
         EntityType::Player(i, accid) => {
@@ -35,8 +35,8 @@ pub fn try_cast(
                 if (base.can_attack_player || matches!(npc_mode, NpcMode::Pet | NpcMode::Summon))
                     && target == accid
                 {
-                    let target_pos = get_or_default::<Position>(world, &i);
-                    let life = get_or_default::<DeathType>(world, &i);
+                    let target_pos = world.get_or_default::<Position>(&i);
+                    let life = world.get_or_default::<DeathType>(&i);
                     return entity_cast_check(caster_pos, target_pos, life, range);
                 }
             }
@@ -51,8 +51,8 @@ pub fn try_cast(
                         .0
                 })
             {
-                let target_pos = get_or_default::<Position>(world, &i);
-                let life = get_or_default::<DeathType>(world, &i);
+                let target_pos = world.get_or_default::<Position>(&i);
+                let life = world.get_or_default::<DeathType>( &i);
                 return entity_cast_check(caster_pos, target_pos, life, range);
             }
         }
@@ -103,10 +103,10 @@ pub fn npc_combat(world: &mut hecs::World, storage: &Storage, entity: &Entity, b
                     let damage = npc_combat_damage(world, entity, &i, base);
                     damage_player(world, &i, damage);
 
-                    let _ = DataTaskToken::NpcAttack(get_or_default::<Position>(world, entity).map)
+                    let _ = DataTaskToken::NpcAttack(world.get_or_default::<Position>(entity).map)
                         .add_task(world, storage, &(*entity));
                     let _ =
-                        DataTaskToken::PlayerVitals(get_or_default::<Position>(world, entity).map)
+                        DataTaskToken::PlayerVitals(world.get_or_default::<Position>(entity).map)
                             .add_task(world, storage, {
                                 let vitals =
                                     world.get::<&Vitals>(i.0).expect("Could not find Vitals");
@@ -121,9 +121,9 @@ pub fn npc_combat(world: &mut hecs::World, storage: &Storage, entity: &Entity, b
                     let damage = npc_combat_damage(world, entity, &i, base);
                     damage_npc(world, &i, damage);
 
-                    let _ = DataTaskToken::NpcAttack(get_or_default::<Position>(world, entity).map)
+                    let _ = DataTaskToken::NpcAttack(world.get_or_default::<Position>(entity).map)
                         .add_task(world, storage, &(*entity));
-                    let _ = DataTaskToken::NpcVitals(get_or_default::<Position>(world, entity).map)
+                    let _ = DataTaskToken::NpcVitals(world.get_or_default::<Position>(entity).map)
                         .add_task(world, storage, {
                             let vitals = world.get::<&Vitals>(i.0).expect("Could not find Vitals");
 
