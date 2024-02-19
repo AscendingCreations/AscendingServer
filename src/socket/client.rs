@@ -173,7 +173,7 @@ impl Client {
         let mut count: usize = 0;
 
         //make sure the player exists before we send anything.
-        if let Ok(_player) = world.entity(self.entity.0) {
+        if world.contains(self.entity.0) {
             loop {
                 let mut packet = match self.sends.pop() {
                     Some(packet) => packet,

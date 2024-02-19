@@ -1,11 +1,12 @@
 use bytey::{ByteBufferError, ByteBufferRead, ByteBufferWrite};
-use hecs::World;
+use hecs::{EntityRef, World};
 use serde::{Deserialize, Serialize};
 
 use crate::{gametypes::*, time_ext::MyInstant};
+use core::any::type_name;
 use std::ops::{Deref, DerefMut};
 
-#[derive(Derivative, Debug, Clone, PartialEq, Eq)]
+#[derive(Derivative, Debug, Copy, Clone, PartialEq, Eq)]
 #[derivative(Default)]
 pub struct Spawn {
     #[derivative(Default(value = "Position::new(10, 10, MapPosition::new(0,0,0))"))]
@@ -14,7 +15,7 @@ pub struct Spawn {
     pub just_spawned: MyInstant,
 }
 
-#[derive(Derivative, Debug, Clone, PartialEq, Eq)]
+#[derive(Derivative, Debug, Copy, Clone, PartialEq, Eq)]
 #[derivative(Default)]
 pub struct Target {
     pub targettype: EntityType,
@@ -31,7 +32,7 @@ pub struct KillCount {
     pub killcounttimer: MyInstant,
 }
 
-#[derive(Derivative, Debug, Clone, PartialEq, Eq)]
+#[derive(Derivative, Debug, Copy, Clone, PartialEq, Eq)]
 #[derivative(Default)]
 pub struct Vitals {
     #[derivative(Default(value = "[25, 2, 100]"))]
@@ -44,7 +45,7 @@ pub struct Vitals {
     pub regens: [u32; VITALS_MAX],
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Eq)]
+#[derive(Default, Debug, Copy, Clone, PartialEq, Eq)]
 pub struct Dir(pub u8);
 
 #[derive(Derivative, Debug, Clone, PartialEq, Eq)]
@@ -63,7 +64,7 @@ pub struct MoveTimer(#[derivative(Default(value = "MyInstant::now()"))] pub MyIn
 #[derivative(Default)]
 pub struct Combat(#[derivative(Default(value = "MyInstant::now()"))] pub MyInstant);
 
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Default)]
 pub struct Physical {
     pub damage: u32,
     pub defense: u32,
@@ -81,7 +82,7 @@ pub struct Stunned(pub bool);
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Attacking(pub bool);
 
-#[derive(Derivative, Debug, Clone, PartialEq, Eq)]
+#[derive(Derivative, Debug, Copy, Clone, PartialEq, Eq)]
 #[derivative(Default)]
 pub struct Level(#[derivative(Default(value = "1"))] pub i32);
 
@@ -194,10 +195,67 @@ pub trait WorldExtras {
         T: Default + Send + Sync + Copy + 'static;
     fn get_or_panic<T>(&self, entity: &Entity) -> T
     where
-        T: Default + Send + Sync + Copy + 'static;
+        T: Send + Sync + Copy + 'static;
     fn cloned_get_or_panic<T>(&self, entity: &Entity) -> T
     where
+        T: Send + Sync + Copy + 'static;
+}
+
+pub trait WorldEntityExtras {
+    fn get_or_default<T>(&self) -> T
+    where
         T: Default + Send + Sync + Copy + 'static;
+    fn cloned_get_or_default<T>(&self) -> T
+    where
+        T: Default + Send + Sync + Copy + 'static;
+    fn get_or_panic<T>(&self) -> T
+    where
+        T: Send + Sync + Copy + 'static;
+    fn cloned_get_or_panic<T>(&self) -> T
+    where
+        T: Send + Sync + Copy + 'static;
+}
+
+impl WorldEntityExtras for EntityRef<'_> {
+    fn get_or_default<T>(&self) -> T
+    where
+        T: Default + Send + Sync + Copy + 'static,
+    {
+        match self.get::<&T>() {
+            Some(t) => *t,
+            None => T::default(),
+        }
+    }
+
+    fn cloned_get_or_default<T>(&self) -> T
+    where
+        T: Default + Send + Sync + Copy + 'static,
+    {
+        match self.get::<&T>() {
+            Some(t) => (*t).clone(),
+            None => T::default(),
+        }
+    }
+
+    fn get_or_panic<T>(&self) -> T
+    where
+        T: Send + Sync + Copy + 'static,
+    {
+        match self.get::<&T>() {
+            Some(t) => *t,
+            None => panic!("Component: {} is missing.", type_name::<T>()),
+        }
+    }
+
+    fn cloned_get_or_panic<T>(&self) -> T
+    where
+        T: Send + Sync + Copy + 'static,
+    {
+        match self.get::<&T>() {
+            Some(t) => (*t).clone(),
+            None => panic!("Component: {} is missing.", type_name::<T>()),
+        }
+    }
 }
 
 impl WorldExtras for World {
@@ -223,7 +281,7 @@ impl WorldExtras for World {
 
     fn get_or_panic<T>(&self, entity: &Entity) -> T
     where
-        T: Default + Send + Sync + Copy + 'static,
+        T: Send + Sync + Copy + 'static,
     {
         match self.get::<&T>(entity.0) {
             Ok(t) => *t,
@@ -233,7 +291,7 @@ impl WorldExtras for World {
 
     fn cloned_get_or_panic<T>(&self, entity: &Entity) -> T
     where
-        T: Default + Send + Sync + Copy + 'static,
+        T: Send + Sync + Copy + 'static,
     {
         match self.get::<&T>(entity.0) {
             Ok(t) => (*t).clone(),

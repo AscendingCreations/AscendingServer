@@ -40,12 +40,7 @@ pub enum DataTaskToken {
 }
 
 impl DataTaskToken {
-    pub fn add_task<T: ByteBufferWrite>(
-        self,
-        world: &mut hecs::World,
-        storage: &Storage,
-        data: &T,
-    ) -> Result<()> {
+    pub fn add_task<T: ByteBufferWrite>(self, storage: &Storage, data: &T) -> Result<()> {
         match storage.map_cache.borrow_mut().entry(self) {
             Entry::Vacant(v) => {
                 let mut buffer = new_cache(self.packet_id())?;
