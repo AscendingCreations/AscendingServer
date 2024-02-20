@@ -24,7 +24,7 @@ pub struct Target {
     pub targettimer: MyInstant,
 }
 
-#[derive(Derivative, Debug, Clone, PartialEq, Eq)]
+#[derive(Derivative, Debug, Copy, Clone, PartialEq, Eq)]
 #[derivative(Default)]
 pub struct KillCount {
     pub count: u32,
@@ -48,19 +48,19 @@ pub struct Vitals {
 #[derive(Default, Debug, Copy, Clone, PartialEq, Eq)]
 pub struct Dir(pub u8);
 
-#[derive(Derivative, Debug, Clone, PartialEq, Eq)]
+#[derive(Derivative, Debug, Copy, Clone, PartialEq, Eq)]
 #[derivative(Default)]
 pub struct AttackTimer(#[derivative(Default(value = "MyInstant::now()"))] pub MyInstant);
 
-#[derive(Derivative, Debug, Clone, PartialEq, Eq)]
+#[derive(Derivative, Debug, Copy, Clone, PartialEq, Eq)]
 #[derivative(Default)]
 pub struct DeathTimer(#[derivative(Default(value = "MyInstant::now()"))] pub MyInstant);
 
-#[derive(Derivative, Debug, Clone, PartialEq, Eq)]
+#[derive(Derivative, Debug, Copy, Clone, PartialEq, Eq)]
 #[derivative(Default)]
 pub struct MoveTimer(#[derivative(Default(value = "MyInstant::now()"))] pub MyInstant);
 
-#[derive(Derivative, Debug, Clone, PartialEq, Eq)]
+#[derive(Derivative, Debug, Copy, Clone, PartialEq, Eq)]
 #[derivative(Default)]
 pub struct Combat(#[derivative(Default(value = "MyInstant::now()"))] pub MyInstant);
 
@@ -70,23 +70,23 @@ pub struct Physical {
     pub defense: u32,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Default)]
 pub struct EntityData(pub [i64; 10]);
 
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Default)]
 pub struct Hidden(pub bool);
 
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Default)]
 pub struct Stunned(pub bool);
 
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Default)]
 pub struct Attacking(pub bool);
 
 #[derive(Derivative, Debug, Copy, Clone, PartialEq, Eq)]
 #[derivative(Default)]
 pub struct Level(#[derivative(Default(value = "1"))] pub i32);
 
-#[derive(Derivative, Debug, Clone, PartialEq, Eq)]
+#[derive(Derivative, Copy, Debug, Clone, PartialEq, Eq)]
 #[derivative(Default)]
 pub struct InCombat(#[derivative(Default(value = "false"))] pub bool);
 

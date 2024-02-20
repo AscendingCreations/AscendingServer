@@ -123,19 +123,26 @@ impl NpcSpawnPacket {
             life: *data.get::<&DeathType>().expect("Could not find DeathType"),
             mode: *data.get::<&NpcMode>().expect("Could not find NpcMode"),
             num: data.get::<&NpcIndex>().expect("Could not find NpcIndex").0,
-            pdamage: data.get::<&Physical>().expect("Could not find Physical").damage,
-            pdefense: data.get::<&Physical>().expect("Could not find Physical").defense,
+            pdamage: data
+                .get::<&Physical>()
+                .expect("Could not find Physical")
+                .damage,
+            pdefense: data
+                .get::<&Physical>()
+                .expect("Could not find Physical")
+                .defense,
             position: *data.get::<&Position>().expect("Could not find Position"),
             sprite: data.get::<&Sprite>().expect("Could not find Sprite").id,
             vital: data.get::<&Vitals>().expect("Could not find Vitals").vital,
-            vitalmax: data.get::<&Vitals>().expect("Could not find Vitals").vitalmax,
+            vitalmax: data
+                .get::<&Vitals>()
+                .expect("Could not find Vitals")
+                .vitalmax,
         }
     }
 }
 
-#[derive(
-    Clone, Debug, Deserialize, Serialize, PartialEq, Eq, ByteBufferRead, ByteBufferWrite,
-)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq, ByteBufferRead, ByteBufferWrite)]
 pub struct PlayerSpawnPacket {
     //Player global ID
     pub entity: crate::Entity,
@@ -161,21 +168,40 @@ impl PlayerSpawnPacket {
         let data = world.entity(entity.0).expect("Could not get Entity");
 
         Self {
-            name: data.get::<&Account>().expect("Could not find Account").name.clone(),
+            name: data
+                .get::<&Account>()
+                .expect("Could not find Account")
+                .name
+                .clone(),
             dir: data.get::<&Dir>().expect("Could not find Dir").0,
             hidden: data.get::<&Hidden>().expect("Could not find Hidden").0,
             entity: *entity,
             level: data.get::<&Level>().expect("Could not find Level").0,
             life: *data.get::<&DeathType>().expect("Could not find DeathType"),
-            pdamage: data.get::<&Physical>().expect("Could not find Physical").damage,
-            pdefense: data.get::<&Physical>().expect("Could not find Physical").defense,
+            pdamage: data
+                .get::<&Physical>()
+                .expect("Could not find Physical")
+                .damage,
+            pdefense: data
+                .get::<&Physical>()
+                .expect("Could not find Physical")
+                .defense,
             position: *data.get::<&Position>().expect("Could not find Position"),
             sprite: data.get::<&Sprite>().expect("Could not find Sprite").id as u8,
             vital: data.get::<&Vitals>().expect("Could not find Vitals").vital,
-            vitalmax: data.get::<&Vitals>().expect("Could not find Vitals").vitalmax,
-            access: *data.get::<&UserAccess>().expect("Could not find UserAccess"),
+            vitalmax: data
+                .get::<&Vitals>()
+                .expect("Could not find Vitals")
+                .vitalmax,
+            access: *data
+                .get::<&UserAccess>()
+                .expect("Could not find UserAccess"),
             equip: Equipment {
-                items: data.get::<&Equipment>().expect("Could not find Equipment").items.clone(),
+                items: data
+                    .get::<&Equipment>()
+                    .expect("Could not find Equipment")
+                    .items
+                    .clone(),
             },
             pk: data.get::<&Player>().expect("Could not find Player").pk,
             pvpon: data.get::<&Player>().expect("Could not find Player").pvpon,
@@ -270,12 +296,21 @@ impl VitalsPacket {
 }
 
 #[derive(
-    Clone, Debug, Default, Deserialize, Serialize, PartialEq, Eq, ByteBufferRead, ByteBufferWrite,
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    Deserialize,
+    Serialize,
+    PartialEq,
+    Eq,
+    ByteBufferRead,
+    ByteBufferWrite,
 )]
 pub struct DamagePacket {
     //16 bytes per packet
-    pub entity: Entity,     //8
-    pub damage: u64, //8
+    pub entity: Entity, //8
+    pub damage: u64,    //8
 }
 
 impl DamagePacket {
@@ -285,13 +320,22 @@ impl DamagePacket {
 }
 
 #[derive(
-    Clone, Debug, Default, Deserialize, Serialize, PartialEq, Eq, ByteBufferRead, ByteBufferWrite,
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    Deserialize,
+    Serialize,
+    PartialEq,
+    Eq,
+    ByteBufferRead,
+    ByteBufferWrite,
 )]
 pub struct LevelPacket {
     //20 bytes
-    pub entity: Entity,       //8
-    pub level: i32,    //4
-    pub levelexp: u64, //8
+    pub entity: Entity, //8
+    pub level: i32,     //4
+    pub levelexp: u64,  //8
 }
 
 impl LevelPacket {

@@ -36,14 +36,14 @@ pub struct Account {
     pub id: i64,
 }
 
-#[derive(Clone, Debug, Derivative)]
+#[derive(Copy, Clone, Debug, Derivative)]
 #[derivative(Default)]
 pub struct PlayerItemTimer {
     #[derivative(Default(value = "MyInstant::now()"))]
     pub itemtimer: MyInstant,
 }
 
-#[derive(Clone, Debug, Derivative)]
+#[derive(Copy, Clone, Debug, Derivative)]
 #[derivative(Default)]
 pub struct PlayerMapTimer {
     #[derivative(Default(value = "MyInstant::now()"))]
@@ -60,12 +60,12 @@ pub struct Equipment {
     pub items: Vec<Item>,
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Copy, Clone, Debug, Default)]
 pub struct Sprite {
     pub id: u32,
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Copy, Clone, Debug, Default)]
 pub struct Money {
     pub vals: u64,
 }
@@ -75,8 +75,7 @@ pub struct MapSwitchTasks {
     pub tasks: Vec<usize>,
 }
 
-#[derive(Clone, Debug, Derivative)]
-#[derivative(Default)]
+#[derive(Copy, Clone, Debug, Default)]
 pub struct Player {
     pub levelexp: u64,
     pub useditemid: u32,

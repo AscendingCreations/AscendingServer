@@ -1,9 +1,8 @@
 use crate::{containers::*, gametypes::*, tasks::*, time_ext::MyInstant};
 use unwrap_helpers::*;
 
-#[derive(Derivative, Debug, Copy, Clone, PartialEq, Eq)]
-#[derivative(Default)]
-pub struct NpcIndex(#[derivative(Default(value = "0"))] pub u64);
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Default)]
+pub struct NpcIndex(pub u64);
 
 #[derive(Derivative, Debug, Copy, Clone, PartialEq, Eq)]
 #[derivative(Default)]
@@ -43,13 +42,11 @@ pub struct NpcHitBy(#[derivative(Default(value = "Vec::new()"))] pub Vec<(u32, u
 #[derivative(Default)]
 pub struct NpcMoves(#[derivative(Default(value = "Vec::new()"))] pub Vec<(Position, u8)>);
 
-#[derive(Derivative, Debug, Copy, Clone, PartialEq, Eq)]
-#[derivative(Default)]
-pub struct NpcSpawnedZone(#[derivative(Default(value = "None"))] pub Option<usize>);
+#[derive(Default, Debug, Copy, Clone, PartialEq, Eq)]
+pub struct NpcSpawnedZone(pub Option<usize>);
 
-#[derive(Derivative, Debug, Copy, Clone, PartialEq, Eq)]
-#[derivative(Default)]
-pub struct NpcMovePos(#[derivative(Default(value = "None"))] pub Option<Position>);
+#[derive(Default, Debug, Copy, Clone, PartialEq, Eq)]
+pub struct NpcMovePos(pub Option<Position>);
 
 #[inline(always)]
 pub fn is_npc_same(from_entity: &crate::Entity, to_entity: &crate::Entity) -> bool {
@@ -101,9 +98,7 @@ pub fn set_npc_dir(world: &mut hecs::World, storage: &Storage, entity: &crate::E
     let data = world.entity(entity.0).expect("Could not get Entity");
 
     if data.get::<&Dir>().expect("Could not find Dir").0 != dir {
-        if let mut playerdir = data.get::<&mut Dir>().expect("Could not find Dir") {
-            playerdir.0 = dir
-        };
+        data.get::<&mut Dir>().expect("Could not find Dir").0 = dir;
 
         let _ = DataTaskToken::NpcDir(
             data.get::<&Position>()
