@@ -24,9 +24,7 @@ pub fn handle_data(
 ) -> Result<()> {
     let id: u32 = data.read()?;
 
-    let onlinetype = *world
-        .get::<&OnlineType>(entity.0)
-        .expect("Could not find OnlineType");
+    let onlinetype = world.get_or_panic::<OnlineType>(entity);
 
     match onlinetype {
         OnlineType::Online => {

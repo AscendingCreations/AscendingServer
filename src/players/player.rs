@@ -91,24 +91,22 @@ pub fn is_player_online(world: &mut hecs::World, entity: &crate::Entity) -> bool
 
 #[inline(always)]
 pub fn player_switch_maps(world: &mut hecs::World, storage: &Storage, entity: &crate::Entity, new_pos: Position) -> Position {
-    let mut query = 
-        world.query_one::<&mut Position>(entity.0).expect("player_switch_maps could not find query");
-    
-    if let Some(player_position) = query.get() {
-        let old_position = player_position.clone();
-        let mut map = unwrap_or_return!(storage.maps.get(&player_position.map), old_position).borrow_mut();
-        map.remove_player(world, storage, *entity);
-        map.remove_entity_from_grid(player_position.clone());
+    let player_position = world.get_or_panic::<&Position>(entity);
 
-        let mut map = unwrap_or_return!(storage.maps.get(&new_pos.map), old_position).borrow_mut();
-        map.add_player(world, storage, *entity);
-        map.add_entity_to_grid(new_pos);
+    let old_position = player_position.clone();
+    let mut map = unwrap_or_return!(storage.maps.get(&player_position.map), old_position).borrow_mut();
+    map.remove_player(world, storage, *entity);
+    map.remove_entity_from_grid(*player_position);
 
-        *player_position = new_pos;
-        old_position
-    } else {
-        Position::default()
+    let mut map = unwrap_or_return!(storage.maps.get(&new_pos.map), old_position).borrow_mut();
+    map.add_player(world, storage, *entity);
+    map.add_entity_to_grid(new_pos);
+
+    {
+        *world.get::<&mut Position>(entity.0).expect("Could not find Position") =
+            new_pos;
     }
+    old_position
 }
 
 #[inline(always)]
@@ -160,7 +158,7 @@ pub fn player_set_dir(world: &mut hecs::World, storage: &Storage, entity: &crate
             player_dir.0 = dir;
 
             let _ = DataTaskToken::PlayerDir(player_position.map)
-                .add_task(world, storage, &DirPacket::new(*entity, dir));
+                .add_task(storage, &DirPacket::new(*entity, dir));
         }
     }
 }
@@ -258,61 +256,61 @@ pub fn damage_player(world: &mut hecs::World, entity: &crate::Entity, damage: i3
 
 #[inline]
 pub fn player_give_vals(world: &mut hecs::World, storage: &Storage, entity: &crate::Entity, amount: u64) -> u64 {
-    let mut query = 
-        world.query_one::<(&mut Money, &Socket)>(entity.0).expect("player_give_vals could not find query");
+    let player_money = world.get_or_panic::<&Money>(entity);
+    let rem = u64::MAX.saturating_sub(player_money.vals);
 
-    if let Some((player_money, socket)) = query.get() {
-        let rem = u64::MAX.saturating_sub(player_money.vals);
-
-        if rem > 0 {
-            let mut cur = amount;
-            if rem >= cur {
-                player_money.vals = player_money.vals.saturating_add(cur);
-                cur = 0;
-            } else {
-                player_money.vals = u64::MAX;
-                cur = cur.saturating_sub(rem);
-            }
-
-            let _ = send_money(world, storage, entity);
-            let _ = update_currency(&mut storage.pgconn.borrow_mut(), world, entity);
-            let _ = send_fltalert(
-                storage,
-                socket.id,
-                format!("You Have Received {} Vals.", amount - cur),
-                FtlType::Money,
-            );
-            return cur;
-        }
-
-        amount
-    } else {
-        0
-    }
-}
-
-#[inline]
-pub fn player_take_vals(world: &mut hecs::World, storage: &Storage, entity: &crate::Entity, amount: u64) {
-    let mut query = 
-        world.query_one::<(&mut Money, &Socket)>(entity.0).expect("player_take_vals could not find query");
-
-    if let Some((player_money, socket)) = query.get() {
+    if rem > 0 {
         let mut cur = amount;
-
-        if player_money.vals >= cur {
-            player_money.vals = player_money.vals.saturating_sub(cur);
+        if rem >= cur {
+            {
+                world.get::<&mut Money>(entity.0).expect("Could not find Money").vals =
+                    world.get_or_panic::<&Money>(entity).vals.saturating_add(cur);
+            }
+            cur = 0;
         } else {
-            cur = player_money.vals;
-            player_money.vals = 0;
+            {
+                world.get::<&mut Money>(entity.0).expect("Could not find Money").vals = u64::MAX;
+            }
+            cur = cur.saturating_sub(rem);
         }
 
         let _ = send_money(world, storage, entity);
         let _ = update_currency(&mut storage.pgconn.borrow_mut(), world, entity);
         let _ = send_fltalert(
             storage,
-            socket.id,
-            format!("You Lost {} Vals.", cur),
+            world.get_or_panic::<&Socket>(entity).id,
+            format!("You Have Received {} Vals.", amount - cur),
             FtlType::Money,
         );
+        return cur;
     }
+
+    amount
+}
+
+#[inline]
+pub fn player_take_vals(world: &mut hecs::World, storage: &Storage, entity: &crate::Entity, amount: u64) {
+    let mut cur = amount;
+
+    let player_money = world.get_or_panic::<&Money>(entity);
+    if player_money.vals >= cur {
+        {
+            world.get::<&mut Money>(entity.0).expect("Could not find Money").vals =
+                world.get_or_panic::<&Money>(entity).vals.saturating_sub(cur);
+        }
+    } else {
+        cur = player_money.vals;
+        {
+            world.get::<&mut Money>(entity.0).expect("Could not find Money").vals = 0;
+        }
+    }
+
+    let _ = send_money(world, storage, entity);
+    let _ = update_currency(&mut storage.pgconn.borrow_mut(), world, entity);
+    let _ = send_fltalert(
+        storage,
+        world.get_or_panic::<&Socket>(entity).id,
+        format!("You Lost {} Vals.", cur),
+        FtlType::Money,
+    );
 }

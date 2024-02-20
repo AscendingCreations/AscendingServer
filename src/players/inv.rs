@@ -80,34 +80,32 @@ pub fn auto_set_inv_item(
     base: &ItemData,
     invtype: InvType,
 ) -> u16 {
-    let mut query = 
-        world.query_one::<&mut Inventory>(entity.0).expect("auto_set_inv_item could not find query");
+    let player_inv = world.get_or_panic::<&Inventory>(entity);
 
-    if let Some(player_inv) = query.get() {
+    let mut rem = 0u16;
+    let scope = get_inv_scope(invtype);
 
-        let mut rem = 0u16;
-        let scope = get_inv_scope(invtype);
-
-        while let Some(slot) = find_slot(item, &player_inv.items, base, &scope) {
-            if player_inv.items[slot].val == 0 {
-                player_inv.items[slot] = *item;
-                item.val = 0;
-                save_item(world, storage, entity, slot);
-                break;
+    while let Some(slot) = find_slot(item, &player_inv.items, base, &scope) {
+        if player_inv.items[slot].val == 0 {
+            {
+                world.get::<&mut Inventory>(entity.0).expect("Could not find Inventory").items[slot] =
+                    *item;
             }
-
-            rem = val_add_rem(&mut player_inv.items[slot].val, &mut item.val, base.stacklimit);
+            item.val = 0;
             save_item(world, storage, entity, slot);
-
-            if rem == 0 {
-                break;
-            }
+            break;
         }
 
-        rem
-    } else {
-        0
+        let mut playerinv_val = player_inv.items[slot].val;
+        rem = val_add_rem(&mut playerinv_val, &mut item.val, base.stacklimit);
+        save_item(world, storage, entity, slot);
+
+        if rem == 0 {
+            break;
+        }
     }
+
+    rem
 }
 
 #[inline]
@@ -121,47 +119,47 @@ pub fn set_inv_item(
     amount: u16,
     invtype: InvType,
 ) -> u16 {
-    let mut query = 
-        world.query_one::<&mut Inventory>(entity.0).expect("set_inv_item could not find query");
+    let player_inv = world.get_or_panic::<&Inventory>(entity);
+    
+    let mut rem = 0u16;
+    let mut item_min = std::cmp::min(amount, item.val);
 
-    if let Some(player_inv) = query.get() {
-        let mut rem = 0u16;
-        let mut item_min = std::cmp::min(amount, item.val);
-
-        if player_inv.items[slot].val == 0 {
-            player_inv.items[slot] = *item;
-            player_inv.items[slot].val = item_min;
-            item.val = item.val.saturating_sub(item_min);
-            save_item(world, storage, entity, slot);
-            return 0;
+    if player_inv.items[slot].val == 0 {
+        {
+            world.get::<&mut Inventory>(entity.0).expect("Could not find Inventory").items[slot] =
+                *item;
+            world.get::<&mut Inventory>(entity.0).expect("Could not find Inventory").items[slot].val =
+                item_min;
         }
+        item.val = item.val.saturating_sub(item_min);
+        save_item(world, storage, entity, slot);
+        return 0;
+    }
 
-        if player_inv.items[slot].num == item.num {
-            item_min = val_add_amount_rem(
-                &mut player_inv.items[slot].val,
-                &mut item.val,
-                item_min,
-                base.stacklimit,
-            );
+    if player_inv.items[slot].num == item.num {
+        let mut playerinv_val = player_inv.items[slot].val;
+        item_min = val_add_amount_rem(
+            &mut playerinv_val,
+            &mut item.val,
+            item_min,
+            base.stacklimit,
+        );
 
-            save_item(world, storage, entity, slot);
+        save_item(world, storage, entity, slot);
 
-            if item_min > 0 {
-                let mut itemtemp = *item;
-                itemtemp.val = item_min;
+        if item_min > 0 {
+            let mut itemtemp = *item;
+            itemtemp.val = item_min;
 
-                rem = auto_set_inv_item(world, storage, entity, &mut itemtemp, base, invtype);
+            rem = auto_set_inv_item(world, storage, entity, &mut itemtemp, base, invtype);
 
-                if rem < item_min {
-                    item.val = item.val.saturating_sub(item_min.saturating_sub(rem));
-                }
+            if rem < item_min {
+                item.val = item.val.saturating_sub(item_min.saturating_sub(rem));
             }
         }
-
-        rem
-    } else {
-        0
     }
+
+    rem
 }
 
 #[inline]
@@ -204,29 +202,27 @@ pub fn take_inv_items(
     mut amount: u16,
     invtype: InvType,
 ) -> u16 {
-    let mut query = 
-        world.query_one::<&mut Inventory>(entity.0).expect("set_inv_item could not find query");
+    let player_inv = world.get_or_panic::<&Inventory>(entity);
 
-    if let Some(player_inv) = query.get() {
-        let scope = get_inv_scope(invtype);
+    let scope = get_inv_scope(invtype);
 
-        if count_inv_item(num, &player_inv.items, scope) >= amount as u64 {
-            while let Some(slot) = find_inv_item(num, &player_inv.items, &scope) {
-                player_inv.items[slot].val = player_inv.items[slot].val.saturating_sub(amount);
-                amount = player_inv.items[slot].val;
+    if count_inv_item(num, &player_inv.items, scope) >= amount as u64 {
+        while let Some(slot) = find_inv_item(num, &player_inv.items, &scope) {
+            {
+                world.get::<&mut Inventory>(entity.0).expect("Could not find Inventory").items[slot].val =
+                    player_inv.items[slot].val.saturating_sub(amount);
+            }
+            amount = player_inv.items[slot].val;
 
-                save_item(world, storage, entity, slot);
+            save_item(world, storage, entity, slot);
 
-                if amount == 0 {
-                    return 0;
-                }
+            if amount == 0 {
+                return 0;
             }
         }
-
-        amount
-    } else {
-        0
     }
+
+    amount
 }
 
 #[inline]
@@ -251,16 +247,14 @@ pub fn take_itemslot(
     slot: usize, 
     mut amount: u16,
 ) -> u16 {
-    let mut query = 
-        world.query_one::<&mut Inventory>(entity.0).expect("set_inv_item could not find query");
+    let player_inv = world.get_or_panic::<&Inventory>(entity);
 
-    if let Some(player_inv) = query.get() {
-        amount = std::cmp::min(amount, player_inv.items[slot].val);
-        player_inv.items[slot].val = player_inv.items[slot].val.saturating_sub(amount);
-        save_item(world, storage, entity, slot);
-
-        player_inv.items[slot].val
-    } else {
-        0
+    amount = std::cmp::min(amount, player_inv.items[slot].val);
+    {
+        world.get::<&mut Inventory>(entity.0).expect("Could not find Inventory").items[slot].val =
+            player_inv.items[slot].val.saturating_sub(amount);
     }
+    save_item(world, storage, entity, slot);
+
+    player_inv.items[slot].val
 }
