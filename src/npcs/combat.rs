@@ -79,7 +79,6 @@ pub fn npc_cast(world: &mut hecs::World, npc: &Entity, base: &NpcData) -> Option
 }
 
 pub fn npc_combat(world: &mut hecs::World, storage: &Storage, entity: &Entity, base: &NpcData) {
-    //let data = world.entity(entity.0).expect("Could not get Entity");
     if let Some(entitytype) = npc_cast(world, entity, base) {
         match entitytype {
             EntityType::Player(i, _accid) => {

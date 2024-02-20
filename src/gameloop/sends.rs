@@ -59,9 +59,7 @@ pub fn send_updatemap(world: &World, storage: &Storage, entity: &Entity) -> Resu
     buf.write(ServerPackets::UpdateMap)?;
     buf.finish()?;
 
-    let socket = world
-        .get::<&Socket>(entity.0)
-        .expect("Could not find Socket");
+    let socket = world.get_or_panic::<&Socket>(entity);
 
     send_to(storage, socket.id, buf);
     Ok(())
@@ -78,16 +76,8 @@ pub fn send_mapitem(
     let map =
         &unwrap_or_return!(storage.maps.get(&position), Err(AscendingError::Unhandled)).borrow();
     if let Some(item) = map.itemids.get(&id) {
-        let itemdata = world
-            .get::<&MapItem>(item.0)
-            .expect("Could not get MapItem")
-            .item
-            .clone();
-        let itempos = world
-            .get::<&MapItem>(item.0)
-            .expect("Could not get MapItem")
-            .pos
-            .clone();
+        let itemdata = world.get_or_panic::<MapItem>(item);
+        let itempos = world.get_or_panic::<MapItem>(item).pos;
 
         let mut buf = ByteBuffer::new_packet_with(64)?;
 
@@ -107,82 +97,28 @@ pub fn send_mapitem(
 }
 
 #[inline]
-pub fn playerdata(world: &World, storage: &Storage, entity: &Entity) -> Option<ByteBuffer> {
+pub fn playerdata(world: &World, _storage: &Storage, entity: &Entity) -> Option<ByteBuffer> {
     let mut buf = ByteBuffer::new_packet_with(512).ok()?;
-
-    let data = world.entity(entity.0).expect("Could not get Entity");
 
     buf.write(ServerPackets::PlayerData).ok()?;
     buf.write(*entity).ok()?;
-    buf.write(
-        &data
-            .get::<&Account>()
-            .expect("Could not find Account")
-            .name
-            .clone(),
-    )
-    .ok()?;
-    buf.write(
-        *data
-            .get::<&UserAccess>()
-            .expect("Could not find UserAccess"),
-    )
-    .ok()?;
-    buf.write(data.get::<&Sprite>().expect("Could not find Sprite").id)
-        .ok()?;
-    buf.write(*data.get::<&Position>().expect("Could not find Position"))
-        .ok()?;
-    buf.write(data.get::<&Dir>().expect("Could not find Dir").0)
-        .ok()?;
-    buf.write(data.get::<&Level>().expect("Could not find Level").0)
-        .ok()?;
-    buf.write(
-        data.get::<&Player>()
-            .expect("Could not find Player")
-            .levelexp,
-    )
-    .ok()?;
-    buf.write(data.get::<&Vitals>().expect("Could not find Vitals").vital)
-        .ok()?;
-    buf.write(
-        data.get::<&Vitals>()
-            .expect("Could not find Vitals")
-            .vitalmax,
-    )
-    .ok()?;
-    buf.write(
-        &data
-            .get::<&Equipment>()
-            .expect("Could not find Equipment")
-            .items,
-    )
-    .ok()?;
-    buf.write(
-        *data
-            .get::<&IsUsingType>()
-            .expect("Could not find IsUsingType"),
-    )
-    .ok()?;
-    buf.write(
-        data.get::<&Player>()
-            .expect("Could not find Player")
-            .resetcount,
-    )
-    .ok()?;
-    buf.write(*data.get::<&DeathType>().expect("Could not find DeathType"))
-        .ok()?;
-    buf.write(data.get::<&Hidden>().expect("Could not find Hidden").0)
-        .ok()?;
-    buf.write(
-        data.get::<&Attacking>()
-            .expect("Could not find Attacking")
-            .0,
-    )
-    .ok()?;
-    buf.write(data.get::<&Player>().expect("Could not find Player").pvpon)
-        .ok()?;
-    buf.write(data.get::<&Player>().expect("Could not find Player").pk)
-        .ok()?;
+    buf.write(world.get_or_panic::<&Account>(entity).name.clone()).ok()?;
+    buf.write(world.get_or_panic::<UserAccess>(entity)).ok()?;
+    buf.write(world.get_or_panic::<Sprite>(entity).id).ok()?;
+    buf.write(world.get_or_panic::<Position>(entity)).ok()?;
+    buf.write(world.get_or_panic::<Dir>(entity).0).ok()?;
+    buf.write(world.get_or_panic::<Level>(entity).0).ok()?;
+    buf.write(world.get_or_panic::<Player>(entity).levelexp).ok()?;
+    buf.write(world.get_or_panic::<Vitals>(entity).vital).ok()?;
+    buf.write(world.get_or_panic::<Vitals>(entity).vitalmax).ok()?;
+    buf.write(world.get_or_panic::<&Equipment>(entity).items.clone()).ok()?;
+    buf.write(world.get_or_panic::<IsUsingType>(entity)).ok()?;
+    buf.write(world.get_or_panic::<Player>(entity).resetcount).ok()?;
+    buf.write(world.get_or_panic::<DeathType>(entity)).ok()?;
+    buf.write(world.get_or_panic::<Hidden>(entity).0).ok()?;
+    buf.write(world.get_or_panic::<Attacking>(entity).0).ok()?;
+    buf.write(world.get_or_panic::<Player>(entity).pvpon).ok()?;
+    buf.write(world.get_or_panic::<Player>(entity).pk).ok()?;
     buf.finish().ok()?;
 
     return Some(buf);
@@ -194,16 +130,13 @@ pub fn send_dir(world: &World, storage: &Storage, entity: &Entity, toself: bool)
     let closure = |toself, id| if toself { Some(id) } else { None };
 
     buf.write(ServerPackets::PlayerDir)?;
-    buf.write(world.get::<&Dir>(entity.0).expect("Could not find Dir").0)?;
+    buf.write(world.get_or_panic::<Dir>(entity).0)?;
     buf.finish()?;
 
     send_to_maps(
         world,
         storage,
-        world
-            .get::<&Position>(entity.0)
-            .expect("Could not find Position")
-            .map,
+        world.get_or_panic::<Position>(entity).map,
         buf,
         closure(toself, *entity),
     );
@@ -215,14 +148,12 @@ pub fn send_dir(world: &World, storage: &Storage, entity: &Entity, toself: bool)
 pub fn send_move(world: &World, storage: &Storage, entity: &Entity, warp: bool) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(24)?;
 
-    let pos = world
-        .get::<&Position>(entity.0)
-        .expect("Could not find Position");
+    let pos = world.get_or_panic::<Position>(entity);
 
     buf.write(ServerPackets::PlayerMove)?;
     buf.write(*entity)?;
-    buf.write(*pos)?;
-    buf.write(world.get::<&Dir>(entity.0).expect("Could not find Dir").0)?;
+    buf.write(pos)?;
+    buf.write(world.get_or_panic::<Dir>(entity).0)?;
     buf.write(warp)?;
     buf.finish()?;
 
@@ -289,9 +220,7 @@ pub fn send_data_remove_all(world: &World, storage: &Storage, id: u64, datatype:
 pub fn send_vitals(world: &World, storage: &Storage, entity: &Entity) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(32)?;
 
-    let vitals = world
-        .get::<&Vitals>(entity.0)
-        .expect("Could not find Vitals");
+    let vitals = world.get_or_panic::<Vitals>(entity);
 
     buf.write(ServerPackets::PlayerVitals)?;
     buf.write(vitals.vital)?;
@@ -301,10 +230,7 @@ pub fn send_vitals(world: &World, storage: &Storage, entity: &Entity) -> Result<
     send_to_maps(
         world,
         storage,
-        world
-            .get::<&Position>(entity.0)
-            .expect("Could not find Position")
-            .map,
+        world.get_or_panic::<Position>(entity).map,
         buf,
         None,
     );
@@ -317,20 +243,12 @@ pub fn send_inv(world: &World, storage: &Storage, entity: &Entity) -> Result<()>
     let mut buf = ByteBuffer::new_packet_with(6500)?;
 
     buf.write(ServerPackets::PlayerInv)?;
-    buf.write(
-        &world
-            .get::<&Inventory>(entity.0)
-            .expect("Could not find Inventory")
-            .items,
-    )?;
+    buf.write(world.get_or_panic::<&Inventory>(entity).items.clone())?;
     buf.finish()?;
 
     send_to(
         storage,
-        world
-            .get::<&Socket>(entity.0)
-            .expect("Could not find Socket")
-            .id,
+        world.get_or_panic::<&Socket>(entity).id,
         buf,
     );
 
@@ -343,20 +261,12 @@ pub fn send_invslot(world: &World, storage: &Storage, entity: &Entity, id: usize
 
     buf.write(ServerPackets::PlayerInvSlot)?;
     buf.write(id)?;
-    buf.write(
-        world
-            .get::<&Inventory>(entity.0)
-            .expect("Could not find Inventory")
-            .items[id],
-    )?;
+    buf.write(world.get_or_panic::<&Inventory>(entity).items[id])?;
     buf.finish()?;
 
     send_to(
         storage,
-        world
-            .get::<&Socket>(entity.0)
-            .expect("Could not find Socket")
-            .id,
+        world.get_or_panic::<&Socket>(entity).id,
         buf,
     );
 
@@ -375,10 +285,7 @@ pub fn send_attack(world: &World, storage: &Storage, entity: &Entity, toself: bo
     send_to_maps(
         world,
         storage,
-        world
-            .get::<&Position>(entity.0)
-            .expect("Could not find Position")
-            .map,
+        world.get_or_panic::<Position>(entity).map,
         buf,
         closure(toself, *entity),
     );
@@ -391,21 +298,13 @@ pub fn send_equipment(world: &World, storage: &Storage, entity: &Entity) -> Resu
     let mut buf = ByteBuffer::new_packet_with(16)?;
 
     buf.write(ServerPackets::PlayerEquipment)?;
-    buf.write(
-        &world
-            .get::<&Equipment>(entity.0)
-            .expect("Could not find Equipment")
-            .items,
-    )?;
+    buf.write(world.get_or_panic::<&Equipment>(entity).items.clone())?;
     buf.finish()?;
 
     send_to_maps(
         world,
         storage,
-        world
-            .get::<&Position>(entity.0)
-            .expect("Could not find Position")
-            .map,
+        world.get_or_panic::<Position>(entity).map,
         buf,
         None,
     );
@@ -418,26 +317,13 @@ pub fn send_level(world: &World, storage: &Storage, entity: &Entity) -> Result<(
     let mut buf = ByteBuffer::new_packet_with(16)?;
 
     buf.write(ServerPackets::PlayerLevel)?;
-    buf.write(
-        world
-            .get::<&Level>(entity.0)
-            .expect("Could not find Level")
-            .0,
-    )?;
-    buf.write(
-        world
-            .get::<&Player>(entity.0)
-            .expect("Could not find Player")
-            .levelexp,
-    )?;
+    buf.write(world.get_or_panic::<Level>(entity).0)?;
+    buf.write(world.get_or_panic::<Player>(entity).levelexp)?;
     buf.finish()?;
 
     send_to(
         storage,
-        world
-            .get::<&Socket>(entity.0)
-            .expect("Could not find Socket")
-            .id,
+        world.get_or_panic::<&Socket>(entity).id,
         buf,
     );
     Ok(())
@@ -448,20 +334,12 @@ pub fn send_money(world: &World, storage: &Storage, entity: &Entity) -> Result<(
     let mut buf = ByteBuffer::new_packet_with(16)?;
 
     buf.write(ServerPackets::PlayerMoney)?;
-    buf.write(
-        world
-            .get::<&Money>(entity.0)
-            .expect("Could not find Money")
-            .vals,
-    )?;
+    buf.write(world.get_or_panic::<Money>(entity).vals)?;
     buf.finish()?;
 
     send_to(
         storage,
-        world
-            .get::<&Socket>(entity.0)
-            .expect("Could not find Socket")
-            .id,
+        world.get_or_panic::<&Socket>(entity).id,
         buf,
     );
     Ok(())
@@ -479,20 +357,13 @@ pub fn send_life_status(
 
     buf.write(ServerPackets::PlayerDeath)?;
     buf.write(*entity)?;
-    buf.write(
-        *world
-            .get::<&DeathType>(entity.0)
-            .expect("Could not find DeathType"),
-    )?;
+    buf.write(world.get_or_panic::<DeathType>(entity))?;
     buf.finish()?;
 
     send_to_maps(
         world,
         storage,
-        world
-            .get::<&Position>(entity.0)
-            .expect("Could not find Position")
-            .map,
+        world.get_or_panic::<Position>(entity).map,
         buf,
         closure(toself, *entity),
     );
@@ -505,16 +376,13 @@ pub fn send_action(world: &World, storage: &Storage, entity: &Entity, toself: bo
     let closure = |toself, id| if toself { Some(id) } else { None };
 
     buf.write(ServerPackets::PlayerAction)?;
-    buf.write(world.get::<&Dir>(entity.0).expect("Could not find Dir").0)?;
+    buf.write(world.get_or_panic::<Dir>(entity).0)?;
     buf.finish()?;
 
     send_to_maps(
         world,
         storage,
-        world
-            .get::<&Position>(entity.0)
-            .expect("Could not find Position")
-            .map,
+        world.get_or_panic::<Position>(entity).map,
         buf,
         closure(toself, *entity),
     );
@@ -527,21 +395,13 @@ pub fn send_pvp(world: &World, storage: &Storage, entity: &Entity, toself: bool)
     let closure = |toself, id| if toself { Some(id) } else { None };
 
     buf.write(ServerPackets::PlayerPvp)?;
-    buf.write(
-        world
-            .get::<&Player>(entity.0)
-            .expect("Could not find Player")
-            .pvpon,
-    )?;
+    buf.write(world.get_or_panic::<Player>(entity).pvpon)?;
     buf.finish()?;
 
     send_to_maps(
         world,
         storage,
-        world
-            .get::<&Position>(entity.0)
-            .expect("Could not find Position")
-            .map,
+        world.get_or_panic::<Position>(entity).map,
         buf,
         closure(toself, *entity),
     );
@@ -554,21 +414,13 @@ pub fn send_pk(world: &World, storage: &Storage, entity: &Entity, toself: bool) 
     let closure = |toself, id| if toself { Some(id) } else { None };
 
     buf.write(ServerPackets::PlayerPk)?;
-    buf.write(
-        world
-            .get::<&Player>(entity.0)
-            .expect("Could not find Player")
-            .pk,
-    )?;
+    buf.write(world.get_or_panic::<Player>(entity).pk)?;
     buf.finish()?;
 
     send_to_maps(
         world,
         storage,
-        world
-            .get::<&Position>(entity.0)
-            .expect("Could not find Position")
-            .map,
+        world.get_or_panic::<Position>(entity).map,
         buf,
         closure(toself, *entity),
     );
@@ -585,20 +437,15 @@ pub fn send_message(
     chan: MessageChannel,
     id: Option<usize>,
 ) -> Result<()> {
-    let access = world
-        .get::<&UserAccess>(entity.0)
-        .expect("Could not find UserAccess");
+    let access = world.get_or_panic::<UserAccess>(entity);
 
     match chan {
         MessageChannel::Map => DataTaskToken::MapChat(
-            world
-                .get::<&Position>(entity.0)
-                .expect("Could not find Position")
-                .map,
+            world.get_or_panic::<Position>(entity).map,
         )
-        .add_task(storage, &MessagePacket::new(chan, head, msg, Some(*access)))?,
+        .add_task(storage, &MessagePacket::new(chan, head, msg, Some(access)))?,
         MessageChannel::Global => DataTaskToken::GlobalChat
-            .add_task(storage, &MessagePacket::new(chan, head, msg, Some(*access)))?,
+            .add_task(storage, &MessagePacket::new(chan, head, msg, Some(access)))?,
         MessageChannel::Party | MessageChannel::Trade | MessageChannel::Help => {}
         MessageChannel::Private => {
             let mut buf = ByteBuffer::new_packet_with(msg.len() + head.len() + 32)?;
@@ -607,7 +454,7 @@ pub fn send_message(
             buf.write(chan)?;
             buf.write(head)?;
             buf.write(msg)?;
-            buf.write(*access)?;
+            buf.write(access)?;
             buf.finish()?;
 
             if let Some(i) = id {
@@ -622,14 +469,11 @@ pub fn send_message(
             buf.write(chan)?;
             buf.write(head)?;
             buf.write(msg)?;
-            buf.write(*access)?;
+            buf.write(access)?;
             buf.finish()?;
             send_to(
                 storage,
-                world
-                    .get::<&Socket>(entity.0)
-                    .expect("Could not find Socket")
-                    .id,
+                world.get_or_panic::<&Socket>(entity).id,
                 buf,
             );
         }

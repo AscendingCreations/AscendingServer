@@ -156,23 +156,6 @@ pub fn player_earn_exp(
     expval: i64,
     spercent: f64,
 ) {
-    /*if let Ok(mut result) = 
-        world.query_one::<(
-            &mut Vitals,
-            &mut Player,
-            &mut Position,
-            &mut Level,
-            &mut Combat,
-            &mut InCombat,
-            &Socket,)>(entity.0) {
-        if let Some((player_vital,
-            player_data,
-            player_position,
-            player_level,
-            combat_timer,
-            in_combat,
-            Socket,)) = result.get() {*/
-            
     let mut giveexp = expval;
 
 
@@ -205,9 +188,8 @@ pub fn player_earn_exp(
         world.get_or_panic::<&Level>(entity).0 != MAX_LVL as i32 {
         {
             world.get::<&mut Level>(entity.0).expect("Could not find Vitals").0 += 1;
-            let mut levelexp = world.get_or_panic::<&Player>(entity).levelexp;
             world.get::<&mut Player>(entity.0).expect("Could not find Player").levelexp =
-                levelexp.saturating_sub(player_get_next_lvl_exp(world, entity));
+                world.get_or_panic::<&Player>(entity).levelexp.saturating_sub(player_get_next_lvl_exp(world, entity));
             world.get::<&mut Vitals>(entity.0).expect("Could not find Vitals").vitalmax[VitalTypes::Hp as usize] =
                 player_calc_max_hp(world, entity);
             world.get::<&mut Vitals>(entity.0).expect("Could not find Vitals").vitalmax[VitalTypes::Mp as usize] =

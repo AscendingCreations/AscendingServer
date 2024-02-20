@@ -13,10 +13,8 @@ pub fn update_npcs(world: &mut World, storage: &Storage) {
                 if world.get_or_panic::<&NpcDespawns>(&id).0
                     && world.get_or_panic::<&NpcTimer>(&id).despawntimer <= tick
                 {
-                    let mut deathtype = world
-                        .get::<&mut DeathType>(id.0)
-                        .expect("Could not find DeathType");
-                    *deathtype = DeathType::UnSpawned;
+                    *world.get::<&mut DeathType>(id.0).expect("Could not find DeathType") 
+                        = DeathType::UnSpawned;
                     unloadnpcs.push(*id);
                     continue;
                 }
@@ -31,10 +29,8 @@ pub fn update_npcs(world: &mut World, storage: &Storage) {
                         .borrow()
                         .in_range(npcdata.spawntime.0, npcdata.spawntime.1)
                     {
-                        let mut deathtype = world
-                            .get::<&mut DeathType>(id.0)
-                            .expect("Could not find DeathType");
-                        *deathtype = DeathType::UnSpawned;
+                        *world.get::<&mut DeathType>(id.0).expect("Could not find DeathType") 
+                            = DeathType::UnSpawned;
                         unloadnpcs.push(*id);
                         continue;
                     }
@@ -53,8 +49,7 @@ pub fn update_npcs(world: &mut World, storage: &Storage) {
                     //movement
                     if npcdata.can_move && world.get_or_panic::<&MoveTimer>(&id).0 <= tick {
                         npc_movement(world, storage, id, npcdata);
-                        world
-                            .get::<&mut MoveTimer>(id.0)
+                        world.get::<&mut MoveTimer>(id.0)
                             .expect("Could not find MoveTimer")
                             .0 = tick + Duration::milliseconds(npcdata.movement_wait);
                     }
@@ -90,8 +85,7 @@ pub fn update_npcs(world: &mut World, storage: &Storage) {
                         .is_blocked_tile(world.get_or_panic::<&Spawn>(&id).pos)
                     {
                         {
-                            *world
-                                .get::<&mut DeathType>(id.0)
+                            *world.get::<&mut DeathType>(id.0)
                                 .expect("Could not find DeathType") = DeathType::Alive;
                         }
                         map_data

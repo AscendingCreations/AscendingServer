@@ -2,8 +2,6 @@ use crate::{containers::Storage, gametypes::*, maps::*, npcs::*, players::Accoun
 use chrono::Duration;
 
 pub fn npc_movement(world: &mut hecs::World, storage: &Storage, entity: &Entity, _base: &NpcData) {
-    //let data = world.entity(entity.0).expect("Could not get Entity");
-
     //AI Timer is used to Reset the Moves every so offten to recalculate them for possible changes.
     if world.get_or_panic::<&NpcAITimer>(entity).0 < *storage.gettick.borrow()
         && world.get_or_panic::<&NpcMoving>(entity).0

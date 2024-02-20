@@ -62,28 +62,27 @@ impl PGPlayer {
             String::from("FailedPasswordHash")
         };
 
-        let data = world.entity(entity.0).expect("Could not get Entity");
         PGPlayer {
-            name: data.get::<&Account>().expect("Could not find Account").name.clone(),
-            address: data.get::<&Socket>().expect("Could not find Socket").addr.clone(),
-            sprite: data.get::<&Sprite>().expect("Could not find Sprite").id as i16,
-            spawn: data.get::<&Spawn>().expect("Could not find Spawn").pos,
-            itemtimer: data.get::<&PlayerItemTimer>().expect("Could not find PlayerItemTimer").itemtimer,
-            vals: data.get::<&Money>().expect("Could not find Money").vals as i64,
-            data: data.get::<&EntityData>().expect("Could not find EntityData").0.to_vec(),
-            access: *data.get::<&UserAccess>().expect("Could not find UserAccess").clone(),
+            name: world.get_or_panic::<&Account>(entity).name.clone(),
+            address: world.get_or_panic::<&Socket>(entity).addr.clone(),
+            sprite: world.get_or_panic::<Sprite>(entity).id as i16,
+            spawn: world.get_or_panic::<Spawn>(entity).pos,
+            itemtimer: world.get_or_panic::<PlayerItemTimer>(entity).itemtimer,
+            vals: world.get_or_panic::<Money>(entity).vals as i64,
+            data: world.get_or_panic::<EntityData>(entity).0.to_vec(),
+            access: world.cloned_get_or_panic::<UserAccess>(entity),
             passresetcode: None,
-            pos: *data.get::<&Position>().expect("Could not find Position").clone(),
-            vital: data.get::<&Vitals>().expect("Could not find Vitals").vital.to_vec(),
-            deathtimer: data.get::<&DeathTimer>().expect("Could not find DeathTimer").0,
-            indeath: data.get::<&DeathType>().expect("Could not find DeathType").is_spirit(),
+            pos: world.cloned_get_or_panic::<Position>(entity),
+            vital: world.get_or_panic::<Vitals>(entity).vital.to_vec(),
+            deathtimer: world.get_or_panic::<DeathTimer>(entity).0,
+            indeath: world.get_or_panic::<DeathType>(entity).is_spirit(),
             email,
             password: hashed_password,
             username,
-            level: data.get::<&Level>().expect("Could not find Level").0,
-            levelexp: data.get::<&Player>().expect("Could not find Player").levelexp as i64,
-            resetcount: data.get::<&Player>().expect("Could not find Player").resetcount,
-            pk: data.get::<&Player>().expect("Could not find Player").pk,
+            level: world.get_or_panic::<Level>(entity).0,
+            levelexp: world.get_or_panic::<Player>(entity).levelexp as i64,
+            resetcount: world.get_or_panic::<Player>(entity).resetcount,
+            pk: world.get_or_panic::<Player>(entity).pk,
         }
     }
 }
@@ -113,68 +112,50 @@ pub struct PGPlayerWithID {
 
 impl PGPlayerWithID {
     pub fn new(world: &mut hecs::World, entity: &Entity) -> PGPlayerWithID {
-        let data = world.entity(entity.0).expect("Could not get Entity");
         PGPlayerWithID {
-            uid: data.get::<&Account>().expect("Could not find Account").id,
-            name: data.get::<&Account>().expect("Could not find Account").name.clone(),
-            address: data.get::<&Socket>().expect("Could not find Socket").addr.clone(),
-            sprite: data.get::<&Sprite>().expect("Could not find Sprite").id as i16,
-            spawn: data.get::<&Spawn>().expect("Could not find Spawn").pos,
-            itemtimer: data.get::<&PlayerItemTimer>().expect("Could not find PlayerItemTimer").itemtimer,
-            vals: data.get::<&Money>().expect("Could not find Money").vals as i64,
-            data: data.get::<&EntityData>().expect("Could not find EntityData").0.to_vec(),
-            access: *data.get::<&UserAccess>().expect("Could not find UserAccess").clone(),
-            pos: *data.get::<&Position>().expect("Could not find Position").clone(),
-            vital: data.get::<&Vitals>().expect("Could not find Vitals").vital.to_vec(),
-            deathtimer: data.get::<&DeathTimer>().expect("Could not find DeathTimer").0,
-            indeath: data.get::<&DeathType>().expect("Could not find DeathType").is_spirit(),
-            level: data.get::<&Level>().expect("Could not find Level").0,
-            levelexp: data.get::<&Player>().expect("Could not find Player").levelexp as i64,
-            resetcount: data.get::<&Player>().expect("Could not find Player").resetcount,
-            pk: data.get::<&Player>().expect("Could not find Player").pk,
+            uid: world.get_or_panic::<&Account>(entity).id,
+            name: world.get_or_panic::<&Account>(entity).name.clone(),
+            address: world.get_or_panic::<&Socket>(entity).addr.clone(),
+            sprite: world.get_or_panic::<Sprite>(entity).id as i16,
+            spawn: world.get_or_panic::<Spawn>(entity).pos,
+            itemtimer: world.get_or_panic::<PlayerItemTimer>(entity).itemtimer,
+            vals: world.get_or_panic::<Money>(entity).vals as i64,
+            data: world.get_or_panic::<EntityData>(entity).0.to_vec(),
+            access: world.cloned_get_or_panic::<UserAccess>(entity),
+            pos: world.cloned_get_or_panic::<Position>(entity),
+            vital: world.get_or_panic::<Vitals>(entity).vital.to_vec(),
+            deathtimer: world.get_or_panic::<DeathTimer>(entity).0,
+            indeath: world.get_or_panic::<DeathType>(entity).is_spirit(),
+            level: world.get_or_panic::<Level>(entity).0,
+            levelexp: world.get_or_panic::<Player>(entity).levelexp as i64,
+            resetcount: world.get_or_panic::<Player>(entity).resetcount,
+            pk: world.get_or_panic::<Player>(entity).pk,
         }
     }
 
     pub fn into_player(self, world: &mut hecs::World, entity: &Entity) {
-        let data = world.entity(entity.0).expect("Could not get Entity");
-        if let mut account = data.get::<&mut Account>().expect("Could not find Account") {
-            account.id = self.uid;
-            account.name = self.name.clone()
-        };
-        if let mut socket = data.get::<&mut Socket>().expect("Could not find Socket") 
-            { socket.addr = self.address.clone() };
-        if let mut sprite = data.get::<&mut Sprite>().expect("Could not find Sprite") 
-            { sprite.id = self.sprite as u32 };
-        if let mut spawn = data.get::<&mut Spawn>().expect("Could not find Spawn") 
-            { spawn.pos = self.spawn };
-        if let mut itemtimer = data.get::<&mut PlayerItemTimer>().expect("Could not find PlayerItemTimer") { itemtimer.itemtimer = self.itemtimer };
-        if let mut money = data.get::<&mut Money>().expect("Could not find Money") 
-            { money.vals = self.vals as u64 };
-        if let mut data = data.get::<&mut EntityData>().expect("Could not find EntityData") 
-            { data.0 = self.data[..10].try_into().unwrap_or([0; 10]) };
-        if let mut access = data.get::<&mut UserAccess>().expect("Could not find UserAccess") 
-            { *access = self.access };
-        if let mut position = data.get::<&mut Position>().expect("Could not find Position") 
-            { *position = self.pos };
-        if let mut vitals = data.get::<&mut Vitals>().expect("Could not find Vitals") {
-            vitals.vital = self.vital[..VITALS_MAX]
+        world.get::<&mut Account>(entity.0).expect("Could not find Account").id = self.uid;
+        world.get::<&mut Account>(entity.0).expect("Could not find Account").name = self.name.clone();
+        world.get::<&mut Socket>(entity.0).expect("Could not find Socket").addr = self.address.clone();
+        world.get::<&mut Sprite>(entity.0).expect("Could not find Sprite").id = self.sprite as u32;
+        world.get::<&mut Spawn>(entity.0).expect("Could not find Spawn").pos = self.spawn;
+        world.get::<&mut PlayerItemTimer>(entity.0).expect("Could not find PlayerItemTimer").itemtimer = self.itemtimer;
+        world.get::<&mut Money>(entity.0).expect("Could not find Money").vals = self.vals as u64;
+        world.get::<&mut EntityData>(entity.0).expect("Could not find EntityData").0 = self.data[..10].try_into().unwrap_or([0; 10]);
+        *world.get::<&mut UserAccess>(entity.0).expect("Could not find UserAccess") = self.access;
+        *world.get::<&mut Position>(entity.0).expect("Could not find Position") = self.pos;
+        world.get::<&mut Vitals>(entity.0).expect("Could not find Vitals").vital = self.vital[..VITALS_MAX]
                 .try_into()
                 .unwrap_or([0; VITALS_MAX]);
-        };
-        if let mut deathtimer = data.get::<&mut DeathTimer>().expect("Could not find DeathTimer") { deathtimer.0 = self.deathtimer };
-        if let mut deathtype = data.get::<&mut DeathType>().expect("Could not find DeathType") {
-            *deathtype = match self.indeath {
+        world.get::<&mut DeathTimer>(entity.0).expect("Could not find DeathTimer").0 = self.deathtimer;
+        *world.get::<&mut DeathType>(entity.0).expect("Could not find DeathType") = match self.indeath {
                 true => DeathType::Spirit,
                 false => DeathType::Alive,
             };
-        };
-        if let mut level = data.get::<&mut Level>().expect("Could not find Level") 
-            { level.0 = self.level };
-        if let mut player = data.get::<&mut Player>().expect("Could not find Player") {
-            player.levelexp = self.levelexp as u64;
-            player.resetcount = self.resetcount;
-            player.pk = self.pk;
-        };
+        world.get::<&mut Level>(entity.0).expect("Could not find Level").0 = self.level;
+        world.get::<&mut Player>(entity.0).expect("Could not find Player").levelexp = self.levelexp as u64;
+        world.get::<&mut Player>(entity.0).expect("Could not find Player").resetcount = self.resetcount;
+        world.get::<&mut Player>(entity.0).expect("Could not find Player").pk = self.pk;
     }
 }
 
@@ -193,15 +174,14 @@ pub struct PGPlayerLogOut {
 
 impl PGPlayerLogOut {
     pub fn new(world: &mut hecs::World, entity: &Entity) -> PGPlayerLogOut {
-        let data = world.entity(entity.0).expect("Could not get Entity");
         PGPlayerLogOut {
-            uid: data.get::<&Account>().expect("Could not find Account").id,
-            itemtimer: data.get::<&PlayerItemTimer>().expect("Could not find PlayerItemTimer").itemtimer,
-            pos: *data.get::<&Position>().expect("Could not find Position").clone(),
-            vital: data.get::<&Vitals>().expect("Could not find Vitals").vital.to_vec(),
-            deathtimer: data.get::<&DeathTimer>().expect("Could not find DeathTimer").0,
-            indeath: data.get::<&DeathType>().expect("Could not find DeathType").is_spirit(),
-            pk: data.get::<&Player>().expect("Could not find Player").pk,
+            uid: world.get_or_panic::<&Account>(entity).id,
+            itemtimer: world.get_or_panic::<PlayerItemTimer>(entity).itemtimer,
+            pos: world.cloned_get_or_panic::<Position>(entity),
+            vital: world.get_or_panic::<Vitals>(entity).vital.to_vec(),
+            deathtimer: world.get_or_panic::<DeathTimer>(entity).0,
+            indeath: world.get_or_panic::<DeathType>(entity).is_spirit(),
+            pk: world.get_or_panic::<Player>(entity).pk,
         }
     }
 }
@@ -216,10 +196,9 @@ pub struct PGPlayerReset {
 
 impl PGPlayerReset {
     pub fn new(world: &mut hecs::World, entity: &Entity) -> PGPlayerReset {
-        let data = world.entity(entity.0).expect("Could not get Entity");
         PGPlayerReset {
-            uid: data.get::<&Account>().expect("Could not find Account").id,
-            resetcount: data.get::<&Player>().expect("Could not find Player").resetcount,
+            uid: world.get_or_panic::<&Account>(entity).id,
+            resetcount: world.get_or_panic::<Player>(entity).resetcount,
         }
     }
 }
@@ -234,10 +213,9 @@ pub struct PGPlayerAddress {
 
 impl PGPlayerAddress {
     pub fn new(world: &mut hecs::World, entity: &Entity) -> PGPlayerAddress {
-        let data = world.entity(entity.0).expect("Could not get Entity");
         PGPlayerAddress {
-            uid: data.get::<&Account>().expect("Could not find Account").id,
-            address: data.get::<&Socket>().expect("Could not find Socket").addr.clone(),
+            uid: world.get_or_panic::<&Account>(entity).id,
+            address: world.get_or_panic::<&Socket>(entity).addr.clone(),
         }
     }
 }
@@ -254,12 +232,11 @@ pub struct PGPlayerLevel {
 
 impl PGPlayerLevel {
     pub fn new(world: &mut hecs::World, entity: &Entity) -> PGPlayerLevel {
-        let data = world.entity(entity.0).expect("Could not get Entity");
         PGPlayerLevel {
-            uid: data.get::<&Account>().expect("Could not find Account").id,
-            level: data.get::<&Level>().expect("Could not find Level").0,
-            levelexp: data.get::<&Player>().expect("Could not find Player").levelexp as i64,
-            vital: data.get::<&Vitals>().expect("Could not find Vitals").vital.to_vec(),
+            uid: world.get_or_panic::<&Account>(entity).id,
+            level: world.get_or_panic::<Level>(entity).0,
+            levelexp: world.get_or_panic::<Player>(entity).levelexp as i64,
+            vital: world.get_or_panic::<Vitals>(entity).vital.to_vec(),
         }
     }
 }
@@ -274,10 +251,9 @@ pub struct PGPlayerData {
 
 impl PGPlayerData {
     pub fn new(world: &mut hecs::World, entity: &Entity) -> PGPlayerData {
-        let data = world.entity(entity.0).expect("Could not get Entity");
         PGPlayerData {
-            uid: data.get::<&Account>().expect("Could not find Account").id,
-            data: data.get::<&EntityData>().expect("Could not find EntityData").0.to_vec(),
+            uid: world.get_or_panic::<&Account>(entity).id,
+            data: world.get_or_panic::<EntityData>(entity).0.to_vec(),
         }
     }
 }
@@ -292,9 +268,8 @@ pub struct PGPlayerPassReset {
 
 impl PGPlayerPassReset {
     pub fn new(world: &mut hecs::World, entity: &Entity, pass: Option<String>) -> PGPlayerPassReset {
-        let data = world.entity(entity.0).expect("Could not get Entity");
         PGPlayerPassReset {
-            uid: data.get::<&Account>().expect("Could not find Account").id,
+            uid: world.get_or_panic::<&Account>(entity).id,
             passresetcode: pass,
         }
     }
@@ -310,10 +285,9 @@ pub struct PGPlayerSpawn {
 
 impl PGPlayerSpawn {
     pub fn new(world: &mut hecs::World, entity: &Entity) -> PGPlayerSpawn {
-        let data = world.entity(entity.0).expect("Could not get Entity");
         PGPlayerSpawn {
-            uid: data.get::<&Account>().expect("Could not find Account").id,
-            spawn: data.get::<&Spawn>().expect("Could not find Spawn").pos,
+            uid: world.get_or_panic::<&Account>(entity).id,
+            spawn: world.get_or_panic::<Spawn>(entity).pos,
         }
     }
 }
@@ -328,10 +302,9 @@ pub struct PGPlayerPos {
 
 impl PGPlayerPos {
     pub fn new(world: &mut hecs::World, entity: &Entity) -> PGPlayerPos {
-        let data = world.entity(entity.0).expect("Could not get Entity");
         PGPlayerPos {
-            uid: data.get::<&Account>().expect("Could not find Account").id,
-            pos: *data.get::<&Position>().expect("Could not find Position").clone(),
+            uid: world.get_or_panic::<&Account>(entity).id,
+            pos: world.cloned_get_or_panic::<Position>(entity),
         }
     }
 }
@@ -346,10 +319,9 @@ pub struct PGPlayerCurrency {
 
 impl PGPlayerCurrency {
     pub fn new(world: &mut hecs::World, entity: &Entity) -> PGPlayerCurrency {
-        let data = world.entity(entity.0).expect("Could not get Entity");
         PGPlayerCurrency {
-            uid: data.get::<&Account>().expect("Could not find Account").id,
-            vals: data.get::<&Money>().expect("Could not find Money").vals as i64,
+            uid: world.get_or_panic::<&Account>(entity).id,
+            vals: world.get_or_panic::<Money>(entity).vals as i64,
         }
     }
 }

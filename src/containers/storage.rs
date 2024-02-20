@@ -228,7 +228,7 @@ impl Storage {
     }
 
     pub fn remove_npc(&self, world: &mut hecs::World, id: Entity) -> Option<Position> {
-        let ret = *world.get::<&Position>(id.0).expect("Failed to load Position").clone();
+        let ret: Position = world.cloned_get_or_panic::<Position>(&id);
         //Removes Everything related to the Entity.
         world.despawn(id.0);
         self.npc_ids.borrow_mut().swap_remove(&id);

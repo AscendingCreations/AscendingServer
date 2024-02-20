@@ -1,4 +1,4 @@
-use crate::{containers::*, players::*, sql::*, AscendingError, Result};
+use crate::{containers::*, players::*, sql::*, AscendingError, Result, gametypes::*};
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use diesel::{self, insert_into, prelude::*};
 
@@ -77,9 +77,8 @@ pub fn new_player(
         .returning(players::uid)
         .get_result(conn)?;
 
-    let data = world.entity(entity.0).expect("Could not get Entity");
-    let inv = data.get::<&Inventory>().expect("Could not find Inventory");
-    let equip = data.get::<&Equipment>().expect("Could not find Equipment");
+    let inv = world.get_or_panic::<&Inventory>(entity);
+    let equip = world.get_or_panic::<&Equipment>(entity);
 
     insert_into(equipment::table)
         .values(&PGEquipItem::new(&equip.items, uid))
@@ -98,14 +97,14 @@ pub fn load_player(
     world: &mut hecs::World,
     entity: &crate::Entity,
 ) -> Result<()> {
-    let accountid = world.get::<&Account>(entity.0).expect("Could not find Account").id.clone();
+    let accountid = world.get_or_panic::<&Account>(entity).id.clone();
 
     player_ret::table
         .filter(player_ret::uid.eq(accountid))
         .first::<PGPlayerWithID>(conn)?
         .into_player(world, entity);
 
-    let mut equip = world.get::<&Equipment>(entity.0).expect("Could not find Equipment").items.clone();
+    let mut equip = world.get_or_panic::<&Equipment>(entity).items.clone();
     PGEquipItem::array_into_items(
         equipment::table
             .filter(equipment::uid.eq(accountid))
@@ -113,7 +112,7 @@ pub fn load_player(
         &mut equip,
     );
 
-    let mut inv = world.get::<&Equipment>(entity.0).expect("Could not find Equipment").items.clone();
+    let mut inv = world.get_or_panic::<&Equipment>(entity).items.clone();
     PGInvItem::array_into_items(
         invitems::table
             .filter(invitems::uid.eq(accountid))
@@ -137,9 +136,8 @@ pub fn update_inv(
     entity: &crate::Entity,
     slot: usize,
 ) -> Result<()> {
-    let data = world.entity(entity.0).expect("Could not get Entity");
-    let inv = data.get::<&Inventory>().expect("Could not find Inventory");
-    let account = data.get::<&Account>().expect("Could not find Account");
+    let inv = world.get_or_panic::<&Inventory>(entity);
+    let account = world.get_or_panic::<&Account>(entity);
 
     diesel::update(invitems::table)
         .set(&PGInvItem::single(&inv.items, account.id, slot))
@@ -153,9 +151,8 @@ pub fn update_equipment(
     entity: &crate::Entity,
     slot: usize,
 ) -> Result<()> {
-    let data = world.entity(entity.0).expect("Could not get Entity");
-    let equip = data.get::<&Equipment>().expect("Could not find Equipment");
-    let account = data.get::<&Account>().expect("Could not find Account");
+    let equip = world.get_or_panic::<&Equipment>(entity);
+    let account = world.get_or_panic::<&Account>(entity);
 
     diesel::update(equipment::table)
         .set(&PGEquipItem::single(&equip.items, account.id, slot))

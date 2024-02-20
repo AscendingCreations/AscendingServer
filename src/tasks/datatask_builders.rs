@@ -114,30 +114,20 @@ pub struct NpcSpawnPacket {
 
 impl NpcSpawnPacket {
     pub fn new(world: &mut hecs::World, entity: &Entity) -> Self {
-        let data = world.entity(entity.0).expect("Could not get Entity");
         Self {
-            dir: data.get::<&Dir>().expect("Could not find Dir").0,
-            hidden: data.get::<&Hidden>().expect("Could not find Hidden").0,
+            dir: world.get_or_panic::<Dir>(entity).0,
+            hidden: world.get_or_panic::<Hidden>(entity).0,
             entity: *entity,
-            level: data.get::<&Level>().expect("Could not find Level").0,
-            life: *data.get::<&DeathType>().expect("Could not find DeathType"),
-            mode: *data.get::<&NpcMode>().expect("Could not find NpcMode"),
-            num: data.get::<&NpcIndex>().expect("Could not find NpcIndex").0,
-            pdamage: data
-                .get::<&Physical>()
-                .expect("Could not find Physical")
-                .damage,
-            pdefense: data
-                .get::<&Physical>()
-                .expect("Could not find Physical")
-                .defense,
-            position: *data.get::<&Position>().expect("Could not find Position"),
-            sprite: data.get::<&Sprite>().expect("Could not find Sprite").id,
-            vital: data.get::<&Vitals>().expect("Could not find Vitals").vital,
-            vitalmax: data
-                .get::<&Vitals>()
-                .expect("Could not find Vitals")
-                .vitalmax,
+            level: world.get_or_panic::<Level>(entity).0,
+            life: world.cloned_get_or_panic::<DeathType>(entity),
+            mode: world.cloned_get_or_panic::<NpcMode>(entity),
+            num: world.get_or_panic::<NpcIndex>(entity).0,
+            pdamage: world.get_or_panic::<Physical>(entity).damage,
+            pdefense: world.get_or_panic::<Physical>(entity).defense,
+            position: world.cloned_get_or_panic::<Position>(entity),
+            sprite: world.get_or_panic::<Sprite>(entity).id,
+            vital: world.get_or_panic::<Vitals>(entity).vital,
+            vitalmax: world.get_or_panic::<Vitals>(entity).vitalmax,
         }
     }
 }
@@ -165,46 +155,25 @@ pub struct PlayerSpawnPacket {
 
 impl PlayerSpawnPacket {
     pub fn new(world: &mut hecs::World, entity: &Entity) -> Self {
-        let data = world.entity(entity.0).expect("Could not get Entity");
-
         Self {
-            name: data
-                .get::<&Account>()
-                .expect("Could not find Account")
-                .name
-                .clone(),
-            dir: data.get::<&Dir>().expect("Could not find Dir").0,
-            hidden: data.get::<&Hidden>().expect("Could not find Hidden").0,
+            name: world.get_or_panic::<&Account>(entity).name.clone(),
+            dir: world.get_or_panic::<Dir>(entity).0,
+            hidden: world.get_or_panic::<Hidden>(entity).0,
             entity: *entity,
-            level: data.get::<&Level>().expect("Could not find Level").0,
-            life: *data.get::<&DeathType>().expect("Could not find DeathType"),
-            pdamage: data
-                .get::<&Physical>()
-                .expect("Could not find Physical")
-                .damage,
-            pdefense: data
-                .get::<&Physical>()
-                .expect("Could not find Physical")
-                .defense,
-            position: *data.get::<&Position>().expect("Could not find Position"),
-            sprite: data.get::<&Sprite>().expect("Could not find Sprite").id as u8,
-            vital: data.get::<&Vitals>().expect("Could not find Vitals").vital,
-            vitalmax: data
-                .get::<&Vitals>()
-                .expect("Could not find Vitals")
-                .vitalmax,
-            access: *data
-                .get::<&UserAccess>()
-                .expect("Could not find UserAccess"),
+            level: world.get_or_panic::<Level>(entity).0,
+            life: world.cloned_get_or_panic::<DeathType>(entity),
+            pdamage: world.get_or_panic::<Physical>(entity).damage,
+            pdefense: world.get_or_panic::<Physical>(entity).defense,
+            position: world.cloned_get_or_panic::<Position>(entity),
+            sprite: world.get_or_panic::<Sprite>(entity).id as u8,
+            vital: world.get_or_panic::<Vitals>(entity).vital,
+            vitalmax: world.get_or_panic::<Vitals>(entity).vitalmax,
+            access: world.cloned_get_or_panic::<UserAccess>(entity),
             equip: Equipment {
-                items: data
-                    .get::<&Equipment>()
-                    .expect("Could not find Equipment")
-                    .items
-                    .clone(),
+                items: world.get_or_panic::<&Equipment>(entity).items.clone(),
             },
-            pk: data.get::<&Player>().expect("Could not find Player").pk,
-            pvpon: data.get::<&Player>().expect("Could not find Player").pvpon,
+            pk: world.get_or_panic::<Player>(entity).pk,
+            pvpon: world.get_or_panic::<Player>(entity).pvpon,
         }
     }
 }

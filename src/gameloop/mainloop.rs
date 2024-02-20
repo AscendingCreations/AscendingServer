@@ -98,8 +98,9 @@ pub fn process_packets(world: &mut World, storage: &Storage) {
                 continue;
             }
 
-            let mut socket = world.get::<&mut Socket>(entity.0).expect("Could not get Socket").clone();
-            let socket_id = world.get::<&Socket>(entity.0).expect("Could not get Socket").id.clone();
+            
+            let mut socket = world.get_or_panic::<&Socket>(entity).clone();
+            let socket_id = world.get_or_panic::<&Socket>(entity).id;
 
             loop {
                 length = match get_length(world, storage, &mut socket.buffer, socket_id) {

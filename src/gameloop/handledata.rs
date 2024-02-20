@@ -61,7 +61,6 @@ fn handle_register(
 
     let socket_id = world.get_or_panic::<&Socket>(entity).id;
 
-    //if let Ok(query) = world.entity(entity.0) {
     if !storage.player_ids.borrow().contains(entity) {
         let email_regex = Regex::new(
             r"^([a-z0-9_+]([a-z0-9_+.]*[a-z0-9_+])?)@([a-z0-9]+([\-\.]{1}[a-z0-9]+)*\.[a-z]{2,6})",
@@ -141,19 +140,9 @@ fn handle_register(
         // we need to Add all the player types creations in a sub function that Creates the Defaults and then adds them to World.
         storage.add_player_data(world, entity);
 
-        if let mut account = world
-            .get::<&mut Account>(entity.0)
-            .expect("Could not find Account")
-        {
-            account.name = name
-        };
+        world.get::<&mut Account>(entity.0).expect("Could not find Account").name = name;
 
-        if let mut player_sprite = world
-            .get::<&mut Sprite>(entity.0)
-            .expect("Could not find Sprite")
-        {
-            player_sprite.id = sprite as u32
-        };
+        world.get::<&mut Sprite>(entity.0).expect("Could not find Sprite").id = sprite as u32;
 
         if new_player(
             &mut storage.pgconn.borrow_mut(),
@@ -222,12 +211,7 @@ fn handle_login(
         // we need to Add all the player types creations in a sub function that Creates the Defaults and then adds them to World.
         storage.add_player_data(world, entity);
 
-        if let mut account = world
-            .get::<&mut Account>(p.0)
-            .expect("Could not find Account")
-        {
-            account.id = id
-        };
+        world.get::<&mut Account>(p.0).expect("Could not find Account").id = id;
 
         if let Err(_e) = load_player(storage, &mut storage.pgconn.borrow_mut(), world, entity) {
             return send_infomsg(storage, socket_id, "Error Loading User.".into(), 1);
@@ -248,16 +232,10 @@ fn handle_move(
     data: &mut ByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
-    if let Ok(query) = world.entity(entity.0) {
-        if !query
-            .get::<&DeathType>()
-            .expect("Could not find DeathType")
-            .is_alive()
-            || query
-                .get::<&IsUsingType>()
-                .expect("Could not find IsUsingType")
-                .inuse()
-            || query.get::<&Stunned>().expect("Could not find Stunned").0
+    if let Some(p) = storage.player_ids.borrow().get(entity) {
+        if !world.get_or_panic::<DeathType>(p).is_alive()
+            || world.get_or_panic::<IsUsingType>(p).inuse()
+            || world.get_or_panic::<Stunned>(p).0
         {
             return Ok(());
         }
@@ -269,7 +247,7 @@ fn handle_move(
             return Err(AscendingError::InvalidPacket);
         }
 
-        let pos = *query.get::<&Position>().expect("Could not find Position");
+        let pos = world.get_or_panic::<Position>(p);
 
         if data_pos != pos {
             player_warp(world, storage, entity, &data_pos, dir);
@@ -288,15 +266,9 @@ fn handle_dir(
     data: &mut ByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
-    if let Ok(query) = world.entity(entity.0) {
-        if !query
-            .get::<&DeathType>()
-            .expect("Could not find DeathType")
-            .is_alive()
-            || query
-                .get::<&IsUsingType>()
-                .expect("Could not find IsUsingType")
-                .inuse()
+    if let Some(p) = storage.player_ids.borrow().get(entity) {
+        if !world.get_or_panic::<DeathType>(p).is_alive()
+            || world.get_or_panic::<IsUsingType>(p).inuse()
         {
             return Ok(());
         }
@@ -307,9 +279,9 @@ fn handle_dir(
             return Err(AscendingError::InvalidPacket);
         }
 
-        if let mut query_dir = query.get::<&mut Dir>().expect("Could not find Dir") {
-            query_dir.0 = dir
-        };
+        {
+            world.get::<&mut Dir>(p.0).expect("Could not find Dir").0 = dir;
+        }
 
         send_dir(world, storage, entity, true)?;
 
@@ -325,19 +297,10 @@ fn handle_attack(
     data: &mut ByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
-    if let Ok(query) = world.entity(entity.0) {
-        if !query
-            .get::<&DeathType>()
-            .expect("Could not find DeathType")
-            .is_alive()
-            || query
-                .get::<&IsUsingType>()
-                .expect("Could not find IsUsingType")
-                .inuse()
-            || query
-                .get::<&Attacking>()
-                .expect("Could not find Attacking")
-                .0
+    if let Some(p) = storage.player_ids.borrow().get(entity) {
+        if !world.get_or_panic::<DeathType>(p).is_alive()
+            || world.get_or_panic::<IsUsingType>(p).inuse()
+            || world.get_or_panic::<Attacking>(p).0
         {
             return Ok(());
         }
@@ -349,11 +312,11 @@ fn handle_attack(
             return Err(AscendingError::InvalidPacket);
         }
 
-        if let mut query_dir = query.get::<&mut Dir>().expect("Could not find Dir") {
-            if query_dir.0 != dir {
-                query_dir.0 = dir;
-                send_dir(world, storage, entity, true)?;
+        if world.get_or_panic::<Dir>(p).0 != dir {
+            {
+                world.get::<&mut Dir>(entity.0).expect("Could not find Dir").0 = dir;
             }
+            send_dir(world, storage, entity, true)?;
         };
 
         //TODO Add Attack funciton call here for player attacks
@@ -369,25 +332,12 @@ fn handle_useitem(
     data: &mut ByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
-    if let Ok(query) = world.entity(entity.0) {
-        if !query
-            .get::<&DeathType>()
-            .expect("Could not find DeathType")
-            .is_alive()
-            || query
-                .get::<&IsUsingType>()
-                .expect("Could not find IsUsingType")
-                .inuse()
-            || query
-                .get::<&Attacking>()
-                .expect("Could not find Attacking")
-                .0
-            || query.get::<&Stunned>().expect("Could not find Stunned").0
-            || query
-                .get::<&PlayerItemTimer>()
-                .expect("Could not find PlayerItemTimer")
-                .itemtimer
-                > *storage.gettick.borrow()
+    if let Some(p) = storage.player_ids.borrow().get(entity) {
+        if !world.get_or_panic::<DeathType>(p).is_alive()
+            || world.get_or_panic::<IsUsingType>(p).inuse()
+            || world.get_or_panic::<Attacking>(p).0
+            || world.get_or_panic::<Stunned>(p).0
+            || world.get_or_panic::<PlayerItemTimer>(p).itemtimer > *storage.gettick.borrow()
         {
             return Ok(());
         }
@@ -395,12 +345,10 @@ fn handle_useitem(
         let _slot = data.read::<u16>()?;
         let _targettype = data.read::<u8>()?;
 
-        if let mut itemtimer = query
-            .get::<&mut PlayerItemTimer>()
-            .expect("Could not find PlayerItemTimer")
         {
-            itemtimer.itemtimer = *storage.gettick.borrow() + Duration::milliseconds(250);
-        };
+            world.get::<&mut PlayerItemTimer>(entity.0).expect("Could not find PlayerItemTimer").itemtimer =
+                *storage.gettick.borrow() + Duration::milliseconds(250);
+        }
 
         //TODO useitem();
         return Ok(());
@@ -416,27 +364,11 @@ fn handle_unequip(
     entity: &Entity,
 ) -> Result<()> {
     if let Some(p) = storage.player_ids.borrow().get(entity) {
-        if !world
-            .get::<&DeathType>(p.0)
-            .expect("Could not find DeathType")
-            .is_alive()
-            || world
-                .get::<&IsUsingType>(p.0)
-                .expect("Could not find IsUsingType")
-                .inuse()
-            || world
-                .get::<&Attacking>(p.0)
-                .expect("Could not find Attacking")
-                .0
-            || world
-                .get::<&Stunned>(p.0)
-                .expect("Could not find Stunned")
-                .0
-            || world
-                .get::<&PlayerItemTimer>(p.0)
-                .expect("Could not find PlayerItemTimer")
-                .itemtimer
-                > *storage.gettick.borrow()
+        if !world.get_or_panic::<DeathType>(p).is_alive()
+            || world.get_or_panic::<IsUsingType>(p).inuse()
+            || world.get_or_panic::<Attacking>(p).0
+            || world.get_or_panic::<Stunned>(p).0
+            || world.get_or_panic::<PlayerItemTimer>(p).itemtimer > *storage.gettick.borrow()
         {
             return Ok(());
         }
@@ -444,22 +376,13 @@ fn handle_unequip(
         let slot = data.read::<u16>()? as usize;
 
         if slot >= EQUIPMENT_TYPE_MAX
-            || world
-                .get::<&Equipment>(p.0)
-                .expect("Could not find Equipment")
-                .items[slot]
-                .val
-                == 0
+            || world.get_or_panic::<&Equipment>(p).items[slot].val == 0
         {
             return Ok(());
         }
 
-        let mut item = world
-            .get::<&Equipment>(p.0)
-            .expect("Could not find Equipment")
-            .items[slot];
-        let entity_data = entity.clone();
-        let rem = give_item(world, storage, &entity_data, &mut item);
+        let mut item = world.get_or_panic::<&Equipment>(p).items[slot];
+        let rem = give_item(world, storage, p, &mut item);
 
         if rem > 0 {
             return send_fltalert(
@@ -470,16 +393,13 @@ fn handle_unequip(
             );
         }
 
-        if let mut equipment = world
-            .get::<&mut Equipment>(p.0)
-            .expect("Could not find Equipment")
         {
-            equipment.items[slot] = item
-        };
+            world.get::<&mut Equipment>(p.0).expect("Could not find Equipment").items[slot] = item;
+        }
 
-        let _ = update_equipment(&mut storage.pgconn.borrow_mut(), world, entity, slot);
+        let _ = update_equipment(&mut storage.pgconn.borrow_mut(), world, p, slot);
         //TODO calculatestats();
-        return send_equipment(world, storage, entity);
+        return send_equipment(world, storage, p);
     }
 
     Err(AscendingError::InvalidSocket)
@@ -492,27 +412,11 @@ fn handle_switchinvslot(
     entity: &Entity,
 ) -> Result<()> {
     if let Some(p) = storage.player_ids.borrow().get(entity) {
-        if !world
-            .get::<&DeathType>(p.0)
-            .expect("Could not find DeathType")
-            .is_alive()
-            || world
-                .get::<&IsUsingType>(p.0)
-                .expect("Could not find IsUsingType")
-                .inuse()
-            || world
-                .get::<&Attacking>(p.0)
-                .expect("Could not find Attacking")
-                .0
-            || world
-                .get::<&Stunned>(p.0)
-                .expect("Could not find Stunned")
-                .0
-            || world
-                .get::<&PlayerItemTimer>(p.0)
-                .expect("Could not find PlayerItemTimer")
-                .itemtimer
-                > *storage.gettick.borrow()
+        if !world.get_or_panic::<DeathType>(p).is_alive()
+            || world.get_or_panic::<IsUsingType>(p).inuse()
+            || world.get_or_panic::<Attacking>(p).0
+            || world.get_or_panic::<Stunned>(p).0
+            || world.get_or_panic::<PlayerItemTimer>(p).itemtimer > *storage.gettick.borrow()
         {
             return Ok(());
         }
@@ -523,81 +427,35 @@ fn handle_switchinvslot(
 
         if oldslot >= MAX_INV
             || newslot >= MAX_INV
-            || world
-                .get::<&Inventory>(p.0)
-                .expect("Could not find Inventory")
-                .items[oldslot]
-                .val
-                == 0
+            || world.get_or_panic::<&Inventory>(p).items[oldslot].val == 0
         {
             return Ok(());
         }
 
-        let base1 = &storage.bases.items[world
-            .get::<&Inventory>(p.0)
-            .expect("Could not find Inventory")
-            .items[oldslot]
-            .num as usize];
+        let base1 = &storage.bases.items[world.get_or_panic::<&Inventory>(p).items[oldslot].num as usize];
         let invtype = get_inv_itemtype(base1);
 
         if get_inv_type(oldslot) != invtype || get_inv_type(newslot) != invtype {
             return Ok(());
         }
 
-        let mut itemold = world
-            .get::<&Inventory>(p.0)
-            .expect("Could not find Inventory")
-            .items[oldslot];
+        let mut itemold = world.get_or_panic::<&Inventory>(p).items[oldslot];
 
-        if world
-            .get::<&Inventory>(p.0)
-            .expect("Could not find Inventory")
-            .items[newslot]
-            .val
-            > 0
-        {
-            if world
-                .get::<&Inventory>(p.0)
-                .expect("Could not find Inventory")
-                .items[newslot]
-                .num
-                == world
-                    .get::<&Inventory>(p.0)
-                    .expect("Could not find Inventory")
-                    .items[oldslot]
-                    .num
+        if world.get_or_panic::<&Inventory>(p).items[newslot].val > 0 {
+            if world.get_or_panic::<&Inventory>(p).items[newslot].num
+                == world.get_or_panic::<&Inventory>(p).items[oldslot].num
             {
                 set_inv_slot(world, storage, entity, &mut itemold, newslot, amount);
-                if let mut inv = world
-                    .get::<&mut Inventory>(p.0)
-                    .expect("Could not find Inventory")
                 {
-                    inv.items[oldslot] = itemold
-                };
+                    world.get::<&mut Inventory>(p.0).expect("Could not find Inventory").items[oldslot] = itemold;
+                }
                 save_item(world, storage, entity, oldslot);
-            } else if world
-                .get::<&Inventory>(p.0)
-                .expect("Could not find Inventory")
-                .items[oldslot]
-                .val
-                == amount
-            {
-                let itemnew = world
-                    .get::<&Inventory>(p.0)
-                    .expect("Could not find Inventory")
-                    .items[newslot];
-                if let mut inv = world
-                    .get::<&mut Inventory>(p.0)
-                    .expect("Could not find Inventory")
+            } else if world.get_or_panic::<&Inventory>(p).items[oldslot].val == amount {
+                let itemnew = world.get_or_panic::<&Inventory>(p).items[newslot];
                 {
-                    inv.items[newslot] = itemold
-                };
-                if let mut inv = world
-                    .get::<&mut Inventory>(p.0)
-                    .expect("Could not find Inventory")
-                {
-                    inv.items[oldslot] = itemnew
-                };
+                    world.get::<&mut Inventory>(p.0).expect("Could not find Inventory").items[newslot] = itemold;
+                    world.get::<&mut Inventory>(p.0).expect("Could not find Inventory").items[oldslot] = itemnew;
+                }
                 save_item(world, storage, entity, newslot);
                 save_item(world, storage, entity, oldslot);
             } else {
@@ -611,12 +469,9 @@ fn handle_switchinvslot(
             }
         } else {
             set_inv_slot(world, storage, entity, &mut itemold, newslot, amount);
-            if let mut inv = world
-                .get::<&mut Inventory>(p.0)
-                .expect("Could not find Inventory")
             {
-                inv.items[oldslot] = itemold
-            };
+                world.get::<&mut Inventory>(p.0).expect("Could not find Inventory").items[oldslot] = itemold;
+            }
             save_item(world, storage, entity, oldslot);
         }
 
@@ -635,61 +490,33 @@ fn handle_pickup(
     if let Some(p) = storage.player_ids.borrow().get(entity) {
         let mut remid: Option<(MapPosition, Entity)> = None;
 
-        if !world
-            .get::<&DeathType>(p.0)
-            .expect("Could not find DeathType")
-            .is_alive()
-            || world
-                .get::<&IsUsingType>(p.0)
-                .expect("Could not find IsUsingType")
-                .inuse()
-            || world
-                .get::<&Attacking>(p.0)
-                .expect("Could not find Attacking")
-                .0
-            || world
-                .get::<&Stunned>(p.0)
-                .expect("Could not find Stunned")
-                .0
-            || world
-                .get::<&PlayerMapTimer>(p.0)
-                .expect("Could not find PlayerMapTimer")
-                .mapitemtimer
-                > *storage.gettick.borrow()
+        if !world.get_or_panic::<DeathType>(p).is_alive()
+            || world.get_or_panic::<IsUsingType>(p).inuse()
+            || world.get_or_panic::<Attacking>(p).0
+            || world.get_or_panic::<Stunned>(p).0
+            || world.get_or_panic::<PlayerMapTimer>(p).mapitemtimer > *storage.gettick.borrow()
         {
             return Ok(());
         }
 
         let mapids = get_maps_in_range(
             storage,
-            &world
-                .get::<&Position>(p.0)
-                .expect("Could not find Position"),
+            &world.get_or_panic::<&Position>(p),
             1,
         );
 
         'remremove: for id in mapids {
             if let Some(x) = id.get() {
-                let mut map = unwrap_continue!(storage.maps.get(&x)).borrow_mut();
+                let map = unwrap_continue!(storage.maps.get(&x)).borrow_mut();
                 let _ = unwrap_continue!(storage.bases.maps.get(
-                    &world
-                        .get::<&Position>(p.0)
-                        .expect("Could not find Position")
-                        .map
+                    &world.get_or_panic::<&Position>(p).map
                 ));
                 let ids = map.itemids.clone();
 
                 for i in ids {
-                    let mut mapitems = world
-                        .get::<&mut MapItem>(i.0)
-                        .expect("Could not get MapItem")
-                        .clone();
-                    if world
-                        .get::<&Position>(p.0)
-                        .expect("Could not find Position")
-                        .checkdistance(mapitems.pos.map_offset(id.into()))
-                        <= 1
-                    {
+                    let mut mapitems = world.cloned_get_or_panic::<MapItem>(p);
+                    if world.get_or_panic::<&Position>(p)
+                        .checkdistance(mapitems.pos.map_offset(id.into())) <= 1 {
                         if mapitems.item.num == 0 {
                             let rem =
                                 player_give_vals(world, storage, entity, mapitems.item.val as u64);
@@ -744,13 +571,10 @@ fn handle_pickup(
                 let _ = DataTaskToken::ItemUnload(id.0).add_task(storage, &(id.1));
             }
         }
-
-        if let mut mapitemtimer = world
-            .get::<&mut PlayerMapTimer>(p.0)
-            .expect("Could not find PlayerMapTimer")
         {
-            mapitemtimer.mapitemtimer = *storage.gettick.borrow() + Duration::milliseconds(100);
-        };
+            world.get::<&mut PlayerMapTimer>(p.0).expect("Could not find PlayerMapTimer").mapitemtimer = 
+                *storage.gettick.borrow() + Duration::milliseconds(100);
+        }
         return Ok(());
     }
 
@@ -764,22 +588,10 @@ fn handle_dropitem(
     entity: &Entity,
 ) -> Result<()> {
     if let Some(p) = storage.player_ids.borrow().get(entity) {
-        if !world
-            .get::<&DeathType>(p.0)
-            .expect("Could not find DeathType")
-            .is_alive()
-            || world
-                .get::<&IsUsingType>(p.0)
-                .expect("Could not find IsUsingType")
-                .inuse()
-            || world
-                .get::<&Attacking>(p.0)
-                .expect("Could not find Attacking")
-                .0
-            || world
-                .get::<&Stunned>(p.0)
-                .expect("Could not find Stunned")
-                .0
+        if !world.get_or_panic::<DeathType>(p).is_alive()
+            || world.get_or_panic::<IsUsingType>(p).inuse()
+            || world.get_or_panic::<Attacking>(p).0
+            || world.get_or_panic::<Stunned>(p).0
         {
             return Ok(());
         }
@@ -788,12 +600,7 @@ fn handle_dropitem(
         let amount = data.read::<u16>()?;
 
         if slot >= MAX_INV
-            || world
-                .get::<&Inventory>(p.0)
-                .expect("Could not find Inventory")
-                .items[slot]
-                .val
-                == 0
+            || world.get_or_panic::<&Inventory>(p).items[slot].val == 0
             || amount == 0
         {
             return Ok(());
@@ -802,10 +609,7 @@ fn handle_dropitem(
         //make sure it exists first.
         let _ = unwrap_or_return!(
             storage.bases.maps.get(
-                &world
-                    .get::<&Position>(p.0)
-                    .expect("Could not find Position")
-                    .map
+                &world.get_or_panic::<&Position>(p).map
             ),
             Err(AscendingError::Unhandled)
         );
@@ -824,45 +628,28 @@ fn handle_dropitem(
 
         let mut mapitem = MapItem::new(0);
 
-        mapitem.item = world
-            .get::<&Inventory>(p.0)
-            .expect("Could not find Inventory")
-            .items[slot];
-        mapitem.despawn = match *world
-            .get::<&UserAccess>(p.0)
-            .expect("Could not find UserAccess")
+        mapitem.item = world.get_or_panic::<&Inventory>(p).items[slot];
+        mapitem.despawn = match world.get_or_panic::<&UserAccess>(p)
         {
             UserAccess::Admin => None,
             _ => Some(*storage.gettick.borrow() + Duration::milliseconds(600000)),
         };
         mapitem.ownertimer = Some(*storage.gettick.borrow() + Duration::milliseconds(5000));
-        mapitem.ownerid = world
-            .get::<&Account>(p.0)
-            .expect("Could not find Account")
-            .id;
-        mapitem.pos = *world
-            .get::<&Position>(p.0)
-            .expect("Could not find Position");
+        mapitem.ownerid = world.get_or_panic::<&Account>(p).id;
+        mapitem.pos = *world.get_or_panic::<&Position>(p);
 
         let leftover = take_itemslot(world, storage, entity, slot, amount);
         mapitem.item.val -= leftover;
         let mut map = unwrap_or_return!(
             storage.maps.get(
-                &world
-                    .get::<&Position>(p.0)
-                    .expect("Could not find Position")
-                    .map
+                &world.get_or_panic::<&Position>(p).map
             ),
             Err(AscendingError::Unhandled)
         )
         .borrow_mut();
 
         let id = map.add_mapitem(world, mapitem.clone());
-        let pos = *world
-            .get::<&Position>(p.0)
-            .expect("Could not find Position")
-            .clone();
-        let _ = DataTaskToken::ItemLoad(pos.map).add_task(
+        let _ = DataTaskToken::ItemLoad(world.get_or_panic::<&Position>(p).map).add_task(
             storage,
             &MapItemPacket::new(id, mapitem.pos, mapitem.item, Some(mapitem.ownerid)),
         );
@@ -879,20 +666,11 @@ fn handle_deleteitem(
     data: &mut ByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
-    if let Ok(query) = world.entity(entity.0) {
-        if !query
-            .get::<&DeathType>()
-            .expect("Could not find DeathType")
-            .is_alive()
-            || query
-                .get::<&IsUsingType>()
-                .expect("Could not find IsUsingType")
-                .inuse()
-            || query
-                .get::<&Attacking>()
-                .expect("Could not find Attacking")
-                .0
-            || query.get::<&Stunned>().expect("Could not find Stunned").0
+    if let Some(p) = storage.player_ids.borrow().get(entity) {
+        if !world.get_or_panic::<DeathType>(p).is_alive()
+            || world.get_or_panic::<IsUsingType>(p).inuse()
+            || world.get_or_panic::<Attacking>(p).0
+            || world.get_or_panic::<Stunned>(p).0
         {
             return Ok(());
         }
@@ -900,12 +678,7 @@ fn handle_deleteitem(
         let slot = data.read::<u16>()? as usize;
 
         if slot >= MAX_INV
-            || query
-                .get::<&Inventory>()
-                .expect("Could not find Inventory")
-                .items[slot]
-                .val
-                == 0
+            || world.get_or_panic::<&Inventory>(p).items[slot].val == 0
         {
             return Ok(());
         }
@@ -921,11 +694,7 @@ fn handle_deleteitem(
             }
             _ => {}
         }
-        let val = query
-            .get::<&Inventory>()
-            .expect("Could not find Inventory")
-            .items[slot]
-            .val;
+        let val = world.get_or_panic::<&Inventory>(p).items[slot].val;
         let _ = take_itemslot(world, storage, entity, slot, val);
 
         return Ok(());
@@ -940,22 +709,13 @@ fn handle_message(
     data: &mut ByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
-    if let Ok(query) = world.entity(entity.0) {
+    if let Some(p) = storage.player_ids.borrow().get(entity) {
         let mut usersocket: Option<usize> = None;
 
-        if !query
-            .get::<&DeathType>()
-            .expect("Could not find DeathType")
-            .is_alive()
-            || query
-                .get::<&IsUsingType>()
-                .expect("Could not find IsUsingType")
-                .inuse()
-            || query
-                .get::<&Attacking>()
-                .expect("Could not find Attacking")
-                .0
-            || query.get::<&Stunned>().expect("Could not find Stunned").0
+        if !world.get_or_panic::<DeathType>(p).is_alive()
+            || world.get_or_panic::<IsUsingType>(p).inuse()
+            || world.get_or_panic::<Attacking>(p).0
+            || world.get_or_panic::<Stunned>(p).0
         {
             return Ok(());
         }
@@ -977,31 +737,19 @@ fn handle_message(
         let head = match channel {
             MessageChannel::Map => format!(
                 "[Map] {}:",
-                query
-                    .get::<&Account>()
-                    .expect("Could not find Account")
-                    .name
+                world.get_or_panic::<&Account>(p).name
             ),
             MessageChannel::Global => format!(
                 "[Global] {}:",
-                query
-                    .get::<&Account>()
-                    .expect("Could not find Account")
-                    .name
+                world.get_or_panic::<&Account>(p).name
             ),
             MessageChannel::Trade => format!(
                 "[Trade] {}:",
-                query
-                    .get::<&Account>()
-                    .expect("Could not find Account")
-                    .name
+                world.get_or_panic::<&Account>(p).name
             ),
             MessageChannel::Party => format!(
                 "[Party] {}:",
-                query
-                    .get::<&Account>()
-                    .expect("Could not find Account")
-                    .name
+                world.get_or_panic::<&Account>(p).name
             ),
             MessageChannel::Private => {
                 if name.is_empty() {
@@ -1009,10 +757,7 @@ fn handle_message(
                 }
 
                 if name
-                    == query
-                        .get::<&Account>()
-                        .expect("Could not find Account")
-                        .name
+                    == world.get_or_panic::<&Account>(p).name
                 {
                     return send_fltalert(
                         storage,
@@ -1042,25 +787,16 @@ fn handle_message(
 
                 format!(
                     "[Private] {}:",
-                    query
-                        .get::<&Account>()
-                        .expect("Could not find Account")
-                        .name
+                    world.get_or_panic::<&Account>(p).name
                 )
             }
             MessageChannel::Guild => format!(
                 "[Guild] {}:",
-                query
-                    .get::<&Account>()
-                    .expect("Could not find Account")
-                    .name
+                world.get_or_panic::<&Account>(p).name
             ),
             MessageChannel::Help => format!(
                 "[Help] {}:",
-                query
-                    .get::<&Account>()
-                    .expect("Could not find Account")
-                    .name
+                world.get_or_panic::<&Account>(p).name
             ),
             MessageChannel::Quest => "".into(),
             MessageChannel::Npc => "".into(),
