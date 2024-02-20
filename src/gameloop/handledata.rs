@@ -59,10 +59,7 @@ fn handle_register(
     let sprite: u8 = data.read()?;
     let hair: u8 = data.read()?;
 
-    let socket_id = world
-        .get::<&Socket>(entity.0)
-        .expect("Could not find Socket")
-        .id;
+    let socket_id = world.get_or_panic::<&Socket>(entity).id;
 
     //if let Ok(query) = world.entity(entity.0) {
     if !storage.player_ids.borrow().contains(entity) {
@@ -141,7 +138,9 @@ fn handle_register(
             Err(_) => return Err(AscendingError::UserNotFound),
         }
 
-        // Sherwin: we need to Add all the player types creations in a sub function that Creates the Defaults and then adds them to World.
+        // we need to Add all the player types creations in a sub function that Creates the Defaults and then adds them to World.
+        storage.add_player_data(world, entity);
+
         if let mut account = world
             .get::<&mut Account>(entity.0)
             .expect("Could not find Account")
@@ -193,11 +192,7 @@ fn handle_login(
     let appminior = data.read::<u16>()? as usize;
     let apprevision = data.read::<u16>()? as usize;
 
-    let socket_id = world
-        .get::<&Socket>(entity.0)
-        .expect("Could not find Socket")
-        .id
-        .clone();
+    let socket_id = world.get_or_panic::<&Socket>(entity).id;
 
     if let Some(p) = storage.player_ids.borrow().get(entity) {
         if username.len() >= 64 || password.len() >= 128 {
@@ -223,6 +218,9 @@ fn handle_login(
         if APP_MAJOR > appmajor && APP_MINOR > appminior && APP_REVISION > apprevision {
             return send_infomsg(storage, socket_id, "Client needs to be updated.".into(), 1);
         }
+
+        // we need to Add all the player types creations in a sub function that Creates the Defaults and then adds them to World.
+        storage.add_player_data(world, entity);
 
         if let mut account = world
             .get::<&mut Account>(p.0)
@@ -271,7 +269,7 @@ fn handle_move(
             return Err(AscendingError::InvalidPacket);
         }
 
-        let pos = *query.get::<&Position>().expect("Could not find Socket");
+        let pos = *query.get::<&Position>().expect("Could not find Position");
 
         if data_pos != pos {
             player_warp(world, storage, entity, &data_pos, dir);
@@ -466,7 +464,7 @@ fn handle_unequip(
         if rem > 0 {
             return send_fltalert(
                 storage,
-                world.get::<&Socket>(p.0).expect("Could not find Socket").id,
+                world.get_or_panic::<&Socket>(p).id,
                 "Could not unequiped. No inventory space.".into(),
                 FtlType::Error,
             );
@@ -605,7 +603,7 @@ fn handle_switchinvslot(
             } else {
                 return send_fltalert(
                         storage,
-                        world.get::<&Socket>(p.0).expect("Could not find Socket").id,
+                        world.get_or_panic::<&Socket>(p).id,
                         "Can not swap slots with a different containing items unless you swap everything."
                             .into(),
                         FtlType::Error
@@ -714,7 +712,7 @@ fn handle_pickup(
 
                                 let _ = send_fltalert(
                                     storage,
-                                    world.get::<&Socket>(p.0).expect("Could not find Socket").id,
+                                    world.get_or_panic::<&Socket>(p).id,
                                     format!("You picked up {} {}{}.", amount, item.name, st),
                                     FtlType::Item,
                                 );
@@ -727,7 +725,7 @@ fn handle_pickup(
 
                                 let _ = send_fltalert(
                                         storage,
-                                        world.get::<&Socket>(p.0).expect("Could not find Socket").id,
+                                        world.get_or_panic::<&Socket>(p).id,
                                         format!("You picked up {} {}{}. Your inventory is Full so some items remain.", amount, item.name, st),
                                         FtlType::Item,
                                     );
@@ -816,7 +814,7 @@ fn handle_dropitem(
             InvType::Quest | InvType::Key => {
                 return send_fltalert(
                     storage,
-                    world.get::<&Socket>(p.0).expect("Could not find Socket").id,
+                    world.get_or_panic::<&Socket>(p).id,
                     "You can not drop key or Quest items.".into(),
                     FtlType::Error,
                 );
@@ -916,7 +914,7 @@ fn handle_deleteitem(
             InvType::Quest | InvType::Key => {
                 return send_fltalert(
                     storage,
-                    query.get::<&Socket>().expect("Could not find Socket").id,
+                    world.get_or_panic::<&Socket>(entity).id,
                     "You can not delete key or Quest items.".into(),
                     FtlType::Error,
                 );
@@ -970,7 +968,7 @@ fn handle_message(
         if msg.len() >= 256 {
             return send_fltalert(
                 storage,
-                query.get::<&Socket>().expect("Could not find Socket").id,
+                world.get_or_panic::<&Socket>(entity).id,
                 "Your message is too long. (256 character limit)".into(),
                 FtlType::Error,
             );
@@ -1018,7 +1016,7 @@ fn handle_message(
                 {
                     return send_fltalert(
                         storage,
-                        query.get::<&Socket>().expect("Could not find Socket").id,
+                        world.get_or_panic::<&Socket>(entity).id,
                         "You cannot send messages to yourself".into(),
                         FtlType::Error,
                     );
@@ -1035,7 +1033,7 @@ fn handle_message(
                     None => {
                         return send_fltalert(
                             storage,
-                            query.get::<&Socket>().expect("Could not find Socket").id,
+                            world.get_or_panic::<&Socket>(entity).id,
                             "Player is offline or does not exist".into(),
                             FtlType::Error,
                         );

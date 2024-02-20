@@ -89,7 +89,6 @@ pub fn update_npcs(world: &mut World, storage: &Storage) {
                         .borrow()
                         .is_blocked_tile(world.get_or_panic::<&Spawn>(&id).pos)
                     {
-                        //Sherwin: We can Set parts between {} to let the system know any data REF loaded here is unload before }
                         {
                             *world
                                 .get::<&mut DeathType>(id.0)
@@ -107,8 +106,6 @@ pub fn update_npcs(world: &mut World, storage: &Storage) {
         }
     }
 
-    //Sherwin: This is to unload all Dead npocs or NPC that need to just be despawned.
-    // We do this After everything else so we can easily get an entire count of it.
     for i in unloadnpcs {
         if let Some(pos) = storage.remove_npc(world, i) {
             let _ = DataTaskToken::NpcUnload(pos.map).add_task(storage, &(i));

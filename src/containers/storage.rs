@@ -122,9 +122,44 @@ impl Storage {
             OnlineType::Accepted,
             Position::default(),
         ));
-        world.insert_one(identity, EntityType::Player(Entity(identity), 0));
+        let _ = world.insert_one(identity, EntityType::Player(Entity(identity), 0));
 
         Ok(Entity(identity))
+    }
+
+    pub fn add_player_data(
+        &self,
+        world: &mut hecs::World,
+        entity: &Entity,
+    ) {
+        let _ = world.insert(entity.0, (
+            Account::default(),
+            PlayerItemTimer::default(),
+            PlayerMapTimer::default(),
+            Inventory::default(),
+            Equipment::default(),
+            Sprite::default(),
+            Money::default(),
+            crate::players::MapSwitchTasks::default(),
+            Player::default(),
+            Spawn::default(),
+            Target::default(),
+            KillCount::default(),
+            Vitals::default(),
+            Dir::default(),
+            AttackTimer::default(),
+        ));
+        let _ = world.insert(entity.0, (
+            DeathTimer::default(),
+            MoveTimer::default(),
+            Combat::default(),
+            Physical::default(),
+            Hidden::default(),
+            Stunned::default(),
+            Attacking::default(),
+            Level::default(),
+            InCombat::default(),
+        ));
     }
 
     pub fn remove_player(&self, world: &mut hecs::World, id: Entity) -> Option<(Socket, Position)> {

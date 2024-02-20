@@ -37,12 +37,14 @@ pub struct Account {
 }
 
 #[derive(Clone, Debug, Derivative)]
+#[derivative(Default)]
 pub struct PlayerItemTimer {
     #[derivative(Default(value = "MyInstant::now()"))]
     pub itemtimer: MyInstant,
 }
 
 #[derive(Clone, Debug, Derivative)]
+#[derivative(Default)]
 pub struct PlayerMapTimer {
     #[derivative(Default(value = "MyInstant::now()"))]
     pub mapitemtimer: MyInstant,
