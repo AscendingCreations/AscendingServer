@@ -9,6 +9,7 @@ mod sql_enums;
 
 pub use equipmentstruct::PGEquipItem;
 pub use invstruct::PGInvItem;
+#[allow(unused_imports)]
 pub use logstruct::PGLog;
 pub use playerstruct::*;
 pub use queries::*;

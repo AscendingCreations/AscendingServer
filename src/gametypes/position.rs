@@ -1,13 +1,13 @@
 use crate::{containers::*, gametypes::*, maps::*};
 use bytey::{ByteBufferRead, ByteBufferWrite};
 use diesel::{
+    backend::Backend,
     deserialize::{self, FromSql},
     pg::{sql_types::Record, Pg},
     serialize::{self, Output, ToSql, WriteTuple},
     sql_types::Integer,
 };
 use serde::{Deserialize, Serialize};
-use unwrap_helpers::*;
 
 #[derive(SqlType)]
 #[diesel(postgres_type(name = "position"))]
@@ -89,9 +89,12 @@ impl Position {
         }
     }
 
-    pub fn update_pos_map(&mut self, world: &mut hecs::World, storage: &Storage) -> bool {
+    pub fn update_pos_map(&mut self, storage: &Storage) -> bool {
         let set_pos = |pos: &mut Position, mappos, x, y| -> bool {
-            let mapid = unwrap_or_return!(get_dir_mapid(storage, pos.map, mappos), false);
+            let mapid = match get_dir_mapid(storage, pos.map, mappos) {
+                Some(id) => id,
+                None => return false,
+            };
 
             *pos = Position::new(x, y, mapid);
             true
@@ -153,10 +156,14 @@ impl ToSql<PosType, Pg> for Position {
     }
 }
 
-impl FromSql<PosType, Pg> for Position {
-    fn from_sql(bytes: diesel::backend::RawValue<'_, Pg>) -> deserialize::Result<Self> {
+impl<DB> FromSql<PosType, DB> for Position
+where
+    DB: Backend,
+    (i32, i32, MapPosition): FromSql<Record<(Integer, Integer, MapPosType)>, DB>,
+{
+    fn from_sql(bytes: DB::RawValue<'_>) -> deserialize::Result<Self> {
         let data: (i32, i32, MapPosition) =
-            FromSql::<Record<(Integer, Integer, MapPosType)>, Pg>::from_sql(bytes)?;
+            FromSql::<Record<(Integer, Integer, MapPosType)>, DB>::from_sql(bytes)?;
 
         Ok(Position {
             x: data.0,
@@ -168,5 +175,5 @@ impl FromSql<PosType, Pg> for Position {
 
 #[inline]
 pub fn in_range(range: i32, target: Position, attacker: Position) -> bool {
-    attacker.checkdistance(target) <= range as i32
+    attacker.checkdistance(target) <= range
 }

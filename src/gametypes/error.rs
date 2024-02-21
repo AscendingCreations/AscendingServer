@@ -47,4 +47,6 @@ pub enum AscendingError {
     DieselError(#[from] diesel::result::Error),
     #[error(transparent)]
     ParseError(#[from] std::string::ParseError),
+    #[error(transparent)]
+    HecNoEntity(#[from] hecs::NoSuchEntity),
 }

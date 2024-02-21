@@ -10,36 +10,46 @@ pub fn update_players(world: &mut World, storage: &Storage) {
     let tick = *storage.gettick.borrow();
 
     for id in &*storage.player_ids.borrow() {
-        if world.get_or_panic::<OnlineType>(id) == OnlineType::Online {
-            if *world.get_or_panic::<&DeathType>(id) == DeathType::Spirit {
-                //timers
-                if world.get_or_panic::<&DeathTimer>(id).0 < tick {
+        if world.get_or_panic::<OnlineType>(id) == OnlineType::Online
+            && world.get_or_panic::<DeathType>(id) == DeathType::Spirit
+        {
+            //timers
+            if world.get_or_panic::<&DeathTimer>(id).0 < tick {
+                {
+                    *world
+                        .get::<&mut DeathType>(id.0)
+                        .expect("Could not find DeathType") = DeathType::Alive;
+                }
+                let _ = send_life_status(world, storage, id, true);
+                player_warp(
+                    world,
+                    storage,
+                    id,
+                    world.get_or_panic::<&Position>(id),
+                    world.get_or_panic::<&Dir>(id).0,
+                );
+
+                //lets heal them fully on revival.
+                for i in 0..VITALS_MAX {
+                    let max_vital = world.get_or_panic::<&Vitals>(id);
                     {
-                        *world.get::<&mut DeathType>(id.0).expect("Could not find DeathType") =
-                            DeathType::Alive;
+                        world
+                            .get::<&mut Vitals>(id.0)
+                            .expect("Could not find Vitals")
+                            .vital[i] = max_vital.vitalmax[i];
                     }
-                    let _ = send_life_status(world, storage, id, true);
-                    player_warp(world, storage, id, 
-                        world.get_or_panic::<&Position>(id), 
-                        world.get_or_panic::<&Dir>(id).0);
-
-                    //lets heal them fully on revival.
-                    for i in 0..VITALS_MAX {
-                        let max_vital = world.get_or_panic::<&Vitals>(id);
-                        {
-                            world.get::<&mut Vitals>(id.0).expect("Could not find Vitals").vital[i] =
-                                max_vital.vitalmax[i];
-                        }
-                    }
-
-                    //todo: party stuff here
                 }
 
-                let killcount = world.get_or_panic::<&KillCount>(id);
-                if killcount.count > 0 && killcount.killcounttimer < tick {
-                    {
-                        world.get::<&mut KillCount>(id.0).expect("Could not find KillCount").count = 0;
-                    }
+                //todo: party stuff here
+            }
+
+            let killcount = world.get_or_panic::<&KillCount>(id);
+            if killcount.count > 0 && killcount.killcounttimer < tick {
+                {
+                    world
+                        .get::<&mut KillCount>(id.0)
+                        .expect("Could not find KillCount")
+                        .count = 0;
                 }
             }
         }
@@ -47,49 +57,68 @@ pub fn update_players(world: &mut World, storage: &Storage) {
 }
 
 //TODO: Add Result<(), AscendingError> to all Functions that return nothing.
-pub fn player_warp(world: &mut hecs::World, storage: &Storage, entity: &Entity, new_pos: &Position, dir: u8) {
+pub fn player_warp(
+    world: &mut hecs::World,
+    storage: &Storage,
+    entity: &Entity,
+    new_pos: &Position,
+    dir: u8,
+) {
     {
-        world.get::<&mut Dir>(entity.0).expect("Could not find Dir").0 = dir;
+        world
+            .get::<&mut Dir>(entity.0)
+            .expect("Could not find Dir")
+            .0 = dir;
     }
     let playerdir = world.get_or_panic::<&Dir>(entity);
 
     if world.get_or_panic::<&Position>(entity).map != new_pos.map {
-        let old_pos = player_switch_maps(world, storage, entity, new_pos.clone());
+        let old_pos = player_switch_maps(world, storage, entity, *new_pos);
         let _ = DataTaskToken::PlayerMove(old_pos.map).add_task(
-            storage, 
+            storage,
             &MovePacket::new(*entity, *new_pos, true, false, playerdir.0),
         );
         let _ = DataTaskToken::PlayerMove(new_pos.map).add_task(
-            storage, 
+            storage,
             &MovePacket::new(*entity, *new_pos, true, false, playerdir.0),
         );
         let _ = DataTaskToken::PlayerSpawn(new_pos.map)
-            .add_task(storage,
-                &PlayerSpawnPacket::new(world, entity));
+            .add_task(storage, &PlayerSpawnPacket::new(world, entity));
         init_data_lists(world, storage, entity, old_pos.map);
         //send_weather();
     } else {
-        player_swap_pos(world, storage, entity, new_pos.clone());
+        player_swap_pos(world, storage, entity, *new_pos);
         let _ = DataTaskToken::PlayerMove(new_pos.map).add_task(
-            storage, 
+            storage,
             &MovePacket::new(*entity, *new_pos, false, false, playerdir.0),
         );
     }
 
     {
-        world.get::<&mut Player>(entity.0).expect("Could not find Player").movesavecount += 1;
+        world
+            .get::<&mut Player>(entity.0)
+            .expect("Could not find Player")
+            .movesavecount += 1;
     }
     if world.get_or_panic::<&Player>(entity).movesavecount >= 25 {
         let _ = update_pos(&mut storage.pgconn.borrow_mut(), world, entity);
         {
-            world.get::<&mut Player>(entity.0).expect("Could not find Player").movesavecount = 0;
+            world
+                .get::<&mut Player>(entity.0)
+                .expect("Could not find Player")
+                .movesavecount = 0;
         }
     }
 }
 
-pub fn player_movement(world: &mut hecs::World, storage: &Storage, entity: &Entity, dir: u8) -> bool {            
+pub fn player_movement(
+    world: &mut hecs::World,
+    storage: &Storage,
+    entity: &Entity,
+    dir: u8,
+) -> bool {
     let adj = [(0, -1), (1, 0), (0, 1), (-1, 0)];
-    let player_position = world.get_or_panic::<&Position>(entity);
+    let player_position = world.get_or_panic::<Position>(entity);
     let mut new_pos = Position::new(
         player_position.x + adj[dir as usize].0,
         player_position.y + adj[dir as usize].1,
@@ -97,15 +126,18 @@ pub fn player_movement(world: &mut hecs::World, storage: &Storage, entity: &Enti
     );
 
     {
-        world.get::<&mut Dir>(entity.0).expect("Could not find Dir").0 = dir;
+        world
+            .get::<&mut Dir>(entity.0)
+            .expect("Could not find Dir")
+            .0 = dir;
     }
 
-    if !new_pos.update_pos_map(world, storage) {
+    if !new_pos.update_pos_map(storage) {
         player_warp(world, storage, entity, &player_position, dir);
         return false;
     }
 
-    if map_path_blocked(storage, *player_position, new_pos, dir) {
+    if map_path_blocked(storage, player_position, new_pos, dir) {
         player_warp(world, storage, entity, &player_position, dir);
         return false;
     }
@@ -113,12 +145,18 @@ pub fn player_movement(world: &mut hecs::World, storage: &Storage, entity: &Enti
     //TODO: Process Tile step actions here
 
     {
-        world.get::<&mut Player>(entity.0).expect("Could not find Player").movesavecount += 1;
+        world
+            .get::<&mut Player>(entity.0)
+            .expect("Could not find Player")
+            .movesavecount += 1;
     }
     if world.get_or_panic::<&Player>(entity).movesavecount >= 25 {
         let _ = update_pos(&mut storage.pgconn.borrow_mut(), world, entity);
         {
-            world.get::<&mut Player>(entity.0).expect("Could not find Player").movesavecount = 0;
+            world
+                .get::<&mut Player>(entity.0)
+                .expect("Could not find Player")
+                .movesavecount = 0;
         }
     }
 
@@ -140,8 +178,8 @@ pub fn player_movement(world: &mut hecs::World, storage: &Storage, entity: &Enti
     } else {
         player_swap_pos(world, storage, entity, new_pos);
         let _ = DataTaskToken::PlayerMove(player_position.map).add_task(
-            storage, 
-            &MovePacket::new(*entity, *player_position, false, false, player_dir.0),
+            storage,
+            &MovePacket::new(*entity, player_position, false, false, player_dir.0),
         );
     }
 
@@ -158,7 +196,6 @@ pub fn player_earn_exp(
 ) {
     let mut giveexp = expval;
 
-
     if world.get_or_panic::<&Level>(entity).0 >= MAX_LVL as i32 || expval == 0 {
         return;
     }
@@ -166,11 +203,16 @@ pub fn player_earn_exp(
     giveexp = (giveexp as f64 * spercent) as i64;
 
     {
-        world.get::<&mut InCombat>(entity.0).expect("Could not find InCombat").0 = true;
-        world.get::<&mut Combat>(entity.0).expect("Could not find Combat").0 =
-            *storage.gettick.borrow() + Duration::milliseconds(2000);
+        world
+            .get::<&mut InCombat>(entity.0)
+            .expect("Could not find InCombat")
+            .0 = true;
+        world
+            .get::<&mut Combat>(entity.0)
+            .expect("Could not find Combat")
+            .0 = *storage.gettick.borrow() + Duration::milliseconds(2000);
     }
-    
+
     let leveldifference = victimlevel - world.get_or_panic::<&Level>(entity).0;
 
     if (1..=5).contains(&leveldifference) {
@@ -180,45 +222,72 @@ pub fn player_earn_exp(
     }
 
     {
-        world.get::<&mut Player>(entity.0).expect("Could not find Player").levelexp =
-            cmp::max(giveexp, 1) as u64;
+        world
+            .get::<&mut Player>(entity.0)
+            .expect("Could not find Player")
+            .levelexp = cmp::max(giveexp, 1) as u64;
     }
 
-    while world.get_or_panic::<&Player>(entity).levelexp >= player_get_next_lvl_exp(world, entity) &&
-        world.get_or_panic::<&Level>(entity).0 != MAX_LVL as i32 {
+    while world.get_or_panic::<&Player>(entity).levelexp >= player_get_next_lvl_exp(world, entity)
+        && world.get_or_panic::<&Level>(entity).0 != MAX_LVL as i32
+    {
         {
-            world.get::<&mut Level>(entity.0).expect("Could not find Vitals").0 += 1;
-            world.get::<&mut Player>(entity.0).expect("Could not find Player").levelexp =
-                world.get_or_panic::<&Player>(entity).levelexp.saturating_sub(player_get_next_lvl_exp(world, entity));
-            world.get::<&mut Vitals>(entity.0).expect("Could not find Vitals").vitalmax[VitalTypes::Hp as usize] =
-                player_calc_max_hp(world, entity);
-            world.get::<&mut Vitals>(entity.0).expect("Could not find Vitals").vitalmax[VitalTypes::Mp as usize] =
-                player_calc_max_mp(world, entity);
+            world
+                .get::<&mut Level>(entity.0)
+                .expect("Could not find Vitals")
+                .0 += 1;
+            world
+                .get::<&mut Player>(entity.0)
+                .expect("Could not find Player")
+                .levelexp = world
+                .get_or_panic::<&Player>(entity)
+                .levelexp
+                .saturating_sub(player_get_next_lvl_exp(world, entity));
+            world
+                .get::<&mut Vitals>(entity.0)
+                .expect("Could not find Vitals")
+                .vitalmax[VitalTypes::Hp as usize] = player_calc_max_hp(world, entity);
+            world
+                .get::<&mut Vitals>(entity.0)
+                .expect("Could not find Vitals")
+                .vitalmax[VitalTypes::Mp as usize] = player_calc_max_mp(world, entity);
         }
 
         for i in 0..VitalTypes::Count as usize {
             {
-                world.get::<&mut Vitals>(entity.0).expect("Could not find Vitals").vital[i] =
-                    player_add_up_vital(world, entity, i);
+                world
+                    .get::<&mut Vitals>(entity.0)
+                    .expect("Could not find Vitals")
+                    .vital[i] = player_add_up_vital(world, entity, i);
             }
         }
 
-        let _ = send_fltalert(storage, world.get_or_panic::<&Socket>(entity).id, "Level Up!.".into(), FtlType::Level);
+        let _ = send_fltalert(
+            storage,
+            world.get_or_panic::<&Socket>(entity).id,
+            "Level Up!.".into(),
+            FtlType::Level,
+        );
     }
 
     let _ = send_vitals(world, storage, entity);
     let _ = send_level(world, storage, entity);
     let _ = DataTaskToken::PlayerVitals(world.get_or_panic::<&Position>(entity).map).add_task(
         storage,
-        &VitalsPacket::new(*entity, world.get_or_panic::<&Vitals>(entity).vital, world.get_or_panic::<&Vitals>(entity).vitalmax),
+        &VitalsPacket::new(
+            *entity,
+            world.get_or_panic::<&Vitals>(entity).vital,
+            world.get_or_panic::<&Vitals>(entity).vitalmax,
+        ),
     );
     let _ = update_level(&mut storage.pgconn.borrow_mut(), world, entity);
 }
 
 pub fn player_get_next_lvl_exp(world: &mut hecs::World, entity: &Entity) -> u64 {
-    let mut query = 
-        world.query_one::<&Level>(entity.0).expect("player_get_next_lvl_exp could not find query");
-    
+    let mut query = world
+        .query_one::<&Level>(entity.0)
+        .expect("player_get_next_lvl_exp could not find query");
+
     if let Some(player_level) = query.get() {
         let exp_per_level = match player_level.0 {
             1..=10 => 100,
@@ -236,7 +305,7 @@ pub fn player_get_next_lvl_exp(world: &mut hecs::World, entity: &Entity) -> u64 
             151..=199 => 4000,
             _ => 0,
         };
-        
+
         player_level.0 as u64 * exp_per_level as u64
     } else {
         0
@@ -244,9 +313,10 @@ pub fn player_get_next_lvl_exp(world: &mut hecs::World, entity: &Entity) -> u64 
 }
 
 pub fn player_calc_max_hp(world: &mut hecs::World, entity: &Entity) -> i32 {
-    let mut query = 
-        world.query_one::<&Level>(entity.0).expect("player_calc_max_hp could not find query");
-    
+    let mut query = world
+        .query_one::<&Level>(entity.0)
+        .expect("player_calc_max_hp could not find query");
+
     if let Some(player_level) = query.get() {
         player_level.0 * 25
     } else {
@@ -255,9 +325,10 @@ pub fn player_calc_max_hp(world: &mut hecs::World, entity: &Entity) -> i32 {
 }
 
 pub fn player_calc_max_mp(world: &mut hecs::World, entity: &Entity) -> i32 {
-    let mut query = 
-        world.query_one::<&Level>(entity.0).expect("player_calc_max_mp could not find query");
-    
+    let mut query = world
+        .query_one::<&Level>(entity.0)
+        .expect("player_calc_max_mp could not find query");
+
     if let Some(player_level) = query.get() {
         player_level.0 * 25
     } else {
@@ -265,9 +336,14 @@ pub fn player_calc_max_mp(world: &mut hecs::World, entity: &Entity) -> i32 {
     }
 }
 
-pub fn player_get_weapon_damage(world: &mut hecs::World, storage: &Storage, entity: &Entity) -> (i16, i16) {
-    let mut query = 
-        world.query_one::<&mut Equipment>(entity.0).expect("player_get_weapon_damage could not find query");
+pub fn player_get_weapon_damage(
+    world: &mut hecs::World,
+    storage: &Storage,
+    entity: &Entity,
+) -> (i16, i16) {
+    let mut query = world
+        .query_one::<&mut Equipment>(entity.0)
+        .expect("player_get_weapon_damage could not find query");
 
     if let Some(player_equipment) = query.get() {
         let mut dmg = (0, 0);
@@ -288,10 +364,15 @@ pub fn player_get_weapon_damage(world: &mut hecs::World, storage: &Storage, enti
     }
 }
 
-pub fn player_get_armor_defense(world: &mut hecs::World, storage: &Storage, entity: &Entity) -> (i16, i16) {
-    let mut query = 
-        world.query_one::<&mut Equipment>(entity.0).expect("player_get_armor_defense could not find query");
-    
+pub fn player_get_armor_defense(
+    world: &mut hecs::World,
+    storage: &Storage,
+    entity: &Entity,
+) -> (i16, i16) {
+    let mut query = world
+        .query_one::<&mut Equipment>(entity.0)
+        .expect("player_get_armor_defense could not find query");
+
     if let Some(player_equipment) = query.get() {
         let mut defense = (0i16, 0i16);
 
@@ -299,7 +380,8 @@ pub fn player_get_armor_defense(world: &mut hecs::World, storage: &Storage, enti
             if let Some(item) = storage
                 .bases
                 .items
-                .get(player_equipment.items[i].num as usize) {
+                .get(player_equipment.items[i].num as usize)
+            {
                 defense.0 = defense.0.saturating_add(item.data[0]);
                 defense.1 = defense.1.saturating_add(item.data[1]);
             }
@@ -321,21 +403,30 @@ pub fn player_repair_equipment(
     if let Some(item) = storage
         .bases
         .items
-        .get(world.get_or_panic::<&Equipment>(entity).items[slot].num as usize) {
-        if !item.repairable || world.get_or_panic::<&Equipment>(entity).items[slot].data[0] ==
-            world.get_or_panic::<&Equipment>(entity).items[slot].data[1] {
+        .get(world.get_or_panic::<&Equipment>(entity).items[slot].num as usize)
+    {
+        if !item.repairable
+            || world.get_or_panic::<&Equipment>(entity).items[slot].data[0]
+                == world.get_or_panic::<&Equipment>(entity).items[slot].data[1]
+        {
             return;
         }
 
-        let repair_amount = (world.get_or_panic::<&Equipment>(entity).items[slot].data[0] as f32 * repair_per) as i16;
+        let repair_amount = (world.get_or_panic::<&Equipment>(entity).items[slot].data[0] as f32
+            * repair_per) as i16;
         let repair_amount = cmp::min(
             repair_amount,
-            world.get_or_panic::<&Equipment>(entity).items[slot].data[0] - world.get_or_panic::<&Equipment>(entity).items[slot].data[1],
+            world.get_or_panic::<&Equipment>(entity).items[slot].data[0]
+                - world.get_or_panic::<&Equipment>(entity).items[slot].data[1],
         );
 
         {
-            world.get::<&mut Equipment>(entity.0).expect("Could not find Equipment").items[slot].data[0] =
-                world.get_or_panic::<&Equipment>(entity).items[slot].data[0].saturating_add(repair_amount);
+            world
+                .get::<&mut Equipment>(entity.0)
+                .expect("Could not find Equipment")
+                .items[slot]
+                .data[0] = world.get_or_panic::<&Equipment>(entity).items[slot].data[0]
+                .saturating_add(repair_amount);
         }
         //TODO: CalculateStats();
 

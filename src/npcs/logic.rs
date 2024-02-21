@@ -1,20 +1,20 @@
 use crate::{containers::Storage, gametypes::*, npcs::*, tasks::*};
 use chrono::Duration;
 use hecs::World;
-use unwrap_helpers::*;
 
 pub fn update_npcs(world: &mut World, storage: &Storage) {
     let tick = *storage.gettick.borrow();
     let mut unloadnpcs = Vec::new();
 
     for id in &*storage.npc_ids.borrow() {
-        match world.get_or_panic::<&DeathType>(&id) {
+        match world.get_or_panic::<&DeathType>(id) {
             DeathType::Alive => {
-                if world.get_or_panic::<&NpcDespawns>(&id).0
-                    && world.get_or_panic::<&NpcTimer>(&id).despawntimer <= tick
+                if world.get_or_panic::<&NpcDespawns>(id).0
+                    && world.get_or_panic::<&NpcTimer>(id).despawntimer <= tick
                 {
-                    *world.get::<&mut DeathType>(id.0).expect("Could not find DeathType") 
-                        = DeathType::UnSpawned;
+                    *world
+                        .get::<&mut DeathType>(id.0)
+                        .expect("Could not find DeathType") = DeathType::UnSpawned;
                     unloadnpcs.push(*id);
                     continue;
                 }
@@ -22,76 +22,79 @@ pub fn update_npcs(world: &mut World, storage: &Storage) {
                 if let Some(npcdata) = storage
                     .bases
                     .npcs
-                    .get(world.get_or_panic::<&NpcIndex>(&id).0 as usize)
+                    .get(world.get_or_panic::<&NpcIndex>(id).0 as usize)
                 {
                     if !storage
                         .time
                         .borrow()
                         .in_range(npcdata.spawntime.0, npcdata.spawntime.1)
                     {
-                        *world.get::<&mut DeathType>(id.0).expect("Could not find DeathType") 
-                            = DeathType::UnSpawned;
+                        *world
+                            .get::<&mut DeathType>(id.0)
+                            .expect("Could not find DeathType") = DeathType::UnSpawned;
                         unloadnpcs.push(*id);
                         continue;
                     }
 
                     //targeting
                     if npcdata.can_target
-                        && unwrap_continue!(storage
-                            .maps
-                            .get(&world.get_or_panic::<&Position>(&id).map))
-                        .borrow()
-                        .players_on_map()
+                        && match storage.maps.get(&world.get_or_panic::<&Position>(id).map) {
+                            Some(map) => map.borrow().players_on_map(),
+                            None => continue,
+                        }
                     {
                         targeting(world, storage, id, npcdata);
                     }
 
                     //movement
-                    if npcdata.can_move && world.get_or_panic::<&MoveTimer>(&id).0 <= tick {
+                    if npcdata.can_move && world.get_or_panic::<&MoveTimer>(id).0 <= tick {
                         npc_movement(world, storage, id, npcdata);
-                        world.get::<&mut MoveTimer>(id.0)
+                        world
+                            .get::<&mut MoveTimer>(id.0)
                             .expect("Could not find MoveTimer")
                             .0 = tick + Duration::milliseconds(npcdata.movement_wait);
                     }
 
                     //attacking
                     if npcdata.can_attack
-                        && unwrap_continue!(storage
-                            .maps
-                            .get(&world.get_or_panic::<&Position>(&id).map))
-                        .borrow()
-                        .players_on_map()
-                        && world.get_or_panic::<&AttackTimer>(&id).0 < tick
+                        && match storage.maps.get(&world.get_or_panic::<&Position>(id).map) {
+                            Some(map) => map.borrow().players_on_map(),
+                            None => continue,
+                        }
+                        && world.get_or_panic::<&AttackTimer>(id).0 < tick
                     {
                         npc_combat(world, storage, id, npcdata);
                     }
 
-                    if world.get_or_panic::<&InCombat>(&id).0
-                        && world.get_or_panic::<&Combat>(&id).0 < tick
+                    if world.get_or_panic::<&InCombat>(id).0
+                        && world.get_or_panic::<&Combat>(id).0 < tick
                     {}
                 }
             }
 
             DeathType::UnSpawned => unloadnpcs.push(*id),
             DeathType::Spawning => {
-                if world.get_or_panic::<&NpcTimer>(&id).spawntimer < tick {
-                    let map_data = unwrap_continue!(storage
-                        .maps
-                        .get(&world.get_or_panic::<&Spawn>(&id).pos.map));
+                if world.get_or_panic::<&NpcTimer>(id).spawntimer < tick {
+                    let map_data = match storage.maps.get(&world.get_or_panic::<&Spawn>(id).pos.map)
+                    {
+                        Some(map) => map,
+                        None => continue,
+                    };
 
                     //make sure we can spawn here before even spawning them.
                     if map_data
                         .borrow()
-                        .is_blocked_tile(world.get_or_panic::<&Spawn>(&id).pos)
+                        .is_blocked_tile(world.get_or_panic::<&Spawn>(id).pos)
                     {
                         {
-                            *world.get::<&mut DeathType>(id.0)
+                            *world
+                                .get::<&mut DeathType>(id.0)
                                 .expect("Could not find DeathType") = DeathType::Alive;
                         }
                         map_data
                             .borrow_mut()
-                            .add_entity_to_grid(world.get_or_panic::<&Spawn>(&id).pos);
-                        let _ = DataTaskToken::NpcSpawn(world.get_or_panic::<&Spawn>(&id).pos.map)
+                            .add_entity_to_grid(world.get_or_panic::<&Spawn>(id).pos);
+                        let _ = DataTaskToken::NpcSpawn(world.get_or_panic::<&Spawn>(id).pos.map)
                             .add_task(storage, &NpcSpawnPacket::new(world, id));
                     }
                 }

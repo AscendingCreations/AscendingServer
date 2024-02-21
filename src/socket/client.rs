@@ -1,7 +1,6 @@
 use crate::{containers::Storage, gametypes::*, maps::*, players::*, socket::*};
 use mio::{net::TcpStream, Interest};
 use std::io::{self, Read, Write};
-use unwrap_helpers::*;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum ClientState {
@@ -100,7 +99,7 @@ impl Client {
         }
 
         if event.is_writable() {
-            self.write(world, storage);
+            self.write(world);
         }
 
         match self.state {
@@ -112,7 +111,7 @@ impl Client {
     }
 
     #[inline]
-    pub fn set_to_closing(&mut self, world: &mut hecs::World, storage: &Storage) {
+    pub fn set_to_closing(&mut self, storage: &Storage) {
         self.state = ClientState::Closing;
         self.poll_state.add(SocketPollState::Write);
         self.reregister(&storage.poll.borrow_mut()).unwrap();
@@ -169,7 +168,7 @@ impl Client {
         }
     }
 
-    pub fn write(&mut self, world: &mut hecs::World, storage: &Storage) {
+    pub fn write(&mut self, world: &mut hecs::World) {
         let mut count: usize = 0;
 
         //make sure the player exists before we send anything.
@@ -258,9 +257,9 @@ impl Client {
 
 #[inline]
 pub fn disconnect(playerid: Entity, world: &mut hecs::World, storage: &Storage) {
-    if let Some((socket, position)) = storage.remove_player(world, playerid) {
+    if let Some((_socket, position)) = storage.remove_player(world, playerid) {
         if let Some(map) = storage.maps.get(&position.map) {
-            map.borrow_mut().remove_player(world, storage, playerid);
+            map.borrow_mut().remove_player(storage, playerid);
             //todo Add save for player world here.
             //todo Add Update Players on map here.
         }
@@ -312,9 +311,13 @@ pub fn send_to_maps(
     avoidindex: Option<Entity>,
 ) {
     for m in get_surrounding(position, true) {
-        let map = unwrap_continue!(storage.maps.get(&m)).borrow();
+        let map = match storage.maps.get(&m) {
+            Some(map) => map,
+            None => continue,
+        }
+        .borrow();
 
-        for (_entity, (_, socket)) in world
+        for (entity, (_, socket)) in world
             .query::<((&WorldEntityType, &OnlineType, &Position), &Socket)>()
             .iter()
             .filter(|(_entity, ((worldentitytype, onlinetype, pos), _))| {
@@ -324,9 +327,12 @@ pub fn send_to_maps(
             })
         {
             // ToDo: Avoid index
-            /*if avoidindex.map(|value| value == *id).unwrap_or(false) {
+            if avoidindex
+                .map(|value| value == Entity(entity))
+                .unwrap_or(false)
+            {
                 continue;
-            }*/
+            }
 
             if let Some(mut client) = storage.server.borrow().get_mut(mio::Token(socket.id)) {
                 client.send(&storage.poll.borrow(), buf.clone());

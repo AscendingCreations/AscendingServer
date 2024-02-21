@@ -192,13 +192,13 @@ pub trait WorldExtras {
         T: Default + Send + Sync + Copy + 'static;
     fn cloned_get_or_default<T>(&self, entity: &Entity) -> T
     where
-        T: Default + Send + Sync + Copy + 'static;
+        T: Default + Send + Sync + Clone + 'static;
     fn get_or_panic<T>(&self, entity: &Entity) -> T
     where
         T: Send + Sync + Copy + 'static;
     fn cloned_get_or_panic<T>(&self, entity: &Entity) -> T
     where
-        T: Send + Sync + Copy + 'static;
+        T: Send + Sync + Clone + 'static;
 }
 
 pub trait WorldEntityExtras {
@@ -207,13 +207,13 @@ pub trait WorldEntityExtras {
         T: Default + Send + Sync + Copy + 'static;
     fn cloned_get_or_default<T>(&self) -> T
     where
-        T: Default + Send + Sync + Copy + 'static;
+        T: Default + Send + Sync + Clone + 'static;
     fn get_or_panic<T>(&self) -> T
     where
         T: Send + Sync + Copy + 'static;
     fn cloned_get_or_panic<T>(&self) -> T
     where
-        T: Send + Sync + Copy + 'static;
+        T: Send + Sync + Clone + 'static;
 }
 
 impl WorldEntityExtras for EntityRef<'_> {
@@ -229,7 +229,7 @@ impl WorldEntityExtras for EntityRef<'_> {
 
     fn cloned_get_or_default<T>(&self) -> T
     where
-        T: Default + Send + Sync + Copy + 'static,
+        T: Default + Send + Sync + Clone + 'static,
     {
         match self.get::<&T>() {
             Some(t) => (*t).clone(),
@@ -249,7 +249,7 @@ impl WorldEntityExtras for EntityRef<'_> {
 
     fn cloned_get_or_panic<T>(&self) -> T
     where
-        T: Send + Sync + Copy + 'static,
+        T: Send + Sync + Clone + 'static,
     {
         match self.get::<&T>() {
             Some(t) => (*t).clone(),
@@ -271,7 +271,7 @@ impl WorldExtras for World {
 
     fn cloned_get_or_default<T>(&self, entity: &Entity) -> T
     where
-        T: Default + Send + Sync + Copy + 'static,
+        T: Default + Send + Sync + Clone + 'static,
     {
         match self.get::<&T>(entity.0) {
             Ok(t) => (*t).clone(),
@@ -291,7 +291,7 @@ impl WorldExtras for World {
 
     fn cloned_get_or_panic<T>(&self, entity: &Entity) -> T
     where
-        T: Send + Sync + Copy + 'static,
+        T: Send + Sync + Clone + 'static,
     {
         match self.get::<&T>(entity.0) {
             Ok(t) => (*t).clone(),

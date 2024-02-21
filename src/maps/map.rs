@@ -6,7 +6,6 @@ use crate::{
 use bit_op::{bit_u8::*, BitOp};
 use serde::{Deserialize, Serialize};
 use serde_big_array::BigArray;
-use unwrap_helpers::*;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct Tile {
@@ -64,11 +63,8 @@ impl MapData {
     }
 
     pub fn add_mapitem(&mut self, world: &mut hecs::World, mapitem: MapItem) -> Entity {
-        let id = world.spawn((
-            WorldEntityType::MapItem,
-            mapitem,
-        ));
-        world.insert_one(id, EntityType::MapItem(Entity(id)));
+        let id = world.spawn((WorldEntityType::MapItem, mapitem));
+        let _ = world.insert_one(id, EntityType::MapItem(Entity(id)));
         self.itemids.insert(Entity(id));
         Entity(id)
     }
@@ -91,14 +87,18 @@ impl MapData {
         self.move_grid[pos.as_tile()].1 = true;
     }
 
-    pub fn add_player(&mut self, world: &mut hecs::World, storage: &Storage, id: Entity) {
+    pub fn add_player(&mut self, storage: &Storage, id: Entity) {
         self.players.insert(id);
 
         for i in self.get_surrounding(true) {
             if i != self.position {
-                unwrap_continue!(storage.maps.get(&i))
-                    .borrow_mut()
-                    .players_on_map += 1;
+                match storage.maps.get(&i) {
+                    Some(map) => {
+                        map.borrow_mut().players_on_map =
+                            map.borrow().players_on_map.saturating_add(1)
+                    }
+                    None => continue,
+                }
             }
         }
 
@@ -109,15 +109,19 @@ impl MapData {
         self.npcs.insert(id);
     }
 
-    pub fn remove_player(&mut self, world: &mut hecs::World, storage: &Storage, id: Entity) {
+    pub fn remove_player(&mut self, storage: &Storage, id: Entity) {
         self.players.swap_remove(&id);
 
         //we set the surrounding maps to have players on them if the player is within 1 map of them.
         for i in self.get_surrounding(true) {
             if i != self.position {
-                unwrap_continue!(storage.maps.get(&i))
-                    .borrow_mut()
-                    .players_on_map -= 1;
+                match storage.maps.get(&i) {
+                    Some(map) => {
+                        map.borrow_mut().players_on_map =
+                            map.borrow().players_on_map.saturating_sub(1)
+                    }
+                    None => continue,
+                }
             }
         }
 
@@ -260,26 +264,29 @@ pub fn map_offset_range(
         return Some(endpos);
     }
 
-    let dirs = get_surrounding_dir(start.map, false);
+    let map_positions = get_surrounding_dir(start.map, false);
     processed.insert(start.map);
     // lets check each surrounding map first to make sure its not here
     // before we span into the other maps.
-    for dir in &dirs {
-        if dir.contains(endpos.map) {
-            return Some(endpos.map_offset(dir.into()));
+    for map_pos in &map_positions {
+        if map_pos.contains(endpos.map) {
+            return Some(endpos.map_offset(map_pos.into()));
         }
     }
 
     //Else if not found above lets start searching within each side part ignoring
     //Maps not within the Allowed HashSet.
-    for dir in &dirs {
-        let x = unwrap_continue!(dir.get());
+    for map_pos in &map_positions {
+        let x = match map_pos.get() {
+            Some(map_pos) => map_pos,
+            None => continue,
+        };
 
         if allowed_maps.get(&x).is_none() || processed.get(&x).is_some() {
             continue;
         }
 
-        let end = endpos.map_offset(dir.into());
+        let end = endpos.map_offset(map_pos.into());
         let pos = Position::new(0, 0, x);
         let ret = map_offset_range(pos, end, allowed_maps, processed);
 
@@ -294,7 +301,10 @@ pub fn map_offset_range(
 
 pub fn get_maps_in_range(storage: &Storage, pos: &Position, range: i32) -> Vec<MapPos> {
     let mut arr: Vec<MapPos> = Vec::new();
-    unwrap_or_return!(storage.bases.maps.get(&pos.map), Vec::new());
+
+    if storage.bases.maps.get(&pos.map).is_none() {
+        return Vec::new();
+    }
 
     arr.push(MapPos::Center(pos.map));
 
@@ -403,9 +413,10 @@ pub fn map_path_blocked(
     };
 
     if !blocked {
-        return unwrap_or_return!(storage.maps.get(&next_pos.map), true)
-            .borrow()
-            .is_blocked_tile(next_pos);
+        return match storage.maps.get(&next_pos.map) {
+            Some(map) => map.borrow().is_blocked_tile(next_pos),
+            None => true,
+        };
     }
 
     blocked

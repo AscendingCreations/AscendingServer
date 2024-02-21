@@ -2,16 +2,15 @@ use crate::{
     containers::{Bases, HashMap, IndexMap, IndexSet},
     gametypes::*,
     maps::*,
-    npcs::{NpcData, *},
+    npcs::*,
     players::*,
     socket::*,
     tasks::{DataTaskToken, MapSwitchTasks},
     time_ext::MyInstant,
 };
-use bytey::ByteBuffer;
 use diesel::prelude::*;
 use mio::Poll;
-use std::{borrow::Borrow, cell::RefCell};
+use std::cell::RefCell;
 
 pub struct Storage {
     //pub players: RefCell<slab::Slab<RefCell<Player>>>,
@@ -22,7 +21,8 @@ pub struct Storage {
     pub player_names: RefCell<HashMap<String, Entity>>, //for player names to ID's
     pub maps: IndexMap<MapPosition, RefCell<MapData>>,
     //This is for buffering the specific packets needing to send.
-    pub map_cache: RefCell<HashMap<DataTaskToken, Vec<(u32, ByteBuffer)>>>,
+    #[allow(clippy::type_complexity)]
+    pub map_cache: RefCell<IndexMap<DataTaskToken, Vec<(u32, ByteBuffer, bool)>>>,
     //This keeps track of what Things need sending. So we can leave it loaded and only loop whats needed.
     pub map_cache_ids: RefCell<IndexSet<DataTaskToken>>,
     pub poll: RefCell<mio::Poll>,
@@ -54,7 +54,7 @@ impl Storage {
             npc_ids: RefCell::new(IndexSet::default()),
             player_names: RefCell::new(HashMap::default()), //for player names to ID's
             maps: IndexMap::default(),
-            map_cache: RefCell::new(HashMap::default()),
+            map_cache: RefCell::new(IndexMap::default()),
             map_cache_ids: RefCell::new(IndexSet::default()),
             poll: RefCell::new(poll),
             server: RefCell::new(server),
@@ -127,39 +127,41 @@ impl Storage {
         Ok(Entity(identity))
     }
 
-    pub fn add_player_data(
-        &self,
-        world: &mut hecs::World,
-        entity: &Entity,
-    ) {
-        let _ = world.insert(entity.0, (
-            Account::default(),
-            PlayerItemTimer::default(),
-            PlayerMapTimer::default(),
-            Inventory::default(),
-            Equipment::default(),
-            Sprite::default(),
-            Money::default(),
-            crate::players::MapSwitchTasks::default(),
-            Player::default(),
-            Spawn::default(),
-            Target::default(),
-            KillCount::default(),
-            Vitals::default(),
-            Dir::default(),
-            AttackTimer::default(),
-        ));
-        let _ = world.insert(entity.0, (
-            DeathTimer::default(),
-            MoveTimer::default(),
-            Combat::default(),
-            Physical::default(),
-            Hidden::default(),
-            Stunned::default(),
-            Attacking::default(),
-            Level::default(),
-            InCombat::default(),
-        ));
+    pub fn add_player_data(&self, world: &mut hecs::World, entity: &Entity) {
+        let _ = world.insert(
+            entity.0,
+            (
+                Account::default(),
+                PlayerItemTimer::default(),
+                PlayerMapTimer::default(),
+                Inventory::default(),
+                Equipment::default(),
+                Sprite::default(),
+                Money::default(),
+                crate::players::MapSwitchTasks::default(),
+                Player::default(),
+                Spawn::default(),
+                Target::default(),
+                KillCount::default(),
+                Vitals::default(),
+                Dir::default(),
+                AttackTimer::default(),
+            ),
+        );
+        let _ = world.insert(
+            entity.0,
+            (
+                DeathTimer::default(),
+                MoveTimer::default(),
+                Combat::default(),
+                Physical::default(),
+                Hidden::default(),
+                Stunned::default(),
+                Attacking::default(),
+                Level::default(),
+                InCombat::default(),
+            ),
+        );
     }
 
     pub fn remove_player(&self, world: &mut hecs::World, id: Entity) -> Option<(Socket, Position)> {
@@ -167,7 +169,7 @@ impl Storage {
         let ret = world.remove::<(Socket, Position)>(id.0).ok();
         let account = world.remove::<(Account,)>(id.0).ok();
         //Removes Everything related to the Entity.
-        world.despawn(id.0);
+        let _ = world.despawn(id.0);
 
         if let Some((account,)) = account {
             self.player_names.borrow_mut().remove(&account.name);
@@ -177,13 +179,9 @@ impl Storage {
         ret
     }
 
-    pub fn add_npc(
-        &self,
-        world: &mut hecs::World,
-        npc_id: u64,
-    ) -> Result<Entity> {
+    pub fn add_npc(&self, world: &mut hecs::World, npc_id: u64) -> Result<Entity> {
         let npcdata = NpcData::load_npc(npc_id).expect("Cannot find NPC");
-        
+
         let identity = world.spawn((
             WorldEntityType::Npc,
             Position::default(),
@@ -201,28 +199,32 @@ impl Storage {
             EntityData::default(),
             Sprite::default(),
         ));
-        world.insert(identity, (
-            Spawn::default(),
-            NpcMode::Normal,
-            Hidden::default(),
-        ));
+        world.insert(
+            identity,
+            (Spawn::default(), NpcMode::Normal, Hidden::default()),
+        )?;
 
         if !npcdata.behaviour.is_friendly() {
-            world.insert(identity, (
-                Level::default(),
-                Vitals::default(),
-                NpcHitBy::default(),
-                Target::default(),
-                AttackTimer::default(),
-                DeathTimer::default(),
-                Combat::default(),
-                Physical::default(),
-                Stunned::default(),
-                Attacking::default(),
-                InCombat::default(),
-            )).expect("Failed to add additional NPC Data");
+            world
+                .insert(
+                    identity,
+                    (
+                        Level::default(),
+                        Vitals::default(),
+                        NpcHitBy::default(),
+                        Target::default(),
+                        AttackTimer::default(),
+                        DeathTimer::default(),
+                        Combat::default(),
+                        Physical::default(),
+                        Stunned::default(),
+                        Attacking::default(),
+                        InCombat::default(),
+                    ),
+                )
+                .expect("Failed to add additional NPC Data");
         }
-        world.insert_one(identity, EntityType::Npc(Entity(identity)));
+        world.insert_one(identity, EntityType::Npc(Entity(identity)))?;
 
         Ok(Entity(identity))
     }
@@ -230,7 +232,7 @@ impl Storage {
     pub fn remove_npc(&self, world: &mut hecs::World, id: Entity) -> Option<Position> {
         let ret: Position = world.cloned_get_or_panic::<Position>(&id);
         //Removes Everything related to the Entity.
-        world.despawn(id.0);
+        let _ = world.despawn(id.0);
         self.npc_ids.borrow_mut().swap_remove(&id);
         Some(ret)
     }

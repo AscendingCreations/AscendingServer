@@ -5,7 +5,6 @@ use bytey::ByteBuffer;
 use chrono::Duration;
 use phf::phf_map;
 use regex::Regex;
-use unwrap_helpers::*;
 
 type PacketFunction = fn(&mut hecs::World, &Storage, &mut ByteBuffer, &Entity) -> Result<()>;
 
@@ -42,7 +41,11 @@ pub fn handle_data(
         }
     }
 
-    let fun = unwrap_or_return!(PACKET_MAP.get(&id), Err(AscendingError::InvalidPacket));
+    let fun = match PACKET_MAP.get(&id) {
+        Some(fun) => fun,
+        None => return Err(AscendingError::InvalidPacket),
+    };
+
     fun(world, storage, data, entity)
 }
 
@@ -140,9 +143,15 @@ fn handle_register(
         // we need to Add all the player types creations in a sub function that Creates the Defaults and then adds them to World.
         storage.add_player_data(world, entity);
 
-        world.get::<&mut Account>(entity.0).expect("Could not find Account").name = name;
+        world
+            .get::<&mut Account>(entity.0)
+            .expect("Could not find Account")
+            .name = name;
 
-        world.get::<&mut Sprite>(entity.0).expect("Could not find Sprite").id = sprite as u32;
+        world
+            .get::<&mut Sprite>(entity.0)
+            .expect("Could not find Sprite")
+            .id = sprite as u32;
 
         if new_player(
             &mut storage.pgconn.borrow_mut(),
@@ -193,16 +202,17 @@ fn handle_login(
             );
         }
 
-        let id = find_player(&mut storage.pgconn.borrow_mut(), &username, &password)?;
-        let id = unwrap_or_return!(
-            id,
-            send_infomsg(
-                storage,
-                socket_id,
-                "Account does not Exist or Password is not Correct.".into(),
-                1,
-            )
-        );
+        let id = match find_player(&mut storage.pgconn.borrow_mut(), &username, &password)? {
+            Some(id) => id,
+            None => {
+                return send_infomsg(
+                    storage,
+                    socket_id,
+                    "Account does not Exist or Password is not Correct.".into(),
+                    1,
+                )
+            }
+        };
 
         if APP_MAJOR > appmajor && APP_MINOR > appminior && APP_REVISION > apprevision {
             return send_infomsg(storage, socket_id, "Client needs to be updated.".into(), 1);
@@ -211,7 +221,10 @@ fn handle_login(
         // we need to Add all the player types creations in a sub function that Creates the Defaults and then adds them to World.
         storage.add_player_data(world, entity);
 
-        world.get::<&mut Account>(p.0).expect("Could not find Account").id = id;
+        world
+            .get::<&mut Account>(p.0)
+            .expect("Could not find Account")
+            .id = id;
 
         if let Err(_e) = load_player(storage, &mut storage.pgconn.borrow_mut(), world, entity) {
             return send_infomsg(storage, socket_id, "Error Loading User.".into(), 1);
@@ -314,7 +327,10 @@ fn handle_attack(
 
         if world.get_or_panic::<Dir>(p).0 != dir {
             {
-                world.get::<&mut Dir>(entity.0).expect("Could not find Dir").0 = dir;
+                world
+                    .get::<&mut Dir>(entity.0)
+                    .expect("Could not find Dir")
+                    .0 = dir;
             }
             send_dir(world, storage, entity, true)?;
         };
@@ -346,8 +362,10 @@ fn handle_useitem(
         let _targettype = data.read::<u8>()?;
 
         {
-            world.get::<&mut PlayerItemTimer>(entity.0).expect("Could not find PlayerItemTimer").itemtimer =
-                *storage.gettick.borrow() + Duration::milliseconds(250);
+            world
+                .get::<&mut PlayerItemTimer>(entity.0)
+                .expect("Could not find PlayerItemTimer")
+                .itemtimer = *storage.gettick.borrow() + Duration::milliseconds(250);
         }
 
         //TODO useitem();
@@ -375,9 +393,7 @@ fn handle_unequip(
 
         let slot = data.read::<u16>()? as usize;
 
-        if slot >= EQUIPMENT_TYPE_MAX
-            || world.get_or_panic::<&Equipment>(p).items[slot].val == 0
-        {
+        if slot >= EQUIPMENT_TYPE_MAX || world.get_or_panic::<&Equipment>(p).items[slot].val == 0 {
             return Ok(());
         }
 
@@ -394,7 +410,10 @@ fn handle_unequip(
         }
 
         {
-            world.get::<&mut Equipment>(p.0).expect("Could not find Equipment").items[slot] = item;
+            world
+                .get::<&mut Equipment>(p.0)
+                .expect("Could not find Equipment")
+                .items[slot] = item;
         }
 
         let _ = update_equipment(&mut storage.pgconn.borrow_mut(), world, p, slot);
@@ -432,7 +451,8 @@ fn handle_switchinvslot(
             return Ok(());
         }
 
-        let base1 = &storage.bases.items[world.get_or_panic::<&Inventory>(p).items[oldslot].num as usize];
+        let base1 =
+            &storage.bases.items[world.get_or_panic::<&Inventory>(p).items[oldslot].num as usize];
         let invtype = get_inv_itemtype(base1);
 
         if get_inv_type(oldslot) != invtype || get_inv_type(newslot) != invtype {
@@ -447,14 +467,23 @@ fn handle_switchinvslot(
             {
                 set_inv_slot(world, storage, entity, &mut itemold, newslot, amount);
                 {
-                    world.get::<&mut Inventory>(p.0).expect("Could not find Inventory").items[oldslot] = itemold;
+                    world
+                        .get::<&mut Inventory>(p.0)
+                        .expect("Could not find Inventory")
+                        .items[oldslot] = itemold;
                 }
                 save_item(world, storage, entity, oldslot);
             } else if world.get_or_panic::<&Inventory>(p).items[oldslot].val == amount {
                 let itemnew = world.get_or_panic::<&Inventory>(p).items[newslot];
                 {
-                    world.get::<&mut Inventory>(p.0).expect("Could not find Inventory").items[newslot] = itemold;
-                    world.get::<&mut Inventory>(p.0).expect("Could not find Inventory").items[oldslot] = itemnew;
+                    world
+                        .get::<&mut Inventory>(p.0)
+                        .expect("Could not find Inventory")
+                        .items[newslot] = itemold;
+                    world
+                        .get::<&mut Inventory>(p.0)
+                        .expect("Could not find Inventory")
+                        .items[oldslot] = itemnew;
                 }
                 save_item(world, storage, entity, newslot);
                 save_item(world, storage, entity, oldslot);
@@ -470,7 +499,10 @@ fn handle_switchinvslot(
         } else {
             set_inv_slot(world, storage, entity, &mut itemold, newslot, amount);
             {
-                world.get::<&mut Inventory>(p.0).expect("Could not find Inventory").items[oldslot] = itemold;
+                world
+                    .get::<&mut Inventory>(p.0)
+                    .expect("Could not find Inventory")
+                    .items[oldslot] = itemold;
             }
             save_item(world, storage, entity, oldslot);
         }
@@ -499,24 +531,34 @@ fn handle_pickup(
             return Ok(());
         }
 
-        let mapids = get_maps_in_range(
-            storage,
-            &world.get_or_panic::<&Position>(p),
-            1,
-        );
+        let mapids = get_maps_in_range(storage, &world.get_or_panic::<Position>(p), 1);
 
         'remremove: for id in mapids {
             if let Some(x) = id.get() {
-                let map = unwrap_continue!(storage.maps.get(&x)).borrow_mut();
-                let _ = unwrap_continue!(storage.bases.maps.get(
-                    &world.get_or_panic::<&Position>(p).map
-                ));
+                let map = match storage.maps.get(&x) {
+                    Some(map) => map,
+                    None => continue,
+                }
+                .borrow_mut();
+
+                // for the map base data when we need it.
+                if storage
+                    .bases
+                    .maps
+                    .get(&world.get_or_panic::<&Position>(p).map)
+                    .is_none()
+                {
+                    continue;
+                }
                 let ids = map.itemids.clone();
 
                 for i in ids {
                     let mut mapitems = world.cloned_get_or_panic::<MapItem>(p);
-                    if world.get_or_panic::<&Position>(p)
-                        .checkdistance(mapitems.pos.map_offset(id.into())) <= 1 {
+                    if world
+                        .get_or_panic::<&Position>(p)
+                        .checkdistance(mapitems.pos.map_offset(id.into()))
+                        <= 1
+                    {
                         if mapitems.item.num == 0 {
                             let rem =
                                 player_give_vals(world, storage, entity, mapitems.item.val as u64);
@@ -572,8 +614,10 @@ fn handle_pickup(
             }
         }
         {
-            world.get::<&mut PlayerMapTimer>(p.0).expect("Could not find PlayerMapTimer").mapitemtimer = 
-                *storage.gettick.borrow() + Duration::milliseconds(100);
+            world
+                .get::<&mut PlayerMapTimer>(p.0)
+                .expect("Could not find PlayerMapTimer")
+                .mapitemtimer = *storage.gettick.borrow() + Duration::milliseconds(100);
         }
         return Ok(());
     }
@@ -607,12 +651,13 @@ fn handle_dropitem(
         }
 
         //make sure it exists first.
-        let _ = unwrap_or_return!(
-            storage.bases.maps.get(
-                &world.get_or_panic::<&Position>(p).map
-            ),
-            Err(AscendingError::Unhandled)
-        );
+        if !storage
+            .bases
+            .maps
+            .contains_key(&world.get_or_panic::<&Position>(p).map)
+        {
+            return Err(AscendingError::Unhandled);
+        }
 
         match get_inv_type(slot) {
             InvType::Quest | InvType::Key => {
@@ -629,8 +674,7 @@ fn handle_dropitem(
         let mut mapitem = MapItem::new(0);
 
         mapitem.item = world.get_or_panic::<&Inventory>(p).items[slot];
-        mapitem.despawn = match world.get_or_panic::<&UserAccess>(p)
-        {
+        mapitem.despawn = match world.get_or_panic::<&UserAccess>(p) {
             UserAccess::Admin => None,
             _ => Some(*storage.gettick.borrow() + Duration::milliseconds(600000)),
         };
@@ -640,15 +684,13 @@ fn handle_dropitem(
 
         let leftover = take_itemslot(world, storage, entity, slot, amount);
         mapitem.item.val -= leftover;
-        let mut map = unwrap_or_return!(
-            storage.maps.get(
-                &world.get_or_panic::<&Position>(p).map
-            ),
-            Err(AscendingError::Unhandled)
-        )
+        let mut map = match storage.maps.get(&world.get_or_panic::<&Position>(p).map) {
+            Some(map) => map,
+            None => return Err(AscendingError::Unhandled),
+        }
         .borrow_mut();
 
-        let id = map.add_mapitem(world, mapitem.clone());
+        let id = map.add_mapitem(world, mapitem);
         let _ = DataTaskToken::ItemLoad(world.get_or_panic::<&Position>(p).map).add_task(
             storage,
             &MapItemPacket::new(id, mapitem.pos, mapitem.item, Some(mapitem.ownerid)),
@@ -677,9 +719,7 @@ fn handle_deleteitem(
 
         let slot = data.read::<u16>()? as usize;
 
-        if slot >= MAX_INV
-            || world.get_or_panic::<&Inventory>(p).items[slot].val == 0
-        {
+        if slot >= MAX_INV || world.get_or_panic::<&Inventory>(p).items[slot].val == 0 {
             return Ok(());
         }
 
@@ -735,30 +775,18 @@ fn handle_message(
         }
 
         let head = match channel {
-            MessageChannel::Map => format!(
-                "[Map] {}:",
-                world.get_or_panic::<&Account>(p).name
-            ),
-            MessageChannel::Global => format!(
-                "[Global] {}:",
-                world.get_or_panic::<&Account>(p).name
-            ),
-            MessageChannel::Trade => format!(
-                "[Trade] {}:",
-                world.get_or_panic::<&Account>(p).name
-            ),
-            MessageChannel::Party => format!(
-                "[Party] {}:",
-                world.get_or_panic::<&Account>(p).name
-            ),
+            MessageChannel::Map => format!("[Map] {}:", world.get_or_panic::<&Account>(p).name),
+            MessageChannel::Global => {
+                format!("[Global] {}:", world.get_or_panic::<&Account>(p).name)
+            }
+            MessageChannel::Trade => format!("[Trade] {}:", world.get_or_panic::<&Account>(p).name),
+            MessageChannel::Party => format!("[Party] {}:", world.get_or_panic::<&Account>(p).name),
             MessageChannel::Private => {
                 if name.is_empty() {
                     return Ok(());
                 }
 
-                if name
-                    == world.get_or_panic::<&Account>(p).name
-                {
+                if name == world.get_or_panic::<&Account>(p).name {
                     return send_fltalert(
                         storage,
                         world.get_or_panic::<&Socket>(entity).id,
@@ -785,19 +813,10 @@ fn handle_message(
                     }
                 };
 
-                format!(
-                    "[Private] {}:",
-                    world.get_or_panic::<&Account>(p).name
-                )
+                format!("[Private] {}:", world.get_or_panic::<&Account>(p).name)
             }
-            MessageChannel::Guild => format!(
-                "[Guild] {}:",
-                world.get_or_panic::<&Account>(p).name
-            ),
-            MessageChannel::Help => format!(
-                "[Help] {}:",
-                world.get_or_panic::<&Account>(p).name
-            ),
+            MessageChannel::Guild => format!("[Guild] {}:", world.get_or_panic::<&Account>(p).name),
+            MessageChannel::Help => format!("[Help] {}:", world.get_or_panic::<&Account>(p).name),
             MessageChannel::Quest => "".into(),
             MessageChannel::Npc => "".into(),
         };

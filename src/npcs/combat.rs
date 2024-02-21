@@ -87,7 +87,7 @@ pub fn npc_combat(world: &mut hecs::World, storage: &Storage, entity: &Entity, b
                     damage_player(world, &i, damage);
 
                     let _ = DataTaskToken::NpcAttack(world.get_or_default::<Position>(entity).map)
-                        .add_task(storage, &(*entity));
+                        .add_task(storage, entity);
                     let _ =
                         DataTaskToken::PlayerVitals(world.get_or_default::<Position>(entity).map)
                             .add_task(storage, {
@@ -104,7 +104,7 @@ pub fn npc_combat(world: &mut hecs::World, storage: &Storage, entity: &Entity, b
                     damage_npc(world, &i, damage);
 
                     let _ = DataTaskToken::NpcAttack(world.get_or_default::<Position>(entity).map)
-                        .add_task(storage, &(*entity));
+                        .add_task(storage, entity);
                     let _ = DataTaskToken::NpcVitals(world.get_or_default::<Position>(entity).map)
                         .add_task(storage, {
                             let vitals = world.get_or_panic::<Vitals>(&i);

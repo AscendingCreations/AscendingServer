@@ -1,6 +1,6 @@
-use crate::{containers::*, players::*, sql::*, AscendingError, Result, gametypes::*};
+use crate::{containers::*, gametypes::*, players::*, sql::*};
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
-use diesel::{self, insert_into, prelude::*};
+use diesel::{insert_into, prelude::*};
 
 pub fn find_player(conn: &mut PgConnection, username: &str, password: &str) -> Result<Option<i64>> {
     let userdata = players::table
@@ -97,7 +97,7 @@ pub fn load_player(
     world: &mut hecs::World,
     entity: &crate::Entity,
 ) -> Result<()> {
-    let accountid = world.get_or_panic::<&Account>(entity).id.clone();
+    let accountid = world.get_or_panic::<&Account>(entity).id;
 
     player_ret::table
         .filter(player_ret::uid.eq(accountid))
@@ -123,7 +123,11 @@ pub fn load_player(
     Ok(())
 }
 
-pub fn update_player(conn: &mut PgConnection, world: &mut hecs::World, entity: &crate::Entity) -> Result<()> {
+pub fn update_player(
+    conn: &mut PgConnection,
+    world: &mut hecs::World,
+    entity: &crate::Entity,
+) -> Result<()> {
     diesel::update(players::table)
         .set(&PGPlayerLogOut::new(world, entity))
         .execute(conn)?;
@@ -160,14 +164,22 @@ pub fn update_equipment(
     Ok(())
 }
 
-pub fn update_address(conn: &mut PgConnection, world: &mut hecs::World, entity: &crate::Entity) -> Result<()> {
+pub fn update_address(
+    conn: &mut PgConnection,
+    world: &mut hecs::World,
+    entity: &crate::Entity,
+) -> Result<()> {
     diesel::update(players::table)
         .set(&PGPlayerAddress::new(world, entity))
         .execute(conn)?;
     Ok(())
 }
 
-pub fn update_playerdata(conn: &mut PgConnection, world: &mut hecs::World, entity: &crate::Entity) -> Result<()> {
+pub fn update_playerdata(
+    conn: &mut PgConnection,
+    world: &mut hecs::World,
+    entity: &crate::Entity,
+) -> Result<()> {
     diesel::update(players::table)
         .set(&PGPlayerData::new(world, entity))
         .execute(conn)?;
@@ -186,35 +198,55 @@ pub fn update_passreset(
     Ok(())
 }
 
-pub fn update_spawn(conn: &mut PgConnection, world: &mut hecs::World, entity: &crate::Entity) -> Result<()> {
+pub fn update_spawn(
+    conn: &mut PgConnection,
+    world: &mut hecs::World,
+    entity: &crate::Entity,
+) -> Result<()> {
     diesel::update(players::table)
         .set(&PGPlayerSpawn::new(world, entity))
         .execute(conn)?;
     Ok(())
 }
 
-pub fn update_pos(conn: &mut PgConnection, world: &mut hecs::World, entity: &crate::Entity) -> Result<()> {
+pub fn update_pos(
+    conn: &mut PgConnection,
+    world: &mut hecs::World,
+    entity: &crate::Entity,
+) -> Result<()> {
     diesel::update(players::table)
         .set(&PGPlayerPos::new(world, entity))
         .execute(conn)?;
     Ok(())
 }
 
-pub fn update_currency(conn: &mut PgConnection, world: &mut hecs::World, entity: &crate::Entity) -> Result<()> {
+pub fn update_currency(
+    conn: &mut PgConnection,
+    world: &mut hecs::World,
+    entity: &crate::Entity,
+) -> Result<()> {
     diesel::update(players::table)
         .set(&PGPlayerCurrency::new(world, entity))
         .execute(conn)?;
     Ok(())
 }
 
-pub fn update_level(conn: &mut PgConnection, world: &mut hecs::World, entity: &crate::Entity) -> Result<()> {
+pub fn update_level(
+    conn: &mut PgConnection,
+    world: &mut hecs::World,
+    entity: &crate::Entity,
+) -> Result<()> {
     diesel::update(players::table)
         .set(&PGPlayerLevel::new(world, entity))
         .execute(conn)?;
     Ok(())
 }
 
-pub fn update_resetcount(conn: &mut PgConnection, world: &mut hecs::World, entity: &crate::Entity) -> Result<()> {
+pub fn update_resetcount(
+    conn: &mut PgConnection,
+    world: &mut hecs::World,
+    entity: &crate::Entity,
+) -> Result<()> {
     diesel::update(players::table)
         .set(&PGPlayerReset::new(world, entity))
         .execute(conn)?;

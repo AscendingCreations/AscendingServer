@@ -1,6 +1,7 @@
 use byteorder::{NetworkEndian, WriteBytesExt};
 use bytey::{ByteBuffer, ByteBufferRead, ByteBufferWrite};
 use diesel::{
+    backend::Backend,
     deserialize::{self, FromSql},
     pg::Pg,
     serialize::{self, IsNull, Output, ToSql},
@@ -72,9 +73,13 @@ impl ToSql<BigInt, Pg> for MyInstant {
     }
 }
 
-impl FromSql<BigInt, Pg> for MyInstant {
-    fn from_sql(value: diesel::backend::RawValue<'_, Pg>) -> deserialize::Result<Self> {
-        let i64_value = FromSql::<BigInt, Pg>::from_sql(value)?;
+impl<DB> FromSql<BigInt, DB> for MyInstant
+where
+    DB: Backend,
+    i64: FromSql<BigInt, DB>,
+{
+    fn from_sql(bytes: DB::RawValue<'_>) -> deserialize::Result<Self> {
+        let i64_value = FromSql::<BigInt, DB>::from_sql(bytes)?;
         Ok(MyInstant::from_dur(i64_value))
     }
 }

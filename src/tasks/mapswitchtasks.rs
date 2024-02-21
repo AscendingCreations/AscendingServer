@@ -1,10 +1,9 @@
 use crate::{
     containers::{HashSet, Storage},
     gameloop::*,
-    gametypes::MapPosition,
+    gametypes::*,
     maps::*,
     players::*,
-    gametypes::*,
 };
 
 /* Information Packet Data Portion Worse case is 1420 bytes
@@ -37,10 +36,19 @@ pub enum MapSwitchTasks {
     Items(MapSwitchTask),  //2
 }
 
-pub fn init_data_lists(world: &hecs::World, storage: &Storage, user: &crate::Entity, oldmap: MapPosition) {
+pub fn init_data_lists(
+    world: &hecs::World,
+    storage: &Storage,
+    user: &crate::Entity,
+    oldmap: MapPosition,
+) {
     //Remove old tasks and replace with new ones during map switching.
-    while let Some(i) = 
-        world.get::<&mut crate::players::MapSwitchTasks>(user.0).expect("Could not find MapSwitchTasks").tasks.pop() {
+    while let Some(i) = world
+        .get::<&mut crate::players::MapSwitchTasks>(user.0)
+        .expect("Could not find MapSwitchTasks")
+        .tasks
+        .pop()
+    {
         storage.map_switch_tasks.borrow_mut().remove(i);
     }
 
@@ -57,7 +65,8 @@ pub fn init_data_lists(world: &hecs::World, storage: &Storage, user: &crate::Ent
         Vec::<crate::Entity>::with_capacity(32),
         HashSet::<crate::Entity>::with_capacity_and_hasher(32, Default::default()),
     );
-    let mut new_players = HashSet::<crate::Entity>::with_capacity_and_hasher(32, Default::default());
+    let mut new_players =
+        HashSet::<crate::Entity>::with_capacity_and_hasher(32, Default::default());
     let mut new_npcs = HashSet::<crate::Entity>::with_capacity_and_hasher(32, Default::default());
     let mut new_items = HashSet::<crate::Entity>::with_capacity_and_hasher(32, Default::default());
 
@@ -81,19 +90,17 @@ pub fn init_data_lists(world: &hecs::World, storage: &Storage, user: &crate::Ent
 
             for id in &map.borrow().itemids {
                 old_items.0.push(*id);
-                old_items.1.insert(*id); 
+                old_items.1.insert(*id);
             }
         }
     }
 
-    if let Some(map) = 
-        storage.maps
-            .get(&world.get_or_panic::<Position>(user).map) {
+    if let Some(map) = storage.maps.get(&world.get_or_panic::<Position>(user).map) {
         //Only get the New id's not in Old for the Vec we use the old data to deturmine what use to exist.
         //This gets them for the main map the rest we will cycle thru.
         //We do this to get the main maps data first.
         for id in &map.borrow().players {
-            if !old_players.1.contains(&(*id)) {
+            if !old_players.1.contains(id) {
                 task_player.currentids.push(*id);
             }
 
@@ -101,7 +108,7 @@ pub fn init_data_lists(world: &hecs::World, storage: &Storage, user: &crate::Ent
         }
 
         for id in &map.borrow().npcs {
-            if !old_npcs.1.contains(&(*id)) {
+            if !old_npcs.1.contains(id) {
                 task_npc.currentids.push(*id);
             }
 
@@ -109,7 +116,7 @@ pub fn init_data_lists(world: &hecs::World, storage: &Storage, user: &crate::Ent
         }
 
         for id in &map.borrow().itemids {
-            if !old_items.1.contains(&(*id)) {
+            if !old_items.1.contains(id) {
                 task_item.currentids.push(*id);
             }
 
@@ -117,24 +124,23 @@ pub fn init_data_lists(world: &hecs::World, storage: &Storage, user: &crate::Ent
         }
 
         //Then we get the rest of the maps so it sends and loads last.
-        for m in 
-            get_surrounding(world.get_or_panic::<Position>(user).map, true) {
+        for m in get_surrounding(world.get_or_panic::<Position>(user).map, true) {
             if m != world.get_or_panic::<Position>(user).map {
                 if let Some(map) = storage.maps.get(&m) {
                     for id in &map.borrow().players {
-                        if !old_players.1.contains(&(*id)) {
+                        if !old_players.1.contains(id) {
                             task_player.currentids.push(*id);
                         }
                         new_players.insert(*id);
                     }
                     for id in &map.borrow().npcs {
-                        if !old_npcs.1.contains(&(*id)) {
+                        if !old_npcs.1.contains(id) {
                             task_npc.currentids.push(*id);
                         }
                         new_npcs.insert(*id);
                     }
                     for id in &map.borrow().itemids {
-                        if !old_items.1.contains(&(*id)) {
+                        if !old_items.1.contains(id) {
                             task_item.currentids.push(*id);
                         }
                         new_items.insert(*id);
@@ -179,22 +185,31 @@ pub fn init_data_lists(world: &hecs::World, storage: &Storage, user: &crate::Ent
         3,
     );
 
-    world.get::<&mut crate::players::MapSwitchTasks>(user.0).expect("Could not find MapSwitchTasks")
-        .tasks.push(
+    world
+        .get::<&mut crate::players::MapSwitchTasks>(user.0)
+        .expect("Could not find MapSwitchTasks")
+        .tasks
+        .push(
             storage
                 .map_switch_tasks
                 .borrow_mut()
                 .insert(MapSwitchTasks::Player(task_player)),
         );
-    world.get::<&mut crate::players::MapSwitchTasks>(user.0).expect("Could not find MapSwitchTasks")
-        .tasks.push(
+    world
+        .get::<&mut crate::players::MapSwitchTasks>(user.0)
+        .expect("Could not find MapSwitchTasks")
+        .tasks
+        .push(
             storage
                 .map_switch_tasks
                 .borrow_mut()
                 .insert(MapSwitchTasks::Player(task_npc)),
         );
-    world.get::<&mut crate::players::MapSwitchTasks>(user.0).expect("Could not find MapSwitchTasks")
-        .tasks.push(
+    world
+        .get::<&mut crate::players::MapSwitchTasks>(user.0)
+        .expect("Could not find MapSwitchTasks")
+        .tasks
+        .push(
             storage
                 .map_switch_tasks
                 .borrow_mut()

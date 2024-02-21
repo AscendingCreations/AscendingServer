@@ -5,7 +5,6 @@ use crate::{
 };
 use mio::{net::TcpListener, Events, Poll};
 use std::{cell::RefCell, collections::VecDeque, io, time::Duration};
-use unwrap_helpers::*;
 
 pub const SERVER: mio::Token = mio::Token(0);
 

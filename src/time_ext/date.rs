@@ -1,13 +1,13 @@
 use byteorder::{NetworkEndian, WriteBytesExt};
 use chrono::{offset::Utc, Duration, NaiveDate};
 use diesel::{
+    backend::Backend,
     deserialize::{self, FromSql},
     pg::{data_types::*, Pg},
     serialize::{self, IsNull, Output, ToSql},
     sql_types::{self, Date},
 };
 use serde::{Deserialize, Serialize};
-use unwrap_helpers::*;
 
 #[derive(
     Debug,
@@ -31,7 +31,9 @@ impl MyDate {
     }
 
     pub fn add_days(&mut self, days: i64) {
-        self.0 = unwrap_or_return!(self.0.checked_add_signed(Duration::days(days)));
+        if let Some(i) = self.0.checked_add_signed(Duration::days(days)) {
+            self.0 = i;
+        }
     }
 }
 
@@ -68,9 +70,14 @@ impl ToSql<sql_types::Date, Pg> for MyDate {
     }
 }
 
-impl FromSql<sql_types::Date, Pg> for MyDate {
-    fn from_sql(bytes: diesel::backend::RawValue<'_, Pg>) -> deserialize::Result<Self> {
-        let PgDate(offset) = FromSql::<sql_types::Date, Pg>::from_sql(bytes)?;
+impl<DB> FromSql<sql_types::Date, DB> for MyDate
+where
+    DB: Backend,
+    PgDate: FromSql<sql_types::Date, DB>,
+{
+    fn from_sql(bytes: DB::RawValue<'_>) -> deserialize::Result<Self> {
+        let PgDate(offset) = FromSql::<sql_types::Date, DB>::from_sql(bytes)?;
+
         match NaiveDate::from_ymd_opt(2000, 1, 1)
             .unwrap_or_default()
             .checked_add_signed(Duration::days(i64::from(offset)))

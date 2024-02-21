@@ -1,14 +1,6 @@
-use crate::{
-    containers::SALT, 
-    gametypes::*, 
-    sql, 
-    time_ext::*,
-    players::*,
-};
+use crate::{containers::SALT, gametypes::*, players::*, sql, time_ext::*};
 use argon2::{Argon2, PasswordHasher};
 use password_hash::SaltString;
-use std::convert::TryInto;
-
 
 #[derive(Queryable, Identifiable, Debug, PartialEq, Eq)]
 #[diesel(primary_key(uid))]
@@ -134,28 +126,76 @@ impl PGPlayerWithID {
     }
 
     pub fn into_player(self, world: &mut hecs::World, entity: &Entity) {
-        world.get::<&mut Account>(entity.0).expect("Could not find Account").id = self.uid;
-        world.get::<&mut Account>(entity.0).expect("Could not find Account").name = self.name.clone();
-        world.get::<&mut Socket>(entity.0).expect("Could not find Socket").addr = self.address.clone();
-        world.get::<&mut Sprite>(entity.0).expect("Could not find Sprite").id = self.sprite as u32;
-        world.get::<&mut Spawn>(entity.0).expect("Could not find Spawn").pos = self.spawn;
-        world.get::<&mut PlayerItemTimer>(entity.0).expect("Could not find PlayerItemTimer").itemtimer = self.itemtimer;
-        world.get::<&mut Money>(entity.0).expect("Could not find Money").vals = self.vals as u64;
-        world.get::<&mut EntityData>(entity.0).expect("Could not find EntityData").0 = self.data[..10].try_into().unwrap_or([0; 10]);
-        *world.get::<&mut UserAccess>(entity.0).expect("Could not find UserAccess") = self.access;
-        *world.get::<&mut Position>(entity.0).expect("Could not find Position") = self.pos;
-        world.get::<&mut Vitals>(entity.0).expect("Could not find Vitals").vital = self.vital[..VITALS_MAX]
-                .try_into()
-                .unwrap_or([0; VITALS_MAX]);
-        world.get::<&mut DeathTimer>(entity.0).expect("Could not find DeathTimer").0 = self.deathtimer;
-        *world.get::<&mut DeathType>(entity.0).expect("Could not find DeathType") = match self.indeath {
-                true => DeathType::Spirit,
-                false => DeathType::Alive,
-            };
-        world.get::<&mut Level>(entity.0).expect("Could not find Level").0 = self.level;
-        world.get::<&mut Player>(entity.0).expect("Could not find Player").levelexp = self.levelexp as u64;
-        world.get::<&mut Player>(entity.0).expect("Could not find Player").resetcount = self.resetcount;
-        world.get::<&mut Player>(entity.0).expect("Could not find Player").pk = self.pk;
+        world
+            .get::<&mut Account>(entity.0)
+            .expect("Could not find Account")
+            .id = self.uid;
+        world
+            .get::<&mut Account>(entity.0)
+            .expect("Could not find Account")
+            .name = self.name.clone();
+        world
+            .get::<&mut Socket>(entity.0)
+            .expect("Could not find Socket")
+            .addr = self.address.clone();
+        world
+            .get::<&mut Sprite>(entity.0)
+            .expect("Could not find Sprite")
+            .id = self.sprite as u32;
+        world
+            .get::<&mut Spawn>(entity.0)
+            .expect("Could not find Spawn")
+            .pos = self.spawn;
+        world
+            .get::<&mut PlayerItemTimer>(entity.0)
+            .expect("Could not find PlayerItemTimer")
+            .itemtimer = self.itemtimer;
+        world
+            .get::<&mut Money>(entity.0)
+            .expect("Could not find Money")
+            .vals = self.vals as u64;
+        world
+            .get::<&mut EntityData>(entity.0)
+            .expect("Could not find EntityData")
+            .0 = self.data[..10].try_into().unwrap_or([0; 10]);
+        *world
+            .get::<&mut UserAccess>(entity.0)
+            .expect("Could not find UserAccess") = self.access;
+        *world
+            .get::<&mut Position>(entity.0)
+            .expect("Could not find Position") = self.pos;
+        world
+            .get::<&mut Vitals>(entity.0)
+            .expect("Could not find Vitals")
+            .vital = self.vital[..VITALS_MAX]
+            .try_into()
+            .unwrap_or([0; VITALS_MAX]);
+        world
+            .get::<&mut DeathTimer>(entity.0)
+            .expect("Could not find DeathTimer")
+            .0 = self.deathtimer;
+        *world
+            .get::<&mut DeathType>(entity.0)
+            .expect("Could not find DeathType") = match self.indeath {
+            true => DeathType::Spirit,
+            false => DeathType::Alive,
+        };
+        world
+            .get::<&mut Level>(entity.0)
+            .expect("Could not find Level")
+            .0 = self.level;
+        world
+            .get::<&mut Player>(entity.0)
+            .expect("Could not find Player")
+            .levelexp = self.levelexp as u64;
+        world
+            .get::<&mut Player>(entity.0)
+            .expect("Could not find Player")
+            .resetcount = self.resetcount;
+        world
+            .get::<&mut Player>(entity.0)
+            .expect("Could not find Player")
+            .pk = self.pk;
     }
 }
 
@@ -267,7 +307,11 @@ pub struct PGPlayerPassReset {
 }
 
 impl PGPlayerPassReset {
-    pub fn new(world: &mut hecs::World, entity: &Entity, pass: Option<String>) -> PGPlayerPassReset {
+    pub fn new(
+        world: &mut hecs::World,
+        entity: &Entity,
+        pass: Option<String>,
+    ) -> PGPlayerPassReset {
         PGPlayerPassReset {
             uid: world.get_or_panic::<&Account>(entity).id,
             passresetcode: pass,

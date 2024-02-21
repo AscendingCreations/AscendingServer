@@ -1,7 +1,5 @@
 use crate::{containers::Storage, gametypes::*, maps::*, players::*, socket::*, tasks::*};
-use bytey::ByteBuffer;
 use hecs::World;
-use unwrap_helpers::*;
 
 #[inline]
 pub fn send_infomsg(
@@ -73,8 +71,11 @@ pub fn send_mapitem(
     id: Entity,
     sendto: Option<usize>,
 ) -> Result<()> {
-    let map =
-        &unwrap_or_return!(storage.maps.get(&position), Err(AscendingError::Unhandled)).borrow();
+    let map = match storage.maps.get(&position) {
+        Some(map) => map,
+        None => return Err(AscendingError::Unhandled),
+    }
+    .borrow();
     if let Some(item) = map.itemids.get(&id) {
         let itemdata = world.get_or_panic::<MapItem>(item);
         let itempos = world.get_or_panic::<MapItem>(item).pos;
@@ -102,18 +103,23 @@ pub fn playerdata(world: &World, _storage: &Storage, entity: &Entity) -> Option<
 
     buf.write(ServerPackets::PlayerData).ok()?;
     buf.write(*entity).ok()?;
-    buf.write(world.get_or_panic::<&Account>(entity).name.clone()).ok()?;
+    buf.write(world.get_or_panic::<&Account>(entity).name.clone())
+        .ok()?;
     buf.write(world.get_or_panic::<UserAccess>(entity)).ok()?;
     buf.write(world.get_or_panic::<Sprite>(entity).id).ok()?;
     buf.write(world.get_or_panic::<Position>(entity)).ok()?;
     buf.write(world.get_or_panic::<Dir>(entity).0).ok()?;
     buf.write(world.get_or_panic::<Level>(entity).0).ok()?;
-    buf.write(world.get_or_panic::<Player>(entity).levelexp).ok()?;
+    buf.write(world.get_or_panic::<Player>(entity).levelexp)
+        .ok()?;
     buf.write(world.get_or_panic::<Vitals>(entity).vital).ok()?;
-    buf.write(world.get_or_panic::<Vitals>(entity).vitalmax).ok()?;
-    buf.write(world.get_or_panic::<&Equipment>(entity).items.clone()).ok()?;
+    buf.write(world.get_or_panic::<Vitals>(entity).vitalmax)
+        .ok()?;
+    buf.write(world.get_or_panic::<&Equipment>(entity).items.clone())
+        .ok()?;
     buf.write(world.get_or_panic::<IsUsingType>(entity)).ok()?;
-    buf.write(world.get_or_panic::<Player>(entity).resetcount).ok()?;
+    buf.write(world.get_or_panic::<Player>(entity).resetcount)
+        .ok()?;
     buf.write(world.get_or_panic::<DeathType>(entity)).ok()?;
     buf.write(world.get_or_panic::<Hidden>(entity).0).ok()?;
     buf.write(world.get_or_panic::<Attacking>(entity).0).ok()?;
@@ -121,7 +127,7 @@ pub fn playerdata(world: &World, _storage: &Storage, entity: &Entity) -> Option<
     buf.write(world.get_or_panic::<Player>(entity).pk).ok()?;
     buf.finish().ok()?;
 
-    return Some(buf);
+    Some(buf)
 }
 
 #[inline]
@@ -246,11 +252,7 @@ pub fn send_inv(world: &World, storage: &Storage, entity: &Entity) -> Result<()>
     buf.write(world.get_or_panic::<&Inventory>(entity).items.clone())?;
     buf.finish()?;
 
-    send_to(
-        storage,
-        world.get_or_panic::<&Socket>(entity).id,
-        buf,
-    );
+    send_to(storage, world.get_or_panic::<&Socket>(entity).id, buf);
 
     Ok(())
 }
@@ -264,11 +266,7 @@ pub fn send_invslot(world: &World, storage: &Storage, entity: &Entity, id: usize
     buf.write(world.get_or_panic::<&Inventory>(entity).items[id])?;
     buf.finish()?;
 
-    send_to(
-        storage,
-        world.get_or_panic::<&Socket>(entity).id,
-        buf,
-    );
+    send_to(storage, world.get_or_panic::<&Socket>(entity).id, buf);
 
     Ok(())
 }
@@ -321,11 +319,7 @@ pub fn send_level(world: &World, storage: &Storage, entity: &Entity) -> Result<(
     buf.write(world.get_or_panic::<Player>(entity).levelexp)?;
     buf.finish()?;
 
-    send_to(
-        storage,
-        world.get_or_panic::<&Socket>(entity).id,
-        buf,
-    );
+    send_to(storage, world.get_or_panic::<&Socket>(entity).id, buf);
     Ok(())
 }
 
@@ -337,11 +331,7 @@ pub fn send_money(world: &World, storage: &Storage, entity: &Entity) -> Result<(
     buf.write(world.get_or_panic::<Money>(entity).vals)?;
     buf.finish()?;
 
-    send_to(
-        storage,
-        world.get_or_panic::<&Socket>(entity).id,
-        buf,
-    );
+    send_to(storage, world.get_or_panic::<&Socket>(entity).id, buf);
     Ok(())
 }
 
@@ -440,10 +430,10 @@ pub fn send_message(
     let access = world.get_or_panic::<UserAccess>(entity);
 
     match chan {
-        MessageChannel::Map => DataTaskToken::MapChat(
-            world.get_or_panic::<Position>(entity).map,
-        )
-        .add_task(storage, &MessagePacket::new(chan, head, msg, Some(access)))?,
+        MessageChannel::Map => {
+            DataTaskToken::MapChat(world.get_or_panic::<Position>(entity).map)
+                .add_task(storage, &MessagePacket::new(chan, head, msg, Some(access)))?
+        }
         MessageChannel::Global => DataTaskToken::GlobalChat
             .add_task(storage, &MessagePacket::new(chan, head, msg, Some(access)))?,
         MessageChannel::Party | MessageChannel::Trade | MessageChannel::Help => {}
@@ -471,11 +461,7 @@ pub fn send_message(
             buf.write(msg)?;
             buf.write(access)?;
             buf.finish()?;
-            send_to(
-                storage,
-                world.get_or_panic::<&Socket>(entity).id,
-                buf,
-            );
+            send_to(storage, world.get_or_panic::<&Socket>(entity).id, buf);
         }
     }
 

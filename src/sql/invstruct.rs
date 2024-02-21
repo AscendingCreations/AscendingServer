@@ -1,5 +1,4 @@
 use crate::{gametypes::*, items::Item, sql};
-use std::convert::TryInto;
 
 #[derive(Debug, Queryable, Insertable, Identifiable, AsChangeset)]
 #[diesel(table_name = sql::invitems)]

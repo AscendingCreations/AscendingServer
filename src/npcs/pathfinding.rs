@@ -1,7 +1,6 @@
 use crate::{containers::*, gametypes::*, maps::*};
 use rand::{thread_rng, Rng};
 use std::{cmp::Reverse, collections::BinaryHeap};
-use unwrap_helpers::*;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct PathNode {
@@ -36,7 +35,10 @@ pub fn path_map_switch(
     movedir: u8,
 ) -> bool {
     let set_pos = |next_pos: &mut Position, mappos, x, y| -> bool {
-        let mapid = unwrap_or_return!(get_dir_mapid(storage, next_pos.map, mappos), false);
+        let mapid = match get_dir_mapid(storage, next_pos.map, mappos) {
+            Some(id) => id,
+            None => return false,
+        };
 
         *next_pos = match allowed_maps.get(&mapid) {
             Some(_) => Position::new(x, y, mapid),
@@ -185,7 +187,13 @@ pub fn npc_rand_movement(storage: &Storage, pos: Position, dir: u8) -> Vec<(Posi
             lastpos.map,
         );
 
-        if !path_map_switch(storage, &allowed_maps, lastpos, &mut node_pos, movedir as u8) {
+        if !path_map_switch(
+            storage,
+            &allowed_maps,
+            lastpos,
+            &mut node_pos,
+            movedir as u8,
+        ) {
             continue;
         }
 

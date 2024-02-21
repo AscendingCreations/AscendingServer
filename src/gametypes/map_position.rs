@@ -1,6 +1,7 @@
 use crate::gametypes::*;
 use bytey::{ByteBufferRead, ByteBufferWrite};
 use diesel::{
+    backend::Backend,
     deserialize::{self, FromSql},
     pg::{sql_types::Record, Pg},
     serialize::{self, Output, ToSql, WriteTuple},
@@ -82,10 +83,14 @@ impl ToSql<MapPosType, Pg> for MapPosition {
     }
 }
 
-impl FromSql<MapPosType, Pg> for MapPosition {
-    fn from_sql(bytes: diesel::backend::RawValue<'_, Pg>) -> deserialize::Result<Self> {
+impl<DB> FromSql<MapPosType, DB> for MapPosition
+where
+    DB: Backend,
+    (i32, i32, i64): FromSql<Record<(Integer, Integer, BigInt)>, DB>,
+{
+    fn from_sql(bytes: DB::RawValue<'_>) -> deserialize::Result<Self> {
         let data: (i32, i32, i64) =
-            FromSql::<Record<(Integer, Integer, BigInt)>, Pg>::from_sql(bytes)?;
+            FromSql::<Record<(Integer, Integer, BigInt)>, DB>::from_sql(bytes)?;
 
         Ok(MapPosition {
             x: data.0,

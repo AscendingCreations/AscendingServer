@@ -1,7 +1,6 @@
 use crate::{containers::Storage, gametypes::*};
 use rand::{thread_rng, Rng};
 use std::cmp::min;
-use unwrap_helpers::{unwrap_continue, ToOption};
 
 pub fn update_maps(world: &mut hecs::World, storage: &Storage) -> Result<()> {
     let mut rng = thread_rng();
@@ -36,8 +35,11 @@ pub fn update_maps(world: &mut hecs::World, storage: &Storage) -> Result<()> {
                             min((*max_npcs - data.zones[id]) as usize, NPCS_SPAWNCAP);
 
                         //Lets Do this for each npc;
-                        for npc in zone_npcs {
-                            let npc_id = unwrap_continue!(*npc);
+                        for npc_id in zone_npcs
+                            .iter()
+                            .filter(|v| v.is_some())
+                            .map(|v| v.unwrap_or_default())
+                        {
                             let game_time = storage.time.borrow();
                             let (from, to) = storage
                                 .bases
@@ -83,7 +85,7 @@ pub fn update_maps(world: &mut hecs::World, storage: &Storage) -> Result<()> {
 
                 let mut data = map_data.borrow_mut();
                 //Lets Spawn the npcs here;
-                for (spawn, zone, npc_id) in spawnable.drain(..) {
+                for (_spawn, _zone, npc_id) in spawnable.drain(..) {
                     if let Ok(id) = storage.add_npc(world, npc_id) {
                         data.add_npc(id);
                     }

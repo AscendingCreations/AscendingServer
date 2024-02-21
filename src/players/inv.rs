@@ -73,7 +73,7 @@ pub fn find_slot(
 
 #[inline]
 pub fn auto_set_inv_item(
-    world: &mut hecs::World, 
+    world: &mut hecs::World,
     storage: &Storage,
     entity: &crate::Entity,
     item: &mut Item,
@@ -88,8 +88,10 @@ pub fn auto_set_inv_item(
     while let Some(slot) = find_slot(item, &player_inv.items, base, &scope) {
         if player_inv.items[slot].val == 0 {
             {
-                world.get::<&mut Inventory>(entity.0).expect("Could not find Inventory").items[slot] =
-                    *item;
+                world
+                    .get::<&mut Inventory>(entity.0)
+                    .expect("Could not find Inventory")
+                    .items[slot] = *item;
             }
             item.val = 0;
             save_item(world, storage, entity, slot);
@@ -107,10 +109,10 @@ pub fn auto_set_inv_item(
 
     rem
 }
-
+#[allow(clippy::too_many_arguments)]
 #[inline]
 pub fn set_inv_item(
-    world: &mut hecs::World, 
+    world: &mut hecs::World,
     storage: &Storage,
     entity: &crate::Entity,
     item: &mut Item,
@@ -120,16 +122,21 @@ pub fn set_inv_item(
     invtype: InvType,
 ) -> u16 {
     let player_inv = world.get_or_panic::<&Inventory>(entity);
-    
+
     let mut rem = 0u16;
     let mut item_min = std::cmp::min(amount, item.val);
 
     if player_inv.items[slot].val == 0 {
         {
-            world.get::<&mut Inventory>(entity.0).expect("Could not find Inventory").items[slot] =
-                *item;
-            world.get::<&mut Inventory>(entity.0).expect("Could not find Inventory").items[slot].val =
-                item_min;
+            world
+                .get::<&mut Inventory>(entity.0)
+                .expect("Could not find Inventory")
+                .items[slot] = *item;
+            world
+                .get::<&mut Inventory>(entity.0)
+                .expect("Could not find Inventory")
+                .items[slot]
+                .val = item_min;
         }
         item.val = item.val.saturating_sub(item_min);
         save_item(world, storage, entity, slot);
@@ -138,12 +145,7 @@ pub fn set_inv_item(
 
     if player_inv.items[slot].num == item.num {
         let mut playerinv_val = player_inv.items[slot].val;
-        item_min = val_add_amount_rem(
-            &mut playerinv_val,
-            &mut item.val,
-            item_min,
-            base.stacklimit,
-        );
+        item_min = val_add_amount_rem(&mut playerinv_val, &mut item.val, item_min, base.stacklimit);
 
         save_item(world, storage, entity, slot);
 
@@ -163,7 +165,8 @@ pub fn set_inv_item(
 }
 
 #[inline]
-pub fn give_item(world: &mut hecs::World, 
+pub fn give_item(
+    world: &mut hecs::World,
     storage: &Storage,
     entity: &crate::Entity,
     item: &mut Item,
@@ -176,7 +179,7 @@ pub fn give_item(world: &mut hecs::World,
 
 #[inline]
 pub fn set_inv_slot(
-    world: &mut hecs::World, 
+    world: &mut hecs::World,
     storage: &Storage,
     entity: &crate::Entity,
     item: &mut Item,
@@ -190,12 +193,14 @@ pub fn set_inv_slot(
         return None;
     }
 
-    Some(set_inv_item(world, storage, entity, item, base, slot, amount, invtype))
+    Some(set_inv_item(
+        world, storage, entity, item, base, slot, amount, invtype,
+    ))
 }
 
 #[inline]
 pub fn take_inv_items(
-    world: &mut hecs::World, 
+    world: &mut hecs::World,
     storage: &Storage,
     entity: &crate::Entity,
     num: u32,
@@ -209,8 +214,11 @@ pub fn take_inv_items(
     if count_inv_item(num, &player_inv.items, scope) >= amount as u64 {
         while let Some(slot) = find_inv_item(num, &player_inv.items, &scope) {
             {
-                world.get::<&mut Inventory>(entity.0).expect("Could not find Inventory").items[slot].val =
-                    player_inv.items[slot].val.saturating_sub(amount);
+                world
+                    .get::<&mut Inventory>(entity.0)
+                    .expect("Could not find Inventory")
+                    .items[slot]
+                    .val = player_inv.items[slot].val.saturating_sub(amount);
             }
             amount = player_inv.items[slot].val;
 
@@ -227,7 +235,7 @@ pub fn take_inv_items(
 
 #[inline]
 pub fn take_item(
-    world: &mut hecs::World, 
+    world: &mut hecs::World,
     storage: &Storage,
     entity: &crate::Entity,
     num: u32,
@@ -241,18 +249,21 @@ pub fn take_item(
 
 #[inline]
 pub fn take_itemslot(
-    world: &mut hecs::World, 
+    world: &mut hecs::World,
     storage: &Storage,
     entity: &crate::Entity,
-    slot: usize, 
+    slot: usize,
     mut amount: u16,
 ) -> u16 {
     let player_inv = world.get_or_panic::<&Inventory>(entity);
 
     amount = std::cmp::min(amount, player_inv.items[slot].val);
     {
-        world.get::<&mut Inventory>(entity.0).expect("Could not find Inventory").items[slot].val =
-            player_inv.items[slot].val.saturating_sub(amount);
+        world
+            .get::<&mut Inventory>(entity.0)
+            .expect("Could not find Inventory")
+            .items[slot]
+            .val = player_inv.items[slot].val.saturating_sub(amount);
     }
     save_item(world, storage, entity, slot);
 
