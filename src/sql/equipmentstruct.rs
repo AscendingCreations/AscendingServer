@@ -1,8 +1,6 @@
-use crate::{items::Item, sql};
-
-#[derive(Debug, Queryable, Insertable, Identifiable, AsChangeset)]
-#[diesel(table_name = sql::equipment)]
-#[diesel(primary_key(uid, id))]
+use crate::items::Item;
+use sqlx::FromRow;
+#[derive(Debug, FromRow)]
 pub struct PGEquipItem {
     uid: i64,
     id: i16,

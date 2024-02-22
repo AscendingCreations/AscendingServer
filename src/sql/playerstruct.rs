@@ -1,17 +1,15 @@
-use crate::{containers::SALT, gametypes::*, players::*, sql, time_ext::*};
+use crate::{containers::SALT, gametypes::*, players::*, time_ext::*};
 use argon2::{Argon2, PasswordHasher};
 use password_hash::SaltString;
+use sqlx::FromRow;
 
-#[derive(Queryable, Identifiable, Debug, PartialEq, Eq)]
-#[diesel(primary_key(uid))]
-#[diesel(table_name = sql::players)]
+#[derive(Debug, PartialEq, Eq, FromRow)]
 pub struct PlayerWithPassword {
     pub uid: i64,
     pub password: String,
 }
 
-#[derive(Debug, Queryable, Insertable)]
-#[diesel(table_name = sql::players)]
+#[derive(Debug, FromRow)]
 pub struct PGPlayer {
     name: String,
     address: String,
@@ -55,7 +53,7 @@ impl PGPlayer {
         };
 
         PGPlayer {
-            name: world.get_or_panic::<&Account>(entity).name.clone(),
+            name: world.get_or_panic::<&Account>(entity).username.clone(),
             address: world.get_or_panic::<&Socket>(entity).addr.clone(),
             sprite: world.get_or_panic::<Sprite>(entity).id as i16,
             spawn: world.get_or_panic::<Spawn>(entity).pos,
@@ -79,9 +77,7 @@ impl PGPlayer {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Queryable, Insertable, Identifiable)]
-#[diesel(table_name = sql::player_ret)]
-#[diesel(primary_key(uid))]
+#[derive(Debug, PartialEq, Eq, FromRow)]
 pub struct PGPlayerWithID {
     uid: i64,
     name: String,
@@ -106,7 +102,7 @@ impl PGPlayerWithID {
     pub fn new(world: &mut hecs::World, entity: &Entity) -> PGPlayerWithID {
         PGPlayerWithID {
             uid: world.get_or_panic::<&Account>(entity).id,
-            name: world.get_or_panic::<&Account>(entity).name.clone(),
+            name: world.get_or_panic::<&Account>(entity).username.clone(),
             address: world.get_or_panic::<&Socket>(entity).addr.clone(),
             sprite: world.get_or_panic::<Sprite>(entity).id as i16,
             spawn: world.get_or_panic::<Spawn>(entity).pos,
@@ -133,7 +129,7 @@ impl PGPlayerWithID {
         world
             .get::<&mut Account>(entity.0)
             .expect("Could not find Account")
-            .name = self.name.clone();
+            .username = self.name.clone();
         world
             .get::<&mut Socket>(entity.0)
             .expect("Could not find Socket")
@@ -199,9 +195,7 @@ impl PGPlayerWithID {
     }
 }
 
-#[derive(Debug, Queryable, Insertable, AsChangeset)]
-#[diesel(table_name = sql::players)]
-#[diesel(primary_key(uid))]
+#[derive(Debug, FromRow)]
 pub struct PGPlayerLogOut {
     uid: i64,
     itemtimer: MyInstant,
@@ -226,9 +220,7 @@ impl PGPlayerLogOut {
     }
 }
 
-#[derive(Debug, Queryable, Insertable, AsChangeset)]
-#[diesel(table_name = sql::players)]
-#[diesel(primary_key(uid))]
+#[derive(Debug, FromRow)]
 pub struct PGPlayerReset {
     uid: i64,
     resetcount: i16,
@@ -243,9 +235,7 @@ impl PGPlayerReset {
     }
 }
 
-#[derive(Debug, Queryable, Insertable, AsChangeset)]
-#[diesel(table_name = sql::players)]
-#[diesel(primary_key(uid))]
+#[derive(Debug, FromRow)]
 pub struct PGPlayerAddress {
     uid: i64,
     address: String,
@@ -260,9 +250,7 @@ impl PGPlayerAddress {
     }
 }
 
-#[derive(Debug, Queryable, Insertable, AsChangeset)]
-#[diesel(table_name = sql::players)]
-#[diesel(primary_key(uid))]
+#[derive(Debug, FromRow)]
 pub struct PGPlayerLevel {
     uid: i64,
     level: i32,
@@ -281,9 +269,7 @@ impl PGPlayerLevel {
     }
 }
 
-#[derive(Debug, Queryable, Insertable, AsChangeset)]
-#[diesel(table_name = sql::players)]
-#[diesel(primary_key(uid))]
+#[derive(Debug, FromRow)]
 pub struct PGPlayerData {
     uid: i64,
     data: Vec<i64>,
@@ -298,9 +284,7 @@ impl PGPlayerData {
     }
 }
 
-#[derive(Debug, Queryable, Insertable, AsChangeset)]
-#[diesel(table_name = sql::players)]
-#[diesel(primary_key(uid))]
+#[derive(Debug, FromRow)]
 pub struct PGPlayerPassReset {
     uid: i64,
     passresetcode: Option<String>,
@@ -319,9 +303,7 @@ impl PGPlayerPassReset {
     }
 }
 
-#[derive(Debug, Queryable, Insertable, AsChangeset)]
-#[diesel(table_name = sql::players)]
-#[diesel(primary_key(uid))]
+#[derive(Debug, FromRow)]
 pub struct PGPlayerSpawn {
     uid: i64,
     spawn: Position,
@@ -336,9 +318,7 @@ impl PGPlayerSpawn {
     }
 }
 
-#[derive(Debug, Queryable, Insertable, AsChangeset)]
-#[diesel(table_name = sql::players)]
-#[diesel(primary_key(uid))]
+#[derive(Debug, FromRow)]
 pub struct PGPlayerPos {
     uid: i64,
     pos: Position,
@@ -353,9 +333,7 @@ impl PGPlayerPos {
     }
 }
 
-#[derive(Debug, Queryable, Insertable, AsChangeset)]
-#[diesel(table_name = sql::players)]
-#[diesel(primary_key(uid))]
+#[derive(Debug, FromRow)]
 pub struct PGPlayerCurrency {
     uid: i64,
     vals: i64,

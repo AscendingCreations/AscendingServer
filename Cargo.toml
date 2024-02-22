@@ -32,6 +32,8 @@ byteorder = { version = "1.5.0", default-features = false }
 argon2 = "0.5.3"
 password-hash = { version = "0.5.0", features = ["rand_core"] }
 hecs = {version="0.10.4", features = ["column-serialize", "row-serialize", "macros"] }
+sqlx = { version = "0.7", features = [ "runtime-tokio", "postgres" , "chrono", "time", "json"] }
+
 
 [profile.dev]
 opt-level = 0

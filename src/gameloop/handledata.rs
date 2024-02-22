@@ -58,7 +58,6 @@ fn handle_register(
     let username = data.read::<String>()?;
     let password = data.read::<String>()?;
     let email = data.read::<String>()?;
-    let name = data.read::<String>()?;
     let sprite: u8 = data.read()?;
     let hair: u8 = data.read()?;
 
@@ -71,21 +70,20 @@ fn handle_register(
 
         if !username.chars().all(is_name_acceptable)
             || !password.chars().all(is_password_acceptable)
-            || !name.chars().all(is_name_acceptable)
         {
             return send_infomsg(
                 storage,
                 socket_id,
-                "Username, Name, or Password contains unaccepted Characters".into(),
+                "Username or Password contains unaccepted Characters".into(),
                 0,
             );
         }
 
-        if username.len() >= 64 || name.len() >= 64 {
+        if username.len() >= 64 {
             return send_infomsg(
                 storage,
                 socket_id,
-                "Username or Name has too many Characters, 64 Characters Max".into(),
+                "Username has too many Characters, 64 Characters Max".into(),
                 0,
             );
         }
@@ -108,7 +106,7 @@ fn handle_register(
             );
         }
 
-        match check_existance(&mut storage.pgconn.borrow_mut(), &username, &name, &email) {
+        match check_existance(&mut storage.pgconn.borrow_mut(), &username, &email) {
             Ok(i) => match i {
                 0 => {}
                 1 => {
@@ -120,14 +118,6 @@ fn handle_register(
                     )
                 }
                 2 => {
-                    return send_infomsg(
-                        storage,
-                        socket_id,
-                        "Character Name Exists. Please try Another.".into(),
-                        0,
-                    )
-                }
-                3 => {
                     return send_infomsg(
                         storage,
                         socket_id,
@@ -146,7 +136,7 @@ fn handle_register(
         world
             .get::<&mut Account>(entity.0)
             .expect("Could not find Account")
-            .name = name;
+            .username = username.clone();
 
         world
             .get::<&mut Sprite>(entity.0)
@@ -775,18 +765,22 @@ fn handle_message(
         }
 
         let head = match channel {
-            MessageChannel::Map => format!("[Map] {}:", world.get_or_panic::<&Account>(p).name),
+            MessageChannel::Map => format!("[Map] {}:", world.get_or_panic::<&Account>(p).username),
             MessageChannel::Global => {
-                format!("[Global] {}:", world.get_or_panic::<&Account>(p).name)
+                format!("[Global] {}:", world.get_or_panic::<&Account>(p).username)
             }
-            MessageChannel::Trade => format!("[Trade] {}:", world.get_or_panic::<&Account>(p).name),
-            MessageChannel::Party => format!("[Party] {}:", world.get_or_panic::<&Account>(p).name),
+            MessageChannel::Trade => {
+                format!("[Trade] {}:", world.get_or_panic::<&Account>(p).username)
+            }
+            MessageChannel::Party => {
+                format!("[Party] {}:", world.get_or_panic::<&Account>(p).username)
+            }
             MessageChannel::Private => {
                 if name.is_empty() {
                     return Ok(());
                 }
 
-                if name == world.get_or_panic::<&Account>(p).name {
+                if name == world.get_or_panic::<&Account>(p).username {
                     return send_fltalert(
                         storage,
                         world.get_or_panic::<&Socket>(entity).id,
@@ -813,10 +807,14 @@ fn handle_message(
                     }
                 };
 
-                format!("[Private] {}:", world.get_or_panic::<&Account>(p).name)
+                format!("[Private] {}:", world.get_or_panic::<&Account>(p).username)
             }
-            MessageChannel::Guild => format!("[Guild] {}:", world.get_or_panic::<&Account>(p).name),
-            MessageChannel::Help => format!("[Help] {}:", world.get_or_panic::<&Account>(p).name),
+            MessageChannel::Guild => {
+                format!("[Guild] {}:", world.get_or_panic::<&Account>(p).username)
+            }
+            MessageChannel::Help => {
+                format!("[Help] {}:", world.get_or_panic::<&Account>(p).username)
+            }
             MessageChannel::Quest => "".into(),
             MessageChannel::Npc => "".into(),
         };

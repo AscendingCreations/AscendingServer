@@ -28,12 +28,7 @@ pub fn find_player(conn: &mut PgConnection, username: &str, password: &str) -> R
     }
 }
 
-pub fn check_existance(
-    conn: &mut PgConnection,
-    username: &str,
-    name: &str,
-    email: &str,
-) -> Result<i64> {
+pub fn check_existance(conn: &mut PgConnection, username: &str, email: &str) -> Result<i64> {
     if let Some(_id) = players::table
         .filter(players::username.eq(username))
         .select(players::uid)
@@ -44,21 +39,12 @@ pub fn check_existance(
     };
 
     if let Some(_id) = players::table
-        .filter(players::name.eq(name))
-        .select(players::uid)
-        .first::<i64>(conn)
-        .optional()?
-    {
-        return Ok(2);
-    };
-
-    if let Some(_id) = players::table
         .filter(players::email.eq(email))
         .select(players::uid)
         .first::<i64>(conn)
         .optional()?
     {
-        return Ok(3);
+        return Ok(2);
     };
 
     Ok(0)
@@ -71,7 +57,7 @@ pub fn new_player(
     username: String,
     email: String,
     password: String,
-) -> Result<()> {
+) -> Result<i64> {
     let uid: i64 = insert_into(players::table)
         .values(&PGPlayer::new(world, entity, username, email, password))
         .returning(players::uid)
@@ -88,7 +74,7 @@ pub fn new_player(
         .values(&PGInvItem::new(&inv.items, uid))
         .execute(conn)?;
 
-    Ok(())
+    Ok(uid)
 }
 
 pub fn load_player(

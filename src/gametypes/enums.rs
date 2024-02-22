@@ -1,6 +1,5 @@
 use crate::{containers::*, gametypes::*, maps::MapItem};
 use bytey::{ByteBufferRead, ByteBufferWrite};
-use diesel_derive_enum::DbEnum;
 use serde::{Deserialize, Serialize};
 use serde_repr::*;
 
@@ -12,13 +11,12 @@ use serde_repr::*;
     Eq,
     Serialize_repr,
     Deserialize_repr,
-    DbEnum,
     Default,
     ByteBufferRead,
     ByteBufferWrite,
+    sqlx::Type,
 )]
-#[DbValueStyle = "PascalCase"]
-#[ExistingTypePath = "crate::sql::UserAccessMapping"]
+#[sqlx(type_name = "UserAccess")]
 #[repr(u8)]
 pub enum UserAccess {
     #[default]
@@ -267,13 +265,10 @@ pub enum EquipmentType {
     Eq,
     Serialize_repr,
     Deserialize_repr,
-    DbEnum,
     Default,
     ByteBufferRead,
     ByteBufferWrite,
 )]
-#[DbValueStyle = "PascalCase"]
-#[ExistingTypePath = "crate::sql::VitalTypesMapping"]
 #[repr(u8)]
 pub enum VitalTypes {
     Hp,
@@ -408,12 +403,11 @@ pub enum NpcMode {
     Eq,
     Serialize_repr,
     Deserialize_repr,
-    DbEnum,
     ByteBufferRead,
     ByteBufferWrite,
+    sqlx::Type,
 )]
-#[DbValueStyle = "PascalCase"]
-#[ExistingTypePath = "crate::sql::LogTypeMapping"]
+#[sqlx(type_name = "LogType")]
 #[repr(u8)]
 pub enum LogType {
     Login,

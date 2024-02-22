@@ -1,29 +1,25 @@
-use byteorder::{NetworkEndian, WriteBytesExt};
 use chrono::{offset::Utc, Duration, NaiveDate};
-use diesel::{
-    backend::Backend,
-    deserialize::{self, FromSql},
-    pg::{data_types::*, Pg},
-    serialize::{self, IsNull, Output, ToSql},
-    sql_types::{self, Date},
-};
 use serde::{Deserialize, Serialize};
+use sqlx::{FromRow, Postgres, Type};
 
-#[derive(
-    Debug,
-    FromSqlRow,
-    AsExpression,
-    Copy,
-    Clone,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Serialize,
-    Deserialize,
-)]
-#[diesel(sql_type = Date)]
-pub struct MyDate(pub chrono::NaiveDate);
+#[derive(Debug, FromRow, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct MyDate(pub NaiveDate);
+
+impl sqlx::Type<Postgres> for MyDate {
+    fn type_info() -> sqlx::postgres::PgTypeInfo {
+        <NaiveDate as Type<Postgres>>::type_info()
+    }
+}
+
+impl<'r> sqlx::Decode<'r, Postgres> for MyDate {
+    fn decode(
+        value: sqlx::postgres::PgValueRef<'r>,
+    ) -> sqlx::Result<Self, Box<dyn std::error::Error + 'static + Send + Sync>> {
+        let mut decoder = sqlx::postgres::types::PgRecordDecoder::new(value)?;
+        let date = decoder.try_decode::<NaiveDate>()?;
+        Ok(Self(date))
+    }
+}
 
 impl MyDate {
     pub fn now() -> MyDate {
@@ -54,40 +50,5 @@ impl std::ops::Deref for MyDate {
 
     fn deref(&self) -> &Self::Target {
         &self.0
-    }
-}
-
-impl ToSql<sql_types::Date, Pg> for MyDate {
-    fn to_sql<'b>(&'b self, out: &mut Output<'b, '_, Pg>) -> serialize::Result {
-        let days_since_epoch: i64 = self
-            .0
-            .signed_duration_since(NaiveDate::from_ymd_opt(2000, 1, 1).unwrap_or_default())
-            .num_days();
-
-        out.write_i32::<NetworkEndian>(days_since_epoch as i32)
-            .map(|_| IsNull::No)
-            .map_err(|e| Box::new(e) as Box<_>)
-    }
-}
-
-impl<DB> FromSql<sql_types::Date, DB> for MyDate
-where
-    DB: Backend,
-    PgDate: FromSql<sql_types::Date, DB>,
-{
-    fn from_sql(bytes: DB::RawValue<'_>) -> deserialize::Result<Self> {
-        let PgDate(offset) = FromSql::<sql_types::Date, DB>::from_sql(bytes)?;
-
-        match NaiveDate::from_ymd_opt(2000, 1, 1)
-            .unwrap_or_default()
-            .checked_add_signed(Duration::days(i64::from(offset)))
-        {
-            Some(date) => Ok(MyDate(date)),
-            None => {
-                let error_message =
-                    format!("Chrono can only represent dates up to {:?}", NaiveDate::MAX);
-                Err(error_message.into())
-            }
-        }
     }
 }

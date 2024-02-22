@@ -28,7 +28,7 @@ impl Socket {
 
 #[derive(Clone, Debug, Default)]
 pub struct Account {
-    pub name: String,
+    pub username: String,
     pub passresetcode: Option<String>,
     pub id: i64,
 }

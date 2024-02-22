@@ -172,7 +172,7 @@ impl Storage {
         let _ = world.despawn(id.0);
 
         if let Some((account,)) = account {
-            self.player_names.borrow_mut().remove(&account.name);
+            self.player_names.borrow_mut().remove(&account.username);
         }
 
         self.player_ids.borrow_mut().swap_remove(&id);

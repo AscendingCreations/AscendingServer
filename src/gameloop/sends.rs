@@ -103,7 +103,7 @@ pub fn playerdata(world: &World, _storage: &Storage, entity: &Entity) -> Option<
 
     buf.write(ServerPackets::PlayerData).ok()?;
     buf.write(*entity).ok()?;
-    buf.write(world.get_or_panic::<&Account>(entity).name.clone())
+    buf.write(world.get_or_panic::<&Account>(entity).username.clone())
         .ok()?;
     buf.write(world.get_or_panic::<UserAccess>(entity)).ok()?;
     buf.write(world.get_or_panic::<Sprite>(entity).id).ok()?;

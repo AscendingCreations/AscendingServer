@@ -1,17 +1,7 @@
 use crate::{containers::*, gametypes::*, maps::*};
 use bytey::{ByteBufferRead, ByteBufferWrite};
-use diesel::{
-    backend::Backend,
-    deserialize::{self, FromSql},
-    pg::{sql_types::Record, Pg},
-    serialize::{self, Output, ToSql, WriteTuple},
-    sql_types::Integer,
-};
 use serde::{Deserialize, Serialize};
-
-#[derive(SqlType)]
-#[diesel(postgres_type(name = "position"))]
-pub struct PosType;
+use sqlx::Postgres;
 
 #[derive(
     Copy,
@@ -22,17 +12,32 @@ pub struct PosType;
     Default,
     Deserialize,
     Serialize,
-    FromSqlRow,
-    AsExpression,
     Hash,
     ByteBufferRead,
     ByteBufferWrite,
 )]
-#[diesel(sql_type = PosType)]
 pub struct Position {
     pub x: i32,
     pub y: i32,
     pub map: MapPosition,
+}
+
+impl sqlx::Type<Postgres> for Position {
+    fn type_info() -> sqlx::postgres::PgTypeInfo {
+        sqlx::postgres::PgTypeInfo::with_name("Position")
+    }
+}
+
+impl<'r> sqlx::Decode<'r, Postgres> for Position {
+    fn decode(
+        value: sqlx::postgres::PgValueRef<'r>,
+    ) -> sqlx::Result<Self, Box<dyn std::error::Error + 'static + Send + Sync>> {
+        let mut decoder = sqlx::postgres::types::PgRecordDecoder::new(value)?;
+        let x = decoder.try_decode::<i32>()?;
+        let y = decoder.try_decode::<i32>()?;
+        let map = decoder.try_decode::<MapPosition>()?;
+        Ok(Self { x, y, map })
+    }
 }
 
 impl Position {
@@ -147,29 +152,6 @@ impl Position {
     #[inline]
     pub fn as_tile(&self) -> usize {
         ((self.y * (MAP_MAX_X as i32 - 1)) + self.x) as usize
-    }
-}
-
-impl ToSql<PosType, Pg> for Position {
-    fn to_sql(&self, out: &mut Output<Pg>) -> serialize::Result {
-        WriteTuple::<(Integer, Integer, MapPosType)>::write_tuple(&(self.x, self.y, self.map), out)
-    }
-}
-
-impl<DB> FromSql<PosType, DB> for Position
-where
-    DB: Backend,
-    (i32, i32, MapPosition): FromSql<Record<(Integer, Integer, MapPosType)>, DB>,
-{
-    fn from_sql(bytes: DB::RawValue<'_>) -> deserialize::Result<Self> {
-        let data: (i32, i32, MapPosition) =
-            FromSql::<Record<(Integer, Integer, MapPosType)>, DB>::from_sql(bytes)?;
-
-        Ok(Position {
-            x: data.0,
-            y: data.1,
-            map: data.2,
-        })
     }
 }
 

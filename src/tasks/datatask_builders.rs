@@ -136,7 +136,7 @@ impl NpcSpawnPacket {
 pub struct PlayerSpawnPacket {
     //Player global ID
     pub entity: crate::Entity,
-    pub name: String,
+    pub username: String,
     pub access: UserAccess,
     pub dir: u8,
     pub equip: Equipment,
@@ -156,7 +156,7 @@ pub struct PlayerSpawnPacket {
 impl PlayerSpawnPacket {
     pub fn new(world: &mut hecs::World, entity: &Entity) -> Self {
         Self {
-            name: world.get_or_panic::<&Account>(entity).name.clone(),
+            username: world.get_or_panic::<&Account>(entity).username.clone(),
             dir: world.get_or_panic::<Dir>(entity).0,
             hidden: world.get_or_panic::<Hidden>(entity).0,
             entity: *entity,

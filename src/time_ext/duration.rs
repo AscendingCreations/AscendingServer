@@ -1,16 +1,8 @@
-use byteorder::{NetworkEndian, WriteBytesExt};
 use bytey::{ByteBuffer, ByteBufferRead, ByteBufferWrite};
-use diesel::{
-    backend::Backend,
-    deserialize::{self, FromSql},
-    pg::Pg,
-    serialize::{self, IsNull, Output, ToSql},
-    sql_types::BigInt,
-};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use sqlx::{Postgres, Type};
 
-#[derive(Debug, FromSqlRow, AsExpression, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
-#[diesel(sql_type = BigInt)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct MyDuration(pub chrono::Duration);
 
 impl MyDuration {
@@ -47,22 +39,29 @@ impl std::ops::Deref for MyDuration {
     }
 }
 
-impl ToSql<BigInt, Pg> for MyDuration {
-    fn to_sql(&self, out: &mut Output<Pg>) -> serialize::Result {
-        out.write_i64::<NetworkEndian>(self.num_milliseconds())
-            .map(|_| IsNull::No)
-            .map_err(|e| Box::new(e) as Box<_>)
+impl sqlx::Type<Postgres> for MyDuration {
+    fn type_info() -> sqlx::postgres::PgTypeInfo {
+        <i64 as Type<Postgres>>::type_info()
+    }
+
+    fn compatible(ty: &sqlx::postgres::PgTypeInfo) -> bool {
+        *ty == Self::type_info()
     }
 }
 
-impl<DB> FromSql<BigInt, DB> for MyDuration
-where
-    DB: Backend,
-    i64: FromSql<BigInt, DB>,
-{
-    fn from_sql(bytes: DB::RawValue<'_>) -> deserialize::Result<Self> {
-        let i64_value = FromSql::<BigInt, DB>::from_sql(bytes)?;
-        Ok(MyDuration(chrono::Duration::milliseconds(i64_value)))
+impl<'r> sqlx::Decode<'r, Postgres> for MyDuration {
+    fn decode(
+        value: sqlx::postgres::PgValueRef<'r>,
+    ) -> sqlx::Result<Self, Box<dyn std::error::Error + 'static + Send + Sync>> {
+        let mut decoder = sqlx::postgres::types::PgRecordDecoder::new(value)?;
+        let value = decoder.try_decode::<i64>()?;
+        Ok(Self(chrono::Duration::milliseconds(value)))
+    }
+}
+
+impl<'q> sqlx::Encode<'q, Postgres> for MyDuration {
+    fn encode_by_ref(&self, buf: &mut sqlx::postgres::PgArgumentBuffer) -> sqlx::encode::IsNull {
+        <i64 as sqlx::Encode<Postgres>>::encode(self.num_milliseconds(), buf)
     }
 }
 

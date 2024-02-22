@@ -1,8 +1,8 @@
-use crate::{gametypes::*, items::Item, sql};
+use sqlx::FromRow;
 
-#[derive(Debug, Queryable, Insertable, Identifiable, AsChangeset)]
-#[diesel(table_name = sql::invitems)]
-#[diesel(primary_key(uid, id))]
+use crate::{gametypes::*, items::Item};
+
+#[derive(Debug, FromRow)]
 pub struct PGInvItem {
     uid: i64,
     id: i16,

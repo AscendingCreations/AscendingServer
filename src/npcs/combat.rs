@@ -29,15 +29,13 @@ pub fn try_cast(
     let npc_mode = world.get_or_default::<NpcMode>(caster);
 
     match target {
-        EntityType::Player(i, accid) => {
-            if let Ok(target) = world.get::<&Account>(i.0).map(|acc| acc.id) {
-                if (base.can_attack_player || matches!(npc_mode, NpcMode::Pet | NpcMode::Summon))
-                    && target == accid
-                {
-                    let target_pos = world.get_or_default::<Position>(&i);
-                    let life = world.get_or_default::<DeathType>(&i);
-                    return entity_cast_check(caster_pos, target_pos, life, range);
-                }
+        EntityType::Player(i, _accid) => {
+            if world.contains(i.0)
+                && (base.can_attack_player || matches!(npc_mode, NpcMode::Pet | NpcMode::Summon))
+            {
+                let target_pos = world.get_or_default::<Position>(&i);
+                let life = world.get_or_default::<DeathType>(&i);
+                return entity_cast_check(caster_pos, target_pos, life, range);
             }
         }
         EntityType::Npc(i) => {
