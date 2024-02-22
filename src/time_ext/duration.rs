@@ -53,8 +53,7 @@ impl<'r> sqlx::Decode<'r, Postgres> for MyDuration {
     fn decode(
         value: sqlx::postgres::PgValueRef<'r>,
     ) -> sqlx::Result<Self, Box<dyn std::error::Error + 'static + Send + Sync>> {
-        let mut decoder = sqlx::postgres::types::PgRecordDecoder::new(value)?;
-        let value = decoder.try_decode::<i64>()?;
+        let value = <i64 as sqlx::Decode<Postgres>>::decode(value)?;
         Ok(Self(chrono::Duration::milliseconds(value)))
     }
 }

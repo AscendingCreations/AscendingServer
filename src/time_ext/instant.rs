@@ -1,18 +1,9 @@
-use byteorder::{NetworkEndian, WriteBytesExt};
 use bytey::{ByteBuffer, ByteBufferRead, ByteBufferWrite};
-use diesel::{
-    backend::Backend,
-    deserialize::{self, FromSql},
-    pg::Pg,
-    serialize::{self, IsNull, Output, ToSql},
-    sql_types::BigInt,
-};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use sqlx::{Postgres, Type};
 use std::{ops::Add, time::Instant};
 
-#[derive(Debug, FromSqlRow, AsExpression, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
-#[diesel(sql_type = BigInt)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct MyInstant(pub std::time::Instant);
 
 impl MyInstant {
@@ -66,25 +57,6 @@ impl std::ops::Deref for MyInstant {
     }
 }
 
-impl ToSql<BigInt, Pg> for MyInstant {
-    fn to_sql(&self, out: &mut Output<Pg>) -> serialize::Result {
-        out.write_i64::<NetworkEndian>(self.to_dur())
-            .map(|_| IsNull::No)
-            .map_err(|e| Box::new(e) as Box<_>)
-    }
-}
-
-impl<DB> FromSql<BigInt, DB> for MyInstant
-where
-    DB: Backend,
-    i64: FromSql<BigInt, DB>,
-{
-    fn from_sql(bytes: DB::RawValue<'_>) -> deserialize::Result<Self> {
-        let i64_value = FromSql::<BigInt, DB>::from_sql(bytes)?;
-        Ok(MyInstant::from_dur(i64_value))
-    }
-}
-
 impl sqlx::Type<Postgres> for MyInstant {
     fn type_info() -> sqlx::postgres::PgTypeInfo {
         <i64 as Type<Postgres>>::type_info()
@@ -99,8 +71,7 @@ impl<'r> sqlx::Decode<'r, Postgres> for MyInstant {
     fn decode(
         value: sqlx::postgres::PgValueRef<'r>,
     ) -> sqlx::Result<Self, Box<dyn std::error::Error + 'static + Send + Sync>> {
-        let mut decoder = sqlx::postgres::types::PgRecordDecoder::new(value)?;
-        let value = decoder.try_decode::<i64>()?;
+        let value = <i64 as sqlx::Decode<Postgres>>::decode(value)?;
         Ok(Self::from_dur(value))
     }
 }

@@ -1,8 +1,8 @@
 use chrono::{offset::Utc, Duration, NaiveDate};
 use serde::{Deserialize, Serialize};
-use sqlx::{FromRow, Postgres, Type};
+use sqlx::{Postgres, Type};
 
-#[derive(Debug, FromRow, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct MyDate(pub NaiveDate);
 
 impl sqlx::Type<Postgres> for MyDate {
@@ -15,9 +15,14 @@ impl<'r> sqlx::Decode<'r, Postgres> for MyDate {
     fn decode(
         value: sqlx::postgres::PgValueRef<'r>,
     ) -> sqlx::Result<Self, Box<dyn std::error::Error + 'static + Send + Sync>> {
-        let mut decoder = sqlx::postgres::types::PgRecordDecoder::new(value)?;
-        let date = decoder.try_decode::<NaiveDate>()?;
+        let date = <NaiveDate as sqlx::Decode<Postgres>>::decode(value)?;
         Ok(Self(date))
+    }
+}
+
+impl<'q> sqlx::Encode<'q, Postgres> for MyDate {
+    fn encode_by_ref(&self, buf: &mut sqlx::postgres::PgArgumentBuffer) -> sqlx::encode::IsNull {
+        <NaiveDate as sqlx::Encode<Postgres>>::encode(self.0, buf)
     }
 }
 
