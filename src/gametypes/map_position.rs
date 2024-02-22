@@ -5,7 +5,7 @@ use diesel::{
     deserialize::{self, FromSql},
     pg::{sql_types::Record, Pg},
     serialize::{self, Output, ToSql, WriteTuple},
-    sql_types::{BigInt, Integer},
+    sql_types::Integer,
 };
 use serde::{Deserialize, Serialize};
 
@@ -32,12 +32,12 @@ pub struct MapPosType;
 pub struct MapPosition {
     pub x: i32,
     pub y: i32,
-    pub group: u64,
+    pub group: i32,
 }
 
 impl MapPosition {
     #[inline(always)]
-    pub fn new(x: i32, y: i32, group: u64) -> MapPosition {
+    pub fn new(x: i32, y: i32, group: i32) -> MapPosition {
         MapPosition { x, y, group }
     }
 
@@ -76,26 +76,23 @@ impl MapPosition {
 
 impl ToSql<MapPosType, Pg> for MapPosition {
     fn to_sql(&self, out: &mut Output<Pg>) -> serialize::Result {
-        WriteTuple::<(Integer, Integer, BigInt)>::write_tuple(
-            &(self.x, self.y, self.group as i64),
-            out,
-        )
+        WriteTuple::<(Integer, Integer, Integer)>::write_tuple(&(self.x, self.y, self.group), out)
     }
 }
 
 impl<DB> FromSql<MapPosType, DB> for MapPosition
 where
     DB: Backend,
-    (i32, i32, i64): FromSql<Record<(Integer, Integer, BigInt)>, DB>,
+    (i32, i32, i32): FromSql<Record<(Integer, Integer, Integer)>, DB>,
 {
     fn from_sql(bytes: DB::RawValue<'_>) -> deserialize::Result<Self> {
-        let data: (i32, i32, i64) =
-            FromSql::<Record<(Integer, Integer, BigInt)>, DB>::from_sql(bytes)?;
+        let data: (i32, i32, i32) =
+            FromSql::<Record<(Integer, Integer, Integer)>, DB>::from_sql(bytes)?;
 
         Ok(MapPosition {
             x: data.0,
             y: data.1,
-            group: data.2 as u64,
+            group: data.2,
         })
     }
 }
