@@ -32,8 +32,6 @@ use containers::Storage;
 //use time_ext::{MyDuration, MyInstant};
 use hecs::World;
 
-#[macro_use]
-extern crate diesel;
 
 fn read_line() -> String {
     let mut rv = String::new();
