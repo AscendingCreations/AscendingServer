@@ -141,7 +141,7 @@ fn handle_register(
         world
             .get::<&mut Sprite>(entity.0)
             .expect("Could not find Sprite")
-            .id = sprite as u32;
+            .id = sprite as u16;
 
         if new_player(
             &mut storage.pgconn.borrow_mut(),

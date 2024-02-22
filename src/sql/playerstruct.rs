@@ -1,3 +1,4 @@
+use crate::sql::integers::Shifting;
 use crate::{containers::SALT, gametypes::*, players::*, time_ext::*};
 use argon2::{Argon2, PasswordHasher};
 use password_hash::SaltString;
@@ -55,10 +56,10 @@ impl PGPlayer {
         PGPlayer {
             name: world.get_or_panic::<&Account>(entity).username.clone(),
             address: world.get_or_panic::<&Socket>(entity).addr.clone(),
-            sprite: world.get_or_panic::<Sprite>(entity).id as i16,
+            sprite: i16::unshift_signed(&(world.get_or_panic::<Sprite>(entity).id as u16)),
             spawn: world.get_or_panic::<Spawn>(entity).pos,
             itemtimer: world.get_or_panic::<PlayerItemTimer>(entity).itemtimer,
-            vals: world.get_or_panic::<Money>(entity).vals as i64,
+            vals: i64::unshift_signed(&world.get_or_panic::<Money>(entity).vals),
             data: world.get_or_panic::<EntityData>(entity).0.to_vec(),
             access: world.cloned_get_or_panic::<UserAccess>(entity),
             passresetcode: None,
@@ -70,7 +71,7 @@ impl PGPlayer {
             password: hashed_password,
             username,
             level: world.get_or_panic::<Level>(entity).0,
-            levelexp: world.get_or_panic::<Player>(entity).levelexp as i64,
+            levelexp: i64::unshift_signed(&world.get_or_panic::<Player>(entity).levelexp),
             resetcount: world.get_or_panic::<Player>(entity).resetcount,
             pk: world.get_or_panic::<Player>(entity).pk,
         }
@@ -104,10 +105,10 @@ impl PGPlayerWithID {
             uid: world.get_or_panic::<&Account>(entity).id,
             name: world.get_or_panic::<&Account>(entity).username.clone(),
             address: world.get_or_panic::<&Socket>(entity).addr.clone(),
-            sprite: world.get_or_panic::<Sprite>(entity).id as i16,
+            sprite: i16::unshift_signed(&world.get_or_panic::<Sprite>(entity).id),
             spawn: world.get_or_panic::<Spawn>(entity).pos,
             itemtimer: world.get_or_panic::<PlayerItemTimer>(entity).itemtimer,
-            vals: world.get_or_panic::<Money>(entity).vals as i64,
+            vals: i64::unshift_signed(&world.get_or_panic::<Money>(entity).vals),
             data: world.get_or_panic::<EntityData>(entity).0.to_vec(),
             access: world.cloned_get_or_panic::<UserAccess>(entity),
             pos: world.cloned_get_or_panic::<Position>(entity),
@@ -115,7 +116,7 @@ impl PGPlayerWithID {
             deathtimer: world.get_or_panic::<DeathTimer>(entity).0,
             indeath: world.get_or_panic::<DeathType>(entity).is_spirit(),
             level: world.get_or_panic::<Level>(entity).0,
-            levelexp: world.get_or_panic::<Player>(entity).levelexp as i64,
+            levelexp: i64::unshift_signed(&world.get_or_panic::<Player>(entity).levelexp),
             resetcount: world.get_or_panic::<Player>(entity).resetcount,
             pk: world.get_or_panic::<Player>(entity).pk,
         }
@@ -137,7 +138,7 @@ impl PGPlayerWithID {
         world
             .get::<&mut Sprite>(entity.0)
             .expect("Could not find Sprite")
-            .id = self.sprite as u32;
+            .id = self.sprite.shift_signed();
         world
             .get::<&mut Spawn>(entity.0)
             .expect("Could not find Spawn")
@@ -149,7 +150,7 @@ impl PGPlayerWithID {
         world
             .get::<&mut Money>(entity.0)
             .expect("Could not find Money")
-            .vals = self.vals as u64;
+            .vals = self.vals.shift_signed();
         world
             .get::<&mut EntityData>(entity.0)
             .expect("Could not find EntityData")
@@ -183,7 +184,7 @@ impl PGPlayerWithID {
         world
             .get::<&mut Player>(entity.0)
             .expect("Could not find Player")
-            .levelexp = self.levelexp as u64;
+            .levelexp = self.levelexp.shift_signed();
         world
             .get::<&mut Player>(entity.0)
             .expect("Could not find Player")
@@ -263,7 +264,7 @@ impl PGPlayerLevel {
         PGPlayerLevel {
             uid: world.get_or_panic::<&Account>(entity).id,
             level: world.get_or_panic::<Level>(entity).0,
-            levelexp: world.get_or_panic::<Player>(entity).levelexp as i64,
+            levelexp: i64::unshift_signed(&world.get_or_panic::<Player>(entity).levelexp),
             vital: world.get_or_panic::<Vitals>(entity).vital.to_vec(),
         }
     }
@@ -343,7 +344,7 @@ impl PGPlayerCurrency {
     pub fn new(world: &mut hecs::World, entity: &Entity) -> PGPlayerCurrency {
         PGPlayerCurrency {
             uid: world.get_or_panic::<&Account>(entity).id,
-            vals: world.get_or_panic::<Money>(entity).vals as i64,
+            vals: i64::unshift_signed(&world.get_or_panic::<Money>(entity).vals),
         }
     }
 }

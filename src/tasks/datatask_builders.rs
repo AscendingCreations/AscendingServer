@@ -107,7 +107,7 @@ pub struct NpcSpawnPacket {
     pub pdamage: u32,
     pub pdefense: u32,
     pub position: Position,
-    pub sprite: u32,
+    pub sprite: u16,
     pub vital: [i32; VITALS_MAX],
     pub vitalmax: [i32; VITALS_MAX],
 }

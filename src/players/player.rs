@@ -61,7 +61,7 @@ pub struct Equipment {
 
 #[derive(Copy, Clone, Debug, Default)]
 pub struct Sprite {
-    pub id: u32,
+    pub id: u16,
 }
 
 #[derive(Copy, Clone, Debug, Default)]
