@@ -49,4 +49,6 @@ pub enum AscendingError {
     ParseError(#[from] std::string::ParseError),
     #[error(transparent)]
     HecNoEntity(#[from] hecs::NoSuchEntity),
+    #[error(transparent)]
+    SQLX(#[from] sqlx::Error),
 }

@@ -1,13 +1,24 @@
 use crate::{containers::*, gametypes::*, players::*, sql::*};
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
-use diesel::{insert_into, prelude::*};
+use futures::executor::block_on;
+use sqlx::{FromRow, PgPool};
 
-pub fn find_player(conn: &mut PgConnection, username: &str, password: &str) -> Result<Option<i64>> {
-    let userdata = players::table
-        .filter(players::username.eq(username))
-        .select((players::uid, players::password))
-        .first::<PlayerWithPassword>(conn)
-        .optional()?;
+#[derive(Debug, PartialEq, Eq, FromRow)]
+pub struct Check {
+    pub check: bool,
+}
+
+pub fn find_player(conn: &PgPool, email: &str, password: &str) -> Result<Option<i64>> {
+    let userdata: Option<PlayerWithPassword> = block_on(
+        sqlx::query_as(
+            &r#"
+        SELECT uid, password FROM player
+        WHERE email = $1
+    "#,
+        )
+        .bind(email)
+        .fetch_optional(conn),
+    )?;
 
     if let Some(userdata) = userdata {
         let hash = match PasswordHash::new(&userdata.password[..]) {
@@ -28,22 +39,24 @@ pub fn find_player(conn: &mut PgConnection, username: &str, password: &str) -> R
     }
 }
 
-pub fn check_existance(conn: &mut PgConnection, username: &str, email: &str) -> Result<i64> {
-    if let Some(_id) = players::table
-        .filter(players::username.eq(username))
-        .select(players::uid)
-        .first::<i64>(conn)
-        .optional()?
-    {
+pub fn check_existance(conn: &PgPool, username: &str, email: &str) -> Result<i64> {
+    let check: Check = block_on(
+        sqlx::query_as(&r#"SELECT EXISTS(SELECT 1 FROM player WHERE username=$1) as check"#)
+            .bind(username)
+            .fetch_one(conn),
+    )?;
+
+    if check.check {
         return Ok(1);
     };
 
-    if let Some(_id) = players::table
-        .filter(players::email.eq(email))
-        .select(players::uid)
-        .first::<i64>(conn)
-        .optional()?
-    {
+    let check: Check = block_on(
+        sqlx::query_as(&r#"SELECT EXISTS(SELECT 1 FROM player WHERE email=$1) as check"#)
+            .bind(email)
+            .fetch_one(conn),
+    )?;
+
+    if check.check {
         return Ok(2);
     };
 
@@ -51,7 +64,7 @@ pub fn check_existance(conn: &mut PgConnection, username: &str, email: &str) -> 
 }
 
 pub fn new_player(
-    conn: &mut PgConnection,
+    conn: &PgPool,
     world: &mut hecs::World,
     entity: &crate::Entity,
     username: String,
@@ -79,7 +92,7 @@ pub fn new_player(
 
 pub fn load_player(
     _: &Storage,
-    conn: &mut PgConnection,
+    conn: &PgPool,
     world: &mut hecs::World,
     entity: &crate::Entity,
 ) -> Result<()> {
@@ -109,11 +122,7 @@ pub fn load_player(
     Ok(())
 }
 
-pub fn update_player(
-    conn: &mut PgConnection,
-    world: &mut hecs::World,
-    entity: &crate::Entity,
-) -> Result<()> {
+pub fn update_player(conn: &PgPool, world: &mut hecs::World, entity: &crate::Entity) -> Result<()> {
     diesel::update(players::table)
         .set(&PGPlayerLogOut::new(world, entity))
         .execute(conn)?;
@@ -121,7 +130,7 @@ pub fn update_player(
 }
 
 pub fn update_inv(
-    conn: &mut PgConnection,
+    conn: &PgPool,
     world: &mut hecs::World,
     entity: &crate::Entity,
     slot: usize,
@@ -136,7 +145,7 @@ pub fn update_inv(
 }
 
 pub fn update_equipment(
-    conn: &mut PgConnection,
+    conn: &PgPool,
     world: &mut hecs::World,
     entity: &crate::Entity,
     slot: usize,
@@ -151,7 +160,7 @@ pub fn update_equipment(
 }
 
 pub fn update_address(
-    conn: &mut PgConnection,
+    conn: &PgPool,
     world: &mut hecs::World,
     entity: &crate::Entity,
 ) -> Result<()> {
@@ -162,7 +171,7 @@ pub fn update_address(
 }
 
 pub fn update_playerdata(
-    conn: &mut PgConnection,
+    conn: &PgPool,
     world: &mut hecs::World,
     entity: &crate::Entity,
 ) -> Result<()> {
@@ -173,7 +182,7 @@ pub fn update_playerdata(
 }
 
 pub fn update_passreset(
-    conn: &mut PgConnection,
+    conn: &PgPool,
     world: &mut hecs::World,
     entity: &crate::Entity,
     resetpassword: Option<String>,
@@ -184,22 +193,14 @@ pub fn update_passreset(
     Ok(())
 }
 
-pub fn update_spawn(
-    conn: &mut PgConnection,
-    world: &mut hecs::World,
-    entity: &crate::Entity,
-) -> Result<()> {
+pub fn update_spawn(conn: &PgPool, world: &mut hecs::World, entity: &crate::Entity) -> Result<()> {
     diesel::update(players::table)
         .set(&PGPlayerSpawn::new(world, entity))
         .execute(conn)?;
     Ok(())
 }
 
-pub fn update_pos(
-    conn: &mut PgConnection,
-    world: &mut hecs::World,
-    entity: &crate::Entity,
-) -> Result<()> {
+pub fn update_pos(conn: &PgPool, world: &mut hecs::World, entity: &crate::Entity) -> Result<()> {
     diesel::update(players::table)
         .set(&PGPlayerPos::new(world, entity))
         .execute(conn)?;
@@ -207,7 +208,7 @@ pub fn update_pos(
 }
 
 pub fn update_currency(
-    conn: &mut PgConnection,
+    conn: &PgPool,
     world: &mut hecs::World,
     entity: &crate::Entity,
 ) -> Result<()> {
@@ -217,11 +218,7 @@ pub fn update_currency(
     Ok(())
 }
 
-pub fn update_level(
-    conn: &mut PgConnection,
-    world: &mut hecs::World,
-    entity: &crate::Entity,
-) -> Result<()> {
+pub fn update_level(conn: &PgPool, world: &mut hecs::World, entity: &crate::Entity) -> Result<()> {
     diesel::update(players::table)
         .set(&PGPlayerLevel::new(world, entity))
         .execute(conn)?;
@@ -229,7 +226,7 @@ pub fn update_level(
 }
 
 pub fn update_resetcount(
-    conn: &mut PgConnection,
+    conn: &PgPool,
     world: &mut hecs::World,
     entity: &crate::Entity,
 ) -> Result<()> {

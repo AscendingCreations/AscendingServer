@@ -8,8 +8,12 @@ use crate::{
     tasks::{DataTaskToken, MapSwitchTasks},
     time_ext::MyInstant,
 };
-use diesel::prelude::*;
+use futures::executor::block_on;
 use mio::Poll;
+use sqlx::{
+    postgres::{PgConnectOptions, PgPoolOptions},
+    ConnectOptions, PgPool,
+};
 use std::cell::RefCell;
 
 pub struct Storage {
@@ -28,16 +32,28 @@ pub struct Storage {
     pub poll: RefCell<mio::Poll>,
     pub server: RefCell<Server>,
     pub gettick: RefCell<MyInstant>,
-    pub pgconn: RefCell<PgConnection>,
+    pub pgconn: RefCell<PgPool>,
     pub time: RefCell<GameTime>,
     pub map_switch_tasks: RefCell<slab::Slab<MapSwitchTasks>>, //Data Tasks For dealing with Player Warp and MapSwitch
     pub bases: Bases,
 }
 
-pub fn establish_connection() -> PgConnection {
-    let database_url = "postgres://test:damit1@localhost:5432/test";
-    PgConnection::establish(database_url)
-        .unwrap_or_else(|_i| panic!("Error connecting to {}", database_url))
+pub fn establish_connection() -> Result<PgPool> {
+    let mut connect_opts = PgConnectOptions::new();
+    connect_opts = connect_opts.log_statements(log::LevelFilter::Debug);
+    connect_opts = connect_opts.database("ascending");
+    connect_opts = connect_opts.username("test");
+    connect_opts = connect_opts.password("test");
+    connect_opts = connect_opts.host("127.0.0.1");
+    connect_opts = connect_opts.port(5432);
+
+    let pool = block_on(
+        PgPoolOptions::new()
+            .max_connections(5)
+            .connect_with(connect_opts),
+    )?;
+
+    Ok(pool)
 }
 
 impl Storage {
@@ -59,7 +75,7 @@ impl Storage {
             poll: RefCell::new(poll),
             server: RefCell::new(server),
             gettick: RefCell::new(MyInstant::now()),
-            pgconn: RefCell::new(establish_connection()),
+            pgconn: RefCell::new(establish_connection().unwrap()),
             time: RefCell::new(GameTime::default()),
             map_switch_tasks: RefCell::new(slab::Slab::new()),
             bases: Bases::new()?,

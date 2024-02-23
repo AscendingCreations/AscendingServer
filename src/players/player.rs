@@ -329,7 +329,7 @@ pub fn player_give_vals(
         }
 
         let _ = send_money(world, storage, entity);
-        let _ = update_currency(&mut storage.pgconn.borrow_mut(), world, entity);
+        let _ = update_currency(&mut storage.pgconn.borrow(), world, entity);
         let _ = send_fltalert(
             storage,
             world.get_or_panic::<&Socket>(entity).id,
@@ -373,7 +373,7 @@ pub fn player_take_vals(
     }
 
     let _ = send_money(world, storage, entity);
-    let _ = update_currency(&mut storage.pgconn.borrow_mut(), world, entity);
+    let _ = update_currency(&mut storage.pgconn.borrow(), world, entity);
     let _ = send_fltalert(
         storage,
         world.get_or_panic::<&Socket>(entity).id,
