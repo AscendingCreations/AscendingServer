@@ -40,6 +40,18 @@ impl<'r> sqlx::Decode<'r, Postgres> for Position {
     }
 }
 
+impl<'q> sqlx::Encode<'q, Postgres> for Position {
+    fn encode_by_ref(&self, buf: &mut sqlx::postgres::PgArgumentBuffer) -> sqlx::encode::IsNull {
+        let mut encoder = sqlx::postgres::types::PgRecordEncoder::new(buf);
+        encoder
+            .encode(self.x)
+            .encode(self.y)
+            .encode(self.map)
+            .finish();
+        sqlx::encode::IsNull::No
+    }
+}
+
 impl Position {
     #[inline(always)]
     pub fn new(x: i32, y: i32, map: MapPosition) -> Position {

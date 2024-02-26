@@ -87,6 +87,7 @@ dependencies = [
  "futures",
  "hecs",
  "indexmap",
+ "itertools",
  "log",
  "mio",
  "password-hash",

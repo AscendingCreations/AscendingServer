@@ -41,7 +41,8 @@ pub const MAX_WORLD_NPCS: usize = 100_000;
 pub const NPCS_SPAWNCAP: usize = 10;
 
 pub const MAX_LVL: usize = 200;
-pub const MAX_INV: usize = 378;
+pub const MAX_INV: usize = 32;
+pub const MAX_EQPT: usize = 5;
 pub const MAX_ITEM_VAL: usize = 999;
 pub const MAX_NAME_LENGTH: usize = 32;
 pub const START_MAP: u32 = 21;

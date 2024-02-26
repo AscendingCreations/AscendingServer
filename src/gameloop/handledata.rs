@@ -106,7 +106,7 @@ fn handle_register(
             );
         }
 
-        match check_existance(&mut storage.pgconn.borrow(), &username, &email) {
+        match check_existance(&storage.pgconn.borrow(), &username, &email) {
             Ok(i) => match i {
                 0 => {}
                 1 => {
@@ -144,7 +144,7 @@ fn handle_register(
             .id = sprite as u16;
 
         if new_player(
-            &mut storage.pgconn.borrow(),
+            &storage.pgconn.borrow(),
             world,
             entity,
             username,
@@ -192,7 +192,7 @@ fn handle_login(
             );
         }
 
-        let id = match find_player(&mut storage.pgconn.borrow(), &username, &password)? {
+        let id = match find_player(&storage.pgconn.borrow(), &username, &password)? {
             Some(id) => id,
             None => {
                 return send_infomsg(
@@ -216,7 +216,7 @@ fn handle_login(
             .expect("Could not find Account")
             .id = id;
 
-        if let Err(_e) = load_player(storage, &mut storage.pgconn.borrow(), world, entity) {
+        if let Err(_e) = load_player(storage, &storage.pgconn.borrow(), world, entity) {
             return send_infomsg(storage, socket_id, "Error Loading User.".into(), 1);
         }
 
@@ -406,7 +406,7 @@ fn handle_unequip(
                 .items[slot] = item;
         }
 
-        let _ = update_equipment(&mut storage.pgconn.borrow(), world, p, slot);
+        let _ = update_equipment(&storage.pgconn.borrow(), world, p, slot);
         //TODO calculatestats();
         return send_equipment(world, storage, p);
     }

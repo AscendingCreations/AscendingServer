@@ -47,15 +47,21 @@ pub struct PlayerMapTimer {
     pub mapitemtimer: MyInstant,
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(
+    PartialEq, Eq, Clone, Debug, Derivative, Deserialize, Serialize, ByteBufferRead, ByteBufferWrite,
+)]
+#[derivative(Default)]
 pub struct Inventory {
+    #[derivative(Default(value = "(0..MAX_INV).map(|_| Item::default()).collect()"))]
     pub items: Vec<Item>,
 }
 
 #[derive(
-    PartialEq, Eq, Clone, Debug, Default, Deserialize, Serialize, ByteBufferRead, ByteBufferWrite,
+    PartialEq, Eq, Clone, Debug, Derivative, Deserialize, Serialize, ByteBufferRead, ByteBufferWrite,
 )]
+#[derivative(Default)]
 pub struct Equipment {
+    #[derivative(Default(value = "(0..MAX_EQPT).map(|_| Item::default()).collect()"))]
     pub items: Vec<Item>,
 }
 
@@ -329,7 +335,7 @@ pub fn player_give_vals(
         }
 
         let _ = send_money(world, storage, entity);
-        let _ = update_currency(&mut storage.pgconn.borrow(), world, entity);
+        let _ = update_currency(&storage.pgconn.borrow(), world, entity);
         let _ = send_fltalert(
             storage,
             world.get_or_panic::<&Socket>(entity).id,
@@ -373,7 +379,7 @@ pub fn player_take_vals(
     }
 
     let _ = send_money(world, storage, entity);
-    let _ = update_currency(&mut storage.pgconn.borrow(), world, entity);
+    let _ = update_currency(&storage.pgconn.borrow(), world, entity);
     let _ = send_fltalert(
         storage,
         world.get_or_panic::<&Socket>(entity).id,

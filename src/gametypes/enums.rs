@@ -17,7 +17,7 @@ use serde_repr::*;
     sqlx::Type,
 )]
 #[sqlx(type_name = "UserAccess")]
-#[repr(u8)]
+#[repr(i8)]
 pub enum UserAccess {
     #[default]
     None,

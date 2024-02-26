@@ -101,7 +101,7 @@ pub fn player_warp(
             .movesavecount += 1;
     }
     if world.get_or_panic::<&Player>(entity).movesavecount >= 25 {
-        let _ = update_pos(&mut storage.pgconn.borrow(), world, entity);
+        let _ = update_pos(&storage.pgconn.borrow(), world, entity);
         {
             world
                 .get::<&mut Player>(entity.0)
@@ -151,7 +151,7 @@ pub fn player_movement(
             .movesavecount += 1;
     }
     if world.get_or_panic::<&Player>(entity).movesavecount >= 25 {
-        let _ = update_pos(&mut storage.pgconn.borrow(), world, entity);
+        let _ = update_pos(&storage.pgconn.borrow(), world, entity);
         {
             world
                 .get::<&mut Player>(entity.0)
@@ -280,7 +280,7 @@ pub fn player_earn_exp(
             world.get_or_panic::<&Vitals>(entity).vitalmax,
         ),
     );
-    let _ = update_level(&mut storage.pgconn.borrow(), world, entity);
+    let _ = update_level(&storage.pgconn.borrow(), world, entity);
 }
 
 pub fn player_get_next_lvl_exp(world: &mut hecs::World, entity: &Entity) -> u64 {
@@ -431,7 +431,7 @@ pub fn player_repair_equipment(
         //TODO: CalculateStats();
 
         let _ = send_equipment(world, storage, entity);
-        let _ = update_equipment(&mut storage.pgconn.borrow(), world, entity, slot);
+        let _ = update_equipment(&storage.pgconn.borrow(), world, entity, slot);
     }
 }
 

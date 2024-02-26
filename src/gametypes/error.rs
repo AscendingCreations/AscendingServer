@@ -44,11 +44,11 @@ pub enum AscendingError {
     #[error(transparent)]
     RegexError(#[from] regex::Error),
     #[error(transparent)]
-    DieselError(#[from] diesel::result::Error),
-    #[error(transparent)]
     ParseError(#[from] std::string::ParseError),
     #[error(transparent)]
     HecNoEntity(#[from] hecs::NoSuchEntity),
     #[error(transparent)]
-    SQLX(#[from] sqlx::Error),
+    Sqlx(#[from] sqlx::Error),
+    #[error(transparent)]
+    HecsComponent(#[from] hecs::ComponentError),
 }

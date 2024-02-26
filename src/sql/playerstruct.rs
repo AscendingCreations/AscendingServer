@@ -12,26 +12,25 @@ pub struct PlayerWithPassword {
 
 #[derive(Debug, FromRow)]
 pub struct PGPlayer {
-    name: String,
-    address: String,
-    sprite: i16,
-    spawn: Position,
-    itemtimer: MyInstant,
-    vals: i64,
-    data: Vec<i64>,
-    access: UserAccess,
-    passresetcode: Option<String>,
-    pos: Position,
-    vital: Vec<i32>,
-    deathtimer: MyInstant,
-    indeath: bool,
-    email: String,
-    password: String,
-    username: String,
-    level: i32,
-    levelexp: i64,
-    resetcount: i16,
-    pk: bool,
+    pub address: String,
+    pub sprite: i16,
+    pub spawn: Position,
+    pub itemtimer: MyInstant,
+    pub vals: i64,
+    pub data: Vec<i64>,
+    pub access: UserAccess,
+    pub passresetcode: Option<String>,
+    pub pos: Position,
+    pub vital: Vec<i32>,
+    pub deathtimer: MyInstant,
+    pub indeath: bool,
+    pub email: String,
+    pub password: String,
+    pub username: String,
+    pub level: i32,
+    pub levelexp: i64,
+    pub resetcount: i16,
+    pub pk: bool,
 }
 
 impl PGPlayer {
@@ -54,9 +53,8 @@ impl PGPlayer {
         };
 
         PGPlayer {
-            name: world.get_or_panic::<&Account>(entity).username.clone(),
             address: world.get_or_panic::<&Socket>(entity).addr.clone(),
-            sprite: i16::unshift_signed(&(world.get_or_panic::<Sprite>(entity).id as u16)),
+            sprite: i16::unshift_signed(&(world.get_or_panic::<Sprite>(entity).id)),
             spawn: world.get_or_panic::<Spawn>(entity).pos,
             itemtimer: world.get_or_panic::<PlayerItemTimer>(entity).itemtimer,
             vals: i64::unshift_signed(&world.get_or_panic::<Money>(entity).vals),
@@ -80,30 +78,30 @@ impl PGPlayer {
 
 #[derive(Debug, PartialEq, Eq, FromRow)]
 pub struct PGPlayerWithID {
-    uid: i64,
-    name: String,
-    address: String,
-    sprite: i16,
-    spawn: Position,
-    itemtimer: MyInstant,
-    vals: i64,
-    data: Vec<i64>,
-    access: UserAccess,
-    pos: Position,
-    vital: Vec<i32>,
-    deathtimer: MyInstant,
-    indeath: bool,
-    level: i32,
-    levelexp: i64,
-    resetcount: i16,
-    pk: bool,
+    pub uid: i64,
+    pub username: String,
+    pub address: String,
+    pub sprite: i16,
+    pub spawn: Position,
+    pub itemtimer: MyInstant,
+    pub vals: i64,
+    pub data: Vec<i64>,
+    pub access: UserAccess,
+    pub pos: Position,
+    pub vital: Vec<i32>,
+    pub deathtimer: MyInstant,
+    pub indeath: bool,
+    pub level: i32,
+    pub levelexp: i64,
+    pub resetcount: i16,
+    pub pk: bool,
 }
 
 impl PGPlayerWithID {
     pub fn new(world: &mut hecs::World, entity: &Entity) -> PGPlayerWithID {
         PGPlayerWithID {
             uid: world.get_or_panic::<&Account>(entity).id,
-            name: world.get_or_panic::<&Account>(entity).username.clone(),
+            username: world.get_or_panic::<&Account>(entity).username.clone(),
             address: world.get_or_panic::<&Socket>(entity).addr.clone(),
             sprite: i16::unshift_signed(&world.get_or_panic::<Sprite>(entity).id),
             spawn: world.get_or_panic::<Spawn>(entity).pos,
@@ -130,7 +128,7 @@ impl PGPlayerWithID {
         world
             .get::<&mut Account>(entity.0)
             .expect("Could not find Account")
-            .username = self.name.clone();
+            .username = self.username.clone();
         world
             .get::<&mut Socket>(entity.0)
             .expect("Could not find Socket")
@@ -198,13 +196,13 @@ impl PGPlayerWithID {
 
 #[derive(Debug, FromRow)]
 pub struct PGPlayerLogOut {
-    uid: i64,
-    itemtimer: MyInstant,
-    pos: Position,
-    vital: Vec<i32>,
-    deathtimer: MyInstant,
-    indeath: bool,
-    pk: bool,
+    pub uid: i64,
+    pub itemtimer: MyInstant,
+    pub pos: Position,
+    pub vital: Vec<i32>,
+    pub deathtimer: MyInstant,
+    pub indeath: bool,
+    pub pk: bool,
 }
 
 impl PGPlayerLogOut {
@@ -223,8 +221,8 @@ impl PGPlayerLogOut {
 
 #[derive(Debug, FromRow)]
 pub struct PGPlayerReset {
-    uid: i64,
-    resetcount: i16,
+    pub uid: i64,
+    pub resetcount: i16,
 }
 
 impl PGPlayerReset {
@@ -238,8 +236,8 @@ impl PGPlayerReset {
 
 #[derive(Debug, FromRow)]
 pub struct PGPlayerAddress {
-    uid: i64,
-    address: String,
+    pub uid: i64,
+    pub address: String,
 }
 
 impl PGPlayerAddress {
@@ -253,10 +251,10 @@ impl PGPlayerAddress {
 
 #[derive(Debug, FromRow)]
 pub struct PGPlayerLevel {
-    uid: i64,
-    level: i32,
-    levelexp: i64,
-    vital: Vec<i32>,
+    pub uid: i64,
+    pub level: i32,
+    pub levelexp: i64,
+    pub vital: Vec<i32>,
 }
 
 impl PGPlayerLevel {
@@ -272,8 +270,8 @@ impl PGPlayerLevel {
 
 #[derive(Debug, FromRow)]
 pub struct PGPlayerData {
-    uid: i64,
-    data: Vec<i64>,
+    pub uid: i64,
+    pub data: Vec<i64>,
 }
 
 impl PGPlayerData {
@@ -287,8 +285,8 @@ impl PGPlayerData {
 
 #[derive(Debug, FromRow)]
 pub struct PGPlayerPassReset {
-    uid: i64,
-    passresetcode: Option<String>,
+    pub uid: i64,
+    pub passresetcode: Option<String>,
 }
 
 impl PGPlayerPassReset {
@@ -306,8 +304,8 @@ impl PGPlayerPassReset {
 
 #[derive(Debug, FromRow)]
 pub struct PGPlayerSpawn {
-    uid: i64,
-    spawn: Position,
+    pub uid: i64,
+    pub spawn: Position,
 }
 
 impl PGPlayerSpawn {
@@ -321,8 +319,8 @@ impl PGPlayerSpawn {
 
 #[derive(Debug, FromRow)]
 pub struct PGPlayerPos {
-    uid: i64,
-    pos: Position,
+    pub uid: i64,
+    pub pos: Position,
 }
 
 impl PGPlayerPos {
@@ -336,8 +334,8 @@ impl PGPlayerPos {
 
 #[derive(Debug, FromRow)]
 pub struct PGPlayerCurrency {
-    uid: i64,
-    vals: i64,
+    pub uid: i64,
+    pub vals: i64,
 }
 
 impl PGPlayerCurrency {

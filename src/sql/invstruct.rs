@@ -1,5 +1,6 @@
 use crate::sql::integers::Shifting;
 use crate::{gametypes::*, items::Item};
+use itertools::Itertools;
 use sqlx::FromRow;
 
 #[derive(Debug, FromRow)]
@@ -54,5 +55,45 @@ impl PGInvItem {
         for slot in items {
             slot.into_item(inv);
         }
+    }
+
+    pub fn into_insert_all(items: Vec<PGInvItem>) -> String {
+        items.into_iter().map(|item| item.into_insert()).join("\n")
+    }
+
+    fn into_insert(self) -> String {
+        let data = self
+            .data
+            .iter()
+            .format_with(", ", |elt, f| f(&format_args!("\"{}\"", elt)));
+
+        format!(
+            r#"
+        INSERT INTO public.inventory(
+            uid, id, num, val, itemlevel, data)
+            VALUES ({0}, {1}, {2}, {3}, {4}, '{{{5}}}');
+        "#,
+            self.uid, self.id, self.num, self.val, self.itemlevel, data
+        )
+    }
+
+    pub fn into_update_all(items: Vec<PGInvItem>) -> String {
+        items.into_iter().map(|item| item.into_update()).join("\n")
+    }
+
+    pub fn into_update(self) -> String {
+        let data = self
+            .data
+            .iter()
+            .format_with(", ", |elt, f| f(&format_args!("\"{}\"", elt)));
+
+        format!(
+            r#"
+            UPDATE public.inventory
+	        SET num={0}, val={1}, itemlevel={2}, data='{{{3}}}'
+	        WHERE uid = {4} && id = {5};
+        "#,
+            self.num, self.val, self.itemlevel, data, self.uid, self.id
+        )
     }
 }
