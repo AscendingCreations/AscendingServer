@@ -51,4 +51,8 @@ pub enum AscendingError {
     Sqlx(#[from] sqlx::Error),
     #[error(transparent)]
     HecsComponent(#[from] hecs::ComponentError),
+    #[error(transparent)]
+    Rustls(#[from] rustls::Error),
+    #[error(transparent)]
+    TomlDe(#[from] toml::de::Error),
 }

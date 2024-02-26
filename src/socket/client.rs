@@ -71,11 +71,22 @@ pub struct Client {
     pub state: ClientState,
     pub sends: Vec<ByteBuffer>,
     pub poll_state: SocketPollState,
+    // used for sending encrypted Data.
+    pub tls: rustls::ServerConnection,
+    // If we are sending and Expecting TLS packets in return.
+    // set to false when you 100% know the client should
+    // Only send unencrypted Data.
+    pub is_tls: bool,
 }
 
 impl Client {
     #[inline]
-    pub fn new(stream: TcpStream, token: mio::Token, entity: Entity) -> Client {
+    pub fn new(
+        stream: TcpStream,
+        token: mio::Token,
+        entity: Entity,
+        tls: rustls::ServerConnection,
+    ) -> Client {
         Client {
             stream,
             token,
@@ -83,6 +94,8 @@ impl Client {
             state: ClientState::Open,
             sends: Vec::with_capacity(32),
             poll_state: SocketPollState::Read,
+            tls,
+            is_tls: true,
         }
     }
 

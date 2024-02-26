@@ -10,11 +10,18 @@ use crate::{
 };
 use futures::executor::block_on;
 use mio::Poll;
+use rustls::{
+    crypto::{ring as provider, CryptoProvider},
+    pki_types::{CertificateDer, PrivateKeyDer},
+    server::WebPkiClientVerifier,
+    ServerConfig,
+};
+use serde::Deserialize;
 use sqlx::{
     postgres::{PgConnectOptions, PgPoolOptions},
     ConnectOptions, PgPool,
 };
-use std::cell::RefCell;
+use std::{cell::RefCell, fs, io::BufReader, sync::Arc};
 
 pub struct Storage {
     //pub players: RefCell<slab::Slab<RefCell<Player>>>,
@@ -56,10 +63,76 @@ pub fn establish_connection() -> Result<PgPool> {
     Ok(pool)
 }
 
+#[derive(Deserialize)]
+struct Config {
+    listen: String,
+    certs: String,
+    key: String,
+    client_key: String,
+    maxconnections: usize,
+}
+
+fn read_config(path: &str) -> Config {
+    let data = fs::read_to_string(path).unwrap();
+    toml::from_str(&data).unwrap()
+}
+
+fn load_certs(filename: &str) -> Vec<CertificateDer<'static>> {
+    let certfile = fs::File::open(filename).expect("cannot open certificate file");
+    let mut reader = BufReader::new(certfile);
+    rustls_pemfile::certs(&mut reader)
+        .map(|result| result.unwrap())
+        .collect()
+}
+
+fn load_private_key(filename: &str) -> PrivateKeyDer<'static> {
+    let keyfile = fs::File::open(filename).expect("cannot open private key file");
+    let mut reader = BufReader::new(keyfile);
+
+    loop {
+        match rustls_pemfile::read_one(&mut reader).expect("cannot parse private key .pem file") {
+            Some(rustls_pemfile::Item::Pkcs1Key(key)) => return key.into(),
+            Some(rustls_pemfile::Item::Pkcs8Key(key)) => return key.into(),
+            Some(rustls_pemfile::Item::Sec1Key(key)) => return key.into(),
+            None => break,
+            _ => {}
+        }
+    }
+
+    panic!(
+        "no keys found in {:?} (encrypted keys not supported)",
+        filename
+    );
+}
+
+fn build_tls_config(certs_path: &str, key_path: &str) -> Result<Arc<rustls::ServerConfig>> {
+    let client_auth = WebPkiClientVerifier::no_client_auth();
+    let certs = load_certs(certs_path);
+    let private_key = load_private_key(key_path);
+
+    let config = ServerConfig::builder_with_provider(
+        CryptoProvider {
+            cipher_suites: provider::ALL_CIPHER_SUITES.to_vec(),
+            ..provider::default_provider()
+        }
+        .into(),
+    )
+    .with_protocol_versions(rustls::ALL_VERSIONS)
+    .expect("inconsistent cipher-suites/versions specified")
+    .with_client_cert_verifier(client_auth)
+    .with_single_cert(certs, private_key)
+    .expect("bad certificates/private key");
+
+    Ok(Arc::new(config))
+}
+
 impl Storage {
     pub fn new() -> Option<Self> {
         let mut poll = Poll::new().ok()?;
-        let server = Server::new(&mut poll, SERVERCONNECTION, MAXCONNECTIONS).ok()?;
+        let config = read_config("settings.toml");
+        let tls_config = build_tls_config(&config.certs, &config.key).unwrap();
+        let server =
+            Server::new(&mut poll, &config.listen, config.maxconnections, tls_config).ok()?;
 
         Some(Self {
             //we will just comment it out for now as we go along and remove later.
@@ -81,48 +154,6 @@ impl Storage {
             bases: Bases::new()?,
         })
     }
-
-    /*pub fn add_npc(&self, world: &mut hecs::World, npc: Npc) -> usize {
-        let mut npcs = self.npcs.borrow_mut();
-        let id = npcs.insert(RefCell::new(npc));
-        let npc = npcs.get_mut(id).unwrap();
-
-        //npc.borrow_mut().e.etype = EntityType::Npc(id as u64);
-        // self.npc_ids.borrow_mut().insert(id);
-        id
-    }
-
-    pub fn remove_npc(&self, world: &mut hecs::World, id: usize) -> Option<Npc> {
-        if !self.npcs.borrow().contains(id) {
-            return None;
-        }
-
-        let removed = self.npcs.borrow_mut().remove(id).into_inner();
-        //self.npc_ids.borrow_mut().remove(&id);
-
-        /*self.maps
-        .get(&removed.e.pos.map)?
-        .borrow_mut()
-        .remove_entity_from_grid(removed.e.pos);*/
-        Some(removed)
-    }*/
-
-    //lets just add the starter parts this will help use change player data around later if they where booted due to
-    //bad connection but reconnected right away. this should help prevent login issues due to account is still logged in.
-    /*pub fn add_player(&self, world: &mut hecs::World, id: usize, addr: String) -> Result<Entity> {
-        let socket = Socket::new(id, addr)?;
-
-        let identity = world.spawn((WorldEntityType::Player, socket, OnlineType::Accepted));
-        world.insert(identity, (EntityType::Player(Entity(identity), 0)))
-
-
-        player.e.etype = EntityType::Player(Entity(identity), 0);
-        self.player_names
-            .borrow_mut()
-            .insert(player.name.clone(), id);
-        self.player_ids.borrow_mut().insert(id);
-        id
-    }*/
 
     pub fn add_empty_player(
         &self,
@@ -250,6 +281,14 @@ impl Storage {
         //Removes Everything related to the Entity.
         let _ = world.despawn(id.0);
         self.npc_ids.borrow_mut().swap_remove(&id);
+
+        //Removes the NPC from the block map.
+        //TODO expand this to support larger npc's liek bosses basedon their Block size.
+        self.maps
+            .get(&ret.map)?
+            .borrow_mut()
+            .remove_entity_from_grid(ret);
+
         Some(ret)
     }
 }
