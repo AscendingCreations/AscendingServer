@@ -12,13 +12,7 @@ serde = { version = "1.0.196", features = ["derive"] }
 serde_repr = "0.1.18"
 slab = "0.4.9"
 mio = { version = "0.8.10", features = ["os-poll", "net"] }
-diesel = { version = "2.1.4", features = [
-    "postgres",
-    "extras",
-    "64-column-tables",
-] }
 chrono = { version = "0.4.33", features = ["serde"] }
-diesel-derive-enum = { version = "2.1.0", features = ["postgres"] }
 phf = { version = "0.11.2", features = ["macros"] }
 regex = "1.10.3"
 derivative = "2.2.0"
@@ -39,4 +33,4 @@ log = { version = "0.4.20", default-features = false }
 itertools = "0.12.1"
 
 [profile.dev]
-opt-level = 0
+opt-level = 3
