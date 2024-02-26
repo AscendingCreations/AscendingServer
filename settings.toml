@@ -1,0 +1,5 @@
+listen = '0.0.0.0:7010'
+certs = 'keys/end.fullchain'
+key = 'keys/end.rsa'
+client_key = 'keys/end.cert'
+maxconnections = 500
