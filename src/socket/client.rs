@@ -20,23 +20,11 @@ pub enum SocketPollState {
 impl SocketPollState {
     #[inline]
     pub fn add(&mut self, state: SocketPollState) {
-        let self_size = *self as usize;
-        let size = state as usize;
-
-        if size == 0 || self_size == size {
-            *self = state;
-            return;
-        }
-
-        if self_size == 3 {
-            return;
-        }
-
-        match self_size + size {
-            1 => *self = SocketPollState::Read,
-            2 => *self = SocketPollState::Write,
-            3 => *self = SocketPollState::ReadWrite,
-            _ => *self = SocketPollState::None,
+        match (*self, state) {
+            (SocketPollState::None, _) => *self = state,
+            (SocketPollState::Read, SocketPollState::Write) => *self = SocketPollState::ReadWrite,
+            (SocketPollState::Write, SocketPollState::Read) => *self = SocketPollState::ReadWrite,
+            (_, _) => {}
         }
     }
 
@@ -47,18 +35,14 @@ impl SocketPollState {
 
     #[inline]
     pub fn remove(&mut self, state: SocketPollState) {
-        let self_size = *self as usize;
-        let size = state as usize;
-
-        if size == 3 || self_size == size {
-            *self = SocketPollState::None;
-            return;
-        }
-
-        match self_size - size {
-            1 => *self = SocketPollState::Read,
-            2 => *self = SocketPollState::Write,
-            _ => *self = SocketPollState::None,
+        match (*self, state) {
+            (SocketPollState::None, _) => {}
+            (SocketPollState::Read, SocketPollState::Read) => *self = SocketPollState::None,
+            (SocketPollState::Write, SocketPollState::Write) => *self = SocketPollState::None,
+            (SocketPollState::ReadWrite, SocketPollState::Write) => *self = SocketPollState::Read,
+            (SocketPollState::ReadWrite, SocketPollState::Read) => *self = SocketPollState::Write,
+            (_, SocketPollState::ReadWrite) => *self = SocketPollState::None,
+            (_, _) => {}
         }
     }
 }
@@ -93,7 +77,7 @@ impl Client {
             entity,
             state: ClientState::Open,
             sends: Vec::with_capacity(32),
-            poll_state: SocketPollState::ReadWrite,
+            poll_state: SocketPollState::Read,
             tls,
             is_tls: true,
         }
@@ -108,11 +92,11 @@ impl Client {
         self.poll_state.set(SocketPollState::None);
 
         if event.is_readable() {
-            self.read_tls(world, storage);
+            self.read(world, storage);
         }
 
         if event.is_writable() {
-            self.write_tls(world);
+            self.write(world);
         }
 
         match self.state {
@@ -175,81 +159,11 @@ impl Client {
 
             if !socket.buffer.is_empty() && !storage.recv_ids.borrow().contains(&self.entity) {
                 storage.recv_ids.borrow_mut().insert(self.entity);
+            } else {
+                self.poll_state.add(SocketPollState::Read);
             }
         } else {
             self.poll_state.add(SocketPollState::Read);
-        }
-    }
-
-    pub fn read_tls(&mut self, world: &mut hecs::World, storage: &Storage) {
-        match self.tls.read_tls(&mut self.stream) {
-            Err(err) => {
-                if let io::ErrorKind::WouldBlock = err.kind() {
-                    return;
-                }
-
-                println!("read error {:?}", err);
-                self.state = ClientState::Closing;
-                return;
-            }
-            Ok(0) => {
-                println!("eof");
-                self.state = ClientState::Closing;
-                return;
-            }
-            Ok(_) => {}
-        };
-
-        // Process newly-received TLS messages.
-        match self.tls.process_new_packets() {
-            Ok(io_state) => {
-                if let Ok(data) = world.entity(self.entity.0) {
-                    let mut socket = data.get::<&mut Socket>().expect("Could not find Socket");
-                    let pos = socket.buffer.cursor();
-                    let _ = socket.buffer.move_cursor_to_end();
-
-                    loop {
-                        if io_state.plaintext_bytes_to_read() > 0 {
-                            let mut buf = vec![0u8; io_state.plaintext_bytes_to_read()];
-                            match self.tls.reader().read_exact(&mut buf) {
-                                Ok(()) => {
-                                    if socket.buffer.write_slice(&buf[..]).is_err() {
-                                        self.state = ClientState::Closing;
-                                        return;
-                                    }
-                                }
-                                Err(_) => {
-                                    self.state = ClientState::Closing;
-                                    return;
-                                }
-                            }
-                        } else {
-                            break;
-                        }
-                    }
-
-                    let _ = socket.buffer.move_cursor(pos);
-
-                    if !socket.buffer.is_empty()
-                        && !storage.recv_ids.borrow().contains(&self.entity)
-                    {
-                        storage.recv_ids.borrow_mut().insert(self.entity);
-                    }
-                } else {
-                    self.poll_state.add(SocketPollState::Read);
-                }
-            }
-            Err(err) => {
-                println!("cannot process packet: {:?}", err);
-
-                // last gasp write to send any alerts
-                let rc = self.tls.write_tls(&mut self.stream);
-                if rc.is_err() {
-                    println!("write failed {:?}", rc);
-                }
-
-                self.state = ClientState::Closing;
-            }
         }
     }
 
@@ -293,52 +207,10 @@ impl Client {
         }
     }
 
-    pub fn write_tls(&mut self, world: &mut hecs::World) {
-        let mut count: usize = 0;
-
-        //make sure the player exists before we send anything.
-        if world.contains(self.entity.0) {
-            loop {
-                let mut packet = match self.sends.pop() {
-                    Some(packet) => packet,
-                    None => {
-                        self.sends.shrink_to_fit();
-                        return;
-                    }
-                };
-
-                match self.tls.writer().write_all(packet.as_slice()) {
-                    Ok(()) => {
-                        count += 1;
-
-                        if let Err(e) = self.tls.write_tls(&mut self.stream) {
-                            println!("TLS write error: {}", e);
-                        }
-
-                        if count >= 25 {
-                            if !self.sends.is_empty() {
-                                self.poll_state.add(SocketPollState::Write);
-                            }
-
-                            return;
-                        }
-                    }
-                    Err(ref err) if err.kind() == io::ErrorKind::WouldBlock => {
-                        //Operation would block so we insert it back in to try again later.
-                        self.sends.push(packet);
-                        return;
-                    }
-                    Err(_) => {
-                        self.state = ClientState::Closing;
-                        return;
-                    }
-                }
-            }
-        }
-    }
-
     #[inline]
     pub fn event_set(&mut self) -> Option<Interest> {
+        let needs_write = self.sends.len() > 0;
+
         match self.poll_state {
             SocketPollState::None => None,
             SocketPollState::Read => Some(Interest::READABLE),
