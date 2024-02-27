@@ -10,7 +10,7 @@ type PacketFunction = fn(&mut hecs::World, &Storage, &mut ByteBuffer, &Entity) -
 
 static PACKET_MAP: phf::Map<u32, PacketFunction> = phf_map! {
     0u32 => handle_register,
-    1u32 => handle_move,
+    1u32 => handle_login,
     2u32 => handle_move,
     3u32 => handle_move,
 };
