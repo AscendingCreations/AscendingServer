@@ -1,6 +1,5 @@
 use crate::{containers::*, gametypes::*, players::*, sql::*};
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
-use futures::executor::block_on;
 use sqlx::{FromRow, PgPool};
 use tokio::{runtime::Runtime, task};
 
@@ -39,8 +38,11 @@ pub fn initiate(conn: &PgPool, rt: &mut Runtime, local: &task::LocalSet) -> Resu
     Ok(())
 }
 
-pub fn find_player(conn: &PgPool, email: &str, password: &str) -> Result<Option<i64>> {
-    let userdata: Option<PlayerWithPassword> = block_on(
+pub fn find_player(storage: &Storage, email: &str, password: &str) -> Result<Option<i64>> {
+    let rt = storage.rt.borrow_mut();
+    let local = storage.local.borrow();
+    let userdata: Option<PlayerWithPassword> = local.block_on(
+        &rt,
         sqlx::query_as(
             r#"
         SELECT uid, password FROM player
@@ -48,7 +50,7 @@ pub fn find_player(conn: &PgPool, email: &str, password: &str) -> Result<Option<
     "#,
         )
         .bind(email)
-        .fetch_optional(conn),
+        .fetch_optional(&*storage.pgconn.borrow()),
     )?;
 
     if let Some(userdata) = userdata {
@@ -70,21 +72,26 @@ pub fn find_player(conn: &PgPool, email: &str, password: &str) -> Result<Option<
     }
 }
 
-pub fn check_existance(conn: &PgPool, username: &str, email: &str) -> Result<i64> {
-    let check: Check = block_on(
+pub fn check_existance(storage: &Storage, username: &str, email: &str) -> Result<i64> {
+    let rt = storage.rt.borrow_mut();
+    let local = storage.local.borrow();
+
+    let check: Check = local.block_on(
+        &rt,
         sqlx::query_as(r#"SELECT EXISTS(SELECT 1 FROM player WHERE username=$1) as check"#)
             .bind(username)
-            .fetch_one(conn),
+            .fetch_one(&*storage.pgconn.borrow()),
     )?;
 
     if check.check {
         return Ok(1);
     };
 
-    let check: Check = block_on(
+    let check: Check = local.block_on(
+        &rt,
         sqlx::query_as(r#"SELECT EXISTS(SELECT 1 FROM player WHERE email=$1) as check"#)
             .bind(email)
-            .fetch_one(conn),
+            .fetch_one(&*storage.pgconn.borrow()),
     )?;
 
     if check.check {
@@ -95,15 +102,18 @@ pub fn check_existance(conn: &PgPool, username: &str, email: &str) -> Result<i64
 }
 
 pub fn new_player(
-    conn: &PgPool,
+    storage: &Storage,
     world: &mut hecs::World,
     entity: &crate::Entity,
     username: String,
     email: String,
     password: String,
 ) -> Result<i64> {
+    let rt = storage.rt.borrow_mut();
+    let local = storage.local.borrow();
+
     let player = PGPlayer::new(world, entity, username, email, password);
-    let uid: (i64, ) = block_on(
+    let uid: (i64, ) = local.block_on(&rt,
         sqlx::query_as(r#"
         INSERT INTO public.player(
             username, address, password, itemtimer, deathtimer, vals, spawn, pos, email, sprite, indeath, level, levelexp, resetcount, pk, data, vital, access)
@@ -126,7 +136,7 @@ pub fn new_player(
             .bind(player.data)
             .bind(player.vital)
             .bind(player.access)
-            .fetch_one(conn),
+            .fetch_one(&*storage.pgconn.borrow()),
     )?;
 
     let inv_insert = PGInvItem::into_insert_all(PGInvItem::new(
@@ -134,37 +144,45 @@ pub fn new_player(
         uid.0,
     ));
 
-    block_on(sqlx::query(&inv_insert).execute(conn))?;
+    local.block_on(
+        &rt,
+        sqlx::query(&inv_insert).execute(&*storage.pgconn.borrow()),
+    )?;
 
     let equip_insert = PGEquipItem::into_insert_all(PGEquipItem::new(
         &world.get_or_panic::<&Equipment>(entity).items,
         uid.0,
     ));
 
-    block_on(sqlx::query(&equip_insert).execute(conn))?;
+    local.block_on(
+        &rt,
+        sqlx::query(&equip_insert).execute(&*storage.pgconn.borrow()),
+    )?;
     Ok(uid.0)
 }
 
 pub fn load_player(
-    _: &Storage,
-    conn: &PgPool,
+    storage: &Storage,
     world: &mut hecs::World,
     entity: &crate::Entity,
 ) -> Result<()> {
+    let rt = storage.rt.borrow_mut();
+    let local = storage.local.borrow();
     let accountid = world.get_or_panic::<&Account>(entity).id;
 
-    let player_with_id: PGPlayerWithID = block_on(
+    let player_with_id: PGPlayerWithID = local.block_on(&rt,
         sqlx::query_as(r#"
         SELECT uid, username, address, password, itemtimer, deathtimer, vals, spawn, pos, email, sprite, indeath, level, levelexp, resetcount, pk, data, vital, passresetcode, access
 	    FROM public.player where uid = $1;
         "#)
             .bind(accountid)
-            .fetch_one(conn),
+            .fetch_one(&*storage.pgconn.borrow()),
     )?;
 
     player_with_id.into_player(world, entity);
 
-    let player_inv: Vec<PGInvItem> = block_on(
+    let player_inv: Vec<PGInvItem> = local.block_on(
+        &rt,
         sqlx::query_as(
             r#"
         SELECT uid, id, num, val, itemlevel, data
@@ -172,7 +190,7 @@ pub fn load_player(
         "#,
         )
         .bind(accountid)
-        .fetch_all(conn),
+        .fetch_all(&*storage.pgconn.borrow()),
     )?;
 
     PGInvItem::array_into_items(
@@ -180,7 +198,8 @@ pub fn load_player(
         &mut world.get::<&mut Inventory>(entity.0)?.items,
     );
 
-    let player_eqpt: Vec<PGEquipItem> = block_on(
+    let player_eqpt: Vec<PGEquipItem> = local.block_on(
+        &rt,
         sqlx::query_as(
             r#"
         SELECT uid, id, num, val, itemlevel, data
@@ -188,7 +207,7 @@ pub fn load_player(
         "#,
         )
         .bind(accountid)
-        .fetch_all(conn),
+        .fetch_all(&*storage.pgconn.borrow()),
     )?;
 
     PGEquipItem::array_into_items(
@@ -199,10 +218,17 @@ pub fn load_player(
     Ok(())
 }
 
-pub fn update_player(conn: &PgPool, world: &mut hecs::World, entity: &crate::Entity) -> Result<()> {
+pub fn update_player(
+    storage: &Storage,
+    world: &mut hecs::World,
+    entity: &crate::Entity,
+) -> Result<()> {
+    let rt = storage.rt.borrow_mut();
+    let local = storage.local.borrow();
     let player = PGPlayerLogOut::new(world, entity);
 
-    block_on(
+    local.block_on(
+        &rt,
         sqlx::query(
             r#"
         UPDATE public.player
@@ -217,49 +243,56 @@ pub fn update_player(conn: &PgPool, world: &mut hecs::World, entity: &crate::Ent
         .bind(player.vital)
         .bind(player.indeath)
         .bind(player.pk)
-        .execute(conn),
+        .execute(&*storage.pgconn.borrow()),
     )?;
 
     Ok(())
 }
 
 pub fn update_inv(
-    conn: &PgPool,
+    storage: &Storage,
     world: &mut hecs::World,
     entity: &crate::Entity,
     slot: usize,
 ) -> Result<()> {
+    let rt = storage.rt.borrow_mut();
+    let local = storage.local.borrow();
     let inv = world.get_or_panic::<&Inventory>(entity);
     let account = world.get_or_panic::<&Account>(entity);
     let update = PGInvItem::single(&inv.items, account.id, slot).into_update();
 
-    block_on(sqlx::query(&update).execute(conn))?;
+    local.block_on(&rt, sqlx::query(&update).execute(&*storage.pgconn.borrow()))?;
     Ok(())
 }
 
 pub fn update_equipment(
-    conn: &PgPool,
+    storage: &Storage,
     world: &mut hecs::World,
     entity: &crate::Entity,
     slot: usize,
 ) -> Result<()> {
+    let rt = storage.rt.borrow_mut();
+    let local = storage.local.borrow();
     let equip = world.get_or_panic::<&Equipment>(entity);
     let account = world.get_or_panic::<&Account>(entity);
     let update = PGEquipItem::single(&equip.items, account.id, slot).into_update();
 
-    block_on(sqlx::query(&update).execute(conn))?;
+    local.block_on(&rt, sqlx::query(&update).execute(&*storage.pgconn.borrow()))?;
 
     Ok(())
 }
 
 pub fn update_address(
-    conn: &PgPool,
+    storage: &Storage,
     world: &mut hecs::World,
     entity: &crate::Entity,
 ) -> Result<()> {
+    let rt = storage.rt.borrow_mut();
+    let local = storage.local.borrow();
     let player = PGPlayerAddress::new(world, entity);
 
-    block_on(
+    local.block_on(
+        &rt,
         sqlx::query(
             r#"
                 UPDATE public.player
@@ -269,20 +302,23 @@ pub fn update_address(
         )
         .bind(player.uid)
         .bind(player.address)
-        .execute(conn),
+        .execute(&*storage.pgconn.borrow()),
     )?;
 
     Ok(())
 }
 
 pub fn update_playerdata(
-    conn: &PgPool,
+    storage: &Storage,
     world: &mut hecs::World,
     entity: &crate::Entity,
 ) -> Result<()> {
+    let rt = storage.rt.borrow_mut();
+    let local = storage.local.borrow();
     let player = PGPlayerData::new(world, entity);
 
-    block_on(
+    local.block_on(
+        &rt,
         sqlx::query(
             r#"
                 UPDATE public.player
@@ -292,21 +328,24 @@ pub fn update_playerdata(
         )
         .bind(player.uid)
         .bind(player.data)
-        .execute(conn),
+        .execute(&*storage.pgconn.borrow()),
     )?;
 
     Ok(())
 }
 
 pub fn update_passreset(
-    conn: &PgPool,
+    storage: &Storage,
     world: &mut hecs::World,
     entity: &crate::Entity,
     resetpassword: Option<String>,
 ) -> Result<()> {
+    let rt = storage.rt.borrow_mut();
+    let local = storage.local.borrow();
     let player = PGPlayerPassReset::new(world, entity, resetpassword);
 
-    block_on(
+    local.block_on(
+        &rt,
         sqlx::query(
             r#"
                 UPDATE public.player
@@ -316,16 +355,23 @@ pub fn update_passreset(
         )
         .bind(player.uid)
         .bind(player.passresetcode)
-        .execute(conn),
+        .execute(&*storage.pgconn.borrow()),
     )?;
 
     Ok(())
 }
 
-pub fn update_spawn(conn: &PgPool, world: &mut hecs::World, entity: &crate::Entity) -> Result<()> {
+pub fn update_spawn(
+    storage: &Storage,
+    world: &mut hecs::World,
+    entity: &crate::Entity,
+) -> Result<()> {
+    let rt = storage.rt.borrow_mut();
+    let local = storage.local.borrow();
     let player = PGPlayerSpawn::new(world, entity);
 
-    block_on(
+    local.block_on(
+        &rt,
         sqlx::query(
             r#"
                 UPDATE public.player
@@ -335,16 +381,23 @@ pub fn update_spawn(conn: &PgPool, world: &mut hecs::World, entity: &crate::Enti
         )
         .bind(player.uid)
         .bind(player.spawn)
-        .execute(conn),
+        .execute(&*storage.pgconn.borrow()),
     )?;
 
     Ok(())
 }
 
-pub fn update_pos(conn: &PgPool, world: &mut hecs::World, entity: &crate::Entity) -> Result<()> {
+pub fn update_pos(
+    storage: &Storage,
+    world: &mut hecs::World,
+    entity: &crate::Entity,
+) -> Result<()> {
+    let rt = storage.rt.borrow_mut();
+    let local = storage.local.borrow();
     let player = PGPlayerPos::new(world, entity);
 
-    block_on(
+    local.block_on(
+        &rt,
         sqlx::query(
             r#"
                 UPDATE public.player
@@ -354,20 +407,23 @@ pub fn update_pos(conn: &PgPool, world: &mut hecs::World, entity: &crate::Entity
         )
         .bind(player.uid)
         .bind(player.pos)
-        .execute(conn),
+        .execute(&*storage.pgconn.borrow()),
     )?;
 
     Ok(())
 }
 
 pub fn update_currency(
-    conn: &PgPool,
+    storage: &Storage,
     world: &mut hecs::World,
     entity: &crate::Entity,
 ) -> Result<()> {
+    let rt = storage.rt.borrow_mut();
+    let local = storage.local.borrow();
     let player = PGPlayerCurrency::new(world, entity);
 
-    block_on(
+    local.block_on(
+        &rt,
         sqlx::query(
             r#"
                 UPDATE public.player
@@ -377,16 +433,23 @@ pub fn update_currency(
         )
         .bind(player.uid)
         .bind(player.vals)
-        .execute(conn),
+        .execute(&*storage.pgconn.borrow()),
     )?;
 
     Ok(())
 }
 
-pub fn update_level(conn: &PgPool, world: &mut hecs::World, entity: &crate::Entity) -> Result<()> {
+pub fn update_level(
+    storage: &Storage,
+    world: &mut hecs::World,
+    entity: &crate::Entity,
+) -> Result<()> {
+    let rt = storage.rt.borrow_mut();
+    let local = storage.local.borrow();
     let player = PGPlayerLevel::new(world, entity);
 
-    block_on(
+    local.block_on(
+        &rt,
         sqlx::query(
             r#"
                 UPDATE public.player
@@ -398,20 +461,23 @@ pub fn update_level(conn: &PgPool, world: &mut hecs::World, entity: &crate::Enti
         .bind(player.level)
         .bind(player.levelexp)
         .bind(player.vital)
-        .execute(conn),
+        .execute(&*storage.pgconn.borrow()),
     )?;
 
     Ok(())
 }
 
 pub fn update_resetcount(
-    conn: &PgPool,
+    storage: &Storage,
     world: &mut hecs::World,
     entity: &crate::Entity,
 ) -> Result<()> {
+    let rt = storage.rt.borrow_mut();
+    let local = storage.local.borrow();
     let player = PGPlayerReset::new(world, entity);
 
-    block_on(
+    local.block_on(
+        &rt,
         sqlx::query(
             r#"
                 UPDATE public.player
@@ -421,7 +487,7 @@ pub fn update_resetcount(
         )
         .bind(player.uid)
         .bind(player.resetcount)
-        .execute(conn),
+        .execute(&*storage.pgconn.borrow()),
     )?;
 
     Ok(())

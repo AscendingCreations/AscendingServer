@@ -2,7 +2,7 @@ use crate::{containers::*, gameloop::*, gametypes::*, items::*, players::*, sql:
 
 #[inline]
 pub fn save_item(world: &mut hecs::World, storage: &Storage, entity: &Entity, slot: usize) {
-    let _ = update_inv(&storage.pgconn.borrow(), world, entity, slot);
+    let _ = update_inv(storage, world, entity, slot);
     let _ = send_invslot(world, storage, entity, slot);
 }
 
