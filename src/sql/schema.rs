@@ -6,7 +6,10 @@ CREATE SEQUENCE IF NOT EXISTS public.player_uid_seq
     MINVALUE 1
     MAXVALUE 9223372036854775807
     CACHE 1;
+";
 
+#[rustfmt::skip]
+pub const PLAYER_SEQ_SCHEMA_ALTER: &str = "
 ALTER SEQUENCE public.player_uid_seq
     OWNER TO postgres;
 ";
@@ -36,7 +39,7 @@ CREATE TABLE IF NOT EXISTS public.player
     passresetcode text COLLATE pg_catalog.\"default\",
     access \"UserAccess\" NOT NULL,
     created_on timestamp with time zone NOT NULL DEFAULT now(),
-    CONSTRAINT player_pkey PRIMARY KEY (uid)
+    CONSTRAINT player_pkey PRIMARY KEY (uid),
     CONSTRAINT email UNIQUE (email),
     CONSTRAINT username UNIQUE (username)
 )
@@ -45,7 +48,10 @@ WITH (
     FILLFACTOR = 70
 )
 TABLESPACE pg_default;
+";
 
+#[rustfmt::skip]
+pub const PLAYER_SCHEMA_ALTER: &str = "
 ALTER TABLE IF EXISTS public.player
     OWNER to postgres;
 ";
@@ -66,7 +72,10 @@ WITH (
     FILLFACTOR = 70
 )
 TABLESPACE pg_default;
+";
 
+#[rustfmt::skip]
+pub const EQUIPMENT_SCHEMA_ALTER: &str = "
 ALTER TABLE IF EXISTS public.equipment
     OWNER to postgres;
 ";
@@ -87,7 +96,10 @@ WITH (
     FILLFACTOR = 70
 )
 TABLESPACE pg_default;
+";
 
+#[rustfmt::skip]
+pub const INVENTORY_SCHEMA_ALTER: &str = "
 ALTER TABLE IF EXISTS public.inventory
     OWNER to postgres;
 ";
@@ -103,8 +115,14 @@ CREATE TABLE IF NOT EXISTS public.logs
     ipaddress text COLLATE pg_catalog.\"default\" NOT NULL
 )
 
+WITH (
+    FILLFACTOR = 70
+)
 TABLESPACE pg_default;
+";
 
+#[rustfmt::skip]
+pub const LOGS_SCHEMA_ALTER: &str = "
 ALTER TABLE IF EXISTS public.logs
     OWNER to postgres
 ";

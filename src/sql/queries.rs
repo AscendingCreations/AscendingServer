@@ -2,10 +2,41 @@ use crate::{containers::*, gametypes::*, players::*, sql::*};
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use futures::executor::block_on;
 use sqlx::{FromRow, PgPool};
+use tokio::{runtime::Runtime, task};
 
 #[derive(Debug, PartialEq, Eq, FromRow)]
 pub struct Check {
     pub check: bool,
+}
+
+pub fn initiate(conn: &PgPool, rt: &mut Runtime, local: &task::LocalSet) -> Result<()> {
+    let queries = [
+        LOGTYPE_SCHEMA,
+        LOGTYPE_SCHEMA_ALTER,
+        USERACCESS_SCHEMA,
+        USERACCESS_SCHEMA_ALTER,
+        MAP_POSITION_SCHEMA,
+        MAP_POSITION_SCHEMA_ALTER,
+        POSITION_SCHEMA,
+        POSITION_SCHEMA_ALTER,
+        PLAYER_SEQ_SCHEMA,
+        PLAYER_SEQ_SCHEMA_ALTER,
+        PLAYER_SCHEMA,
+        PLAYER_SCHEMA_ALTER,
+        EQUIPMENT_SCHEMA,
+        EQUIPMENT_SCHEMA_ALTER,
+        INVENTORY_SCHEMA,
+        INVENTORY_SCHEMA_ALTER,
+        LOGS_SCHEMA,
+        LOGS_SCHEMA_ALTER,
+    ];
+
+    for quere in queries {
+        println!("Running: {}", quere);
+        local.block_on(rt, sqlx::query(quere).execute(conn))?;
+    }
+
+    Ok(())
 }
 
 pub fn find_player(conn: &PgPool, email: &str, password: &str) -> Result<Option<i64>> {

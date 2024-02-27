@@ -8,7 +8,7 @@ use crate::{
     tasks::{DataTaskToken, MapSwitchTasks},
     time_ext::MyInstant,
 };
-use futures::executor::block_on;
+//use futures::executor::block_on;
 use mio::Poll;
 use rustls::{
     crypto::{ring as provider, CryptoProvider},
@@ -22,6 +22,8 @@ use sqlx::{
     ConnectOptions, PgPool,
 };
 use std::{cell::RefCell, fs, io::BufReader, sync::Arc};
+use tokio::runtime::Runtime;
+use tokio::task;
 
 pub struct Storage {
     //pub players: RefCell<slab::Slab<RefCell<Player>>>,
@@ -43,18 +45,25 @@ pub struct Storage {
     pub time: RefCell<GameTime>,
     pub map_switch_tasks: RefCell<slab::Slab<MapSwitchTasks>>, //Data Tasks For dealing with Player Warp and MapSwitch
     pub bases: Bases,
+    pub rt: RefCell<Runtime>,
+    pub local: RefCell<task::LocalSet>,
 }
 
-pub fn establish_connection() -> Result<PgPool> {
+fn establish_connection(
+    config: &Config,
+    rt: &mut Runtime,
+    local: &task::LocalSet,
+) -> Result<PgPool> {
     let mut connect_opts = PgConnectOptions::new();
     connect_opts = connect_opts.log_statements(log::LevelFilter::Debug);
-    connect_opts = connect_opts.database("ascending");
-    connect_opts = connect_opts.username("test");
-    connect_opts = connect_opts.password("test");
-    connect_opts = connect_opts.host("127.0.0.1");
-    connect_opts = connect_opts.port(5432);
+    connect_opts = connect_opts.database(&config.database);
+    connect_opts = connect_opts.username(&config.username);
+    connect_opts = connect_opts.password(&config.password);
+    connect_opts = connect_opts.host(&config.host);
+    connect_opts = connect_opts.port(config.port);
 
-    let pool = block_on(
+    let pool = local.block_on(
+        rt,
         PgPoolOptions::new()
             .max_connections(5)
             .connect_with(connect_opts),
@@ -67,9 +76,14 @@ pub fn establish_connection() -> Result<PgPool> {
 struct Config {
     listen: String,
     certs: String,
-    key: String,
+    server_key: String,
     client_key: String,
     maxconnections: usize,
+    database: String,
+    username: String,
+    password: String,
+    host: String,
+    port: u16,
 }
 
 fn read_config(path: &str) -> Config {
@@ -130,11 +144,16 @@ impl Storage {
     pub fn new() -> Option<Self> {
         let mut poll = Poll::new().ok()?;
         let config = read_config("settings.toml");
-        let tls_config = build_tls_config(&config.certs, &config.key).unwrap();
+        let tls_config = build_tls_config(&config.certs, &config.server_key).unwrap();
         let server =
             Server::new(&mut poll, &config.listen, config.maxconnections, tls_config).ok()?;
 
-        Some(Self {
+        let mut rt: Runtime = Runtime::new().unwrap();
+        let local = task::LocalSet::new();
+        let pgconn = establish_connection(&config, &mut rt, &local).unwrap();
+        crate::sql::initiate(&pgconn, &mut rt, &local).unwrap();
+
+        let storage = Self {
             //we will just comment it out for now as we go along and remove later.
             //players: RefCell::new(slab::Slab::new()),
             //npcs: RefCell::new(slab::Slab::new()),
@@ -148,11 +167,15 @@ impl Storage {
             poll: RefCell::new(poll),
             server: RefCell::new(server),
             gettick: RefCell::new(MyInstant::now()),
-            pgconn: RefCell::new(establish_connection().unwrap()),
+            pgconn: RefCell::new(pgconn),
             time: RefCell::new(GameTime::default()),
             map_switch_tasks: RefCell::new(slab::Slab::new()),
             bases: Bases::new()?,
-        })
+            rt: RefCell::new(rt),
+            local: RefCell::new(local),
+        };
+
+        Some(storage)
     }
 
     pub fn add_empty_player(
