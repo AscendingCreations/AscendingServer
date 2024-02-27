@@ -10,7 +10,7 @@ pub const SERVER: mio::Token = mio::Token(0);
 
 pub struct Server {
     pub listener: TcpListener,
-    pub clients: RefCell<HashMap<mio::Token, RefCell<Client>>>,
+    pub clients: HashMap<mio::Token, RefCell<Client>>,
     pub tokens: VecDeque<mio::Token>,
     pub tls_config: Arc<rustls::ServerConfig>,
 }
@@ -39,7 +39,7 @@ impl Server {
 
         Ok(Server {
             listener,
-            clients: RefCell::new(HashMap::default()),
+            clients: HashMap::default(),
             tokens,
             tls_config: cfg,
         })
@@ -71,9 +71,7 @@ impl Server {
                 client.register(&storage.poll.borrow_mut())?;
 
                 // insert client into handled list.
-                self.clients
-                    .borrow_mut()
-                    .insert(token, RefCell::new(client));
+                self.clients.insert(token, RefCell::new(client));
             } else {
                 drop(stream);
             }
@@ -84,8 +82,8 @@ impl Server {
     #[inline]
     pub fn remove(&mut self, token: mio::Token) {
         /* If the token is valid, let's remove the connection and add the token back to the bag. */
-        if self.clients.borrow().contains_key(&token) {
-            self.clients.borrow_mut().remove(&token);
+        if self.clients.contains_key(&token) {
+            self.clients.remove(&token);
             self.tokens.push_front(token);
         }
     }
@@ -98,6 +96,7 @@ pub fn poll_events(world: &mut hecs::World, storage: &Storage) -> Result<()> {
         .poll
         .borrow_mut()
         .poll(&mut events, Some(Duration::from_millis(100)))?;
+
     for event in events.iter() {
         match event.token() {
             SERVER => {
@@ -110,7 +109,7 @@ pub fn poll_events(world: &mut hecs::World, storage: &Storage) -> Result<()> {
             }
             token => {
                 let mut server = storage.server.borrow_mut();
-                let state = if let Some(a) = server.clients.borrow_mut().get(&token) {
+                let state = if let Some(a) = server.clients.get(&token) {
                     a.borrow_mut().process(event, world, storage)?;
                     a.borrow().state
                 } else {

@@ -36,7 +36,6 @@ impl SocketPollState {
     #[inline]
     pub fn remove(&mut self, state: SocketPollState) {
         match (*self, state) {
-            (SocketPollState::None, _) => {}
             (SocketPollState::Read, SocketPollState::Read) => *self = SocketPollState::None,
             (SocketPollState::Write, SocketPollState::Write) => *self = SocketPollState::None,
             (SocketPollState::ReadWrite, SocketPollState::Write) => *self = SocketPollState::Read,
@@ -89,16 +88,21 @@ impl Client {
         world: &mut hecs::World,
         storage: &Storage,
     ) -> Result<()> {
+        //We set it as None so we can fully control when to enable it again based on conditions.
         self.poll_state.set(SocketPollState::None);
 
+        // Check if the Event has some readable Data from the Poll State.
         if event.is_readable() {
             self.read(world, storage);
         }
 
+        // Check if the Event has some writable Data from the Poll State.
         if event.is_writable() {
             self.write(world);
         }
 
+        // Check if the Socket is closing if not lets reregister the poll event for it.
+        // if `SocketPollState::None` is registers as the poll event we will not get data.
         match self.state {
             ClientState::Closing => self.close_socket(world, storage)?,
             _ => self.reregister(&storage.poll.borrow_mut())?,
@@ -128,43 +132,46 @@ impl Client {
     }
 
     pub fn read(&mut self, world: &mut hecs::World, storage: &Storage) {
-        if let Ok(data) = world.entity(self.entity.0) {
-            let mut socket = data.get::<&mut Socket>().expect("Could not find Socket");
+        // used for early breaking and return.
+        'outer_loop: loop {
+            let mut socket = match world.get::<&mut Socket>(self.entity.0) {
+                Ok(v) => v,
+                Err(_) => break 'outer_loop,
+            };
+
+            // get the current pos so we can reset it back for reading.
             let pos = socket.buffer.cursor();
             let _ = socket.buffer.move_cursor_to_end();
 
-            loop {
+            'inner_loop: loop {
                 let mut buf: [u8; 2048] = [0; 2048];
                 match self.stream.read(&mut buf) {
-                    Ok(0) => {
-                        self.state = ClientState::Closing;
-                        return;
+                    Err(ref err) if err.kind() == io::ErrorKind::WouldBlock => break 'inner_loop,
+                    Err(ref err) if err.kind() == io::ErrorKind::Interrupted => {
+                        continue 'inner_loop
                     }
+                    Ok(0) | Err(_) => break 'outer_loop,
                     Ok(n) => {
                         if socket.buffer.write_slice(&buf[0..n]).is_err() {
-                            self.state = ClientState::Closing;
-                            return;
+                            break 'outer_loop;
                         }
-                    }
-                    Err(ref err) if err.kind() == io::ErrorKind::WouldBlock => break,
-                    Err(ref err) if err.kind() == io::ErrorKind::Interrupted => continue,
-                    Err(_) => {
-                        self.state = ClientState::Closing;
-                        return;
                     }
                 }
             }
 
+            // reset it back to the original pos so we can Read from it again.
             let _ = socket.buffer.move_cursor(pos);
 
-            if !socket.buffer.is_empty() && !storage.recv_ids.borrow().contains(&self.entity) {
+            if !socket.buffer.is_empty() {
                 storage.recv_ids.borrow_mut().insert(self.entity);
             } else {
+                // we are not going to handle any reads so lets mark it back as read again so it can
+                //continue to get packets.
                 self.poll_state.add(SocketPollState::Read);
             }
-        } else {
-            self.poll_state.add(SocketPollState::Read);
         }
+
+        self.state = ClientState::Closing;
     }
 
     pub fn write(&mut self, world: &mut hecs::World) {
@@ -209,8 +216,6 @@ impl Client {
 
     #[inline]
     pub fn event_set(&mut self) -> Option<Interest> {
-        let needs_write = self.sends.len() > 0;
-
         match self.poll_state {
             SocketPollState::None => None,
             SocketPollState::Read => Some(Interest::READABLE),
@@ -283,13 +288,7 @@ pub fn accept_connection(
 
 #[inline]
 pub fn send_to(storage: &Storage, id: usize, buf: ByteBuffer) {
-    if let Some(client) = storage
-        .server
-        .borrow()
-        .clients
-        .borrow()
-        .get(&mio::Token(id))
-    {
+    if let Some(client) = storage.server.borrow().clients.get(&mio::Token(id)) {
         client.borrow_mut().send(&storage.poll.borrow(), buf);
     }
 }
@@ -303,13 +302,7 @@ pub fn send_to_all(world: &hecs::World, storage: &Storage, buf: ByteBuffer) {
             **worldentitytype == WorldEntityType::Player && **onlinetype == OnlineType::Online
         })
     {
-        if let Some(client) = storage
-            .server
-            .borrow()
-            .clients
-            .borrow()
-            .get(&mio::Token(socket.id))
-        {
+        if let Some(client) = storage.server.borrow().clients.get(&mio::Token(socket.id)) {
             client
                 .borrow_mut()
                 .send(&storage.poll.borrow(), buf.clone());
@@ -349,13 +342,7 @@ pub fn send_to_maps(
                 continue;
             }
 
-            if let Some(client) = storage
-                .server
-                .borrow()
-                .clients
-                .borrow()
-                .get(&mio::Token(socket.id))
-            {
+            if let Some(client) = storage.server.borrow().clients.get(&mio::Token(socket.id)) {
                 client
                     .borrow_mut()
                     .send(&storage.poll.borrow(), buf.clone());

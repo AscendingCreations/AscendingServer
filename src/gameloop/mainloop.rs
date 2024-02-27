@@ -59,26 +59,14 @@ pub fn get_length(storage: &Storage, buffer: &mut ByteBuffer, id: usize) -> Opti
         let length = buffer.read::<u64>().ok()?;
 
         if !(4..=8192).contains(&length) {
-            if let Some(client) = storage
-                .server
-                .borrow()
-                .clients
-                .borrow()
-                .get(&mio::Token(id))
-            {
+            if let Some(client) = storage.server.borrow().clients.get(&mio::Token(id)) {
                 client.borrow_mut().set_to_closing(storage);
             }
         }
 
         Some(length)
     } else {
-        if let Some(client) = storage
-            .server
-            .borrow()
-            .clients
-            .borrow()
-            .get(&mio::Token(id))
-        {
+        if let Some(client) = storage.server.borrow().clients.get(&mio::Token(id)) {
             client.borrow_mut().poll_state.add(SocketPollState::Read);
             client
                 .borrow_mut()
@@ -127,12 +115,8 @@ pub fn process_packets(world: &mut World, storage: &Storage) {
                 let mut buffer = match socket.buffer.read_to_buffer(length as usize) {
                     Ok(n) => n,
                     Err(_) => {
-                        if let Some(client) = storage
-                            .server
-                            .borrow()
-                            .clients
-                            .borrow()
-                            .get(&mio::Token(socket_id))
+                        if let Some(client) =
+                            storage.server.borrow().clients.get(&mio::Token(socket_id))
                         {
                             client.borrow_mut().set_to_closing(storage);
                         }
@@ -143,12 +127,8 @@ pub fn process_packets(world: &mut World, storage: &Storage) {
                 };
 
                 if handle_data(world, storage, &mut buffer, entity).is_err() {
-                    if let Some(client) = storage
-                        .server
-                        .borrow()
-                        .clients
-                        .borrow()
-                        .get(&mio::Token(socket_id))
+                    if let Some(client) =
+                        storage.server.borrow().clients.get(&mio::Token(socket_id))
                     {
                         client.borrow_mut().set_to_closing(storage);
                     }
@@ -161,13 +141,7 @@ pub fn process_packets(world: &mut World, storage: &Storage) {
             } else {
                 let _ = socket.buffer.move_cursor(socket.buffer.cursor() - 8);
 
-                if let Some(client) = storage
-                    .server
-                    .borrow()
-                    .clients
-                    .borrow()
-                    .get(&mio::Token(socket_id))
-                {
+                if let Some(client) = storage.server.borrow().clients.get(&mio::Token(socket_id)) {
                     client.borrow_mut().poll_state.add(SocketPollState::Read);
                     client
                         .borrow_mut()
