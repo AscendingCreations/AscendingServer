@@ -169,6 +169,8 @@ impl Client {
                 //continue to get packets.
                 self.poll_state.add(SocketPollState::Read);
             }
+
+            return;
         }
 
         self.state = ClientState::Closing;
