@@ -177,40 +177,38 @@ impl Client {
     pub fn write(&mut self, world: &mut hecs::World) {
         let mut count: usize = 0;
 
-        //make sure the player exists before we send anything.
-        if world.contains(self.entity.0) {
-            loop {
-                let mut packet = match self.sends.pop() {
-                    Some(packet) => packet,
-                    None => {
-                        self.sends.shrink_to_fit();
-                        return;
-                    }
-                };
+        //make sure the player exists if nto we have a socket closing
+        if !world.contains(self.entity.0) {
+            self.state = ClientState::Closing;
+            return;
+        }
 
-                match self.stream.write_all(packet.as_slice()) {
-                    Ok(()) => {
-                        count += 1;
+        // lets only send 25 packets per socket each loop.
+        while count < 25 {
+            let mut packet = match self.sends.pop() {
+                Some(packet) => packet,
+                None => {
+                    self.sends.shrink_to_fit();
+                    return;
+                }
+            };
 
-                        if count >= 25 {
-                            if !self.sends.is_empty() {
-                                self.poll_state.add(SocketPollState::Write);
-                            }
-
-                            return;
-                        }
-                    }
-                    Err(ref err) if err.kind() == io::ErrorKind::WouldBlock => {
-                        //Operation would block so we insert it back in to try again later.
-                        self.sends.push(packet);
-                        return;
-                    }
-                    Err(_) => {
-                        self.state = ClientState::Closing;
-                        return;
-                    }
+            match self.stream.write_all(packet.as_slice()) {
+                Ok(()) => count += 1,
+                Err(ref err) if err.kind() == io::ErrorKind::WouldBlock => {
+                    //Operation would block so we insert it back in to try again later.
+                    self.sends.push(packet);
+                    return;
+                }
+                Err(_) => {
+                    self.state = ClientState::Closing;
+                    return;
                 }
             }
+        }
+
+        if !self.sends.is_empty() {
+            self.poll_state.add(SocketPollState::Write);
         }
     }
 
@@ -245,18 +243,11 @@ impl Client {
     #[inline]
     pub fn send(&mut self, poll: &mio::Poll, buf: ByteBuffer) {
         self.sends.insert(0, buf);
-        let state = self.poll_state;
 
-        match state {
-            SocketPollState::Write => {}
-            SocketPollState::ReadWrite => {}
-            _ => {
-                self.poll_state.add(SocketPollState::Write);
-                match self.reregister(poll) {
-                    Ok(_) => {}
-                    Err(_) => panic!("Socket did not reregister on Send write update."),
-                }
-            }
+        self.poll_state.add(SocketPollState::Write);
+        match self.reregister(poll) {
+            Ok(_) => {}
+            Err(_) => panic!("Socket did not reregister on Send write update."),
         }
     }
 }
@@ -279,7 +270,7 @@ pub fn accept_connection(
     world: &mut hecs::World,
     storage: &Storage,
 ) -> Option<Entity> {
-    if storage.player_ids.borrow().len() + 1 >= MAX_SOCKET_PLAYERS {
+    if storage.server.borrow().clients.len() + 1 >= MAX_SOCKET_PLAYERS {
         return None;
     }
 

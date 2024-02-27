@@ -24,7 +24,7 @@ impl Server {
         cfg: Arc<rustls::ServerConfig>,
     ) -> Result<Server> {
         /* Create a bag of unique tokens. */
-        let mut tokens = VecDeque::new();
+        let mut tokens = VecDeque::with_capacity(max);
 
         for i in 1..max {
             tokens.push_back(mio::Token(i));
