@@ -59,13 +59,12 @@ fn handle_register(
     let password = data.read::<String>()?;
     let email = data.read::<String>()?;
     let sprite: u8 = data.read()?;
-    let hair: u8 = data.read()?;
 
     let socket_id = world.get_or_panic::<&Socket>(entity).id;
-    return send_infomsg(storage, socket_id,
-        "Account Was Created. Please wait for the Verification code sent to your email before logging in.".into(), 1);
+    send_infomsg(storage, socket_id,
+        "Account Was Created. Please wait for the Verification code sent to your email before logging in.".into(), 1)
 
-    if !storage.player_ids.borrow().contains(entity) {
+    /* if !storage.player_ids.borrow().contains(entity) {
         let email_regex = Regex::new(
             r"^([a-z0-9_+]([a-z0-9_+.]*[a-z0-9_+])?)@([a-z0-9]+([\-\.]{1}[a-z0-9]+)*\.[a-z]{2,6})",
         )?;
@@ -99,7 +98,7 @@ fn handle_register(
             );
         }
 
-        if !email_regex.is_match(&email) || hair >= 8 || sprite >= 6 {
+        if !email_regex.is_match(&email) || sprite >= 6 {
             return send_infomsg(
                 storage,
                 socket_id,
@@ -158,7 +157,7 @@ fn handle_register(
              "Account Was Created. Please wait for the Verification code sent to your email before logging in.".into(), 1);
     }
 
-    Err(AscendingError::InvalidSocket)
+    Err(AscendingError::InvalidSocket)*/
 }
 
 fn handle_login(
