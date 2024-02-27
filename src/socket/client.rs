@@ -132,48 +132,46 @@ impl Client {
     }
 
     pub fn read(&mut self, world: &mut hecs::World, storage: &Storage) {
-        // used for early breaking and return.
-        'outer_loop: loop {
-            let mut socket = match world.get::<&mut Socket>(self.entity.0) {
-                Ok(v) => v,
-                Err(_) => break 'outer_loop,
-            };
+        let mut socket = match world.get::<&mut Socket>(self.entity.0) {
+            Ok(v) => v,
+            Err(_) => {
+                self.state = ClientState::Closing;
+                return;
+            }
+        };
 
-            // get the current pos so we can reset it back for reading.
-            let pos = socket.buffer.cursor();
-            let _ = socket.buffer.move_cursor_to_end();
+        // get the current pos so we can reset it back for reading.
+        let pos = socket.buffer.cursor();
+        let _ = socket.buffer.move_cursor_to_end();
 
-            'inner_loop: loop {
-                let mut buf: [u8; 2048] = [0; 2048];
-                match self.stream.read(&mut buf) {
-                    Err(ref err) if err.kind() == io::ErrorKind::WouldBlock => break 'inner_loop,
-                    Err(ref err) if err.kind() == io::ErrorKind::Interrupted => {
-                        continue 'inner_loop
-                    }
-                    Ok(0) | Err(_) => break 'outer_loop,
-                    Ok(n) => {
-                        if socket.buffer.write_slice(&buf[0..n]).is_err() {
-                            break 'outer_loop;
-                        }
+        loop {
+            let mut buf: [u8; 2048] = [0; 2048];
+            match self.stream.read(&mut buf) {
+                Err(ref err) if err.kind() == io::ErrorKind::WouldBlock => break,
+                Err(ref err) if err.kind() == io::ErrorKind::Interrupted => continue,
+                Ok(0) | Err(_) => {
+                    self.state = ClientState::Closing;
+                    return;
+                }
+                Ok(n) => {
+                    if socket.buffer.write_slice(&buf[0..n]).is_err() {
+                        self.state = ClientState::Closing;
+                        return;
                     }
                 }
             }
-
-            // reset it back to the original pos so we can Read from it again.
-            let _ = socket.buffer.move_cursor(pos);
-
-            if !socket.buffer.is_empty() {
-                storage.recv_ids.borrow_mut().insert(self.entity);
-            } else {
-                // we are not going to handle any reads so lets mark it back as read again so it can
-                //continue to get packets.
-                self.poll_state.add(SocketPollState::Read);
-            }
-
-            return;
         }
 
-        self.state = ClientState::Closing;
+        // reset it back to the original pos so we can Read from it again.
+        let _ = socket.buffer.move_cursor(pos);
+
+        if !socket.buffer.is_empty() {
+            storage.recv_ids.borrow_mut().insert(self.entity);
+        } else {
+            // we are not going to handle any reads so lets mark it back as read again so it can
+            //continue to get packets.
+            self.poll_state.add(SocketPollState::Read);
+        }
     }
 
     pub fn write(&mut self, world: &mut hecs::World) {
