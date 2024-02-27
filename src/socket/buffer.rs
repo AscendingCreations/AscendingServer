@@ -16,7 +16,7 @@ impl ByteBufferExt for ByteBuffer {
 
     fn new_packet_with(len: usize) -> bytey::Result<ByteBuffer> {
         let mut buffer = ByteBuffer::with_capacity(len + 8)?;
-        let _ = buffer.move_cursor(8)?;
+        buffer.write(0u64)?;
         Ok(buffer)
     }
 

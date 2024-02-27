@@ -93,7 +93,7 @@ impl Client {
             entity,
             state: ClientState::Open,
             sends: Vec::with_capacity(32),
-            poll_state: SocketPollState::Read,
+            poll_state: SocketPollState::ReadWrite,
             tls,
             is_tls: true,
         }
@@ -108,11 +108,11 @@ impl Client {
         self.poll_state.set(SocketPollState::None);
 
         if event.is_readable() {
-            self.read(world, storage);
+            self.read_tls(world, storage);
         }
 
         if event.is_writable() {
-            self.write(world);
+            self.write_tls(world);
         }
 
         match self.state {
@@ -181,6 +181,78 @@ impl Client {
         }
     }
 
+    pub fn read_tls(&mut self, world: &mut hecs::World, storage: &Storage) {
+        match self.tls.read_tls(&mut self.stream) {
+            Err(err) => {
+                if let io::ErrorKind::WouldBlock = err.kind() {
+                    return;
+                }
+
+                println!("read error {:?}", err);
+                self.state = ClientState::Closing;
+                return;
+            }
+            Ok(0) => {
+                println!("eof");
+                self.state = ClientState::Closing;
+                return;
+            }
+            Ok(_) => {}
+        };
+
+        // Process newly-received TLS messages.
+        match self.tls.process_new_packets() {
+            Ok(io_state) => {
+                if let Ok(data) = world.entity(self.entity.0) {
+                    let mut socket = data.get::<&mut Socket>().expect("Could not find Socket");
+                    let pos = socket.buffer.cursor();
+                    let _ = socket.buffer.move_cursor_to_end();
+
+                    loop {
+                        if io_state.plaintext_bytes_to_read() > 0 {
+                            let mut buf = vec![0u8; io_state.plaintext_bytes_to_read()];
+                            match self.tls.reader().read_exact(&mut buf) {
+                                Ok(()) => {
+                                    if socket.buffer.write_slice(&buf[..]).is_err() {
+                                        self.state = ClientState::Closing;
+                                        return;
+                                    }
+                                }
+                                Err(_) => {
+                                    self.state = ClientState::Closing;
+                                    return;
+                                }
+                            }
+                        } else {
+                            break;
+                        }
+                    }
+
+                    let _ = socket.buffer.move_cursor(pos);
+
+                    if !socket.buffer.is_empty()
+                        && !storage.recv_ids.borrow().contains(&self.entity)
+                    {
+                        storage.recv_ids.borrow_mut().insert(self.entity);
+                    }
+                } else {
+                    self.poll_state.add(SocketPollState::Read);
+                }
+            }
+            Err(err) => {
+                println!("cannot process packet: {:?}", err);
+
+                // last gasp write to send any alerts
+                let rc = self.tls.write_tls(&mut self.stream);
+                if rc.is_err() {
+                    println!("write failed {:?}", rc);
+                }
+
+                self.state = ClientState::Closing;
+            }
+        }
+    }
+
     pub fn write(&mut self, world: &mut hecs::World) {
         let mut count: usize = 0;
 
@@ -198,6 +270,50 @@ impl Client {
                 match self.stream.write_all(packet.as_slice()) {
                     Ok(()) => {
                         count += 1;
+
+                        if count >= 25 {
+                            if !self.sends.is_empty() {
+                                self.poll_state.add(SocketPollState::Write);
+                            }
+
+                            return;
+                        }
+                    }
+                    Err(ref err) if err.kind() == io::ErrorKind::WouldBlock => {
+                        //Operation would block so we insert it back in to try again later.
+                        self.sends.push(packet);
+                        return;
+                    }
+                    Err(_) => {
+                        self.state = ClientState::Closing;
+                        return;
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn write_tls(&mut self, world: &mut hecs::World) {
+        let mut count: usize = 0;
+
+        //make sure the player exists before we send anything.
+        if world.contains(self.entity.0) {
+            loop {
+                let mut packet = match self.sends.pop() {
+                    Some(packet) => packet,
+                    None => {
+                        self.sends.shrink_to_fit();
+                        return;
+                    }
+                };
+
+                match self.tls.writer().write_all(packet.as_slice()) {
+                    Ok(()) => {
+                        count += 1;
+
+                        if let Err(e) = self.tls.write_tls(&mut self.stream) {
+                            println!("TLS write error: {}", e);
+                        }
 
                         if count >= 25 {
                             if !self.sends.is_empty() {
@@ -295,8 +411,14 @@ pub fn accept_connection(
 
 #[inline]
 pub fn send_to(storage: &Storage, id: usize, buf: ByteBuffer) {
-    if let Some(mut client) = storage.server.borrow().get_mut(mio::Token(id)) {
-        client.send(&storage.poll.borrow(), buf);
+    if let Some(client) = storage
+        .server
+        .borrow()
+        .clients
+        .borrow()
+        .get(&mio::Token(id))
+    {
+        client.borrow_mut().send(&storage.poll.borrow(), buf);
     }
 }
 
@@ -309,8 +431,16 @@ pub fn send_to_all(world: &hecs::World, storage: &Storage, buf: ByteBuffer) {
             **worldentitytype == WorldEntityType::Player && **onlinetype == OnlineType::Online
         })
     {
-        if let Some(mut client) = storage.server.borrow().get_mut(mio::Token(socket.id)) {
-            client.send(&storage.poll.borrow(), buf.clone());
+        if let Some(client) = storage
+            .server
+            .borrow()
+            .clients
+            .borrow()
+            .get(&mio::Token(socket.id))
+        {
+            client
+                .borrow_mut()
+                .send(&storage.poll.borrow(), buf.clone());
         }
     }
 }
@@ -347,8 +477,16 @@ pub fn send_to_maps(
                 continue;
             }
 
-            if let Some(mut client) = storage.server.borrow().get_mut(mio::Token(socket.id)) {
-                client.send(&storage.poll.borrow(), buf.clone());
+            if let Some(client) = storage
+                .server
+                .borrow()
+                .clients
+                .borrow()
+                .get(&mio::Token(socket.id))
+            {
+                client
+                    .borrow_mut()
+                    .send(&storage.poll.borrow(), buf.clone());
             }
         }
     }

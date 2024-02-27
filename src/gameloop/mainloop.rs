@@ -59,16 +59,31 @@ pub fn get_length(storage: &Storage, buffer: &mut ByteBuffer, id: usize) -> Opti
         let length = buffer.read::<u64>().ok()?;
 
         if !(4..=8192).contains(&length) {
-            if let Some(mut client) = storage.server.borrow().get_mut(mio::Token(id)) {
-                client.set_to_closing(storage);
+            if let Some(client) = storage
+                .server
+                .borrow()
+                .clients
+                .borrow()
+                .get(&mio::Token(id))
+            {
+                client.borrow_mut().set_to_closing(storage);
             }
         }
 
         Some(length)
     } else {
-        if let Some(mut client) = storage.server.borrow().get_mut(mio::Token(id)) {
-            client.poll_state.add(SocketPollState::Read);
-            client.reregister(&storage.poll.borrow_mut()).unwrap();
+        if let Some(client) = storage
+            .server
+            .borrow()
+            .clients
+            .borrow()
+            .get(&mio::Token(id))
+        {
+            client.borrow_mut().poll_state.add(SocketPollState::Read);
+            client
+                .borrow_mut()
+                .reregister(&storage.poll.borrow_mut())
+                .unwrap();
         }
 
         None
@@ -80,7 +95,7 @@ pub fn process_packets(world: &mut World, storage: &Storage) {
     let mut rem_arr: Vec<Entity> = Vec::with_capacity(32);
     let mut length: u64;
 
-    'user_loop: for i in &*storage.recv_ids.borrow() {
+    'user_loop: for entity in &*storage.recv_ids.borrow() {
         count = 0;
 
         //if let Some(player) = storage.players.borrow().get(*i) {
@@ -92,77 +107,89 @@ pub fn process_packets(world: &mut World, storage: &Storage) {
                 **worldentitytype == WorldEntityType::Player && **onlinetype == OnlineType::Online
             })
         {*/
-        for entity in storage.player_ids.borrow().iter() {
-            if !is_player_online(world, entity) {
-                continue;
-            }
+        if !is_player_online(world, entity) {
+            continue;
+        }
 
-            let mut socket = world.get_or_panic::<&Socket>(entity).clone();
-            let socket_id = world.get_or_panic::<&Socket>(entity).id;
+        let mut socket = world.get_or_panic::<&Socket>(entity).clone();
+        let socket_id = world.get_or_panic::<&Socket>(entity).id;
 
-            loop {
-                length = match get_length(storage, &mut socket.buffer, socket_id) {
-                    Some(n) => n,
-                    None => {
-                        rem_arr.push(*i);
+        loop {
+            length = match get_length(storage, &mut socket.buffer, socket_id) {
+                Some(n) => n,
+                None => {
+                    rem_arr.push(*entity);
+                    continue 'user_loop;
+                }
+            };
+
+            if length > 0 && length <= (socket.buffer.length() - socket.buffer.cursor()) as u64 {
+                let mut buffer = match socket.buffer.read_to_buffer(length as usize) {
+                    Ok(n) => n,
+                    Err(_) => {
+                        if let Some(client) = storage
+                            .server
+                            .borrow()
+                            .clients
+                            .borrow()
+                            .get(&mio::Token(socket_id))
+                        {
+                            client.borrow_mut().set_to_closing(storage);
+                        }
+
+                        rem_arr.push(*entity);
                         continue 'user_loop;
                     }
                 };
 
-                if length > 0 && length <= (socket.buffer.length() - socket.buffer.cursor()) as u64
-                {
-                    let mut buffer = match socket.buffer.read_to_buffer(length as usize) {
-                        Ok(n) => n,
-                        Err(_) => {
-                            if let Some(mut client) =
-                                storage.server.borrow().get_mut(mio::Token(socket_id))
-                            {
-                                client.set_to_closing(storage);
-                            }
-
-                            rem_arr.push(*i);
-                            continue 'user_loop;
-                        }
-                    };
-
-                    if handle_data(world, storage, &mut buffer, entity).is_err() {
-                        if let Some(mut client) =
-                            storage.server.borrow().get_mut(mio::Token(socket_id))
-                        {
-                            client.set_to_closing(storage);
-                        }
-
-                        rem_arr.push(*i);
-                        continue 'user_loop;
-                    }
-
-                    count += 1
-                } else {
-                    let _ = socket.buffer.move_cursor(socket.buffer.cursor() - 8);
-
-                    if let Some(mut client) =
-                        storage.server.borrow_mut().get_mut(mio::Token(socket_id))
+                if handle_data(world, storage, &mut buffer, entity).is_err() {
+                    if let Some(client) = storage
+                        .server
+                        .borrow()
+                        .clients
+                        .borrow()
+                        .get(&mio::Token(socket_id))
                     {
-                        client.poll_state.add(SocketPollState::Read);
-                        client.reregister(&storage.poll.borrow_mut()).unwrap();
+                        client.borrow_mut().set_to_closing(storage);
                     }
 
-                    rem_arr.push(*i);
-                    break;
+                    rem_arr.push(*entity);
+                    continue 'user_loop;
                 }
 
-                if count == 25 {
-                    break;
+                count += 1
+            } else {
+                let _ = socket.buffer.move_cursor(socket.buffer.cursor() - 8);
+
+                if let Some(client) = storage
+                    .server
+                    .borrow()
+                    .clients
+                    .borrow()
+                    .get(&mio::Token(socket_id))
+                {
+                    client.borrow_mut().poll_state.add(SocketPollState::Read);
+                    client
+                        .borrow_mut()
+                        .reregister(&storage.poll.borrow_mut())
+                        .unwrap();
                 }
+
+                rem_arr.push(*entity);
+                break;
             }
 
-            if socket.buffer.cursor() == socket.buffer.length() {
-                let _ = socket.buffer.truncate(0);
+            if count == 25 {
+                break;
             }
+        }
 
-            if socket.buffer.capacity() > 25000 {
-                let _ = socket.buffer.resize(4096);
-            }
+        if socket.buffer.cursor() == socket.buffer.length() {
+            let _ = socket.buffer.truncate(0);
+        }
+
+        if socket.buffer.capacity() > 25000 {
+            let _ = socket.buffer.resize(4096);
         }
     }
 

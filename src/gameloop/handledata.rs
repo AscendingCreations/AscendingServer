@@ -62,6 +62,8 @@ fn handle_register(
     let hair: u8 = data.read()?;
 
     let socket_id = world.get_or_panic::<&Socket>(entity).id;
+    return send_infomsg(storage, socket_id,
+        "Account Was Created. Please wait for the Verification code sent to your email before logging in.".into(), 1);
 
     if !storage.player_ids.borrow().contains(entity) {
         let email_regex = Regex::new(

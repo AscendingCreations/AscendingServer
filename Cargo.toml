@@ -39,4 +39,4 @@ rustls-pemfile = "2"
 webpki-roots = "0.26"
 
 [profile.dev]
-opt-level = 3
+opt-level = 0

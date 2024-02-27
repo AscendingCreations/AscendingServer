@@ -31,7 +31,6 @@ pub fn initiate(conn: &PgPool, rt: &mut Runtime, local: &task::LocalSet) -> Resu
     ];
 
     for quere in queries {
-        println!("Running: {}", quere);
         local.block_on(rt, sqlx::query(quere).execute(conn))?;
     }
 

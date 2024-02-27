@@ -10,7 +10,7 @@ pub const SERVER: mio::Token = mio::Token(0);
 
 pub struct Server {
     pub listener: TcpListener,
-    pub clients: HashMap<mio::Token, RefCell<Client>>,
+    pub clients: RefCell<HashMap<mio::Token, RefCell<Client>>>,
     pub tokens: VecDeque<mio::Token>,
     pub tls_config: Arc<rustls::ServerConfig>,
 }
@@ -39,7 +39,7 @@ impl Server {
 
         Ok(Server {
             listener,
-            clients: HashMap::default(),
+            clients: RefCell::new(HashMap::default()),
             tokens,
             tls_config: cfg,
         })
@@ -71,7 +71,9 @@ impl Server {
                 client.register(&storage.poll.borrow_mut())?;
 
                 // insert client into handled list.
-                self.clients.insert(token, RefCell::new(client));
+                self.clients
+                    .borrow_mut()
+                    .insert(token, RefCell::new(client));
             } else {
                 drop(stream);
             }
@@ -80,30 +82,10 @@ impl Server {
     }
 
     #[inline]
-    pub fn get_mut(&self, token: mio::Token) -> Option<std::cell::RefMut<Client>> {
-        /* Look up the connection for the given token. */
-        if let Some(client) = self.clients.get(&token) {
-            return Some(client.borrow_mut());
-        }
-
-        None
-    }
-
-    #[inline]
-    pub fn get(&self, token: mio::Token) -> Option<std::cell::Ref<Client>> {
-        /* Look up the connection for the given token. */
-        if let Some(client) = self.clients.get(&token) {
-            return Some(client.borrow());
-        }
-
-        None
-    }
-
-    #[inline]
     pub fn remove(&mut self, token: mio::Token) {
         /* If the token is valid, let's remove the connection and add the token back to the bag. */
-        if self.clients.contains_key(&token) {
-            self.clients.remove(&token);
+        if self.clients.borrow().contains_key(&token) {
+            self.clients.borrow_mut().remove(&token);
             self.tokens.push_front(token);
         }
     }
@@ -127,13 +109,17 @@ pub fn poll_events(world: &mut hecs::World, storage: &Storage) -> Result<()> {
                 )?;
             }
             token => {
-                if let Some(mut a) = storage.server.borrow_mut().get_mut(token) {
-                    a.process(event, world, storage)?;
+                let mut server = storage.server.borrow_mut();
+                let state = if let Some(a) = server.clients.borrow_mut().get(&token) {
+                    a.borrow_mut().process(event, world, storage)?;
+                    a.borrow().state
+                } else {
+                    ClientState::Closed
+                };
 
-                    if a.state == ClientState::Closed {
-                        storage.server.borrow_mut().remove(token);
-                    }
-                }
+                if state == ClientState::Closed {
+                    server.remove(token);
+                };
             }
         }
     }
