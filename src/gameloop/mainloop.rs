@@ -99,9 +99,13 @@ pub fn process_packets(world: &mut World, storage: &Storage) {
             continue;
         }
 
-        let socket = world.get_or_panic::<&Socket>(entity);
-        let socket_id = socket.id;
-        let mut buffer = socket.buffer.lock().unwrap();
+        let (lock, socket_id) = {
+            let socket = world.get_or_panic::<&Socket>(entity);
+
+            (socket.buffer.clone(), socket.id)
+        };
+
+        let mut buffer = lock.lock().unwrap();
 
         loop {
             length = match get_length(storage, &mut buffer, socket_id) {
