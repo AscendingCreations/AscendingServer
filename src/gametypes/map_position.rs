@@ -1,16 +1,6 @@
 use crate::gametypes::*;
 use bytey::{ByteBufferRead, ByteBufferWrite};
-use diesel::{
-    deserialize::{self, FromSql},
-    pg::{sql_types::Record, Pg},
-    serialize::{self, Output, ToSql, WriteTuple},
-    sql_types::{BigInt, Integer},
-};
 use serde::{Deserialize, Serialize};
-
-#[derive(SqlType)]
-#[diesel(postgres_type(name = "map_position"))]
-pub struct MapPosType;
 
 #[derive(
     Copy,
@@ -21,22 +11,21 @@ pub struct MapPosType;
     Default,
     Deserialize,
     Serialize,
-    FromSqlRow,
-    AsExpression,
     Hash,
     ByteBufferRead,
     ByteBufferWrite,
+    sqlx::Type,
 )]
-#[diesel(sql_type = PosType)]
+#[sqlx(type_name = "MapPosition")]
 pub struct MapPosition {
     pub x: i32,
     pub y: i32,
-    pub group: u64,
+    pub group: i32,
 }
 
 impl MapPosition {
     #[inline(always)]
-    pub fn new(x: i32, y: i32, group: u64) -> MapPosition {
+    pub fn new(x: i32, y: i32, group: i32) -> MapPosition {
         MapPosition { x, y, group }
     }
 
@@ -70,27 +59,5 @@ impl MapPosition {
             MapPosDir::Down => MapPosition::new(self.x, self.y - 1, self.group),
             MapPosDir::DownRight => MapPosition::new(self.x - 1, self.y - 1, self.group),
         }
-    }
-}
-
-impl ToSql<MapPosType, Pg> for MapPosition {
-    fn to_sql(&self, out: &mut Output<Pg>) -> serialize::Result {
-        WriteTuple::<(Integer, Integer, BigInt)>::write_tuple(
-            &(self.x, self.y, self.group as i64),
-            out,
-        )
-    }
-}
-
-impl FromSql<MapPosType, Pg> for MapPosition {
-    fn from_sql(bytes: diesel::backend::RawValue<'_, Pg>) -> deserialize::Result<Self> {
-        let data: (i32, i32, i64) =
-            FromSql::<Record<(Integer, Integer, BigInt)>, Pg>::from_sql(bytes)?;
-
-        Ok(MapPosition {
-            x: data.0,
-            y: data.1,
-            group: data.2 as u64,
-        })
     }
 }

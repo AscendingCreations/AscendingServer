@@ -6,7 +6,6 @@ use crate::{
 use bit_op::{bit_u8::*, BitOp};
 use serde::{Deserialize, Serialize};
 use serde_big_array::BigArray;
-use unwrap_helpers::*;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct Tile {
@@ -42,11 +41,11 @@ impl Map {
 pub struct MapData {
     pub position: MapPosition,
     //updated data for map seperate from Map itself as base should be Readonly / clone.
-    pub itemids: IndexSet<usize>,
-    pub npcs: IndexSet<usize>,
-    pub players: IndexSet<usize>,
-    #[derivative(Default(value = "slab::Slab::with_capacity(16)"))]
-    pub items: slab::Slab<MapItem>,
+    pub itemids: IndexSet<Entity>,
+    pub npcs: IndexSet<Entity>,
+    pub players: IndexSet<Entity>,
+    //#[derivative(Default(value = "slab::Slab::with_capacity(16)"))]
+    //pub items: slab::Slab<MapItem>,
     pub zones: [u64; 5], //contains the NPC spawn Count of each Zone.
     #[derivative(Default(value = "[(0, false, 0); MAP_MAX_X * MAP_MAX_Y]"))]
     pub move_grid: [(u8, bool, u8); MAP_MAX_X * MAP_MAX_Y], // (count, False=tile|True=Npc or player, Dir Blocking)
@@ -63,12 +62,11 @@ impl MapData {
         self.players_on_map > 0
     }
 
-    pub fn add_mapitem(&mut self, mapitem: MapItem) {
-        let id = self.items.insert(mapitem);
-        let mut item = self.items.get_mut(id).unwrap();
-
-        item.id = id as u64;
-        self.itemids.insert(id);
+    pub fn add_mapitem(&mut self, world: &mut hecs::World, mapitem: MapItem) -> Entity {
+        let id = world.spawn((WorldEntityType::MapItem, mapitem));
+        let _ = world.insert_one(id, EntityType::MapItem(Entity(id)));
+        self.itemids.insert(Entity(id));
+        Entity(id)
     }
 
     pub fn is_blocked_tile(&self, pos: Position) -> bool {
@@ -89,49 +87,58 @@ impl MapData {
         self.move_grid[pos.as_tile()].1 = true;
     }
 
-    pub fn add_player(&mut self, world: &Storage, id: usize) {
+    pub fn add_player(&mut self, storage: &Storage, id: Entity) {
         self.players.insert(id);
 
         for i in self.get_surrounding(true) {
             if i != self.position {
-                unwrap_continue!(world.maps.get(&i))
-                    .borrow_mut()
-                    .players_on_map += 1;
+                match storage.maps.get(&i) {
+                    Some(map) => {
+                        map.borrow_mut().players_on_map =
+                            map.borrow().players_on_map.saturating_add(1)
+                    }
+                    None => continue,
+                }
             }
         }
 
         self.players_on_map += 1;
     }
 
-    pub fn add_npc(&mut self, id: usize) {
+    pub fn add_npc(&mut self, id: Entity) {
         self.npcs.insert(id);
     }
 
-    pub fn remove_player(&mut self, world: &Storage, id: usize) {
-        self.players.remove(&id);
+    pub fn remove_player(&mut self, storage: &Storage, id: Entity) {
+        self.players.swap_remove(&id);
 
+        //we set the surrounding maps to have players on them if the player is within 1 map of them.
         for i in self.get_surrounding(true) {
             if i != self.position {
-                unwrap_continue!(world.maps.get(&i))
-                    .borrow_mut()
-                    .players_on_map -= 1;
+                match storage.maps.get(&i) {
+                    Some(map) => {
+                        map.borrow_mut().players_on_map =
+                            map.borrow().players_on_map.saturating_sub(1)
+                    }
+                    None => continue,
+                }
             }
         }
 
         self.players_on_map -= 1;
     }
 
-    pub fn remove_npc(&mut self, id: usize) {
-        self.npcs.remove(&id);
+    pub fn remove_npc(&mut self, id: Entity) {
+        self.npcs.swap_remove(&id);
     }
 
-    pub fn remove_item(&mut self, id: usize) {
-        if !self.items.contains(id) {
+    pub fn remove_item(&mut self, id: Entity) {
+        /*if !self.items.contains(id) {
             return;
-        }
+        }*/
 
-        self.items.remove(id);
-        self.itemids.remove(&id);
+        //self.items.remove(id);
+        self.itemids.swap_remove(&id);
     }
 }
 
@@ -168,12 +175,12 @@ pub fn check_surrounding(
 }
 
 pub fn get_dir_mapid(
-    world: &Storage,
+    storage: &Storage,
     position: MapPosition,
     dir: MapPosDir,
 ) -> Option<MapPosition> {
     let offset = position.map_offset(dir);
-    let _ = world.bases.maps.get(&offset)?;
+    let _ = storage.bases.maps.get(&offset)?;
     Some(offset)
 }
 
@@ -257,26 +264,29 @@ pub fn map_offset_range(
         return Some(endpos);
     }
 
-    let dirs = get_surrounding_dir(start.map, false);
+    let map_positions = get_surrounding_dir(start.map, false);
     processed.insert(start.map);
     // lets check each surrounding map first to make sure its not here
     // before we span into the other maps.
-    for dir in &dirs {
-        if dir.contains(endpos.map) {
-            return Some(endpos.map_offset(dir.into()));
+    for map_pos in &map_positions {
+        if map_pos.contains(endpos.map) {
+            return Some(endpos.map_offset(map_pos.into()));
         }
     }
 
     //Else if not found above lets start searching within each side part ignoring
     //Maps not within the Allowed HashSet.
-    for dir in &dirs {
-        let x = unwrap_continue!(dir.get());
+    for map_pos in &map_positions {
+        let x = match map_pos.get() {
+            Some(map_pos) => map_pos,
+            None => continue,
+        };
 
         if allowed_maps.get(&x).is_none() || processed.get(&x).is_some() {
             continue;
         }
 
-        let end = endpos.map_offset(dir.into());
+        let end = endpos.map_offset(map_pos.into());
         let pos = Position::new(0, 0, x);
         let ret = map_offset_range(pos, end, allowed_maps, processed);
 
@@ -289,16 +299,19 @@ pub fn map_offset_range(
     None
 }
 
-pub fn get_maps_in_range(world: &Storage, pos: &Position, range: i32) -> Vec<MapPos> {
+pub fn get_maps_in_range(storage: &Storage, pos: &Position, range: i32) -> Vec<MapPos> {
     let mut arr: Vec<MapPos> = Vec::new();
-    unwrap_or_return!(world.bases.maps.get(&pos.map), Vec::new());
+
+    if storage.bases.maps.get(&pos.map).is_none() {
+        return Vec::new();
+    }
 
     arr.push(MapPos::Center(pos.map));
 
     if pos.x - range < 0 && pos.y - range < 0 {
         let pos = pos.map.map_offset(MapPosDir::UpLeft);
 
-        if world.bases.maps.get(&pos).is_some() {
+        if storage.bases.maps.get(&pos).is_some() {
             arr.push(MapPos::UpLeft(pos));
         }
     }
@@ -306,7 +319,7 @@ pub fn get_maps_in_range(world: &Storage, pos: &Position, range: i32) -> Vec<Map
     if pos.x - range < 0 && pos.y + range >= MAP_MAX_Y as i32 {
         let pos = pos.map.map_offset(MapPosDir::DownLeft);
 
-        if world.bases.maps.get(&pos).is_some() {
+        if storage.bases.maps.get(&pos).is_some() {
             arr.push(MapPos::DownLeft(pos));
         }
     }
@@ -314,7 +327,7 @@ pub fn get_maps_in_range(world: &Storage, pos: &Position, range: i32) -> Vec<Map
     if pos.x + range < 0 && pos.y - range < 0 {
         let pos = pos.map.map_offset(MapPosDir::UpRight);
 
-        if world.bases.maps.get(&pos).is_some() {
+        if storage.bases.maps.get(&pos).is_some() {
             arr.push(MapPos::UpRight(pos));
         }
     }
@@ -322,7 +335,7 @@ pub fn get_maps_in_range(world: &Storage, pos: &Position, range: i32) -> Vec<Map
     if pos.x + range < 0 && pos.y + range >= MAP_MAX_Y as i32 {
         let pos = pos.map.map_offset(MapPosDir::DownRight);
 
-        if world.bases.maps.get(&pos).is_some() {
+        if storage.bases.maps.get(&pos).is_some() {
             arr.push(MapPos::DownRight(pos));
         }
     }
@@ -330,7 +343,7 @@ pub fn get_maps_in_range(world: &Storage, pos: &Position, range: i32) -> Vec<Map
     if pos.x - range < 0 {
         let pos = pos.map.map_offset(MapPosDir::Left);
 
-        if world.bases.maps.get(&pos).is_some() {
+        if storage.bases.maps.get(&pos).is_some() {
             arr.push(MapPos::Left(pos));
         }
     }
@@ -338,7 +351,7 @@ pub fn get_maps_in_range(world: &Storage, pos: &Position, range: i32) -> Vec<Map
     if pos.x + range >= MAP_MAX_X as i32 {
         let pos = pos.map.map_offset(MapPosDir::Right);
 
-        if world.bases.maps.get(&pos).is_some() {
+        if storage.bases.maps.get(&pos).is_some() {
             arr.push(MapPos::Right(pos));
         }
     }
@@ -346,7 +359,7 @@ pub fn get_maps_in_range(world: &Storage, pos: &Position, range: i32) -> Vec<Map
     if pos.y - range < 0 {
         let pos = pos.map.map_offset(MapPosDir::Up);
 
-        if world.bases.maps.get(&pos).is_some() {
+        if storage.bases.maps.get(&pos).is_some() {
             arr.push(MapPos::Up(pos));
         }
     }
@@ -354,7 +367,7 @@ pub fn get_maps_in_range(world: &Storage, pos: &Position, range: i32) -> Vec<Map
     if pos.y + range >= MAP_MAX_Y as i32 {
         let pos = pos.map.map_offset(MapPosDir::Down);
 
-        if world.bases.maps.get(&pos).is_some() {
+        if storage.bases.maps.get(&pos).is_some() {
             arr.push(MapPos::Down(pos));
         }
     }
@@ -363,35 +376,35 @@ pub fn get_maps_in_range(world: &Storage, pos: &Position, range: i32) -> Vec<Map
 }
 
 pub fn map_path_blocked(
-    world: &Storage,
+    storage: &Storage,
     cur_pos: Position,
     next_pos: Position,
     movedir: u8,
 ) -> bool {
     let blocked = match movedir {
         0 => {
-            if let Some(map) = world.maps.get(&cur_pos.map) {
+            if let Some(map) = storage.maps.get(&cur_pos.map) {
                 map.borrow().move_grid[cur_pos.as_tile()].2.get(B0) == 0b00000001
             } else {
                 true
             }
         }
         1 => {
-            if let Some(map) = world.maps.get(&cur_pos.map) {
+            if let Some(map) = storage.maps.get(&cur_pos.map) {
                 map.borrow().move_grid[cur_pos.as_tile()].2.get(B3) == 0b00001000
             } else {
                 true
             }
         }
         2 => {
-            if let Some(map) = world.maps.get(&cur_pos.map) {
+            if let Some(map) = storage.maps.get(&cur_pos.map) {
                 map.borrow().move_grid[cur_pos.as_tile()].2.get(B1) == 0b00000010
             } else {
                 true
             }
         }
         _ => {
-            if let Some(map) = world.maps.get(&cur_pos.map) {
+            if let Some(map) = storage.maps.get(&cur_pos.map) {
                 map.borrow().move_grid[cur_pos.as_tile()].2.get(B2) == 0b00000100
             } else {
                 true
@@ -400,9 +413,10 @@ pub fn map_path_blocked(
     };
 
     if !blocked {
-        return unwrap_or_return!(world.maps.get(&next_pos.map), true)
-            .borrow()
-            .is_blocked_tile(next_pos);
+        return match storage.maps.get(&next_pos.map) {
+            Some(map) => map.borrow().is_blocked_tile(next_pos),
+            None => true,
+        };
     }
 
     blocked

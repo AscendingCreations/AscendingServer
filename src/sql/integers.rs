@@ -1,4 +1,9 @@
-trait Shifting {
+/*
+/ Sherwin: If placing Variables that are unsigned into the database they must first be converted into a signed variable.
+/ If a variable was unsigned and downloaded it needs to be converted back to a unsigned variable. This operation should
+/ be lossless.
+*/
+pub trait Shifting {
     type Unsigned;
 
     fn shift_signed(&self) -> Self::Unsigned;

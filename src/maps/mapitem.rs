@@ -1,7 +1,7 @@
 use crate::{gametypes::*, items::Item, time_ext::MyInstant};
 use bytey::{ByteBufferRead, ByteBufferWrite};
 
-#[derive(Clone, PartialEq, Eq, Default, ByteBufferRead, ByteBufferWrite)]
+#[derive(Copy, Clone, PartialEq, Eq, Default, ByteBufferRead, ByteBufferWrite)]
 pub struct MapItem {
     pub id: u64,
     pub item: Item,

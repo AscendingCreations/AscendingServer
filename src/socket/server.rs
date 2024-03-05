@@ -4,8 +4,7 @@ use crate::{
     socket::{accept_connection, Client, ClientState},
 };
 use mio::{net::TcpListener, Events, Poll};
-use std::{cell::RefCell, collections::VecDeque, io, time::Duration};
-use unwrap_helpers::*;
+use std::{cell::RefCell, collections::VecDeque, io, sync::Arc, time::Duration};
 
 pub const SERVER: mio::Token = mio::Token(0);
 
@@ -13,13 +12,19 @@ pub struct Server {
     pub listener: TcpListener,
     pub clients: HashMap<mio::Token, RefCell<Client>>,
     pub tokens: VecDeque<mio::Token>,
+    pub tls_config: Arc<rustls::ServerConfig>,
 }
 
 impl Server {
     #[inline]
-    pub fn new(poll: &mut Poll, addr: &str, max: usize) -> Result<Server> {
+    pub fn new(
+        poll: &mut Poll,
+        addr: &str,
+        max: usize,
+        cfg: Arc<rustls::ServerConfig>,
+    ) -> Result<Server> {
         /* Create a bag of unique tokens. */
-        let mut tokens = VecDeque::new();
+        let mut tokens = VecDeque::with_capacity(max);
 
         for i in 1..max {
             tokens.push_back(mio::Token(i));
@@ -36,10 +41,11 @@ impl Server {
             listener,
             clients: HashMap::default(),
             tokens,
+            tls_config: cfg,
         })
     }
 
-    pub fn accept(&mut self, world: &Storage) -> Result<()> {
+    pub fn accept(&mut self, world: &mut hecs::World, storage: &Storage) -> Result<()> {
         /* Wait for a new connection to accept and try to grab a token from the bag. */
         loop {
             let (stream, addr) = match self.listener.accept() {
@@ -48,45 +54,30 @@ impl Server {
                 Err(e) => return Err(e.into()),
             };
 
-            let token = self.tokens.pop_front();
+            if let Some(token) = self.tokens.pop_front() {
+                // Attempt to Create a Empty Player Entity.
+                let entity =
+                    match accept_connection(self, token.0, addr.to_string(), world, storage) {
+                        Some(e) => e,
+                        None => {
+                            drop(stream);
+                            return Ok(());
+                        }
+                    };
 
-            if let Some(token) = token {
-                /* We got a unique token, now let's register the new connection. */
-                let mut client = Client::new(stream, token);
-                client.register(&world.poll.borrow_mut())?;
+                let tls_conn = rustls::ServerConnection::new(Arc::clone(&self.tls_config))?;
+                // Lets make the Client to handle hwo we send packets.
+                let mut client = Client::new(stream, token, entity, tls_conn);
+                //Register the Poll to the client for recv and Sending
+                client.register(&storage.poll.borrow_mut())?;
 
-                client.playerid =
-                    unwrap_or_return!(accept_connection(token.0, addr.to_string(), world), || {
-                        drop(client.stream);
-                        Ok(())
-                    });
-
+                // insert client into handled list.
                 self.clients.insert(token, RefCell::new(client));
             } else {
                 drop(stream);
             }
         }
         Ok(())
-    }
-
-    #[inline]
-    pub fn get_mut(&self, token: mio::Token) -> Option<std::cell::RefMut<Client>> {
-        /* Look up the connection for the given token. */
-        if let Some(client) = self.clients.get(&token) {
-            return Some(client.borrow_mut());
-        }
-
-        None
-    }
-
-    #[inline]
-    pub fn get(&self, token: mio::Token) -> Option<std::cell::Ref<Client>> {
-        /* Look up the connection for the given token. */
-        if let Some(client) = self.clients.get(&token) {
-            return Some(client.borrow());
-        }
-
-        None
     }
 
     #[inline]
@@ -99,31 +90,36 @@ impl Server {
     }
 }
 
-pub fn poll_events(world: &Storage) -> Result<()> {
+pub fn poll_events(world: &mut hecs::World, storage: &Storage) -> Result<()> {
     let mut events = Events::with_capacity(1024);
 
-    world
+    storage
         .poll
         .borrow_mut()
         .poll(&mut events, Some(Duration::from_millis(100)))?;
+
     for event in events.iter() {
         match event.token() {
             SERVER => {
-                world.server.borrow_mut().accept(world)?;
-                world.poll.borrow_mut().registry().reregister(
-                    &mut world.server.borrow_mut().listener,
+                storage.server.borrow_mut().accept(world, storage)?;
+                storage.poll.borrow_mut().registry().reregister(
+                    &mut storage.server.borrow_mut().listener,
                     SERVER,
                     mio::Interest::READABLE,
                 )?;
             }
             token => {
-                if let Some(mut a) = world.server.borrow_mut().get_mut(token) {
-                    a.process(event, world)?;
+                let mut server = storage.server.borrow_mut();
+                let state = if let Some(a) = server.clients.get(&token) {
+                    a.borrow_mut().process(event, world, storage)?;
+                    a.borrow().state
+                } else {
+                    ClientState::Closed
+                };
 
-                    if a.state == ClientState::Closed {
-                        world.server.borrow_mut().remove(token);
-                    }
-                }
+                if state == ClientState::Closed {
+                    server.remove(token);
+                };
             }
         }
     }

@@ -1,44 +1,42 @@
-use crate::{containers::SALT, gametypes::*, sql, time_ext::*};
+use crate::sql::integers::Shifting;
+use crate::{containers::SALT, gametypes::*, players::*, time_ext::*};
 use argon2::{Argon2, PasswordHasher};
 use password_hash::SaltString;
-use std::convert::TryInto;
+use sqlx::FromRow;
 
-#[derive(Queryable, Identifiable, Debug, PartialEq, Eq)]
-#[diesel(primary_key(uid))]
-#[diesel(table_name = sql::players)]
+#[derive(Debug, PartialEq, Eq, FromRow)]
 pub struct PlayerWithPassword {
     pub uid: i64,
     pub password: String,
 }
 
-#[derive(Debug, Queryable, Insertable)]
-#[diesel(table_name = sql::players)]
+#[derive(Debug, FromRow)]
 pub struct PGPlayer {
-    name: String,
-    address: String,
-    sprite: i16,
-    spawn: Position,
-    itemtimer: MyInstant,
-    vals: i64,
-    data: Vec<i64>,
-    access: UserAccess,
-    passresetcode: Option<String>,
-    pos: Position,
-    vital: Vec<i32>,
-    deathtimer: MyInstant,
-    indeath: bool,
-    email: String,
-    password: String,
-    username: String,
-    level: i32,
-    levelexp: i64,
-    resetcount: i16,
-    pk: bool,
+    pub address: String,
+    pub sprite: i16,
+    pub spawn: Position,
+    pub itemtimer: MyInstant,
+    pub vals: i64,
+    pub data: Vec<i64>,
+    pub access: UserAccess,
+    pub passresetcode: Option<String>,
+    pub pos: Position,
+    pub vital: Vec<i32>,
+    pub deathtimer: MyInstant,
+    pub indeath: bool,
+    pub email: String,
+    pub password: String,
+    pub username: String,
+    pub level: i32,
+    pub levelexp: i64,
+    pub resetcount: i16,
+    pub pk: bool,
 }
 
 impl PGPlayer {
     pub fn new(
-        user: &crate::players::Player,
+        world: &mut hecs::World,
+        entity: &Entity,
         username: String,
         email: String,
         password: String,
@@ -55,265 +53,298 @@ impl PGPlayer {
         };
 
         PGPlayer {
-            name: user.name.clone(),
-            address: user.addr.clone(),
-            sprite: user.sprite as i16,
-            spawn: user.e.spawn,
-            itemtimer: user.itemtimer,
-            vals: user.vals as i64,
-            data: user.e.data.to_vec(),
-            access: user.access,
+            address: world.get::<&Socket>(entity.0).unwrap().addr.clone(),
+            sprite: i16::unshift_signed(&(world.get_or_panic::<Sprite>(entity).id)),
+            spawn: world.get_or_panic::<Spawn>(entity).pos,
+            itemtimer: world.get_or_panic::<PlayerItemTimer>(entity).itemtimer,
+            vals: i64::unshift_signed(&world.get_or_panic::<Money>(entity).vals),
+            data: world.get_or_panic::<EntityData>(entity).0.to_vec(),
+            access: world.cloned_get_or_panic::<UserAccess>(entity),
             passresetcode: None,
-            pos: user.e.pos,
-            vital: user.e.vital.to_vec(),
-            deathtimer: user.e.deathtimer,
-            indeath: user.e.life.is_spirit(),
+            pos: world.cloned_get_or_panic::<Position>(entity),
+            vital: world.get_or_panic::<Vitals>(entity).vital.to_vec(),
+            deathtimer: world.get_or_panic::<DeathTimer>(entity).0,
+            indeath: world.get_or_panic::<DeathType>(entity).is_spirit(),
             email,
             password: hashed_password,
             username,
-            level: user.e.level,
-            levelexp: user.levelexp as i64,
-            resetcount: user.resetcount,
-            pk: user.pk,
+            level: world.get_or_panic::<Level>(entity).0,
+            levelexp: i64::unshift_signed(&world.get_or_panic::<Player>(entity).levelexp),
+            resetcount: world.get_or_panic::<Player>(entity).resetcount,
+            pk: world.get_or_panic::<Player>(entity).pk,
         }
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Queryable, Insertable, Identifiable)]
-#[diesel(table_name = sql::player_ret)]
-#[diesel(primary_key(uid))]
+#[derive(Debug, PartialEq, Eq, FromRow)]
 pub struct PGPlayerWithID {
-    uid: i64,
-    name: String,
-    address: String,
-    sprite: i16,
-    spawn: Position,
-    itemtimer: MyInstant,
-    vals: i64,
-    data: Vec<i64>,
-    access: UserAccess,
-    pos: Position,
-    vital: Vec<i32>,
-    deathtimer: MyInstant,
-    indeath: bool,
-    level: i32,
-    levelexp: i64,
-    resetcount: i16,
-    pk: bool,
+    pub uid: i64,
+    pub username: String,
+    pub address: String,
+    pub sprite: i16,
+    pub spawn: Position,
+    pub itemtimer: MyInstant,
+    pub vals: i64,
+    pub data: Vec<i64>,
+    pub access: UserAccess,
+    pub pos: Position,
+    pub vital: Vec<i32>,
+    pub deathtimer: MyInstant,
+    pub indeath: bool,
+    pub level: i32,
+    pub levelexp: i64,
+    pub resetcount: i16,
+    pub pk: bool,
 }
 
 impl PGPlayerWithID {
-    pub fn new(user: &crate::players::Player) -> PGPlayerWithID {
+    pub fn new(world: &mut hecs::World, entity: &Entity) -> PGPlayerWithID {
+        let account = world.get::<&Account>(entity.0).unwrap();
+
         PGPlayerWithID {
-            uid: user.accid,
-            name: user.name.clone(),
-            address: user.addr.clone(),
-            sprite: user.sprite as i16,
-            spawn: user.e.spawn,
-            itemtimer: user.itemtimer,
-            vals: user.vals as i64,
-            data: user.e.data.to_vec(),
-            access: user.access,
-            pos: user.e.pos,
-            vital: user.e.vital.to_vec(),
-            deathtimer: user.e.deathtimer,
-            indeath: user.e.life.is_spirit(),
-            level: user.e.level,
-            levelexp: user.levelexp as i64,
-            resetcount: user.resetcount,
-            pk: user.pk,
+            uid: account.id,
+            username: account.username.clone(),
+            address: world.get::<&Socket>(entity.0).unwrap().addr.clone(),
+            sprite: i16::unshift_signed(&world.get_or_panic::<Sprite>(entity).id),
+            spawn: world.get_or_panic::<Spawn>(entity).pos,
+            itemtimer: world.get_or_panic::<PlayerItemTimer>(entity).itemtimer,
+            vals: i64::unshift_signed(&world.get_or_panic::<Money>(entity).vals),
+            data: world.get_or_panic::<EntityData>(entity).0.to_vec(),
+            access: world.cloned_get_or_panic::<UserAccess>(entity),
+            pos: world.cloned_get_or_panic::<Position>(entity),
+            vital: world.get_or_panic::<Vitals>(entity).vital.to_vec(),
+            deathtimer: world.get_or_panic::<DeathTimer>(entity).0,
+            indeath: world.get_or_panic::<DeathType>(entity).is_spirit(),
+            level: world.get_or_panic::<Level>(entity).0,
+            levelexp: i64::unshift_signed(&world.get_or_panic::<Player>(entity).levelexp),
+            resetcount: world.get_or_panic::<Player>(entity).resetcount,
+            pk: world.get_or_panic::<Player>(entity).pk,
         }
     }
 
-    pub fn into_player(self, user: &mut crate::players::Player) {
-        user.accid = self.uid;
-        user.name = self.name.clone();
-        user.addr = self.address.clone();
-        user.sprite = self.sprite as u8;
-        user.e.spawn = self.spawn;
-        user.itemtimer = self.itemtimer;
-        user.vals = self.vals as u64;
-        user.e.data = self.data[..10].try_into().unwrap_or([0; 10]);
-        user.access = self.access;
-        user.e.pos = self.pos;
-        user.e.vital = self.vital[..VITALS_MAX]
+    pub fn into_player(self, world: &mut hecs::World, entity: &Entity) {
+        world
+            .get::<&mut Account>(entity.0)
+            .expect("Could not find Account")
+            .id = self.uid;
+        world
+            .get::<&mut Account>(entity.0)
+            .expect("Could not find Account")
+            .username = self.username.clone();
+        world
+            .get::<&mut Socket>(entity.0)
+            .expect("Could not find Socket")
+            .addr = self.address.clone();
+        world
+            .get::<&mut Sprite>(entity.0)
+            .expect("Could not find Sprite")
+            .id = self.sprite.shift_signed();
+        world
+            .get::<&mut Spawn>(entity.0)
+            .expect("Could not find Spawn")
+            .pos = self.spawn;
+        world
+            .get::<&mut PlayerItemTimer>(entity.0)
+            .expect("Could not find PlayerItemTimer")
+            .itemtimer = self.itemtimer;
+        world
+            .get::<&mut Money>(entity.0)
+            .expect("Could not find Money")
+            .vals = self.vals.shift_signed();
+        world
+            .get::<&mut EntityData>(entity.0)
+            .expect("Could not find EntityData")
+            .0 = self.data[..10].try_into().unwrap_or([0; 10]);
+        *world
+            .get::<&mut UserAccess>(entity.0)
+            .expect("Could not find UserAccess") = self.access;
+        *world
+            .get::<&mut Position>(entity.0)
+            .expect("Could not find Position") = self.pos;
+        world
+            .get::<&mut Vitals>(entity.0)
+            .expect("Could not find Vitals")
+            .vital = self.vital[..VITALS_MAX]
             .try_into()
             .unwrap_or([0; VITALS_MAX]);
-        user.e.deathtimer = self.deathtimer;
-        user.e.life = match self.indeath {
+        world
+            .get::<&mut DeathTimer>(entity.0)
+            .expect("Could not find DeathTimer")
+            .0 = self.deathtimer;
+        *world
+            .get::<&mut DeathType>(entity.0)
+            .expect("Could not find DeathType") = match self.indeath {
             true => DeathType::Spirit,
             false => DeathType::Alive,
         };
-        user.e.level = self.level;
-        user.levelexp = self.levelexp as u64;
-        user.resetcount = self.resetcount;
-        user.pk = self.pk;
+        world
+            .get::<&mut Level>(entity.0)
+            .expect("Could not find Level")
+            .0 = self.level;
+        world
+            .get::<&mut Player>(entity.0)
+            .expect("Could not find Player")
+            .levelexp = self.levelexp.shift_signed();
+        world
+            .get::<&mut Player>(entity.0)
+            .expect("Could not find Player")
+            .resetcount = self.resetcount;
+        world
+            .get::<&mut Player>(entity.0)
+            .expect("Could not find Player")
+            .pk = self.pk;
     }
 }
 
-#[derive(Debug, Queryable, Insertable, AsChangeset)]
-#[diesel(table_name = sql::players)]
-#[diesel(primary_key(uid))]
+#[derive(Debug, FromRow)]
 pub struct PGPlayerLogOut {
-    uid: i64,
-    itemtimer: MyInstant,
-    pos: Position,
-    vital: Vec<i32>,
-    deathtimer: MyInstant,
-    indeath: bool,
-    pk: bool,
+    pub uid: i64,
+    pub itemtimer: MyInstant,
+    pub pos: Position,
+    pub vital: Vec<i32>,
+    pub deathtimer: MyInstant,
+    pub indeath: bool,
+    pub pk: bool,
 }
 
 impl PGPlayerLogOut {
-    pub fn new(user: &crate::players::Player) -> PGPlayerLogOut {
+    pub fn new(world: &mut hecs::World, entity: &Entity) -> PGPlayerLogOut {
         PGPlayerLogOut {
-            uid: user.accid,
-            itemtimer: user.itemtimer,
-            pos: user.e.pos,
-            vital: user.e.vital.to_vec(),
-            deathtimer: user.e.deathtimer,
-            indeath: user.e.life.is_spirit(),
-            pk: user.pk,
+            uid: world.get::<&Account>(entity.0).unwrap().id,
+            itemtimer: world.get_or_panic::<PlayerItemTimer>(entity).itemtimer,
+            pos: world.cloned_get_or_panic::<Position>(entity),
+            vital: world.get_or_panic::<Vitals>(entity).vital.to_vec(),
+            deathtimer: world.get_or_panic::<DeathTimer>(entity).0,
+            indeath: world.get_or_panic::<DeathType>(entity).is_spirit(),
+            pk: world.get_or_panic::<Player>(entity).pk,
         }
     }
 }
 
-#[derive(Debug, Queryable, Insertable, AsChangeset)]
-#[diesel(table_name = sql::players)]
-#[diesel(primary_key(uid))]
+#[derive(Debug, FromRow)]
 pub struct PGPlayerReset {
-    uid: i64,
-    resetcount: i16,
+    pub uid: i64,
+    pub resetcount: i16,
 }
 
 impl PGPlayerReset {
-    pub fn new(user: &crate::players::Player) -> PGPlayerReset {
+    pub fn new(world: &mut hecs::World, entity: &Entity) -> PGPlayerReset {
         PGPlayerReset {
-            uid: user.accid,
-            resetcount: user.resetcount,
+            uid: world.get::<&Account>(entity.0).unwrap().id,
+            resetcount: world.get_or_panic::<Player>(entity).resetcount,
         }
     }
 }
 
-#[derive(Debug, Queryable, Insertable, AsChangeset)]
-#[diesel(table_name = sql::players)]
-#[diesel(primary_key(uid))]
+#[derive(Debug, FromRow)]
 pub struct PGPlayerAddress {
-    uid: i64,
-    address: String,
+    pub uid: i64,
+    pub address: String,
 }
 
 impl PGPlayerAddress {
-    pub fn new(user: &crate::players::Player) -> PGPlayerAddress {
+    pub fn new(world: &mut hecs::World, entity: &Entity) -> PGPlayerAddress {
         PGPlayerAddress {
-            uid: user.accid,
-            address: user.addr.clone(),
+            uid: world.get::<&Account>(entity.0).unwrap().id,
+            address: world.get::<&Socket>(entity.0).unwrap().addr.clone(),
         }
     }
 }
 
-#[derive(Debug, Queryable, Insertable, AsChangeset)]
-#[diesel(table_name = sql::players)]
-#[diesel(primary_key(uid))]
+#[derive(Debug, FromRow)]
 pub struct PGPlayerLevel {
-    uid: i64,
-    level: i32,
-    levelexp: i64,
-    vital: Vec<i32>,
+    pub uid: i64,
+    pub level: i32,
+    pub levelexp: i64,
+    pub vital: Vec<i32>,
 }
 
 impl PGPlayerLevel {
-    pub fn new(user: &crate::players::Player) -> PGPlayerLevel {
+    pub fn new(world: &mut hecs::World, entity: &Entity) -> PGPlayerLevel {
         PGPlayerLevel {
-            uid: user.accid,
-            level: user.e.level,
-            levelexp: user.levelexp as i64,
-            vital: user.e.vital.to_vec(),
+            uid: world.get::<&Account>(entity.0).unwrap().id,
+            level: world.get_or_panic::<Level>(entity).0,
+            levelexp: i64::unshift_signed(&world.get_or_panic::<Player>(entity).levelexp),
+            vital: world.get_or_panic::<Vitals>(entity).vital.to_vec(),
         }
     }
 }
 
-#[derive(Debug, Queryable, Insertable, AsChangeset)]
-#[diesel(table_name = sql::players)]
-#[diesel(primary_key(uid))]
+#[derive(Debug, FromRow)]
 pub struct PGPlayerData {
-    uid: i64,
-    data: Vec<i64>,
+    pub uid: i64,
+    pub data: Vec<i64>,
 }
 
 impl PGPlayerData {
-    pub fn new(user: &crate::players::Player) -> PGPlayerData {
+    pub fn new(world: &mut hecs::World, entity: &Entity) -> PGPlayerData {
         PGPlayerData {
-            uid: user.accid,
-            data: user.e.data.to_vec(),
+            uid: world.get::<&Account>(entity.0).unwrap().id,
+            data: world.get_or_panic::<EntityData>(entity).0.to_vec(),
         }
     }
 }
 
-#[derive(Debug, Queryable, Insertable, AsChangeset)]
-#[diesel(table_name = sql::players)]
-#[diesel(primary_key(uid))]
+#[derive(Debug, FromRow)]
 pub struct PGPlayerPassReset {
-    uid: i64,
-    passresetcode: Option<String>,
+    pub uid: i64,
+    pub passresetcode: Option<String>,
 }
 
 impl PGPlayerPassReset {
-    pub fn new(user: &crate::players::Player, pass: Option<String>) -> PGPlayerPassReset {
+    pub fn new(
+        world: &mut hecs::World,
+        entity: &Entity,
+        pass: Option<String>,
+    ) -> PGPlayerPassReset {
         PGPlayerPassReset {
-            uid: user.accid,
+            uid: world.get::<&Account>(entity.0).unwrap().id,
             passresetcode: pass,
         }
     }
 }
 
-#[derive(Debug, Queryable, Insertable, AsChangeset)]
-#[diesel(table_name = sql::players)]
-#[diesel(primary_key(uid))]
+#[derive(Debug, FromRow)]
 pub struct PGPlayerSpawn {
-    uid: i64,
-    spawn: Position,
+    pub uid: i64,
+    pub spawn: Position,
 }
 
 impl PGPlayerSpawn {
-    pub fn new(user: &crate::players::Player) -> PGPlayerSpawn {
+    pub fn new(world: &mut hecs::World, entity: &Entity) -> PGPlayerSpawn {
         PGPlayerSpawn {
-            uid: user.accid,
-            spawn: user.e.spawn,
+            uid: world.get::<&Account>(entity.0).unwrap().id,
+            spawn: world.get_or_panic::<Spawn>(entity).pos,
         }
     }
 }
 
-#[derive(Debug, Queryable, Insertable, AsChangeset)]
-#[diesel(table_name = sql::players)]
-#[diesel(primary_key(uid))]
+#[derive(Debug, FromRow)]
 pub struct PGPlayerPos {
-    uid: i64,
-    pos: Position,
+    pub uid: i64,
+    pub pos: Position,
 }
 
 impl PGPlayerPos {
-    pub fn new(user: &crate::players::Player) -> PGPlayerPos {
+    pub fn new(world: &mut hecs::World, entity: &Entity) -> PGPlayerPos {
         PGPlayerPos {
-            uid: user.accid,
-            pos: user.e.pos,
+            uid: world.get::<&Account>(entity.0).unwrap().id,
+            pos: world.cloned_get_or_panic::<Position>(entity),
         }
     }
 }
 
-#[derive(Debug, Queryable, Insertable, AsChangeset)]
-#[diesel(table_name = sql::players)]
-#[diesel(primary_key(uid))]
+#[derive(Debug, FromRow)]
 pub struct PGPlayerCurrency {
-    uid: i64,
-    vals: i64,
+    pub uid: i64,
+    pub vals: i64,
 }
 
 impl PGPlayerCurrency {
-    pub fn new(user: &crate::players::Player) -> PGPlayerCurrency {
+    pub fn new(world: &mut hecs::World, entity: &Entity) -> PGPlayerCurrency {
         PGPlayerCurrency {
-            uid: user.accid,
-            vals: user.vals as i64,
+            uid: world.get::<&Account>(entity.0).unwrap().id,
+            vals: i64::unshift_signed(&world.get_or_panic::<Money>(entity).vals),
         }
     }
 }

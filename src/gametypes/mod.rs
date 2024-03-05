@@ -35,12 +35,14 @@ pub const MAX_TILE: usize = MAP_MAX_X * MAP_MAX_Y - 1;
 pub const MAX_NPCS: usize = 1000;
 pub const MAX_ITEMS: usize = 2000;
 pub const MAX_PLAYERS: usize = 1000;
+pub const MAX_SOCKET_PLAYERS: usize = 2000;
 
 pub const MAX_WORLD_NPCS: usize = 100_000;
 pub const NPCS_SPAWNCAP: usize = 10;
 
 pub const MAX_LVL: usize = 200;
-pub const MAX_INV: usize = 378;
+pub const MAX_INV: usize = 32;
+pub const MAX_EQPT: usize = 5;
 pub const MAX_ITEM_VAL: usize = 999;
 pub const MAX_NAME_LENGTH: usize = 32;
 pub const START_MAP: u32 = 21;

@@ -4,7 +4,7 @@ use crate::{
     socket::*,
 };
 
-use std::collections::hash_map::Entry;
+use indexmap::map::Entry;
 /* Information Packet Data Portion Worse case is 1400 bytes
 * This means you can fit based on Packet Size: 8bytes + Packet ID: 4bytes  + Data array count: 4bytes
 this leaves you with 1384 bytes to play with per packet.
@@ -40,12 +40,12 @@ pub enum DataTaskToken {
 }
 
 impl DataTaskToken {
-    pub fn add_task<T: ByteBufferWrite>(self, world: &Storage, data: &T) -> Result<()> {
-        match world.map_cache.borrow_mut().entry(self) {
+    pub fn add_task<T: ByteBufferWrite>(self, storage: &Storage, data: &T) -> Result<()> {
+        match storage.map_cache.borrow_mut().entry(self) {
             Entry::Vacant(v) => {
                 let mut buffer = new_cache(self.packet_id())?;
                 data.write_to_buffer(&mut buffer)?;
-                v.insert(vec![(1, buffer)]);
+                v.insert(vec![(1, buffer, false)]);
             }
             Entry::Occupied(mut o) => {
                 let buffers = o.get_mut();
@@ -55,9 +55,9 @@ impl DataTaskToken {
                     //write the data into the packet.
                     data.write_to_buffer(&mut buffer)?;
                     //push it to the buffer list.
-                    buffers.push((1, buffer));
+                    buffers.push((1, buffer, false));
                 } else {
-                    let (count, buffer) = buffers
+                    let (count, buffer, is_finished) = buffers
                         .last_mut()
                         .ok_or(AscendingError::PacketCacheNotFound(self))?;
                     data.write_to_buffer(buffer)?;
@@ -66,15 +66,16 @@ impl DataTaskToken {
                     // If buffer is full lets make another one thats empty.
                     // Also lets Finish the old buffer by adding the count.
                     // We will use the count to deturmine if we send the packet or not.
-                    if *count >= self.limits() {
-                        finish_cache(buffer, *count)?;
-                        buffers.push((0, new_cache(self.packet_id())?));
+                    if *count >= self.limits() && !*is_finished {
+                        *is_finished = true;
+                        finish_cache(buffer, *count, false)?;
+                        buffers.push((0, new_cache(self.packet_id())?, false));
                     }
                 }
             }
         }
 
-        world.map_cache_ids.borrow_mut().insert(self);
+        storage.map_cache_ids.borrow_mut().insert(self);
 
         Ok(())
     }
@@ -130,9 +131,9 @@ impl DataTaskToken {
         }
     }
 
-    pub fn send(&self, world: &Storage, buf: ByteBuffer) {
+    pub fn send(&self, world: &mut hecs::World, storage: &Storage, buf: ByteBuffer) {
         match self {
-            DataTaskToken::GlobalChat => send_to_all(world, buf),
+            DataTaskToken::GlobalChat => send_to_all(world, storage, buf),
             DataTaskToken::NpcMove(mappos)
             | DataTaskToken::PlayerMove(mappos)
             | DataTaskToken::NpcDir(mappos)
@@ -152,7 +153,7 @@ impl DataTaskToken {
             | DataTaskToken::PlayerLevel(mappos)
             | DataTaskToken::PlayerDamage(mappos)
             | DataTaskToken::NpcDamage(mappos)
-            | DataTaskToken::NpcVitals(mappos) => send_to_maps(world, *mappos, buf, None),
+            | DataTaskToken::NpcVitals(mappos) => send_to_maps(world, storage, *mappos, buf, None),
         }
     }
 }
@@ -166,14 +167,16 @@ pub fn new_cache(packet_id: u32) -> Result<ByteBuffer> {
     Ok(buffer)
 }
 
-pub fn finish_cache(buffer: &mut ByteBuffer, count: u32) -> Result<()> {
-    //Move it 8 bytes for Size + 4 bytes for Packet ID to get count location.
-    buffer.move_cursor(12)?;
-    //Write the count from the offset cursor position.
-    //This will overwrite old data which in this case is empty.
-    buffer.write(count)?;
-    //finish the buffer off. This sets the Packet size and makes sure the cursor is
-    //back to zero again.
-    buffer.finish()?;
+pub fn finish_cache(buffer: &mut ByteBuffer, count: u32, is_finished: bool) -> Result<()> {
+    if !is_finished {
+        //Move it 8 bytes for Size + 4 bytes for Packet ID to get count location.
+        buffer.move_cursor(12)?;
+        //Write the count from the offset cursor position.
+        //This will overwrite old data which in this case is empty.
+        buffer.write(count)?;
+        //finish the buffer off. This sets the Packet size and makes sure the cursor is
+        //back to zero again.
+        buffer.finish()?;
+    }
     Ok(())
 }

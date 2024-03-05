@@ -1,17 +1,7 @@
 use crate::{containers::*, gametypes::*, maps::*};
 use bytey::{ByteBufferRead, ByteBufferWrite};
-use diesel::{
-    deserialize::{self, FromSql},
-    pg::{sql_types::Record, Pg},
-    serialize::{self, Output, ToSql, WriteTuple},
-    sql_types::Integer,
-};
 use serde::{Deserialize, Serialize};
-use unwrap_helpers::*;
-
-#[derive(SqlType)]
-#[diesel(postgres_type(name = "position"))]
-pub struct PosType;
+use sqlx::Postgres;
 
 #[derive(
     Copy,
@@ -22,17 +12,44 @@ pub struct PosType;
     Default,
     Deserialize,
     Serialize,
-    FromSqlRow,
-    AsExpression,
     Hash,
     ByteBufferRead,
     ByteBufferWrite,
 )]
-#[diesel(sql_type = PosType)]
 pub struct Position {
     pub x: i32,
     pub y: i32,
     pub map: MapPosition,
+}
+
+impl sqlx::Type<Postgres> for Position {
+    fn type_info() -> sqlx::postgres::PgTypeInfo {
+        sqlx::postgres::PgTypeInfo::with_name("Position")
+    }
+}
+
+impl<'r> sqlx::Decode<'r, Postgres> for Position {
+    fn decode(
+        value: sqlx::postgres::PgValueRef<'r>,
+    ) -> sqlx::Result<Self, Box<dyn std::error::Error + 'static + Send + Sync>> {
+        let mut decoder = sqlx::postgres::types::PgRecordDecoder::new(value)?;
+        let x = decoder.try_decode::<i32>()?;
+        let y = decoder.try_decode::<i32>()?;
+        let map = decoder.try_decode::<MapPosition>()?;
+        Ok(Self { x, y, map })
+    }
+}
+
+impl<'q> sqlx::Encode<'q, Postgres> for Position {
+    fn encode_by_ref(&self, buf: &mut sqlx::postgres::PgArgumentBuffer) -> sqlx::encode::IsNull {
+        let mut encoder = sqlx::postgres::types::PgRecordEncoder::new(buf);
+        encoder
+            .encode(self.x)
+            .encode(self.y)
+            .encode(self.map)
+            .finish();
+        sqlx::encode::IsNull::No
+    }
 }
 
 impl Position {
@@ -89,9 +106,12 @@ impl Position {
         }
     }
 
-    pub fn update_pos_map(&mut self, world: &Storage) -> bool {
+    pub fn update_pos_map(&mut self, storage: &Storage) -> bool {
         let set_pos = |pos: &mut Position, mappos, x, y| -> bool {
-            let mapid = unwrap_or_return!(get_dir_mapid(world, pos.map, mappos), false);
+            let mapid = match get_dir_mapid(storage, pos.map, mappos) {
+                Some(id) => id,
+                None => return false,
+            };
 
             *pos = Position::new(x, y, mapid);
             true
@@ -147,26 +167,7 @@ impl Position {
     }
 }
 
-impl ToSql<PosType, Pg> for Position {
-    fn to_sql(&self, out: &mut Output<Pg>) -> serialize::Result {
-        WriteTuple::<(Integer, Integer, MapPosType)>::write_tuple(&(self.x, self.y, self.map), out)
-    }
-}
-
-impl FromSql<PosType, Pg> for Position {
-    fn from_sql(bytes: diesel::backend::RawValue<'_, Pg>) -> deserialize::Result<Self> {
-        let data: (i32, i32, MapPosition) =
-            FromSql::<Record<(Integer, Integer, MapPosType)>, Pg>::from_sql(bytes)?;
-
-        Ok(Position {
-            x: data.0,
-            y: data.1,
-            map: data.2,
-        })
-    }
-}
-
 #[inline]
 pub fn in_range(range: i32, target: Position, attacker: Position) -> bool {
-    attacker.checkdistance(target) <= range as i32
+    attacker.checkdistance(target) <= range
 }

@@ -47,7 +47,8 @@ impl GameTime {
     }
 
     pub fn get_time(&self) -> NaiveTime {
-        NaiveTime::from_hms(self.hour, self.min, self.sec)
+        NaiveTime::from_hms_opt(self.hour, self.min, self.sec)
+            .expect("Hour, Min or second is not being set correctly.")
     }
 }
 

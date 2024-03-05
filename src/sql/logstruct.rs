@@ -1,7 +1,8 @@
-use crate::{gametypes::*, sql};
+use sqlx::FromRow;
 
-#[derive(Debug, Queryable, Insertable)]
-#[diesel(table_name = sql::logs)]
+use crate::gametypes::*;
+
+#[derive(Debug, FromRow)]
 pub struct PGLog {
     serverid: i16,
     userid: i64,

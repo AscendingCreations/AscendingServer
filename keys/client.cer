@@ -1,0 +1,126 @@
+Certificate:
+    Data:
+        Version: 3 (0x2)
+        Serial Number: 4096 (0x1000)
+        Signature Algorithm: sha256WithRSAEncryption
+        Issuer: C=US, ST=Michigan, L=Mendon, O=Ascending Creations, CN=genusis/emailAddress=genusistimelord@outlook.com
+        Validity
+            Not Before: Feb 27 00:46:11 2024 GMT
+            Not After : Feb 26 00:46:11 2025 GMT
+        Subject: C=US, ST=Michigan, O=Ascending Creations, CN=genusis/emailAddress=genusistimelord@outlook.com
+        Subject Public Key Info:
+            Public Key Algorithm: rsaEncryption
+                Public-Key: (4096 bit)
+                Modulus:
+                    00:e1:25:2c:22:24:80:b6:ab:1e:a1:40:24:ea:e1:
+                    26:4f:79:0d:cc:21:7c:35:82:39:46:01:63:58:00:
+                    6c:96:de:88:90:52:45:e6:80:b1:57:92:ab:41:1d:
+                    3d:6c:63:76:f6:2f:a0:38:d4:d6:55:bc:e5:dd:a1:
+                    ac:e4:18:2c:9e:b3:f7:8f:32:db:03:e0:9a:3a:90:
+                    1d:09:d1:ae:93:30:e2:20:5d:5d:de:a1:1d:1e:1e:
+                    b9:88:7c:51:41:d9:87:cb:bf:24:27:f8:7b:ba:d8:
+                    d6:97:b1:e7:03:35:87:92:04:94:9f:8c:68:93:6b:
+                    c4:cc:65:95:ca:f2:c9:50:92:a8:22:df:bd:39:b1:
+                    cc:31:ee:f8:f7:29:0b:4c:ce:dc:e2:18:5b:7f:6d:
+                    bf:20:cf:f9:8b:5b:38:6f:b7:9f:71:81:56:10:2e:
+                    a6:6a:be:10:d3:c9:8a:ab:97:43:bc:a8:82:e1:84:
+                    c1:5d:ee:a3:f6:a0:6d:5e:b2:ec:9c:db:91:e8:79:
+                    d9:90:d3:54:31:b0:54:5b:09:ec:51:be:09:ba:09:
+                    9a:6f:60:c1:30:74:26:d6:a3:a2:5a:43:ab:ab:35:
+                    68:fd:59:45:7a:68:d4:c5:14:82:29:2e:6e:6e:88:
+                    00:e9:9b:35:c8:74:4f:dc:ea:e7:2a:82:15:a5:87:
+                    32:ed:6a:f7:fb:c5:5a:b9:c7:46:b5:3e:04:55:ed:
+                    d9:2c:63:da:73:3e:34:ea:94:75:1b:98:86:b5:0f:
+                    95:f1:6f:9a:68:56:e9:59:e3:54:6e:1b:da:65:1b:
+                    fc:36:ec:8b:fc:a7:1b:43:3e:63:7d:6e:40:06:09:
+                    b9:e8:4a:f2:3a:ae:7a:63:e5:d9:66:b9:2b:0e:96:
+                    ba:a6:6e:28:6a:20:19:aa:fa:e7:b8:b3:11:52:ed:
+                    d1:fc:45:bd:43:f0:dc:1a:12:03:55:66:6d:5c:58:
+                    bc:93:a0:ed:40:a9:9b:f1:dc:79:2f:ba:74:a7:bb:
+                    3b:50:e1:db:16:12:d4:02:39:c1:d6:5a:b6:fb:8a:
+                    dd:33:fd:7e:0d:12:2e:b2:0b:98:e9:80:ff:85:e9:
+                    f7:10:4e:9b:93:42:88:67:33:ba:a8:96:44:0f:86:
+                    59:a4:bd:71:2f:23:1b:74:20:cb:fb:ca:2a:33:b5:
+                    79:f6:0c:a9:94:33:2f:c6:f2:64:9e:9f:46:94:95:
+                    d6:63:cb:11:c8:13:d9:0e:f3:0c:a2:98:8e:ab:fe:
+                    0a:74:03:97:6b:cf:bb:ef:8b:65:cc:29:e6:48:26:
+                    4d:71:28:ab:ed:08:92:35:00:96:4d:b6:e6:f9:ec:
+                    c1:80:24:76:83:1a:fd:16:9d:36:a2:31:27:df:5a:
+                    a9:fa:6f
+                Exponent: 65537 (0x10001)
+        X509v3 extensions:
+            X509v3 Basic Constraints: 
+                CA:FALSE
+            X509v3 Subject Key Identifier: 
+                88:5D:EB:A5:21:3A:1B:1C:A3:28:C1:DB:D3:E3:06:62:BC:51:BE:7A
+            X509v3 Authority Key Identifier: 
+                DirName:/C=US/ST=Michigan/L=Mendon/O=Ascending Creations/CN=genusis/emailAddress=genusistimelord@outlook.com
+                serial:30:5B:D8:F0:AD:99:C6:AE:DA:97:90:D1:EE:5D:51:8E:C7:A9:77:46
+    Signature Algorithm: sha256WithRSAEncryption
+    Signature Value:
+        21:bf:32:60:3a:05:38:db:e3:e9:3e:8e:d6:d1:d4:44:9f:9c:
+        59:c8:f9:4b:82:be:84:da:34:ff:b7:bc:36:e6:a3:8b:bc:a6:
+        e4:bc:a8:cf:fc:80:3b:7d:aa:75:06:66:44:08:a8:cb:fb:75:
+        dc:82:94:af:d3:6e:b8:03:47:4d:e3:68:87:4c:df:77:0c:bd:
+        d4:b8:a6:2a:cb:3a:cd:eb:52:18:33:e0:8e:2d:46:8d:2b:5d:
+        b9:d9:df:84:ce:51:da:d0:07:8d:3e:c0:c0:9c:a6:3d:10:46:
+        cd:12:52:7b:11:47:4a:0f:20:ea:b5:23:e8:41:fb:34:59:5b:
+        21:99:7e:63:b2:a9:19:ee:40:b5:99:0b:1d:f3:fc:c1:ce:8a:
+        a7:e8:62:36:97:86:47:e4:41:b0:2a:bb:8a:c1:2f:c4:03:2c:
+        52:42:c9:9e:21:f6:c3:e8:98:b0:9e:8d:68:d8:dc:30:9d:84:
+        3b:57:db:32:11:a6:3f:9b:02:da:86:0a:ec:fd:07:24:aa:a5:
+        53:7a:e5:76:ea:25:b8:b1:b0:3f:69:8b:a8:e5:e8:e4:3b:4c:
+        9e:9d:9e:74:08:75:cb:47:cb:9e:1d:b0:56:27:04:72:29:6a:
+        f1:b0:b5:cb:0c:eb:f5:29:58:66:5d:d2:3d:fe:d8:74:e0:96:
+        35:04:47:81:88:bd:28:f1:58:64:1b:79:fa:9d:a5:ae:c0:2f:
+        91:21:de:20:53:be:6d:76:23:b7:6d:55:9e:ae:4b:b6:d3:9f:
+        30:65:c7:7e:95:25:38:91:9b:d2:18:a7:99:db:1b:a4:40:b3:
+        95:50:1a:08:0b:84:b6:f1:d7:a8:6d:f0:ff:0d:42:c2:5a:b4:
+        00:91:7f:a3:1c:ee:34:d0:2e:44:1c:d6:36:6c:b6:10:03:d9:
+        0f:7e:87:9d:fd:bd:ff:30:2d:e6:d0:18:c1:9a:ed:5d:28:9c:
+        53:77:83:01:8e:ef:5d:29:4c:1a:32:78:e1:b3:7a:ed:1a:e0:
+        e8:2a:38:ba:16:8c:cc:69:8d:77:fe:48:7b:ee:fc:b8:d8:81:
+        80:47:05:69:1b:50:37:6e:91:cb:16:a6:6e:2c:df:7c:15:f4:
+        d9:75:15:18:0d:17:41:be:41:89:dd:8e:c0:fd:8b:83:43:36:
+        63:a2:39:7d:d6:c9:80:22:06:d6:d3:7f:53:c1:9d:a7:ca:6f:
+        83:b6:f5:d4:32:f2:fd:06:12:8b:84:66:f2:52:44:98:e8:d0:
+        d0:e2:8d:cb:7d:21:d1:2a:bc:b6:07:ce:b4:cf:67:98:e9:1b:
+        eb:3c:a3:0c:65:e3:17:e2:fe:a1:9f:8d:3e:10:8c:19:fc:18:
+        5f:8f:6e:de:15:63:06:13
+-----BEGIN CERTIFICATE-----
+MIIGbjCCBFagAwIBAgICEAAwDQYJKoZIhvcNAQELBQAwgY0xCzAJBgNVBAYTAlVT
+MREwDwYDVQQIDAhNaWNoaWdhbjEPMA0GA1UEBwwGTWVuZG9uMRwwGgYDVQQKDBNB
+c2NlbmRpbmcgQ3JlYXRpb25zMRAwDgYDVQQDDAdnZW51c2lzMSowKAYJKoZIhvcN
+AQkBFhtnZW51c2lzdGltZWxvcmRAb3V0bG9vay5jb20wHhcNMjQwMjI3MDA0NjEx
+WhcNMjUwMjI2MDA0NjExWjB8MQswCQYDVQQGEwJVUzERMA8GA1UECAwITWljaGln
+YW4xHDAaBgNVBAoME0FzY2VuZGluZyBDcmVhdGlvbnMxEDAOBgNVBAMMB2dlbnVz
+aXMxKjAoBgkqhkiG9w0BCQEWG2dlbnVzaXN0aW1lbG9yZEBvdXRsb29rLmNvbTCC
+AiIwDQYJKoZIhvcNAQEBBQADggIPADCCAgoCggIBAOElLCIkgLarHqFAJOrhJk95
+DcwhfDWCOUYBY1gAbJbeiJBSReaAsVeSq0EdPWxjdvYvoDjU1lW85d2hrOQYLJ6z
+948y2wPgmjqQHQnRrpMw4iBdXd6hHR4euYh8UUHZh8u/JCf4e7rY1pex5wM1h5IE
+lJ+MaJNrxMxllcryyVCSqCLfvTmxzDHu+PcpC0zO3OIYW39tvyDP+YtbOG+3n3GB
+VhAupmq+ENPJiquXQ7yoguGEwV3uo/agbV6y7Jzbkeh52ZDTVDGwVFsJ7FG+CboJ
+mm9gwTB0JtajolpDq6s1aP1ZRXpo1MUUgikubm6IAOmbNch0T9zq5yqCFaWHMu1q
+9/vFWrnHRrU+BFXt2Sxj2nM+NOqUdRuYhrUPlfFvmmhW6VnjVG4b2mUb/Dbsi/yn
+G0M+Y31uQAYJuehK8jquemPl2Wa5Kw6WuqZuKGogGar657izEVLt0fxFvUPw3BoS
+A1VmbVxYvJOg7UCpm/HceS+6dKe7O1Dh2xYS1AI5wdZatvuK3TP9fg0SLrILmOmA
+/4Xp9xBOm5NCiGczuqiWRA+GWaS9cS8jG3Qgy/vKKjO1efYMqZQzL8byZJ6fRpSV
+1mPLEcgT2Q7zDKKYjqv+CnQDl2vPu++LZcwp5kgmTXEoq+0IkjUAlk225vnswYAk
+doMa/RadNqIxJ99aqfpvAgMBAAGjgecwgeQwCQYDVR0TBAIwADAdBgNVHQ4EFgQU
+iF3rpSE6GxyjKMHb0+MGYrxRvnowgbcGA1UdIwSBrzCBrKGBk6SBkDCBjTELMAkG
+A1UEBhMCVVMxETAPBgNVBAgMCE1pY2hpZ2FuMQ8wDQYDVQQHDAZNZW5kb24xHDAa
+BgNVBAoME0FzY2VuZGluZyBDcmVhdGlvbnMxEDAOBgNVBAMMB2dlbnVzaXMxKjAo
+BgkqhkiG9w0BCQEWG2dlbnVzaXN0aW1lbG9yZEBvdXRsb29rLmNvbYIUMFvY8K2Z
+xq7al5DR7l1Rjsepd0YwDQYJKoZIhvcNAQELBQADggIBACG/MmA6BTjb4+k+jtbR
+1ESfnFnI+UuCvoTaNP+3vDbmo4u8puS8qM/8gDt9qnUGZkQIqMv7ddyClK/TbrgD
+R03jaIdM33cMvdS4pirLOs3rUhgz4I4tRo0rXbnZ34TOUdrQB40+wMCcpj0QRs0S
+UnsRR0oPIOq1I+hB+zRZWyGZfmOyqRnuQLWZCx3z/MHOiqfoYjaXhkfkQbAqu4rB
+L8QDLFJCyZ4h9sPomLCejWjY3DCdhDtX2zIRpj+bAtqGCuz9BySqpVN65XbqJbix
+sD9pi6jl6OQ7TJ6dnnQIdctHy54dsFYnBHIpavGwtcsM6/UpWGZd0j3+2HTgljUE
+R4GIvSjxWGQbefqdpa7AL5Eh3iBTvm12I7dtVZ6uS7bTnzBlx36VJTiRm9IYp5nb
+G6RAs5VQGggLhLbx16ht8P8NQsJatACRf6Mc7jTQLkQc1jZsthAD2Q9+h539vf8w
+LebQGMGa7V0onFN3gwGO710pTBoyeOGzeu0a4OgqOLoWjMxpjXf+SHvu/LjYgYBH
+BWkbUDdukcsWpm4s33wV9Nl1FRgNF0G+QYndjsD9i4NDNmOiOX3WyYAiBtbTf1PB
+nafKb4O29dQy8v0GEouEZvJSRJjo0NDijct9IdEqvLYHzrTPZ5jpG+s8owxl4xfi
+/qGfjT4QjBn8GF+Pbt4VYwYT
+-----END CERTIFICATE-----

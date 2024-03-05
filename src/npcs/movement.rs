@@ -1,129 +1,183 @@
-use crate::{containers::Storage, gametypes::*, maps::*, npcs::*, tasks::*};
+use crate::{containers::Storage, gametypes::*, maps::*, npcs::*, players::Account, tasks::*};
 use chrono::Duration;
 
-pub fn movement(world: &Storage, npc: &mut Npc, _base: &NpcData) {
+pub fn npc_movement(world: &mut hecs::World, storage: &Storage, entity: &Entity, _base: &NpcData) {
     //AI Timer is used to Reset the Moves every so offten to recalculate them for possible changes.
-    if npc.ai_timer < *world.gettick.borrow() && npc.moving {
-        npc.moves.clear();
-        npc.moving = false;
+    if world.get_or_panic::<NpcAITimer>(entity).0 < *storage.gettick.borrow()
+        && world.get_or_panic::<NpcMoving>(entity).0
+    {
+        world
+            .get::<&mut NpcMoves>(entity.0)
+            .expect("Could not find NpcMoves")
+            .0
+            .clear();
+        world
+            .get::<&mut NpcMoving>(entity.0)
+            .expect("Could not find NpcMoves")
+            .0 = false;
     }
 
-    if !npc.moving && npc.moves.is_empty() {
-        if let Some(movepos) = npc.move_pos {
+    if !world.get_or_panic::<NpcMoving>(entity).0
+        && world.get::<&NpcMoves>(entity.0).unwrap().0.is_empty()
+    {
+        if let Some(movepos) = world.get_or_panic::<NpcMovePos>(entity).0 {
             //Move pos overrides targeting pos movement.
-            if let Some(path) = a_star_path(world, npc.e.pos, npc.e.dir, movepos) {
-                npc.set_move_path(path);
+            if let Some(path) = a_star_path(
+                storage,
+                world.get_or_panic::<Position>(entity),
+                world.get_or_panic::<Dir>(entity).0,
+                movepos,
+            ) {
+                npc_set_move_path(world, entity, path);
             }
-        } else if npc.e.targettype != EntityType::None
-            && world
+        } else if world.get_or_panic::<Target>(entity).targettype != EntityType::None
+            && storage
                 .maps
-                .get(&npc.e.pos.map)
+                .get(&world.get_or_panic::<Position>(entity).map)
                 .map(|map| map.borrow().players_on_map())
                 .unwrap_or(false)
         {
-            if let Some(path) = a_star_path(world, npc.e.pos, npc.e.dir, npc.e.targetpos) {
-                npc.set_move_path(path);
+            if let Some(path) = a_star_path(
+                storage,
+                world.get_or_panic::<Position>(entity),
+                world.get_or_panic::<Dir>(entity).0,
+                world.get_or_panic::<Target>(entity).targetpos,
+            ) {
+                npc_set_move_path(world, entity, path);
             }
         } else {
             //no special movement lets give them some if we can;
-            if world
+            if storage
                 .maps
-                .get(&npc.e.pos.map)
+                .get(&world.get_or_panic::<Position>(entity).map)
                 .map(|map| map.borrow().players_on_map())
                 .unwrap_or(false)
             {
-                npc.set_move_path(npc_rand_movement(world, npc.e.pos, npc.e.dir));
+                npc_set_move_path(
+                    world,
+                    entity,
+                    npc_rand_movement(
+                        storage,
+                        world.get_or_panic::<Position>(entity),
+                        world.get_or_panic::<Dir>(entity).0,
+                    ),
+                );
             }
         }
 
-        npc.ai_timer = *world.gettick.borrow() + Duration::milliseconds(2500);
+        world
+            .get::<&mut NpcAITimer>(entity.0)
+            .expect("Could not find NpcAITimer")
+            .0 = *storage.gettick.borrow() + Duration::milliseconds(2500);
     }
 
-    if npc.moving {
-        let next = match npc.moves.pop() {
+    if world.get_or_panic::<NpcMoving>(entity).0 {
+        let next = match world
+            .get::<&mut NpcMoves>(entity.0)
+            .expect("Could not find NpcMoves")
+            .0
+            .pop()
+        {
             Some(v) => v,
             None => return,
         };
 
-        if map_path_blocked(world, npc.e.pos, next.0, next.1) {
-            npc.moves.push(next);
+        if map_path_blocked(
+            storage,
+            world.get_or_panic::<Position>(entity),
+            next.0,
+            next.1,
+        ) {
+            world
+                .get::<&mut NpcMoves>(entity.0)
+                .expect("Could not find NpcMoves")
+                .0
+                .push(next);
+
             return;
         }
 
-        if npc.e.pos == next.0 {
-            npc.set_npc_dir(world, next.1);
+        if world.get_or_panic::<Position>(entity) == next.0 {
+            set_npc_dir(world, storage, entity, next.1);
         } else {
-            if npc.move_pos.is_none() {
+            if world.get_or_panic::<NpcMovePos>(entity).0.is_none() {
                 //do any movepos to position first
-                if !world
+                if !storage
                     .maps
-                    .get(&npc.e.pos.map)
+                    .get(&world.get_or_panic::<Position>(entity).map)
                     .map(|map| map.borrow().players_on_map())
                     .unwrap_or(false)
                 {
-                    npc.clear_move_path();
+                    npc_clear_move_path(world, entity);
                     return;
                 }
 
-                match npc.e.targettype {
+                match world.get_or_panic::<Target>(entity).targettype {
                     EntityType::Player(i, accid) => {
-                        if let Some(target) = world.players.borrow().get(i as usize) {
-                            let target = target.borrow();
-
-                            if target.e.life.is_alive() && target.accid == accid {
-                                if target.e.pos == next.0 {
-                                    npc.clear_move_path();
-                                    npc.set_npc_dir(world, next.1);
+                        if world.contains(i.0) {
+                            if world.get_or_panic::<DeathType>(&i).is_alive()
+                                && world.get::<&Account>(i.0).unwrap().id == accid
+                            {
+                                if world.get_or_panic::<Position>(&i) == next.0 {
+                                    npc_clear_move_path(world, entity);
+                                    set_npc_dir(world, storage, entity, next.1);
                                     return;
                                 }
                             } else {
-                                npc.clear_move_path();
+                                npc_clear_move_path(world, entity);
                             }
                         } else {
-                            npc.clear_move_path();
+                            npc_clear_move_path(world, entity);
                         }
                     }
                     EntityType::Npc(i) => {
-                        if let Some(target) = world.npcs.borrow().get(i as usize) {
-                            if target.borrow().e.life.is_alive() {
-                                if target.borrow().e.pos == next.0 {
-                                    npc.clear_move_path();
-                                    npc.set_npc_dir(world, next.1);
+                        if world.contains(i.0) {
+                            if world.get_or_panic::<DeathType>(&i).is_alive() {
+                                if world.get_or_panic::<Position>(&i) == next.0 {
+                                    npc_clear_move_path(world, entity);
+                                    set_npc_dir(world, storage, entity, next.1);
                                     return;
                                 }
                             } else {
-                                npc.clear_move_path();
+                                npc_clear_move_path(world, entity);
                             }
                         } else {
-                            npc.clear_move_path();
+                            npc_clear_move_path(world, entity);
                         }
                     }
                     _ => {}
                 };
-            } else if next.0 == npc.move_pos.unwrap() {
-                npc.move_pos = None;
-                npc.clear_move_path();
+            } else if Some(next.0) == world.get_or_panic::<NpcMovePos>(entity).0 {
+                world
+                    .get::<&mut NpcMovePos>(entity.0)
+                    .expect("Could not find NpcMovePos")
+                    .0 = None;
+
+                npc_clear_move_path(world, entity);
             }
 
-            npc.e.dir = next.1;
+            world
+                .get::<&mut Dir>(entity.0)
+                .expect("Could not find Dir")
+                .0 = next.1;
 
-            if next.0.map != npc.e.pos.map {
-                let old_map = npc.e.pos.map;
-                npc.switch_maps(world, next.0);
+            let old_map = world.get_or_panic::<Position>(entity).map;
+            if next.0.map != old_map {
+                npc_switch_maps(world, storage, entity, next.0);
                 //Send this Twice one to the old map and one to the new. Just in case people in outermaps did not get it yet.
                 let _ = DataTaskToken::NpcMove(old_map).add_task(
-                    world,
-                    &MovePacket::new(npc.e.get_id() as u64, next.0, false, true, next.1),
+                    storage,
+                    &MovePacket::new(*entity, next.0, false, true, next.1),
                 );
                 let _ = DataTaskToken::NpcMove(next.0.map).add_task(
-                    world,
-                    &MovePacket::new(npc.e.get_id() as u64, next.0, false, true, next.1),
+                    storage,
+                    &MovePacket::new(*entity, next.0, false, true, next.1),
                 );
             } else {
-                npc.swap_pos(world, next.0);
+                npc_swap_pos(world, storage, entity, next.0);
                 let _ = DataTaskToken::NpcMove(next.0.map).add_task(
-                    world,
-                    &MovePacket::new(npc.e.get_id() as u64, next.0, false, false, next.1),
+                    storage,
+                    &MovePacket::new(*entity, next.0, false, false, next.1),
                 );
             }
         }

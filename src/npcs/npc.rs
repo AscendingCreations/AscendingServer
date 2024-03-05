@@ -1,118 +1,205 @@
 use crate::{containers::*, gametypes::*, tasks::*, time_ext::MyInstant};
-use unwrap_helpers::*;
 
-#[derive(Clone, Debug, Derivative)]
-#[derivative(Default(new = "true"))]
-pub struct Npc {
-    pub num: u64,
-    pub sprite: u32,
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Default)]
+pub struct NpcIndex(pub u64);
+
+#[derive(Derivative, Debug, Copy, Clone, PartialEq, Eq)]
+#[derivative(Default)]
+pub struct NpcTimer {
     #[derivative(Default(value = "MyInstant::now()"))]
     pub despawntimer: MyInstant,
     #[derivative(Default(value = "MyInstant::now()"))]
     pub spawntimer: MyInstant,
-    #[derivative(Default(value = "MyInstant::now()"))]
-    pub ai_timer: MyInstant, //for rebuilding the a* paths
-    //offset for special things so the npc wont to events based on this spawn time.
-    pub e: Entity,
-    pub despawns: bool,
-    pub hitby: Vec<(u32, u64, u64)>,
-    //New pos and walking dir.
-    pub moves: Vec<(Position, u8)>,
-    pub moving: bool,
-    pub is_retreating: bool,
-    pub walktospawn: bool,
-    //Zone ID so when they Die that map can spawn more.
-    pub spawned_zone: Option<usize>,
-    pub move_pos: Option<Position>,
 }
 
-impl Npc {
-    #[inline(always)]
-    pub fn is_same(&self, id: usize) -> bool {
-        id == self.e.get_id()
-    }
+#[derive(Derivative, Debug, Copy, Clone, PartialEq, Eq)]
+#[derivative(Default)]
+pub struct NpcAITimer(#[derivative(Default(value = "MyInstant::now()"))] pub MyInstant); //for rebuilding the a* paths
 
-    #[inline(always)]
-    pub fn set_move_path(&mut self, path: Vec<(Position, u8)>) {
-        self.moves = path;
-        self.moving = true;
-    }
+#[derive(Derivative, Debug, Copy, Clone, PartialEq, Eq)]
+#[derivative(Default)]
+pub struct NpcDespawns(#[derivative(Default(value = "false"))] pub bool);
 
-    #[inline(always)]
-    pub fn clear_move_path(&mut self) {
-        self.moves.clear();
-        self.moving = false;
-    }
+#[derive(Derivative, Debug, Copy, Clone, PartialEq, Eq)]
+#[derivative(Default)]
+pub struct NpcMoving(#[derivative(Default(value = "false"))] pub bool);
 
-    #[inline(always)]
-    pub fn set_npc_dir(&mut self, world: &Storage, dir: u8) {
-        if self.e.dir != dir {
-            self.e.dir = dir;
-            let _ = DataTaskToken::NpcDir(self.e.pos.map)
-                .add_task(world, &DirPacket::new(self.e.get_id() as u64, dir));
+#[derive(Derivative, Debug, Copy, Clone, PartialEq, Eq)]
+#[derivative(Default)]
+pub struct NpcRetreating(#[derivative(Default(value = "false"))] pub bool);
+
+#[derive(Derivative, Debug, Copy, Clone, PartialEq, Eq)]
+#[derivative(Default)]
+pub struct NpcWalkToSpawn(#[derivative(Default(value = "false"))] pub bool);
+
+#[derive(Derivative, Debug, Clone, PartialEq, Eq)]
+#[derivative(Default)]
+//offset for special things so the npc wont to events based on this spawn time.
+pub struct NpcHitBy(#[derivative(Default(value = "Vec::new()"))] pub Vec<(u32, u64, u64)>);
+
+#[derive(Derivative, Debug, Clone, PartialEq, Eq)]
+#[derivative(Default)]
+pub struct NpcMoves(#[derivative(Default(value = "Vec::new()"))] pub Vec<(Position, u8)>);
+
+#[derive(Default, Debug, Copy, Clone, PartialEq, Eq)]
+pub struct NpcSpawnedZone(pub Option<usize>);
+
+#[derive(Default, Debug, Copy, Clone, PartialEq, Eq)]
+pub struct NpcMovePos(pub Option<Position>);
+
+#[inline(always)]
+pub fn is_npc_same(from_entity: &crate::Entity, to_entity: &crate::Entity) -> bool {
+    from_entity == to_entity
+}
+
+#[inline(always)]
+pub fn npc_set_move_path(
+    world: &mut hecs::World,
+    entity: &crate::Entity,
+    path: Vec<(Position, u8)>,
+) {
+    world
+        .get::<&mut NpcMoves>(entity.0)
+        .expect("Could not find NpcMoves")
+        .0 = path;
+    world
+        .get::<&mut NpcMoving>(entity.0)
+        .expect("Could not find NpcMoving")
+        .0 = true;
+}
+
+#[inline(always)]
+pub fn npc_clear_move_path(world: &mut hecs::World, entity: &crate::Entity) {
+    world
+        .get::<&mut NpcMoves>(entity.0)
+        .expect("Could not find NpcMoves")
+        .0
+        .clear();
+    world
+        .get::<&mut NpcMoving>(entity.0)
+        .expect("Could not find NpcMoving")
+        .0 = false;
+}
+
+#[inline(always)]
+pub fn set_npc_dir(world: &mut hecs::World, storage: &Storage, entity: &crate::Entity, dir: u8) {
+    if world.get_or_panic::<Dir>(entity).0 != dir {
+        world
+            .get::<&mut Dir>(entity.0)
+            .expect("Could not find Dir")
+            .0 = dir;
+
+        let _ = DataTaskToken::NpcDir(world.get_or_panic::<Position>(entity).map)
+            .add_task(storage, &DirPacket::new(*entity, dir));
+    }
+}
+
+#[inline(always)]
+pub fn npc_swap_pos(
+    world: &mut hecs::World,
+    storage: &Storage,
+    entity: &crate::Entity,
+    pos: Position,
+) -> Position {
+    let oldpos = world.get_or_panic::<Position>(entity);
+    if oldpos != pos {
+        *world
+            .get::<&mut Position>(entity.0)
+            .expect("Could not find Position") = pos;
+
+        let mut map = match storage.maps.get(&oldpos.map) {
+            Some(map) => map,
+            None => return oldpos,
         }
-    }
-
-    #[inline(always)]
-    pub fn swap_pos(&mut self, world: &Storage, pos: Position) -> Position {
-        let oldpos = self.e.pos;
-        if oldpos != pos {
-            self.e.pos = pos;
-
-            let mut map = unwrap_or_return!(world.maps.get(&oldpos.map), oldpos).borrow_mut();
-            map.remove_entity_from_grid(oldpos);
-            map.add_entity_to_grid(pos);
-        }
-
-        oldpos
-    }
-
-    #[inline(always)]
-    pub fn switch_maps(&mut self, world: &Storage, pos: Position) -> Position {
-        let oldpos = self.e.pos;
-        let mut map = unwrap_or_return!(world.maps.get(&self.e.pos.map), oldpos).borrow_mut();
-        map.remove_npc(self.e.get_id());
-        map.remove_entity_from_grid(self.e.pos);
-
-        let mut map = unwrap_or_return!(world.maps.get(&pos.map), oldpos).borrow_mut();
-        map.add_npc(self.e.get_id());
+        .borrow_mut();
+        map.remove_entity_from_grid(oldpos);
         map.add_entity_to_grid(pos);
-
-        self.e.pos = pos;
-        oldpos
     }
+    oldpos
+}
 
-    pub fn gety(&self) -> i32 {
-        self.e.pos.y
+#[inline(always)]
+pub fn npc_switch_maps(
+    world: &mut hecs::World,
+    storage: &Storage,
+    entity: &crate::Entity,
+    pos: Position,
+) -> Position {
+    let oldpos = world.get_or_panic::<Position>(entity);
+    let mut map = match storage
+        .maps
+        .get(&world.get_or_panic::<Position>(entity).map)
+    {
+        Some(map) => map,
+        None => return oldpos,
     }
+    .borrow_mut();
+    map.remove_npc(*entity);
+    map.remove_entity_from_grid(world.get_or_panic::<Position>(entity));
 
-    pub fn getmap(&self) -> MapPosition {
-        self.e.pos.map
+    let mut map = match storage.maps.get(&pos.map) {
+        Some(map) => map,
+        None => return oldpos,
     }
+    .borrow_mut();
+    map.add_npc(*entity);
+    map.add_entity_to_grid(pos);
 
-    pub fn gethp(&self) -> i32 {
-        self.e.vital[VitalTypes::Hp as usize]
-    }
+    *world
+        .get::<&mut Position>(entity.0)
+        .expect("Could not find Position") = pos;
+    oldpos
+}
 
-    pub fn setx(&mut self, x: i32) {
-        self.e.pos.x = x;
-    }
+pub fn npc_getx(world: &mut hecs::World, entity: &crate::Entity) -> i32 {
+    world.get_or_panic::<Position>(entity).x
+}
 
-    pub fn sety(&mut self, y: i32) {
-        self.e.pos.y = y;
-    }
+pub fn npc_gety(world: &mut hecs::World, entity: &crate::Entity) -> i32 {
+    world.get_or_panic::<Position>(entity).y
+}
 
-    pub fn setmap(&mut self, map: MapPosition) {
-        self.e.pos.map = map;
-    }
+pub fn npc_getmap(world: &mut hecs::World, entity: &crate::Entity) -> MapPosition {
+    world.get_or_panic::<Position>(entity).map
+}
 
-    pub fn sethp(&mut self, hp: i32) {
-        self.e.vital[VitalTypes::Hp as usize] = hp;
-    }
+pub fn npc_gethp(world: &mut hecs::World, entity: &crate::Entity) -> i32 {
+    world.get_or_panic::<Vitals>(entity).vital[VitalTypes::Hp as usize]
+}
 
-    #[inline(always)]
-    pub fn damage_npc(&mut self, damage: i32) {
-        self.e.vital[VitalTypes::Hp as usize] =
-            self.e.vital[VitalTypes::Hp as usize].saturating_sub(damage);
-    }
+pub fn npc_setx(world: &mut hecs::World, entity: &crate::Entity, x: i32) {
+    world
+        .get::<&mut Position>(entity.0)
+        .expect("Could not find Position")
+        .x = x;
+}
+
+pub fn npc_sety(world: &mut hecs::World, entity: &crate::Entity, y: i32) {
+    world
+        .get::<&mut Position>(entity.0)
+        .expect("Could not find Position")
+        .y = y;
+}
+
+pub fn npc_setmap(world: &mut hecs::World, entity: &crate::Entity, map: MapPosition) {
+    world
+        .get::<&mut Position>(entity.0)
+        .expect("Could not find Position")
+        .map = map;
+}
+
+pub fn npc_sethp(world: &mut hecs::World, entity: &crate::Entity, hp: i32) {
+    world
+        .get::<&mut Vitals>(entity.0)
+        .expect("Could not find Position")
+        .vital[VitalTypes::Hp as usize] = hp;
+}
+
+#[inline(always)]
+pub fn damage_npc(world: &mut hecs::World, entity: &crate::Entity, damage: i32) {
+    world
+        .get::<&mut Vitals>(entity.0)
+        .expect("Could not find Position")
+        .vital[VitalTypes::Hp as usize] =
+        world.get_or_panic::<Vitals>(entity).vital[VitalTypes::Hp as usize].saturating_sub(damage);
 }

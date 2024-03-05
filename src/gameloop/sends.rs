@@ -1,28 +1,27 @@
-use crate::{containers::Storage, gametypes::*, players::*, socket::*, tasks::*};
-use bytey::ByteBuffer;
-use unwrap_helpers::*;
+use crate::{containers::Storage, gametypes::*, maps::*, players::*, socket::*, tasks::*};
+use hecs::World;
 
 #[inline]
 pub fn send_infomsg(
-    world: &Storage,
+    storage: &Storage,
     socket_id: usize,
     message: String,
     close_socket: u8,
 ) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(128)?;
 
-    buf.write(ServerPackets::AlertMsg)?;
+    buf.write(ServerPackets::AlertMsg as u32)?;
     buf.write(message)?;
     buf.write(close_socket)?;
     buf.finish()?;
 
-    send_to(world, socket_id, buf);
+    send_to(storage, socket_id, buf);
     Ok(())
 }
 
 #[inline]
 pub fn send_fltalert(
-    world: &Storage,
+    storage: &Storage,
     socket_id: usize,
     message: String,
     ftltype: FtlType,
@@ -34,133 +33,154 @@ pub fn send_fltalert(
     buf.write(message)?;
     buf.finish()?;
 
-    send_to(world, socket_id, buf);
+    send_to(storage, socket_id, buf);
     Ok(())
 }
 
 #[inline]
-pub fn send_loginok(world: &Storage, socket_id: usize) -> Result<()> {
+pub fn send_loginok(storage: &Storage, socket_id: usize) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(16)?;
 
     buf.write(ServerPackets::LoginOk)?;
-    buf.write(world.time.borrow().hour)?;
-    buf.write(world.time.borrow().min)?;
+    buf.write(storage.time.borrow().hour)?;
+    buf.write(storage.time.borrow().min)?;
     buf.finish()?;
 
-    send_to(world, socket_id, buf);
+    send_to(storage, socket_id, buf);
     Ok(())
 }
 
 #[inline]
-pub fn send_updatemap(world: &Storage, user: &Player) -> Result<()> {
+pub fn send_updatemap(world: &World, storage: &Storage, entity: &Entity) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(16)?;
 
     buf.write(ServerPackets::UpdateMap)?;
     buf.finish()?;
 
-    send_to(world, user.socket_id, buf);
+    let id: usize = world.get::<&Socket>(entity.0)?.id;
+
+    send_to(storage, id, buf);
     Ok(())
 }
 
 #[inline]
 pub fn send_mapitem(
-    world: &Storage,
+    world: &mut hecs::World,
+    storage: &Storage,
     position: MapPosition,
-    id: u64,
+    id: Entity,
     sendto: Option<usize>,
 ) -> Result<()> {
-    let map =
-        &unwrap_or_return!(world.maps.get(&position), Err(AscendingError::Unhandled)).borrow();
-    if let Some(item) = map.items.get(id as usize) {
+    let map = match storage.maps.get(&position) {
+        Some(map) => map,
+        None => return Err(AscendingError::Unhandled),
+    }
+    .borrow();
+    if let Some(item) = map.itemids.get(&id) {
+        let itemdata = world.get_or_panic::<MapItem>(item);
+        let itempos = world.get_or_panic::<MapItem>(item).pos;
+
         let mut buf = ByteBuffer::new_packet_with(64)?;
 
         buf.write(ServerPackets::MapItems)?;
-        buf.write(id)?;
-        buf.write(item.item)?;
-        buf.write(item.pos)?;
+        buf.write(*item)?;
+        buf.write(itemdata)?;
+        buf.write(itempos)?;
         buf.finish()?;
 
         if let Some(socket_id) = sendto {
-            send_to(world, socket_id, buf);
+            send_to(storage, socket_id, buf);
         } else {
-            send_to_maps(world, position, buf, None);
+            send_to_maps(world, storage, position, buf, None);
         }
     }
     Ok(())
 }
 
 #[inline]
-pub fn playerdata(world: &Storage, id: u64) -> Option<ByteBuffer> {
+pub fn playerdata(world: &World, _storage: &Storage, entity: &Entity) -> Option<ByteBuffer> {
     let mut buf = ByteBuffer::new_packet_with(512).ok()?;
 
-    if let Some(refplayer) = world.players.borrow().get(id as usize) {
-        let player = refplayer.borrow();
+    buf.write(ServerPackets::PlayerData).ok()?;
+    buf.write(*entity).ok()?;
+    buf.write(
+        world
+            .cloned_get_or_panic::<Account>(entity)
+            .username
+            .clone(),
+    )
+    .ok()?;
+    buf.write(world.get_or_panic::<UserAccess>(entity)).ok()?;
+    buf.write(world.get_or_panic::<Sprite>(entity).id).ok()?;
+    buf.write(world.get_or_panic::<Position>(entity)).ok()?;
+    buf.write(world.get_or_panic::<Dir>(entity).0).ok()?;
+    buf.write(world.get_or_panic::<Level>(entity).0).ok()?;
+    buf.write(world.get_or_panic::<Player>(entity).levelexp)
+        .ok()?;
+    buf.write(world.get_or_panic::<Vitals>(entity).vital).ok()?;
+    buf.write(world.get_or_panic::<Vitals>(entity).vitalmax)
+        .ok()?;
+    buf.write(world.cloned_get_or_panic::<Equipment>(entity).items.clone())
+        .ok()?;
+    buf.write(world.get_or_panic::<IsUsingType>(entity)).ok()?;
+    buf.write(world.get_or_panic::<Player>(entity).resetcount)
+        .ok()?;
+    buf.write(world.get_or_panic::<DeathType>(entity)).ok()?;
+    buf.write(world.get_or_panic::<Hidden>(entity).0).ok()?;
+    buf.write(world.get_or_panic::<Attacking>(entity).0).ok()?;
+    buf.write(world.get_or_panic::<Player>(entity).pvpon).ok()?;
+    buf.write(world.get_or_panic::<Player>(entity).pk).ok()?;
+    buf.finish().ok()?;
 
-        buf.write(ServerPackets::PlayerData).ok()?;
-        buf.write(id).ok()?;
-        buf.write(&player.name).ok()?;
-        buf.write(player.access).ok()?;
-        buf.write(player.sprite).ok()?;
-        buf.write(player.e.pos).ok()?;
-        buf.write(player.e.dir).ok()?;
-        buf.write(player.e.level).ok()?;
-        buf.write(player.levelexp).ok()?;
-        buf.write(player.e.vital).ok()?;
-        buf.write(player.e.vitalmax).ok()?;
-        buf.write(player.equip).ok()?;
-        buf.write(player.using).ok()?;
-        buf.write(player.resetcount).ok()?;
-        buf.write(player.e.life).ok()?;
-        buf.write(player.e.hidden).ok()?;
-        buf.write(player.e.attacking).ok()?;
-        buf.write(player.pvpon).ok()?;
-        buf.write(player.pk).ok()?;
-        buf.finish().ok()?;
-
-        return Some(buf);
-    }
-
-    None
+    Some(buf)
 }
 
 #[inline]
-pub fn send_dir(world: &Storage, user: &Player, toself: bool) -> Result<()> {
+pub fn send_dir(world: &World, storage: &Storage, entity: &Entity, toself: bool) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(16)?;
     let closure = |toself, id| if toself { Some(id) } else { None };
 
     buf.write(ServerPackets::PlayerDir)?;
-    buf.write(user.e.dir)?;
+    buf.write(world.get_or_panic::<Dir>(entity).0)?;
     buf.finish()?;
 
-    send_to_maps(world, user.e.pos.map, buf, closure(toself, user.e.get_id()));
+    send_to_maps(
+        world,
+        storage,
+        world.get_or_panic::<Position>(entity).map,
+        buf,
+        closure(toself, *entity),
+    );
 
     Ok(())
 }
 
 #[inline]
-pub fn send_move(world: &Storage, user: &Player, warp: bool) -> Result<()> {
+pub fn send_move(world: &World, storage: &Storage, entity: &Entity, warp: bool) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(24)?;
 
+    let pos = world.get_or_panic::<Position>(entity);
+
     buf.write(ServerPackets::PlayerMove)?;
-    buf.write(user.e.get_id())?;
-    buf.write(user.e.pos)?;
-    buf.write(user.e.dir)?;
+    buf.write(*entity)?;
+    buf.write(pos)?;
+    buf.write(world.get_or_panic::<Dir>(entity).0)?;
     buf.write(warp)?;
     buf.finish()?;
 
     if warp {
-        send_to_maps(world, user.e.pos.map, buf, None);
+        send_to_maps(world, storage, pos.map, buf, None);
     } else {
-        send_to_maps(world, user.e.pos.map, buf, Some(user.e.get_id()));
+        send_to_maps(world, storage, pos.map, buf, Some(*entity));
     }
 
     Ok(())
 }
 
 pub fn send_data_remove_list(
-    world: &Storage,
+    storage: &Storage,
     playerid: usize,
-    remove: &[u64],
+    remove: &[Entity],
     datatype: u8,
 ) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(24)?;
@@ -170,12 +190,18 @@ pub fn send_data_remove_list(
     buf.write(remove.to_vec())?;
     buf.finish()?;
 
-    send_to(world, playerid, buf);
+    send_to(storage, playerid, buf);
 
     Ok(())
 }
 
-pub fn send_data_remove(world: &Storage, id: u64, map: MapPosition, datatype: u8) -> Result<()> {
+pub fn send_data_remove(
+    world: &World,
+    storage: &Storage,
+    id: u64,
+    map: MapPosition,
+    datatype: u8,
+) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(24)?;
 
     buf.write(ServerPackets::Dataremove)?;
@@ -183,12 +209,12 @@ pub fn send_data_remove(world: &Storage, id: u64, map: MapPosition, datatype: u8
     buf.write(id)?;
     buf.finish()?;
 
-    send_to_maps(world, map, buf, None);
+    send_to_maps(world, storage, map, buf, None);
 
     Ok(())
 }
 
-pub fn send_data_remove_all(world: &Storage, id: u64, datatype: u8) -> Result<()> {
+pub fn send_data_remove_all(world: &World, storage: &Storage, id: u64, datatype: u8) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(24)?;
 
     buf.write(ServerPackets::Dataremove)?;
@@ -196,175 +222,225 @@ pub fn send_data_remove_all(world: &Storage, id: u64, datatype: u8) -> Result<()
     buf.write(id)?;
     buf.finish()?;
 
-    send_to_all(world, buf);
+    send_to_all(world, storage, buf);
 
     Ok(())
 }
 
 #[inline]
-pub fn send_vitals(world: &Storage, user: &Player) -> Result<()> {
+pub fn send_vitals(world: &World, storage: &Storage, entity: &Entity) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(32)?;
 
+    let vitals = world.get_or_panic::<Vitals>(entity);
+
     buf.write(ServerPackets::PlayerVitals)?;
-    buf.write(user.e.vital)?;
-    buf.write(user.e.vitalmax)?;
+    buf.write(vitals.vital)?;
+    buf.write(vitals.vitalmax)?;
     buf.finish()?;
 
-    send_to_maps(world, user.e.pos.map, buf, None);
+    send_to_maps(
+        world,
+        storage,
+        world.get_or_panic::<Position>(entity).map,
+        buf,
+        None,
+    );
 
     Ok(())
 }
 
 #[inline]
-pub fn send_inv(world: &Storage, user: &Player) -> Result<()> {
+pub fn send_inv(world: &World, storage: &Storage, entity: &Entity) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(6500)?;
 
     buf.write(ServerPackets::PlayerInv)?;
-    buf.write(user.inv)?;
+    buf.write(world.cloned_get_or_panic::<Inventory>(entity).items.clone())?;
     buf.finish()?;
 
-    send_to(world, user.socket_id, buf);
+    send_to(storage, world.get::<&Socket>(entity.0).unwrap().id, buf);
 
     Ok(())
 }
 
 #[inline]
-pub fn send_invslot(world: &Storage, user: &Player, id: usize) -> Result<()> {
+pub fn send_invslot(world: &World, storage: &Storage, entity: &Entity, id: usize) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(32)?;
 
     buf.write(ServerPackets::PlayerInvSlot)?;
     buf.write(id)?;
-    buf.write(user.inv[id])?;
+    buf.write(world.cloned_get_or_panic::<Inventory>(entity).items[id])?;
     buf.finish()?;
 
-    send_to(world, user.socket_id, buf);
+    send_to(storage, world.get::<&Socket>(entity.0).unwrap().id, buf);
 
     Ok(())
 }
 
 #[inline]
-pub fn send_attack(world: &Storage, user: &Player, toself: bool) -> Result<()> {
+pub fn send_attack(world: &World, storage: &Storage, entity: &Entity, toself: bool) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(16)?;
     let closure = |toself, id| if toself { Some(id) } else { None };
 
     buf.write(ServerPackets::PlayerAttack)?;
-    buf.write(user.e.get_id())?;
+    buf.write(*entity)?;
     buf.finish()?;
 
-    send_to_maps(world, user.e.pos.map, buf, closure(toself, user.e.get_id()));
+    send_to_maps(
+        world,
+        storage,
+        world.get_or_panic::<Position>(entity).map,
+        buf,
+        closure(toself, *entity),
+    );
 
     Ok(())
 }
 
 #[inline]
-pub fn send_equipment(world: &Storage, user: &Player) -> Result<()> {
+pub fn send_equipment(world: &World, storage: &Storage, entity: &Entity) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(16)?;
 
     buf.write(ServerPackets::PlayerEquipment)?;
-    buf.write(user.equip)?;
+    buf.write(world.cloned_get_or_panic::<Equipment>(entity).items.clone())?;
     buf.finish()?;
 
-    send_to_maps(world, user.e.pos.map, buf, None);
+    send_to_maps(
+        world,
+        storage,
+        world.get_or_panic::<Position>(entity).map,
+        buf,
+        None,
+    );
 
     Ok(())
 }
 
 #[inline]
-pub fn send_level(world: &Storage, user: &Player) -> Result<()> {
+pub fn send_level(world: &World, storage: &Storage, entity: &Entity) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(16)?;
 
     buf.write(ServerPackets::PlayerLevel)?;
-    buf.write(user.e.level)?;
-    buf.write(user.levelexp)?;
+    buf.write(world.get_or_panic::<Level>(entity).0)?;
+    buf.write(world.get_or_panic::<Player>(entity).levelexp)?;
     buf.finish()?;
 
-    send_to(world, user.socket_id, buf);
+    send_to(storage, world.get::<&Socket>(entity.0).unwrap().id, buf);
     Ok(())
 }
 
 #[inline]
-pub fn send_money(world: &Storage, user: &Player) -> Result<()> {
+pub fn send_money(world: &World, storage: &Storage, entity: &Entity) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(16)?;
 
     buf.write(ServerPackets::PlayerMoney)?;
-    buf.write(user.vals)?;
+    buf.write(world.get_or_panic::<Money>(entity).vals)?;
     buf.finish()?;
 
-    send_to(world, user.socket_id, buf);
+    send_to(storage, world.get::<&Socket>(entity.0).unwrap().id, buf);
     Ok(())
 }
 
 #[inline]
-pub fn send_life_status(world: &Storage, user: &Player, toself: bool) -> Result<()> {
+pub fn send_life_status(
+    world: &World,
+    storage: &Storage,
+    entity: &Entity,
+    toself: bool,
+) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(16)?;
     let closure = |toself, id| if toself { Some(id) } else { None };
 
     buf.write(ServerPackets::PlayerDeath)?;
-    buf.write(user.e.get_id())?;
-    buf.write(user.e.life)?;
+    buf.write(*entity)?;
+    buf.write(world.get_or_panic::<DeathType>(entity))?;
     buf.finish()?;
 
-    send_to_maps(world, user.e.pos.map, buf, closure(toself, user.e.get_id()));
+    send_to_maps(
+        world,
+        storage,
+        world.get_or_panic::<Position>(entity).map,
+        buf,
+        closure(toself, *entity),
+    );
     Ok(())
 }
 
 #[inline]
-pub fn send_action(world: &Storage, user: &Player, toself: bool) -> Result<()> {
+pub fn send_action(world: &World, storage: &Storage, entity: &Entity, toself: bool) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(16)?;
     let closure = |toself, id| if toself { Some(id) } else { None };
 
     buf.write(ServerPackets::PlayerAction)?;
-    buf.write(user.e.dir)?;
+    buf.write(world.get_or_panic::<Dir>(entity).0)?;
     buf.finish()?;
 
-    send_to_maps(world, user.e.pos.map, buf, closure(toself, user.e.get_id()));
+    send_to_maps(
+        world,
+        storage,
+        world.get_or_panic::<Position>(entity).map,
+        buf,
+        closure(toself, *entity),
+    );
     Ok(())
 }
 
 #[inline]
-pub fn send_pvp(world: &Storage, user: &Player, toself: bool) -> Result<()> {
+pub fn send_pvp(world: &World, storage: &Storage, entity: &Entity, toself: bool) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(16)?;
     let closure = |toself, id| if toself { Some(id) } else { None };
 
     buf.write(ServerPackets::PlayerPvp)?;
-    buf.write(user.pvpon)?;
+    buf.write(world.get_or_panic::<Player>(entity).pvpon)?;
     buf.finish()?;
 
-    send_to_maps(world, user.e.pos.map, buf, closure(toself, user.e.get_id()));
+    send_to_maps(
+        world,
+        storage,
+        world.get_or_panic::<Position>(entity).map,
+        buf,
+        closure(toself, *entity),
+    );
     Ok(())
 }
 
 #[inline]
-pub fn send_pk(world: &Storage, user: &Player, toself: bool) -> Result<()> {
+pub fn send_pk(world: &World, storage: &Storage, entity: &Entity, toself: bool) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(16)?;
     let closure = |toself, id| if toself { Some(id) } else { None };
 
     buf.write(ServerPackets::PlayerPk)?;
-    buf.write(user.pk)?;
+    buf.write(world.get_or_panic::<Player>(entity).pk)?;
     buf.finish()?;
 
-    send_to_maps(world, user.e.pos.map, buf, closure(toself, user.e.get_id()));
+    send_to_maps(
+        world,
+        storage,
+        world.get_or_panic::<Position>(entity).map,
+        buf,
+        closure(toself, *entity),
+    );
     Ok(())
 }
 
 #[inline]
 pub fn send_message(
-    world: &Storage,
-    user: &Player,
+    world: &mut World,
+    storage: &Storage,
+    entity: &Entity,
     msg: String,
     head: String,
     chan: MessageChannel,
     id: Option<usize>,
 ) -> Result<()> {
+    let access = world.get_or_panic::<UserAccess>(entity);
+
     match chan {
-        MessageChannel::Map => DataTaskToken::MapChat(user.e.pos.map).add_task(
-            world,
-            &MessagePacket::new(chan, head, msg, Some(user.access)),
-        )?,
-        MessageChannel::Global => DataTaskToken::GlobalChat.add_task(
-            world,
-            &MessagePacket::new(chan, head, msg, Some(user.access)),
-        )?,
+        MessageChannel::Map => {
+            DataTaskToken::MapChat(world.get_or_panic::<Position>(entity).map)
+                .add_task(storage, &MessagePacket::new(chan, head, msg, Some(access)))?
+        }
+        MessageChannel::Global => DataTaskToken::GlobalChat
+            .add_task(storage, &MessagePacket::new(chan, head, msg, Some(access)))?,
         MessageChannel::Party | MessageChannel::Trade | MessageChannel::Help => {}
         MessageChannel::Private => {
             let mut buf = ByteBuffer::new_packet_with(msg.len() + head.len() + 32)?;
@@ -373,11 +449,11 @@ pub fn send_message(
             buf.write(chan)?;
             buf.write(head)?;
             buf.write(msg)?;
-            buf.write(user.access)?;
+            buf.write(access)?;
             buf.finish()?;
 
             if let Some(i) = id {
-                send_to(world, i, buf);
+                send_to(storage, i, buf);
             }
         }
         MessageChannel::Guild => {}
@@ -388,9 +464,9 @@ pub fn send_message(
             buf.write(chan)?;
             buf.write(head)?;
             buf.write(msg)?;
-            buf.write(user.access)?;
+            buf.write(access)?;
             buf.finish()?;
-            send_to(world, user.socket_id, buf);
+            send_to(storage, world.get::<&Socket>(entity.0).unwrap().id, buf);
         }
     }
 

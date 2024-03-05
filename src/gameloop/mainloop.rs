@@ -1,10 +1,11 @@
 use crate::{
-    containers::Storage, gameloop::handle_data, maps::update_maps, npcs::*, players::*, socket::*,
-    time_ext::MyInstant,
+    containers::Storage, gameloop::handle_data, gametypes::*, maps::update_maps, npcs::*,
+    players::*, socket::*, time_ext::MyInstant,
 };
 use chrono::Duration;
+use hecs::World;
 
-pub fn game_loop(world: &Storage) {
+pub fn game_loop(world: &mut World, storage: &Storage) {
     let mut tick: MyInstant;
     let mut tmr100: MyInstant = MyInstant::now();
     let mut tmr500: MyInstant = MyInstant::now();
@@ -12,17 +13,17 @@ pub fn game_loop(world: &Storage) {
     let mut tmr60000: MyInstant = MyInstant::now();
 
     loop {
-        let _ = world.gettick.replace(MyInstant::now());
-        tick = *world.gettick.borrow();
+        let _ = storage.gettick.replace(MyInstant::now());
+        tick = *storage.gettick.borrow();
 
         if tick > tmr100 {
-            update_npcs(world);
-            update_players(world);
+            update_npcs(world, storage);
+            update_players(world, storage);
             tmr100 = tick + Duration::milliseconds(100);
         }
 
         if tick > tmr500 {
-            if let Err(e) = update_maps(world) {
+            if let Err(e) = update_maps(world, storage) {
                 println!("Error: {:?}", e);
             }
             tmr500 = tick + Duration::milliseconds(500);
@@ -33,7 +34,7 @@ pub fn game_loop(world: &Storage) {
         }
 
         if tick > tmr60000 {
-            let mut time = world.time.borrow_mut();
+            let mut time = storage.time.borrow_mut();
             time.min += 1;
             if time.min >= 60 {
                 time.min = 0;
@@ -45,120 +46,134 @@ pub fn game_loop(world: &Storage) {
             tmr60000 = tick + Duration::milliseconds(60000);
         }
 
-        if let Err(e) = poll_events(world) {
+        if let Err(e) = poll_events(world, storage) {
             println!("Poll event error: {:?}", e);
         }
 
-        process_packets(world);
+        process_packets(world, storage);
     }
 }
 
-pub fn get_length(world: &Storage, buffer: &mut ByteBuffer, id: usize) -> Option<u64> {
+pub fn get_length(storage: &Storage, buffer: &mut ByteBuffer, id: usize) -> Option<u64> {
     if buffer.length() - buffer.cursor() >= 8 {
         let length = buffer.read::<u64>().ok()?;
 
         if !(4..=8192).contains(&length) {
-            if let Some(mut client) = world.server.borrow().get_mut(mio::Token(id)) {
-                client.set_to_closing(world);
+            if let Some(client) = storage.server.borrow().clients.get(&mio::Token(id)) {
+                client.borrow_mut().set_to_closing(storage);
             }
         }
 
         Some(length)
     } else {
-        if let Some(mut client) = world.server.borrow().get_mut(mio::Token(id)) {
-            client.poll_state.add(SocketPollState::Read);
-            client.reregister(&world.poll.borrow_mut()).unwrap();
+        if let Some(client) = storage.server.borrow().clients.get(&mio::Token(id)) {
+            client.borrow_mut().poll_state.add(SocketPollState::Read);
+            client
+                .borrow_mut()
+                .reregister(&storage.poll.borrow_mut())
+                .unwrap();
         }
 
         None
     }
 }
 
-pub fn process_packets(world: &Storage) {
+pub fn process_packets(world: &mut World, storage: &Storage) {
     let mut count: usize;
-    let mut rem_arr: Vec<usize> = Vec::with_capacity(32);
+    let mut rem_arr: Vec<Entity> = Vec::with_capacity(32);
     let mut length: u64;
 
-    'user_loop: for i in &*world.recv_ids.borrow() {
+    'user_loop: for entity in &*storage.recv_ids.borrow() {
         count = 0;
 
-        if let Some(player) = world.players.borrow().get(*i) {
-            let socket_id = player.borrow().socket_id;
+        //if let Some(player) = storage.players.borrow().get(*i) {
+        /*for (entity, (_, socket)) in world
+            .query::<((&WorldEntityType, &OnlineType), &Socket)>()
+            .iter()
+            .filter(|(_entity,
+                ((worldentitytype, onlinetype), _))| {
+                **worldentitytype == WorldEntityType::Player && **onlinetype == OnlineType::Online
+            })
+        {*/
+        /*if !is_player_online(world, entity) {
+            continue;
+        }*/
 
-            loop {
-                length = match get_length(world, &mut player.borrow_mut().buffer, socket_id) {
-                    Some(n) => n,
-                    None => {
-                        rem_arr.push(*i);
+        let (lock, socket_id) = {
+            let socket = world.get::<&Socket>(entity.0).unwrap();
+
+            (socket.buffer.clone(), socket.id)
+        };
+
+        let mut buffer = lock.lock().unwrap();
+
+        loop {
+            length = match get_length(storage, &mut buffer, socket_id) {
+                Some(n) => n,
+                None => {
+                    rem_arr.push(*entity);
+                    continue 'user_loop;
+                }
+            };
+
+            if length > 0 && length <= (buffer.length() - buffer.cursor()) as u64 {
+                let mut buffer = match buffer.read_to_buffer(length as usize) {
+                    Ok(n) => n,
+                    Err(_) => {
+                        if let Some(client) =
+                            storage.server.borrow().clients.get(&mio::Token(socket_id))
+                        {
+                            client.borrow_mut().set_to_closing(storage);
+                        }
+
+                        rem_arr.push(*entity);
                         continue 'user_loop;
                     }
                 };
 
-                if length > 0
-                    && length
-                        <= (player.borrow().buffer.length() - player.borrow().buffer.cursor())
-                            as u64
-                {
-                    let mut buffer =
-                        match player.borrow_mut().buffer.read_to_buffer(length as usize) {
-                            Some(n) => n,
-                            None => {
-                                if let Some(mut client) =
-                                    world.server.borrow().get_mut(mio::Token(socket_id))
-                                {
-                                    client.set_to_closing(world);
-                                }
-
-                                rem_arr.push(*i);
-                                continue 'user_loop;
-                            }
-                        };
-
-                    if handle_data(world, &mut buffer, *i).is_err() {
-                        if let Some(mut client) =
-                            world.server.borrow().get_mut(mio::Token(socket_id))
-                        {
-                            client.set_to_closing(world);
-                        }
-
-                        rem_arr.push(*i);
-                        continue 'user_loop;
-                    }
-
-                    count += 1
-                } else {
-                    let _ = player
-                        .borrow_mut()
-                        .buffer
-                        .move_cursor(player.borrow().buffer.cursor() - 8);
-
-                    if let Some(mut client) =
-                        world.server.borrow_mut().get_mut(mio::Token(socket_id))
+                if handle_data(world, storage, &mut buffer, entity).is_err() {
+                    if let Some(client) =
+                        storage.server.borrow().clients.get(&mio::Token(socket_id))
                     {
-                        client.poll_state.add(SocketPollState::Read);
-                        client.reregister(&world.poll.borrow_mut()).unwrap();
+                        client.borrow_mut().set_to_closing(storage);
                     }
 
-                    rem_arr.push(*i);
-                    break;
+                    rem_arr.push(*entity);
+                    continue 'user_loop;
                 }
 
-                if count == 25 {
-                    break;
+                count += 1
+            } else {
+                let cursor = buffer.cursor() - 8;
+                let _ = buffer.move_cursor(cursor);
+
+                if let Some(client) = storage.server.borrow().clients.get(&mio::Token(socket_id)) {
+                    client.borrow_mut().poll_state.add(SocketPollState::Read);
+                    client
+                        .borrow_mut()
+                        .reregister(&storage.poll.borrow_mut())
+                        .unwrap();
                 }
+
+                rem_arr.push(*entity);
+                break;
             }
 
-            if player.borrow().buffer.cursor() == player.borrow().buffer.length() {
-                let _ = player.borrow_mut().buffer.truncate(0);
+            if count == 25 {
+                break;
             }
+        }
 
-            if player.borrow().buffer.capacity() > 25000 {
-                let _ = player.borrow_mut().buffer.resize(4096);
-            }
+        if buffer.cursor() == buffer.length() {
+            let _ = buffer.truncate(0);
+        }
+
+        if buffer.capacity() > 25000 {
+            let _ = buffer.resize(4096);
         }
     }
 
     for i in rem_arr {
-        world.recv_ids.borrow_mut().remove(&i);
+        storage.recv_ids.borrow_mut().swap_remove(&i);
     }
 }

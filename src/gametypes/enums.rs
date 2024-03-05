@@ -1,6 +1,5 @@
-use crate::{containers::*, gametypes::*};
+use crate::{containers::*, gametypes::*, maps::MapItem};
 use bytey::{ByteBufferRead, ByteBufferWrite};
-use diesel_derive_enum::DbEnum;
 use serde::{Deserialize, Serialize};
 use serde_repr::*;
 
@@ -12,14 +11,13 @@ use serde_repr::*;
     Eq,
     Serialize_repr,
     Deserialize_repr,
-    DbEnum,
     Default,
     ByteBufferRead,
     ByteBufferWrite,
+    sqlx::Type,
 )]
-#[DbValueStyle = "PascalCase"]
-#[ExistingTypePath = "crate::sql::UserAccessMapping"]
-#[repr(u8)]
+#[sqlx(type_name = "UserAccess")]
+#[repr(i8)]
 pub enum UserAccess {
     #[default]
     None,
@@ -118,6 +116,28 @@ impl AIBehavior {
     }
 }
 
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    PartialEq,
+    Eq,
+    Default,
+    Deserialize,
+    Serialize,
+    ByteBufferRead,
+    ByteBufferWrite,
+)]
+// Used to seperate Entity data within Hecs World.
+pub enum WorldEntityType {
+    #[default]
+    None,
+    Player,
+    Npc,
+    MapItem,
+    Map,
+}
+
 //used to pass and to Target Entity's
 #[derive(
     Copy,
@@ -134,32 +154,26 @@ impl AIBehavior {
 pub enum EntityType {
     #[default]
     None,
-    Player(u64, i64), //ArrID, AccID used for comparison if still same player.
-    Npc(u64),
+    Player(Entity, i64), //ArrID, AccID used for comparison if still same player.
+    Npc(Entity),
+    MapItem(Entity),
     Map(Position),
 }
 
 impl EntityType {
-    pub fn get_id(&self) -> usize {
+    pub fn get_id(&self) -> Entity {
         match self {
-            EntityType::Player(i, _) | EntityType::Npc(i) => *i as usize,
-            _ => 0,
+            EntityType::Player(i, _) | EntityType::Npc(i) | EntityType::MapItem(i) => *i,
+            _ => Entity(hecs::Entity::DANGLING),
         }
     }
 
-    pub fn get_pos(&self, world: &Storage) -> Option<Position> {
+    pub fn get_pos(&self, world: &mut hecs::World, _storage: &Storage) -> Option<Position> {
         match self {
             EntityType::Map(position) => Some(*position),
-            EntityType::Player(i, _) => world
-                .players
-                .borrow()
-                .get(*i as usize)
-                .map(|target| target.borrow().e.pos),
-            EntityType::Npc(i) => world
-                .npcs
-                .borrow()
-                .get(*i as usize)
-                .map(|target| target.borrow().e.pos),
+            EntityType::Player(i, _) => Some(world.get_or_panic::<Position>(i)),
+            EntityType::Npc(i) => Some(world.get_or_panic::<Position>(i)),
+            EntityType::MapItem(i) => Some(world.get_or_panic::<MapItem>(i).pos),
             EntityType::None => None,
         }
     }
@@ -174,6 +188,10 @@ impl EntityType {
 
     pub fn is_npc(&self) -> bool {
         matches!(self, EntityType::Npc(_))
+    }
+
+    pub fn is_mapitem(&self) -> bool {
+        matches!(self, EntityType::MapItem(_))
     }
 
     pub fn is_none(&self) -> bool {
@@ -247,13 +265,10 @@ pub enum EquipmentType {
     Eq,
     Serialize_repr,
     Deserialize_repr,
-    DbEnum,
     Default,
     ByteBufferRead,
     ByteBufferWrite,
 )]
-#[DbValueStyle = "PascalCase"]
-#[ExistingTypePath = "crate::sql::VitalTypesMapping"]
 #[repr(u8)]
 pub enum VitalTypes {
     Hp,
@@ -388,12 +403,11 @@ pub enum NpcMode {
     Eq,
     Serialize_repr,
     Deserialize_repr,
-    DbEnum,
     ByteBufferRead,
     ByteBufferWrite,
+    sqlx::Type,
 )]
-#[DbValueStyle = "PascalCase"]
-#[ExistingTypePath = "crate::sql::LogTypeMapping"]
+#[sqlx(type_name = "LogType")]
 #[repr(u8)]
 pub enum LogType {
     Login,
@@ -481,11 +495,11 @@ impl IsUsingType {
 )]
 #[repr(u8)]
 pub enum DeathType {
+    #[default]
     Alive,
     Spirit,
     Dead,
     UnSpawned,
-    #[default]
     Spawning,
 }
 
