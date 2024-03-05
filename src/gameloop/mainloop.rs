@@ -95,12 +95,12 @@ pub fn process_packets(world: &mut World, storage: &Storage) {
                 **worldentitytype == WorldEntityType::Player && **onlinetype == OnlineType::Online
             })
         {*/
-        if !is_player_online(world, entity) {
+        /*if !is_player_online(world, entity) {
             continue;
-        }
+        }*/
 
         let (lock, socket_id) = {
-            let socket = world.get_or_panic::<&Socket>(entity);
+            let socket = world.get::<&Socket>(entity.0).unwrap();
 
             (socket.buffer.clone(), socket.id)
         };

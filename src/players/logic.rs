@@ -14,7 +14,7 @@ pub fn update_players(world: &mut World, storage: &Storage) {
             && world.get_or_panic::<DeathType>(id) == DeathType::Spirit
         {
             //timers
-            if world.get_or_panic::<&DeathTimer>(id).0 < tick {
+            if world.get_or_panic::<DeathTimer>(id).0 < tick {
                 {
                     *world
                         .get::<&mut DeathType>(id.0)
@@ -25,13 +25,13 @@ pub fn update_players(world: &mut World, storage: &Storage) {
                     world,
                     storage,
                     id,
-                    world.get_or_panic::<&Position>(id),
-                    world.get_or_panic::<&Dir>(id).0,
+                    &world.get_or_panic::<Position>(id),
+                    world.get_or_panic::<Dir>(id).0,
                 );
 
                 //lets heal them fully on revival.
                 for i in 0..VITALS_MAX {
-                    let max_vital = world.get_or_panic::<&Vitals>(id);
+                    let max_vital = world.get_or_panic::<Vitals>(id);
                     {
                         world
                             .get::<&mut Vitals>(id.0)
@@ -43,7 +43,7 @@ pub fn update_players(world: &mut World, storage: &Storage) {
                 //todo: party stuff here
             }
 
-            let killcount = world.get_or_panic::<&KillCount>(id);
+            let killcount = world.get_or_panic::<KillCount>(id);
             if killcount.count > 0 && killcount.killcounttimer < tick {
                 {
                     world
@@ -70,9 +70,9 @@ pub fn player_warp(
             .expect("Could not find Dir")
             .0 = dir;
     }
-    let playerdir = world.get_or_panic::<&Dir>(entity);
+    let playerdir = world.get_or_panic::<Dir>(entity);
 
-    if world.get_or_panic::<&Position>(entity).map != new_pos.map {
+    if world.get_or_panic::<Position>(entity).map != new_pos.map {
         let old_pos = player_switch_maps(world, storage, entity, *new_pos);
         let _ = DataTaskToken::PlayerMove(old_pos.map).add_task(
             storage,
@@ -100,7 +100,7 @@ pub fn player_warp(
             .expect("Could not find Player")
             .movesavecount += 1;
     }
-    if world.get_or_panic::<&Player>(entity).movesavecount >= 25 {
+    if world.get_or_panic::<Player>(entity).movesavecount >= 25 {
         let _ = update_pos(storage, world, entity);
         {
             world
@@ -150,7 +150,7 @@ pub fn player_movement(
             .expect("Could not find Player")
             .movesavecount += 1;
     }
-    if world.get_or_panic::<&Player>(entity).movesavecount >= 25 {
+    if world.get_or_panic::<Player>(entity).movesavecount >= 25 {
         let _ = update_pos(storage, world, entity);
         {
             world
@@ -160,7 +160,7 @@ pub fn player_movement(
         }
     }
 
-    let player_dir = world.get_or_panic::<&Dir>(entity);
+    let player_dir = world.get_or_panic::<Dir>(entity);
     if new_pos.map != player_position.map {
         let oldpos = player_switch_maps(world, storage, entity, new_pos);
         let _ = DataTaskToken::PlayerMove(oldpos.map).add_task(
@@ -196,7 +196,7 @@ pub fn player_earn_exp(
 ) {
     let mut giveexp = expval;
 
-    if world.get_or_panic::<&Level>(entity).0 >= MAX_LVL as i32 || expval == 0 {
+    if world.get_or_panic::<Level>(entity).0 >= MAX_LVL as i32 || expval == 0 {
         return;
     }
 
@@ -213,7 +213,7 @@ pub fn player_earn_exp(
             .0 = *storage.gettick.borrow() + Duration::milliseconds(2000);
     }
 
-    let leveldifference = victimlevel - world.get_or_panic::<&Level>(entity).0;
+    let leveldifference = victimlevel - world.get_or_panic::<Level>(entity).0;
 
     if (1..=5).contains(&leveldifference) {
         giveexp = (giveexp as f64 * 1.1) as i64;
@@ -228,8 +228,8 @@ pub fn player_earn_exp(
             .levelexp = cmp::max(giveexp, 1) as u64;
     }
 
-    while world.get_or_panic::<&Player>(entity).levelexp >= player_get_next_lvl_exp(world, entity)
-        && world.get_or_panic::<&Level>(entity).0 != MAX_LVL as i32
+    while world.get_or_panic::<Player>(entity).levelexp >= player_get_next_lvl_exp(world, entity)
+        && world.get_or_panic::<Level>(entity).0 != MAX_LVL as i32
     {
         {
             world
@@ -240,7 +240,7 @@ pub fn player_earn_exp(
                 .get::<&mut Player>(entity.0)
                 .expect("Could not find Player")
                 .levelexp = world
-                .get_or_panic::<&Player>(entity)
+                .get_or_panic::<Player>(entity)
                 .levelexp
                 .saturating_sub(player_get_next_lvl_exp(world, entity));
             world
@@ -264,7 +264,7 @@ pub fn player_earn_exp(
 
         let _ = send_fltalert(
             storage,
-            world.get_or_panic::<&Socket>(entity).id,
+            world.get::<&Socket>(entity.0).unwrap().id,
             "Level Up!.".into(),
             FtlType::Level,
         );
@@ -272,12 +272,12 @@ pub fn player_earn_exp(
 
     let _ = send_vitals(world, storage, entity);
     let _ = send_level(world, storage, entity);
-    let _ = DataTaskToken::PlayerVitals(world.get_or_panic::<&Position>(entity).map).add_task(
+    let _ = DataTaskToken::PlayerVitals(world.get_or_panic::<Position>(entity).map).add_task(
         storage,
         &VitalsPacket::new(
             *entity,
-            world.get_or_panic::<&Vitals>(entity).vital,
-            world.get_or_panic::<&Vitals>(entity).vitalmax,
+            world.get_or_panic::<Vitals>(entity).vital,
+            world.get_or_panic::<Vitals>(entity).vitalmax,
         ),
     );
     let _ = update_level(storage, world, entity);
@@ -400,36 +400,32 @@ pub fn player_repair_equipment(
     slot: usize,
     repair_per: f32,
 ) {
-    if let Some(item) = storage
-        .bases
-        .items
-        .get(world.get_or_panic::<&Equipment>(entity).items[slot].num as usize)
-    {
-        if !item.repairable
-            || world.get_or_panic::<&Equipment>(entity).items[slot].data[0]
-                == world.get_or_panic::<&Equipment>(entity).items[slot].data[1]
-        {
-            return;
+    let mut update = false;
+
+    if let Ok(mut equipment) = world.get::<&mut Equipment>(entity.0) {
+        if let Some(item) = storage.bases.items.get(equipment.items[slot].num as usize) {
+            if !item.repairable || equipment.items[slot].data[0] == equipment.items[slot].data[1] {
+                return;
+            }
+
+            let repair_amount = (equipment.items[slot].data[0] as f32 * repair_per) as i16;
+            let repair_amount = cmp::min(
+                repair_amount,
+                equipment.items[slot].data[0] - equipment.items[slot].data[1],
+            );
+
+            {
+                equipment.items[slot].data[0] =
+                    equipment.items[slot].data[0].saturating_add(repair_amount);
+            }
+            //TODO: CalculateStats();
+
+            update = true;
         }
+    }
 
-        let repair_amount = (world.get_or_panic::<&Equipment>(entity).items[slot].data[0] as f32
-            * repair_per) as i16;
-        let repair_amount = cmp::min(
-            repair_amount,
-            world.get_or_panic::<&Equipment>(entity).items[slot].data[0]
-                - world.get_or_panic::<&Equipment>(entity).items[slot].data[1],
-        );
-
-        {
-            world
-                .get::<&mut Equipment>(entity.0)
-                .expect("Could not find Equipment")
-                .items[slot]
-                .data[0] = world.get_or_panic::<&Equipment>(entity).items[slot].data[0]
-                .saturating_add(repair_amount);
-        }
-        //TODO: CalculateStats();
-
+    //Sherwin: We seperated these so the Reference can get unloaded after being used. Then we can use it again.
+    if update {
         let _ = send_equipment(world, storage, entity);
         let _ = update_equipment(storage, world, entity, slot);
     }

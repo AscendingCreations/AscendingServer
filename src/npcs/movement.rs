@@ -3,8 +3,8 @@ use chrono::Duration;
 
 pub fn npc_movement(world: &mut hecs::World, storage: &Storage, entity: &Entity, _base: &NpcData) {
     //AI Timer is used to Reset the Moves every so offten to recalculate them for possible changes.
-    if world.get_or_panic::<&NpcAITimer>(entity).0 < *storage.gettick.borrow()
-        && world.get_or_panic::<&NpcMoving>(entity).0
+    if world.get_or_panic::<NpcAITimer>(entity).0 < *storage.gettick.borrow()
+        && world.get_or_panic::<NpcMoving>(entity).0
     {
         world
             .get::<&mut NpcMoves>(entity.0)
@@ -18,7 +18,7 @@ pub fn npc_movement(world: &mut hecs::World, storage: &Storage, entity: &Entity,
     }
 
     if !world.get_or_panic::<NpcMoving>(entity).0
-        && world.get_or_panic::<&NpcMoves>(entity).0.is_empty()
+        && world.get::<&NpcMoves>(entity.0).unwrap().0.is_empty()
     {
         if let Some(movepos) = world.get_or_panic::<NpcMovePos>(entity).0 {
             //Move pos overrides targeting pos movement.
@@ -116,7 +116,7 @@ pub fn npc_movement(world: &mut hecs::World, storage: &Storage, entity: &Entity,
                     EntityType::Player(i, accid) => {
                         if world.contains(i.0) {
                             if world.get_or_panic::<DeathType>(&i).is_alive()
-                                && world.get_or_panic::<&Account>(&i).id == accid
+                                && world.get::<&Account>(i.0).unwrap().id == accid
                             {
                                 if world.get_or_panic::<Position>(&i) == next.0 {
                                     npc_clear_move_path(world, entity);

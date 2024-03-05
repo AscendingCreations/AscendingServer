@@ -10,7 +10,7 @@ pub fn send_infomsg(
 ) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(128)?;
 
-    buf.write(ServerPackets::AlertMsg)?;
+    buf.write(ServerPackets::AlertMsg as u32)?;
     buf.write(message)?;
     buf.write(close_socket)?;
     buf.finish()?;
@@ -57,9 +57,9 @@ pub fn send_updatemap(world: &World, storage: &Storage, entity: &Entity) -> Resu
     buf.write(ServerPackets::UpdateMap)?;
     buf.finish()?;
 
-    let socket = world.get_or_panic::<&Socket>(entity);
+    let id: usize = world.get::<&Socket>(entity.0)?.id;
 
-    send_to(storage, socket.id, buf);
+    send_to(storage, id, buf);
     Ok(())
 }
 
@@ -103,8 +103,13 @@ pub fn playerdata(world: &World, _storage: &Storage, entity: &Entity) -> Option<
 
     buf.write(ServerPackets::PlayerData).ok()?;
     buf.write(*entity).ok()?;
-    buf.write(world.get_or_panic::<&Account>(entity).username.clone())
-        .ok()?;
+    buf.write(
+        world
+            .cloned_get_or_panic::<Account>(entity)
+            .username
+            .clone(),
+    )
+    .ok()?;
     buf.write(world.get_or_panic::<UserAccess>(entity)).ok()?;
     buf.write(world.get_or_panic::<Sprite>(entity).id).ok()?;
     buf.write(world.get_or_panic::<Position>(entity)).ok()?;
@@ -115,7 +120,7 @@ pub fn playerdata(world: &World, _storage: &Storage, entity: &Entity) -> Option<
     buf.write(world.get_or_panic::<Vitals>(entity).vital).ok()?;
     buf.write(world.get_or_panic::<Vitals>(entity).vitalmax)
         .ok()?;
-    buf.write(world.get_or_panic::<&Equipment>(entity).items.clone())
+    buf.write(world.cloned_get_or_panic::<Equipment>(entity).items.clone())
         .ok()?;
     buf.write(world.get_or_panic::<IsUsingType>(entity)).ok()?;
     buf.write(world.get_or_panic::<Player>(entity).resetcount)
@@ -249,10 +254,10 @@ pub fn send_inv(world: &World, storage: &Storage, entity: &Entity) -> Result<()>
     let mut buf = ByteBuffer::new_packet_with(6500)?;
 
     buf.write(ServerPackets::PlayerInv)?;
-    buf.write(world.get_or_panic::<&Inventory>(entity).items.clone())?;
+    buf.write(world.cloned_get_or_panic::<Inventory>(entity).items.clone())?;
     buf.finish()?;
 
-    send_to(storage, world.get_or_panic::<&Socket>(entity).id, buf);
+    send_to(storage, world.get::<&Socket>(entity.0).unwrap().id, buf);
 
     Ok(())
 }
@@ -263,10 +268,10 @@ pub fn send_invslot(world: &World, storage: &Storage, entity: &Entity, id: usize
 
     buf.write(ServerPackets::PlayerInvSlot)?;
     buf.write(id)?;
-    buf.write(world.get_or_panic::<&Inventory>(entity).items[id])?;
+    buf.write(world.cloned_get_or_panic::<Inventory>(entity).items[id])?;
     buf.finish()?;
 
-    send_to(storage, world.get_or_panic::<&Socket>(entity).id, buf);
+    send_to(storage, world.get::<&Socket>(entity.0).unwrap().id, buf);
 
     Ok(())
 }
@@ -296,7 +301,7 @@ pub fn send_equipment(world: &World, storage: &Storage, entity: &Entity) -> Resu
     let mut buf = ByteBuffer::new_packet_with(16)?;
 
     buf.write(ServerPackets::PlayerEquipment)?;
-    buf.write(world.get_or_panic::<&Equipment>(entity).items.clone())?;
+    buf.write(world.cloned_get_or_panic::<Equipment>(entity).items.clone())?;
     buf.finish()?;
 
     send_to_maps(
@@ -319,7 +324,7 @@ pub fn send_level(world: &World, storage: &Storage, entity: &Entity) -> Result<(
     buf.write(world.get_or_panic::<Player>(entity).levelexp)?;
     buf.finish()?;
 
-    send_to(storage, world.get_or_panic::<&Socket>(entity).id, buf);
+    send_to(storage, world.get::<&Socket>(entity.0).unwrap().id, buf);
     Ok(())
 }
 
@@ -331,7 +336,7 @@ pub fn send_money(world: &World, storage: &Storage, entity: &Entity) -> Result<(
     buf.write(world.get_or_panic::<Money>(entity).vals)?;
     buf.finish()?;
 
-    send_to(storage, world.get_or_panic::<&Socket>(entity).id, buf);
+    send_to(storage, world.get::<&Socket>(entity.0).unwrap().id, buf);
     Ok(())
 }
 
@@ -461,7 +466,7 @@ pub fn send_message(
             buf.write(msg)?;
             buf.write(access)?;
             buf.finish()?;
-            send_to(storage, world.get_or_panic::<&Socket>(entity).id, buf);
+            send_to(storage, world.get::<&Socket>(entity.0).unwrap().id, buf);
         }
     }
 

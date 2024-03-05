@@ -8,7 +8,7 @@ pub fn targeting(world: &mut hecs::World, storage: &Storage, entity: &Entity, ba
         EntityType::Player(i, accid) => {
             if world.contains(i.0)
                 && world.get_or_panic::<DeathType>(&i).is_alive()
-                && world.get_or_panic::<&Account>(&i).id == accid
+                && world.get::<&Account>(i.0).unwrap().id == accid
             {
                 return;
             }
@@ -65,7 +65,7 @@ pub fn targeting(world: &mut hecs::World, storage: &Storage, entity: &Entity, ba
 
         for x in &map_data.players {
             let accid = if world.contains(x.0) {
-                world.get_or_panic::<&Account>(x).id
+                world.get::<&Account>(x.0).unwrap().id
             } else {
                 continue;
             };
@@ -100,7 +100,7 @@ pub fn npc_targeting(
         EntityType::Player(i, accid) => {
             if world.contains(i.0) {
                 if world.get_or_panic::<DeathType>(&i).is_alive()
-                    && world.get_or_panic::<&Account>(entity).id == accid
+                    && world.get::<&Account>(entity.0).unwrap().id == accid
                 {
                     let check = check_surrounding(
                         world.get_or_panic::<Position>(entity).map,

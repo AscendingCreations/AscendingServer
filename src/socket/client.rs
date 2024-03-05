@@ -266,12 +266,13 @@ pub fn disconnect(playerid: Entity, world: &mut hecs::World, storage: &Storage) 
 
 #[inline]
 pub fn accept_connection(
+    server: &Server,
     socketid: usize,
     addr: String,
     world: &mut hecs::World,
     storage: &Storage,
 ) -> Option<Entity> {
-    if storage.server.borrow().clients.len() + 1 >= MAX_SOCKET_PLAYERS {
+    if server.clients.len() + 1 >= MAX_SOCKET_PLAYERS {
         return None;
     }
 

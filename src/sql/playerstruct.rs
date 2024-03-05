@@ -53,7 +53,7 @@ impl PGPlayer {
         };
 
         PGPlayer {
-            address: world.get_or_panic::<&Socket>(entity).addr.clone(),
+            address: world.get::<&Socket>(entity.0).unwrap().addr.clone(),
             sprite: i16::unshift_signed(&(world.get_or_panic::<Sprite>(entity).id)),
             spawn: world.get_or_panic::<Spawn>(entity).pos,
             itemtimer: world.get_or_panic::<PlayerItemTimer>(entity).itemtimer,
@@ -99,10 +99,12 @@ pub struct PGPlayerWithID {
 
 impl PGPlayerWithID {
     pub fn new(world: &mut hecs::World, entity: &Entity) -> PGPlayerWithID {
+        let account = world.get::<&Account>(entity.0).unwrap();
+
         PGPlayerWithID {
-            uid: world.get_or_panic::<&Account>(entity).id,
-            username: world.get_or_panic::<&Account>(entity).username.clone(),
-            address: world.get_or_panic::<&Socket>(entity).addr.clone(),
+            uid: account.id,
+            username: account.username.clone(),
+            address: world.get::<&Socket>(entity.0).unwrap().addr.clone(),
             sprite: i16::unshift_signed(&world.get_or_panic::<Sprite>(entity).id),
             spawn: world.get_or_panic::<Spawn>(entity).pos,
             itemtimer: world.get_or_panic::<PlayerItemTimer>(entity).itemtimer,
@@ -208,7 +210,7 @@ pub struct PGPlayerLogOut {
 impl PGPlayerLogOut {
     pub fn new(world: &mut hecs::World, entity: &Entity) -> PGPlayerLogOut {
         PGPlayerLogOut {
-            uid: world.get_or_panic::<&Account>(entity).id,
+            uid: world.get::<&Account>(entity.0).unwrap().id,
             itemtimer: world.get_or_panic::<PlayerItemTimer>(entity).itemtimer,
             pos: world.cloned_get_or_panic::<Position>(entity),
             vital: world.get_or_panic::<Vitals>(entity).vital.to_vec(),
@@ -228,7 +230,7 @@ pub struct PGPlayerReset {
 impl PGPlayerReset {
     pub fn new(world: &mut hecs::World, entity: &Entity) -> PGPlayerReset {
         PGPlayerReset {
-            uid: world.get_or_panic::<&Account>(entity).id,
+            uid: world.get::<&Account>(entity.0).unwrap().id,
             resetcount: world.get_or_panic::<Player>(entity).resetcount,
         }
     }
@@ -243,8 +245,8 @@ pub struct PGPlayerAddress {
 impl PGPlayerAddress {
     pub fn new(world: &mut hecs::World, entity: &Entity) -> PGPlayerAddress {
         PGPlayerAddress {
-            uid: world.get_or_panic::<&Account>(entity).id,
-            address: world.get_or_panic::<&Socket>(entity).addr.clone(),
+            uid: world.get::<&Account>(entity.0).unwrap().id,
+            address: world.get::<&Socket>(entity.0).unwrap().addr.clone(),
         }
     }
 }
@@ -260,7 +262,7 @@ pub struct PGPlayerLevel {
 impl PGPlayerLevel {
     pub fn new(world: &mut hecs::World, entity: &Entity) -> PGPlayerLevel {
         PGPlayerLevel {
-            uid: world.get_or_panic::<&Account>(entity).id,
+            uid: world.get::<&Account>(entity.0).unwrap().id,
             level: world.get_or_panic::<Level>(entity).0,
             levelexp: i64::unshift_signed(&world.get_or_panic::<Player>(entity).levelexp),
             vital: world.get_or_panic::<Vitals>(entity).vital.to_vec(),
@@ -277,7 +279,7 @@ pub struct PGPlayerData {
 impl PGPlayerData {
     pub fn new(world: &mut hecs::World, entity: &Entity) -> PGPlayerData {
         PGPlayerData {
-            uid: world.get_or_panic::<&Account>(entity).id,
+            uid: world.get::<&Account>(entity.0).unwrap().id,
             data: world.get_or_panic::<EntityData>(entity).0.to_vec(),
         }
     }
@@ -296,7 +298,7 @@ impl PGPlayerPassReset {
         pass: Option<String>,
     ) -> PGPlayerPassReset {
         PGPlayerPassReset {
-            uid: world.get_or_panic::<&Account>(entity).id,
+            uid: world.get::<&Account>(entity.0).unwrap().id,
             passresetcode: pass,
         }
     }
@@ -311,7 +313,7 @@ pub struct PGPlayerSpawn {
 impl PGPlayerSpawn {
     pub fn new(world: &mut hecs::World, entity: &Entity) -> PGPlayerSpawn {
         PGPlayerSpawn {
-            uid: world.get_or_panic::<&Account>(entity).id,
+            uid: world.get::<&Account>(entity.0).unwrap().id,
             spawn: world.get_or_panic::<Spawn>(entity).pos,
         }
     }
@@ -326,7 +328,7 @@ pub struct PGPlayerPos {
 impl PGPlayerPos {
     pub fn new(world: &mut hecs::World, entity: &Entity) -> PGPlayerPos {
         PGPlayerPos {
-            uid: world.get_or_panic::<&Account>(entity).id,
+            uid: world.get::<&Account>(entity.0).unwrap().id,
             pos: world.cloned_get_or_panic::<Position>(entity),
         }
     }
@@ -341,7 +343,7 @@ pub struct PGPlayerCurrency {
 impl PGPlayerCurrency {
     pub fn new(world: &mut hecs::World, entity: &Entity) -> PGPlayerCurrency {
         PGPlayerCurrency {
-            uid: world.get_or_panic::<&Account>(entity).id,
+            uid: world.get::<&Account>(entity.0).unwrap().id,
             vals: i64::unshift_signed(&world.get_or_panic::<Money>(entity).vals),
         }
     }

@@ -80,7 +80,7 @@ pub fn auto_set_inv_item(
     base: &ItemData,
     invtype: InvType,
 ) -> u16 {
-    let player_inv = world.get_or_panic::<&Inventory>(entity);
+    let player_inv = world.cloned_get_or_panic::<Inventory>(entity);
 
     let mut rem = 0u16;
     let scope = get_inv_scope(invtype);
@@ -121,7 +121,7 @@ pub fn set_inv_item(
     amount: u16,
     invtype: InvType,
 ) -> u16 {
-    let player_inv = world.get_or_panic::<&Inventory>(entity);
+    let player_inv = world.cloned_get_or_panic::<Inventory>(entity);
 
     let mut rem = 0u16;
     let mut item_min = std::cmp::min(amount, item.val);
@@ -207,7 +207,7 @@ pub fn take_inv_items(
     mut amount: u16,
     invtype: InvType,
 ) -> u16 {
-    let player_inv = world.get_or_panic::<&Inventory>(entity);
+    let player_inv = world.cloned_get_or_panic::<Inventory>(entity);
 
     let scope = get_inv_scope(invtype);
 
@@ -255,7 +255,7 @@ pub fn take_itemslot(
     slot: usize,
     mut amount: u16,
 ) -> u16 {
-    let player_inv = world.get_or_panic::<&Inventory>(entity);
+    let player_inv = world.cloned_get_or_panic::<Inventory>(entity);
 
     amount = std::cmp::min(amount, player_inv.items[slot].val);
     {

@@ -156,7 +156,7 @@ pub struct PlayerSpawnPacket {
 impl PlayerSpawnPacket {
     pub fn new(world: &mut hecs::World, entity: &Entity) -> Self {
         Self {
-            username: world.get_or_panic::<&Account>(entity).username.clone(),
+            username: world.get::<&Account>(entity.0).unwrap().username.clone(),
             dir: world.get_or_panic::<Dir>(entity).0,
             hidden: world.get_or_panic::<Hidden>(entity).0,
             entity: *entity,
@@ -170,7 +170,7 @@ impl PlayerSpawnPacket {
             vitalmax: world.get_or_panic::<Vitals>(entity).vitalmax,
             access: world.cloned_get_or_panic::<UserAccess>(entity),
             equip: Equipment {
-                items: world.get_or_panic::<&Equipment>(entity).items.clone(),
+                items: world.get::<&Equipment>(entity.0).unwrap().items.clone(),
             },
             pk: world.get_or_panic::<Player>(entity).pk,
             pvpon: world.get_or_panic::<Player>(entity).pvpon,

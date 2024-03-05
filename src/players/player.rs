@@ -309,7 +309,7 @@ pub fn player_give_vals(
     entity: &crate::Entity,
     amount: u64,
 ) -> u64 {
-    let player_money = world.get_or_panic::<&Money>(entity);
+    let player_money = world.get_or_panic::<Money>(entity);
     let rem = u64::MAX.saturating_sub(player_money.vals);
 
     if rem > 0 {
@@ -319,10 +319,7 @@ pub fn player_give_vals(
                 world
                     .get::<&mut Money>(entity.0)
                     .expect("Could not find Money")
-                    .vals = world
-                    .get_or_panic::<&Money>(entity)
-                    .vals
-                    .saturating_add(cur);
+                    .vals = world.get_or_panic::<Money>(entity).vals.saturating_add(cur);
             }
             cur = 0;
         } else {
@@ -339,7 +336,7 @@ pub fn player_give_vals(
         let _ = update_currency(storage, world, entity);
         let _ = send_fltalert(
             storage,
-            world.get_or_panic::<&Socket>(entity).id,
+            world.get::<&Socket>(entity.0).unwrap().id,
             format!("You Have Received {} Vals.", amount - cur),
             FtlType::Money,
         );
@@ -358,16 +355,13 @@ pub fn player_take_vals(
 ) {
     let mut cur = amount;
 
-    let player_money = world.get_or_panic::<&Money>(entity);
+    let player_money = world.get_or_panic::<Money>(entity);
     if player_money.vals >= cur {
         {
             world
                 .get::<&mut Money>(entity.0)
                 .expect("Could not find Money")
-                .vals = world
-                .get_or_panic::<&Money>(entity)
-                .vals
-                .saturating_sub(cur);
+                .vals = world.get_or_panic::<Money>(entity).vals.saturating_sub(cur);
         }
     } else {
         cur = player_money.vals;
@@ -383,7 +377,7 @@ pub fn player_take_vals(
     let _ = update_currency(storage, world, entity);
     let _ = send_fltalert(
         storage,
-        world.get_or_panic::<&Socket>(entity).id,
+        world.get::<&Socket>(entity.0).unwrap().id,
         format!("You Lost {} Vals.", cur),
         FtlType::Money,
     );

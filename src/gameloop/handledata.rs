@@ -60,7 +60,7 @@ fn handle_register(
     let email = data.read::<String>()?;
     let sprite: u8 = data.read()?;
 
-    let socket_id = world.get_or_panic::<&Socket>(entity).id;
+    let socket_id = world.get::<&Socket>(entity.0).unwrap().id;
     send_infomsg(storage, socket_id,
         "Account Was Created. Please wait for the Verification code sent to your email before logging in.".into(), 1)
 
@@ -172,7 +172,7 @@ fn handle_login(
     let appminior = data.read::<u16>()? as usize;
     let apprevision = data.read::<u16>()? as usize;
 
-    let socket_id = world.get_or_panic::<&Socket>(entity).id;
+    let socket_id = world.get::<&Socket>(entity.0).unwrap().id;
 
     if let Some(p) = storage.player_ids.borrow().get(entity) {
         if username.len() >= 64 || password.len() >= 128 {
@@ -375,17 +375,18 @@ fn handle_unequip(
 
         let slot = data.read::<u16>()? as usize;
 
-        if slot >= EQUIPMENT_TYPE_MAX || world.get_or_panic::<&Equipment>(p).items[slot].val == 0 {
+        if slot >= EQUIPMENT_TYPE_MAX || world.get::<&Equipment>(p.0).unwrap().items[slot].val == 0
+        {
             return Ok(());
         }
 
-        let mut item = world.get_or_panic::<&Equipment>(p).items[slot];
+        let mut item = world.get::<&Equipment>(p.0).unwrap().items[slot];
         let rem = give_item(world, storage, p, &mut item);
 
         if rem > 0 {
             return send_fltalert(
                 storage,
-                world.get_or_panic::<&Socket>(p).id,
+                world.get::<&Socket>(p.0).unwrap().id,
                 "Could not unequiped. No inventory space.".into(),
                 FtlType::Error,
             );
@@ -428,24 +429,24 @@ fn handle_switchinvslot(
 
         if oldslot >= MAX_INV
             || newslot >= MAX_INV
-            || world.get_or_panic::<&Inventory>(p).items[oldslot].val == 0
+            || world.get::<&Inventory>(p.0).unwrap().items[oldslot].val == 0
         {
             return Ok(());
         }
 
         let base1 =
-            &storage.bases.items[world.get_or_panic::<&Inventory>(p).items[oldslot].num as usize];
+            &storage.bases.items[world.get::<&Inventory>(p.0).unwrap().items[oldslot].num as usize];
         let invtype = get_inv_itemtype(base1);
 
         if get_inv_type(oldslot) != invtype || get_inv_type(newslot) != invtype {
             return Ok(());
         }
 
-        let mut itemold = world.get_or_panic::<&Inventory>(p).items[oldslot];
+        let mut itemold = world.get::<&Inventory>(p.0).unwrap().items[oldslot];
 
-        if world.get_or_panic::<&Inventory>(p).items[newslot].val > 0 {
-            if world.get_or_panic::<&Inventory>(p).items[newslot].num
-                == world.get_or_panic::<&Inventory>(p).items[oldslot].num
+        if world.get::<&Inventory>(p.0).unwrap().items[newslot].val > 0 {
+            if world.get::<&Inventory>(p.0).unwrap().items[newslot].num
+                == world.get::<&Inventory>(p.0).unwrap().items[oldslot].num
             {
                 set_inv_slot(world, storage, entity, &mut itemold, newslot, amount);
                 {
@@ -455,8 +456,8 @@ fn handle_switchinvslot(
                         .items[oldslot] = itemold;
                 }
                 save_item(world, storage, entity, oldslot);
-            } else if world.get_or_panic::<&Inventory>(p).items[oldslot].val == amount {
-                let itemnew = world.get_or_panic::<&Inventory>(p).items[newslot];
+            } else if world.get::<&Inventory>(p.0).unwrap().items[oldslot].val == amount {
+                let itemnew = world.get::<&Inventory>(p.0).unwrap().items[newslot];
                 {
                     world
                         .get::<&mut Inventory>(p.0)
@@ -472,7 +473,7 @@ fn handle_switchinvslot(
             } else {
                 return send_fltalert(
                         storage,
-                        world.get_or_panic::<&Socket>(p).id,
+                        world.get::<&Socket>(p.0).unwrap().id,
                         "Can not swap slots with a different containing items unless you swap everything."
                             .into(),
                         FtlType::Error
@@ -527,7 +528,7 @@ fn handle_pickup(
                 if storage
                     .bases
                     .maps
-                    .get(&world.get_or_panic::<&Position>(p).map)
+                    .get(&world.get_or_panic::<Position>(p).map)
                     .is_none()
                 {
                     continue;
@@ -537,7 +538,7 @@ fn handle_pickup(
                 for i in ids {
                     let mut mapitems = world.cloned_get_or_panic::<MapItem>(p);
                     if world
-                        .get_or_panic::<&Position>(p)
+                        .get_or_panic::<Position>(p)
                         .checkdistance(mapitems.pos.map_offset(id.into()))
                         <= 1
                     {
@@ -563,7 +564,7 @@ fn handle_pickup(
 
                                 let _ = send_fltalert(
                                     storage,
-                                    world.get_or_panic::<&Socket>(p).id,
+                                    world.get::<&Socket>(p.0).unwrap().id,
                                     format!("You picked up {} {}{}.", amount, item.name, st),
                                     FtlType::Item,
                                 );
@@ -576,7 +577,7 @@ fn handle_pickup(
 
                                 let _ = send_fltalert(
                                         storage,
-                                        world.get_or_panic::<&Socket>(p).id,
+                                        world.get::<&Socket>(p.0).unwrap().id,
                                         format!("You picked up {} {}{}. Your inventory is Full so some items remain.", amount, item.name, st),
                                         FtlType::Item,
                                     );
@@ -626,7 +627,7 @@ fn handle_dropitem(
         let amount = data.read::<u16>()?;
 
         if slot >= MAX_INV
-            || world.get_or_panic::<&Inventory>(p).items[slot].val == 0
+            || world.get::<&Inventory>(p.0).unwrap().items[slot].val == 0
             || amount == 0
         {
             return Ok(());
@@ -636,7 +637,7 @@ fn handle_dropitem(
         if !storage
             .bases
             .maps
-            .contains_key(&world.get_or_panic::<&Position>(p).map)
+            .contains_key(&world.get_or_panic::<Position>(p).map)
         {
             return Err(AscendingError::Unhandled);
         }
@@ -645,7 +646,7 @@ fn handle_dropitem(
             InvType::Quest | InvType::Key => {
                 return send_fltalert(
                     storage,
-                    world.get_or_panic::<&Socket>(p).id,
+                    world.get::<&Socket>(p.0).unwrap().id,
                     "You can not drop key or Quest items.".into(),
                     FtlType::Error,
                 );
@@ -655,25 +656,25 @@ fn handle_dropitem(
 
         let mut mapitem = MapItem::new(0);
 
-        mapitem.item = world.get_or_panic::<&Inventory>(p).items[slot];
-        mapitem.despawn = match world.get_or_panic::<&UserAccess>(p) {
+        mapitem.item = world.get::<&Inventory>(p.0).unwrap().items[slot];
+        mapitem.despawn = match world.get_or_panic::<UserAccess>(p) {
             UserAccess::Admin => None,
             _ => Some(*storage.gettick.borrow() + Duration::milliseconds(600000)),
         };
         mapitem.ownertimer = Some(*storage.gettick.borrow() + Duration::milliseconds(5000));
-        mapitem.ownerid = world.get_or_panic::<&Account>(p).id;
-        mapitem.pos = *world.get_or_panic::<&Position>(p);
+        mapitem.ownerid = world.get::<&Account>(p.0).unwrap().id;
+        mapitem.pos = world.get_or_panic::<Position>(p);
 
         let leftover = take_itemslot(world, storage, entity, slot, amount);
         mapitem.item.val -= leftover;
-        let mut map = match storage.maps.get(&world.get_or_panic::<&Position>(p).map) {
+        let mut map = match storage.maps.get(&world.get_or_panic::<Position>(p).map) {
             Some(map) => map,
             None => return Err(AscendingError::Unhandled),
         }
         .borrow_mut();
 
         let id = map.add_mapitem(world, mapitem);
-        let _ = DataTaskToken::ItemLoad(world.get_or_panic::<&Position>(p).map).add_task(
+        let _ = DataTaskToken::ItemLoad(world.get_or_panic::<Position>(p).map).add_task(
             storage,
             &MapItemPacket::new(id, mapitem.pos, mapitem.item, Some(mapitem.ownerid)),
         );
@@ -701,7 +702,7 @@ fn handle_deleteitem(
 
         let slot = data.read::<u16>()? as usize;
 
-        if slot >= MAX_INV || world.get_or_panic::<&Inventory>(p).items[slot].val == 0 {
+        if slot >= MAX_INV || world.get::<&Inventory>(p.0).unwrap().items[slot].val == 0 {
             return Ok(());
         }
 
@@ -709,14 +710,14 @@ fn handle_deleteitem(
             InvType::Quest | InvType::Key => {
                 return send_fltalert(
                     storage,
-                    world.get_or_panic::<&Socket>(entity).id,
+                    world.get::<&Socket>(entity.0).unwrap().id,
                     "You can not delete key or Quest items.".into(),
                     FtlType::Error,
                 );
             }
             _ => {}
         }
-        let val = world.get_or_panic::<&Inventory>(p).items[slot].val;
+        let val = world.get::<&Inventory>(p.0).unwrap().items[slot].val;
         let _ = take_itemslot(world, storage, entity, slot, val);
 
         return Ok(());
@@ -750,32 +751,34 @@ fn handle_message(
         if msg.len() >= 256 {
             return send_fltalert(
                 storage,
-                world.get_or_panic::<&Socket>(entity).id,
+                world.get::<&Socket>(entity.0).unwrap().id,
                 "Your message is too long. (256 character limit)".into(),
                 FtlType::Error,
             );
         }
 
         let head = match channel {
-            MessageChannel::Map => format!("[Map] {}:", world.get_or_panic::<&Account>(p).username),
+            MessageChannel::Map => {
+                format!("[Map] {}:", world.get::<&Account>(p.0).unwrap().username)
+            }
             MessageChannel::Global => {
-                format!("[Global] {}:", world.get_or_panic::<&Account>(p).username)
+                format!("[Global] {}:", world.get::<&Account>(p.0).unwrap().username)
             }
             MessageChannel::Trade => {
-                format!("[Trade] {}:", world.get_or_panic::<&Account>(p).username)
+                format!("[Trade] {}:", world.get::<&Account>(p.0).unwrap().username)
             }
             MessageChannel::Party => {
-                format!("[Party] {}:", world.get_or_panic::<&Account>(p).username)
+                format!("[Party] {}:", world.get::<&Account>(p.0).unwrap().username)
             }
             MessageChannel::Private => {
                 if name.is_empty() {
                     return Ok(());
                 }
 
-                if name == world.get_or_panic::<&Account>(p).username {
+                if name == world.get::<&Account>(p.0).unwrap().username {
                     return send_fltalert(
                         storage,
-                        world.get_or_panic::<&Socket>(entity).id,
+                        world.get::<&Socket>(entity.0).unwrap().id,
                         "You cannot send messages to yourself".into(),
                         FtlType::Error,
                     );
@@ -792,20 +795,23 @@ fn handle_message(
                     None => {
                         return send_fltalert(
                             storage,
-                            world.get_or_panic::<&Socket>(entity).id,
+                            world.get::<&Socket>(entity.0).unwrap().id,
                             "Player is offline or does not exist".into(),
                             FtlType::Error,
                         );
                     }
                 };
 
-                format!("[Private] {}:", world.get_or_panic::<&Account>(p).username)
+                format!(
+                    "[Private] {}:",
+                    world.get::<&Account>(p.0).unwrap().username
+                )
             }
             MessageChannel::Guild => {
-                format!("[Guild] {}:", world.get_or_panic::<&Account>(p).username)
+                format!("[Guild] {}:", world.get::<&Account>(p.0).unwrap().username)
             }
             MessageChannel::Help => {
-                format!("[Help] {}:", world.get_or_panic::<&Account>(p).username)
+                format!("[Help] {}:", world.get::<&Account>(p.0).unwrap().username)
             }
             MessageChannel::Quest => "".into(),
             MessageChannel::Npc => "".into(),

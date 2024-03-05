@@ -139,7 +139,7 @@ pub fn new_player(
     )?;
 
     let inv_insert = PGInvItem::into_insert_all(PGInvItem::new(
-        &world.get_or_panic::<&Inventory>(entity).items,
+        &world.cloned_get_or_panic::<Inventory>(entity).items,
         uid.0,
     ));
 
@@ -149,7 +149,7 @@ pub fn new_player(
     )?;
 
     let equip_insert = PGEquipItem::into_insert_all(PGEquipItem::new(
-        &world.get_or_panic::<&Equipment>(entity).items,
+        &world.cloned_get_or_panic::<Equipment>(entity).items,
         uid.0,
     ));
 
@@ -167,7 +167,7 @@ pub fn load_player(
 ) -> Result<()> {
     let rt = storage.rt.borrow_mut();
     let local = storage.local.borrow();
-    let accountid = world.get_or_panic::<&Account>(entity).id;
+    let accountid = world.get::<&Account>(entity.0).unwrap().id;
 
     let player_with_id: PGPlayerWithID = local.block_on(&rt,
         sqlx::query_as(r#"
@@ -256,8 +256,8 @@ pub fn update_inv(
 ) -> Result<()> {
     let rt = storage.rt.borrow_mut();
     let local = storage.local.borrow();
-    let inv = world.get_or_panic::<&Inventory>(entity);
-    let account = world.get_or_panic::<&Account>(entity);
+    let inv = world.cloned_get_or_panic::<Inventory>(entity);
+    let account = world.cloned_get_or_panic::<Account>(entity);
     let update = PGInvItem::single(&inv.items, account.id, slot).into_update();
 
     local.block_on(&rt, sqlx::query(&update).execute(&*storage.pgconn.borrow()))?;
@@ -272,8 +272,8 @@ pub fn update_equipment(
 ) -> Result<()> {
     let rt = storage.rt.borrow_mut();
     let local = storage.local.borrow();
-    let equip = world.get_or_panic::<&Equipment>(entity);
-    let account = world.get_or_panic::<&Account>(entity);
+    let equip = world.cloned_get_or_panic::<Equipment>(entity);
+    let account = world.cloned_get_or_panic::<Account>(entity);
     let update = PGEquipItem::single(&equip.items, account.id, slot).into_update();
 
     local.block_on(&rt, sqlx::query(&update).execute(&*storage.pgconn.borrow()))?;

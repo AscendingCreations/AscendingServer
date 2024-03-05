@@ -56,13 +56,14 @@ impl Server {
 
             if let Some(token) = self.tokens.pop_front() {
                 // Attempt to Create a Empty Player Entity.
-                let entity = match accept_connection(token.0, addr.to_string(), world, storage) {
-                    Some(e) => e,
-                    None => {
-                        drop(stream);
-                        return Ok(());
-                    }
-                };
+                let entity =
+                    match accept_connection(self, token.0, addr.to_string(), world, storage) {
+                        Some(e) => e,
+                        None => {
+                            drop(stream);
+                            return Ok(());
+                        }
+                    };
 
                 let tls_conn = rustls::ServerConnection::new(Arc::clone(&self.tls_config))?;
                 // Lets make the Client to handle hwo we send packets.

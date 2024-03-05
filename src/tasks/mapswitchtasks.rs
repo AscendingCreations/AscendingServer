@@ -150,9 +150,11 @@ pub fn init_data_lists(
         }
     }
 
+    let id = world.get::<&Socket>(user.0).unwrap().id;
+
     let _ = send_data_remove_list(
         storage,
-        world.get_or_panic::<&Socket>(user).id,
+        id,
         &old_players
             .0
             .iter()
@@ -164,7 +166,7 @@ pub fn init_data_lists(
 
     let _ = send_data_remove_list(
         storage,
-        world.get_or_panic::<&Socket>(user).id,
+        id,
         &old_npcs
             .0
             .iter()
@@ -175,7 +177,7 @@ pub fn init_data_lists(
     );
     let _ = send_data_remove_list(
         storage,
-        world.get_or_panic::<&Socket>(user).id,
+        id,
         &old_items
             .0
             .iter()
