@@ -4,6 +4,7 @@ use crate::{
 use bytey::{ByteBufferRead, ByteBufferWrite};
 use hecs::*;
 use serde::{Deserialize, Serialize};
+use std::sync::{Arc, Mutex};
 
 #[derive(Clone, Debug, Bundle)]
 pub struct Socket {
@@ -12,7 +13,7 @@ pub struct Socket {
     // Socket ID
     pub id: usize,
     // Packet Buffer
-    pub buffer: ByteBuffer,
+    pub buffer: Arc<Mutex<ByteBuffer>>,
 }
 
 impl Socket {
@@ -21,7 +22,7 @@ impl Socket {
         Ok(Self {
             id,
             addr,
-            buffer: ByteBuffer::with_capacity(8192)?,
+            buffer: Arc::new(Mutex::new(ByteBuffer::with_capacity(8192)?)),
         })
     }
 }

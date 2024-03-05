@@ -99,11 +99,12 @@ pub fn process_packets(world: &mut World, storage: &Storage) {
             continue;
         }
 
-        let mut socket = world.get_or_panic::<&Socket>(entity).clone();
-        let socket_id = world.get_or_panic::<&Socket>(entity).id;
+        let socket = world.get_or_panic::<&Socket>(entity);
+        let socket_id = socket.id;
+        let mut buffer = socket.buffer.lock().unwrap();
 
         loop {
-            length = match get_length(storage, &mut socket.buffer, socket_id) {
+            length = match get_length(storage, &mut buffer, socket_id) {
                 Some(n) => n,
                 None => {
                     rem_arr.push(*entity);
@@ -111,8 +112,8 @@ pub fn process_packets(world: &mut World, storage: &Storage) {
                 }
             };
 
-            if length > 0 && length <= (socket.buffer.length() - socket.buffer.cursor()) as u64 {
-                let mut buffer = match socket.buffer.read_to_buffer(length as usize) {
+            if length > 0 && length <= (buffer.length() - buffer.cursor()) as u64 {
+                let mut buffer = match buffer.read_to_buffer(length as usize) {
                     Ok(n) => n,
                     Err(_) => {
                         if let Some(client) =
@@ -139,7 +140,8 @@ pub fn process_packets(world: &mut World, storage: &Storage) {
 
                 count += 1
             } else {
-                let _ = socket.buffer.move_cursor(socket.buffer.cursor() - 8);
+                let cursor = buffer.cursor() - 8;
+                let _ = buffer.move_cursor(cursor);
 
                 if let Some(client) = storage.server.borrow().clients.get(&mio::Token(socket_id)) {
                     client.borrow_mut().poll_state.add(SocketPollState::Read);
@@ -158,12 +160,12 @@ pub fn process_packets(world: &mut World, storage: &Storage) {
             }
         }
 
-        if socket.buffer.cursor() == socket.buffer.length() {
-            let _ = socket.buffer.truncate(0);
+        if buffer.cursor() == buffer.length() {
+            let _ = buffer.truncate(0);
         }
 
-        if socket.buffer.capacity() > 25000 {
-            let _ = socket.buffer.resize(4096);
+        if buffer.capacity() > 25000 {
+            let _ = buffer.resize(4096);
         }
     }
 
