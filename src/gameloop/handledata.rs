@@ -12,7 +12,15 @@ static PACKET_MAP: phf::Map<u32, PacketFunction> = phf_map! {
     0u32 => handle_register,
     1u32 => handle_login,
     2u32 => handle_move,
-    3u32 => handle_move,
+    3u32 => handle_dir,
+    4u32 => handle_attack,
+    5u32 => handle_useitem,
+    6u32 => handle_unequip,
+    7u32 => handle_switchinvslot,
+    8u32 => handle_pickup,
+    9u32 => handle_dropitem,
+    10u32 => handle_deleteitem,
+    11u32 => handle_message,
 };
 
 pub fn handle_data(
@@ -60,11 +68,13 @@ fn handle_register(
     let email = data.read::<String>()?;
     let sprite: u8 = data.read()?;
 
-    let socket_id = world.get::<&Socket>(entity.0).unwrap().id;
-    send_infomsg(storage, socket_id,
-        "Account Was Created. Please wait for the Verification code sent to your email before logging in.".into(), 1)
+    let string_sample = "Hello World".to_string();
 
-    /* if !storage.player_ids.borrow().contains(entity) {
+    println!("Received from client {:?} {:?} {:?} {:?}, {:?}", username, password, email, sprite, string_sample);
+
+    let socket_id = world.get::<&Socket>(entity.0).unwrap().id;
+
+    if !storage.player_ids.borrow().contains(entity) {
         let email_regex = Regex::new(
             r"^([a-z0-9_+]([a-z0-9_+.]*[a-z0-9_+])?)@([a-z0-9]+([\-\.]{1}[a-z0-9]+)*\.[a-z]{2,6})",
         )?;
@@ -134,17 +144,20 @@ fn handle_register(
         // we need to Add all the player types creations in a sub function that Creates the Defaults and then adds them to World.
         storage.add_player_data(world, entity);
 
-        world
-            .get::<&mut Account>(entity.0)
-            .expect("Could not find Account")
-            .username = username.clone();
+        {
+            world
+                .get::<&mut Account>(entity.0)
+                .expect("Could not find Account")
+                .username = username.clone();
+            world
+                .get::<&mut Sprite>(entity.0)
+                .expect("Could not find Sprite")
+                .id = sprite as u16;
+        }
 
-        world
-            .get::<&mut Sprite>(entity.0)
-            .expect("Could not find Sprite")
-            .id = sprite as u16;
-
-        if new_player(storage, world, entity, username, password, email).is_err() {
+        let res = new_player(storage, world, entity, username, password, email);
+        if let Err(e) = res {
+            println!("{}", e);
             return send_infomsg(
                 storage,
                 socket_id,
@@ -157,7 +170,7 @@ fn handle_register(
              "Account Was Created. Please wait for the Verification code sent to your email before logging in.".into(), 1);
     }
 
-    Err(AscendingError::InvalidSocket)*/
+    Err(AscendingError::InvalidSocket)
 }
 
 fn handle_login(

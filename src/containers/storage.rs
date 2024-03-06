@@ -230,6 +230,10 @@ impl Storage {
                 Attacking::default(),
                 Level::default(),
                 InCombat::default(),
+                EntityData::default(),
+                UserAccess::default(),
+                Position::default(),
+                DeathType::default(),
             ),
         );
     }

@@ -6,5 +6,5 @@ maxconnections = 500
 database = 'ascending'
 host = '127.0.0.1'
 port = 5432
-username = 'test'
+username = 'server'
 password = 'test'

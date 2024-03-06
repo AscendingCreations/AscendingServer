@@ -48,6 +48,8 @@ impl<'q> sqlx::Encode<'q, Postgres> for Position {
             .encode(self.y)
             .encode(self.map)
             .finish();
+
+
         sqlx::encode::IsNull::No
     }
 }
