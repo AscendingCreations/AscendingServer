@@ -222,11 +222,11 @@ pub struct MapItemPacket {
     pub id: Entity, //Items map ID
     pub position: Position,
     pub item: Item,         //
-    pub owner: Option<i64>, //9
+    pub owner: Option<Entity>, //9
 }
 
 impl MapItemPacket {
-    pub fn new(id: Entity, position: Position, item: Item, owner: Option<i64>) -> Self {
+    pub fn new(id: Entity, position: Position, item: Item, owner: Option<Entity>) -> Self {
         Self {
             id,
             position,

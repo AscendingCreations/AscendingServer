@@ -78,14 +78,12 @@ pub fn send_mapitem(
     .borrow();
     if let Some(item) = map.itemids.get(&id) {
         let itemdata = world.get_or_panic::<MapItem>(item);
-        let itempos = world.get_or_panic::<MapItem>(item).pos;
 
         let mut buf = ByteBuffer::new_packet_with(64)?;
 
         buf.write(ServerPackets::MapItems)?;
         buf.write(*item)?;
         buf.write(itemdata)?;
-        buf.write(itempos)?;
         buf.finish()?;
 
         if let Some(socket_id) = sendto {

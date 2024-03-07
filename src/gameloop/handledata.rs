@@ -675,7 +675,7 @@ fn handle_dropitem(
             _ => Some(*storage.gettick.borrow() + Duration::milliseconds(600000)),
         };
         mapitem.ownertimer = Some(*storage.gettick.borrow() + Duration::milliseconds(5000));
-        mapitem.ownerid = world.get::<&Account>(p.0).unwrap().id;
+        mapitem.ownerid = p.clone();
         mapitem.pos = world.get_or_panic::<Position>(p);
 
         let leftover = take_itemslot(world, storage, entity, slot, amount);
