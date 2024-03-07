@@ -24,7 +24,11 @@ pub struct Position {
 
 impl sqlx::Type<Postgres> for Position {
     fn type_info() -> sqlx::postgres::PgTypeInfo {
-        sqlx::postgres::PgTypeInfo::with_name("Position")
+        sqlx::postgres::PgTypeInfo::with_name("location")
+    }
+
+    fn compatible(ty: &sqlx::postgres::PgTypeInfo) -> bool {
+        *ty == Self::type_info()
     }
 }
 

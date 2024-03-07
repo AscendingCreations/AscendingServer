@@ -41,7 +41,7 @@ pub struct Storage {
     pub poll: RefCell<mio::Poll>,
     pub server: RefCell<Server>,
     pub gettick: RefCell<MyInstant>,
-    pub pgconn: RefCell<PgPool>,
+    pub pgconn: PgPool,
     pub time: RefCell<GameTime>,
     pub map_switch_tasks: RefCell<slab::Slab<MapSwitchTasks>>, //Data Tasks For dealing with Player Warp and MapSwitch
     pub bases: Bases,
@@ -167,7 +167,7 @@ impl Storage {
             poll: RefCell::new(poll),
             server: RefCell::new(server),
             gettick: RefCell::new(MyInstant::now()),
-            pgconn: RefCell::new(pgconn),
+            pgconn,
             time: RefCell::new(GameTime::default()),
             map_switch_tasks: RefCell::new(slab::Slab::new()),
             bases: Bases::new()?,

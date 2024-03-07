@@ -25,8 +25,8 @@ CREATE TABLE IF NOT EXISTS public.player
     itemtimer bigint NOT NULL,
     deathtimer bigint NOT NULL,
     vals bigint NOT NULL,
-    spawn \"Position\" NOT NULL,
-    pos \"Position\" NOT NULL,
+    spawn \"location\" NOT NULL,
+    pos \"location\" NOT NULL,
     email text COLLATE pg_catalog.\"default\" NOT NULL,
     sprite smallint NOT NULL,
     indeath boolean NOT NULL,
@@ -37,7 +37,7 @@ CREATE TABLE IF NOT EXISTS public.player
     data bigint[] NOT NULL,
     vital integer[] NOT NULL,
     passresetcode text COLLATE pg_catalog.\"default\",
-    access \"UserAccess\" NOT NULL,
+    access \"user_access\" NOT NULL,
     created_on timestamp with time zone NOT NULL DEFAULT now(),
     CONSTRAINT player_pkey PRIMARY KEY (uid),
     CONSTRAINT email UNIQUE (email),
@@ -110,7 +110,7 @@ CREATE TABLE IF NOT EXISTS public.logs
 (
     serverid smallint NOT NULL,
     userid bigint NOT NULL,
-    logtype \"LogType\" NOT NULL,
+    logtype \"log_type\" NOT NULL,
     message text COLLATE pg_catalog.\"default\" NOT NULL,
     ipaddress text COLLATE pg_catalog.\"default\" NOT NULL
 )

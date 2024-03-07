@@ -1,7 +1,7 @@
 #[rustfmt::skip]
 pub const MAP_POSITION_SCHEMA: &str = "
 DO $$ BEGIN
-	CREATE TYPE public.\"MapPosition\" AS
+	CREATE TYPE public.\"map_position\" AS
 	(
 		x integer,
 		y integer,
@@ -14,18 +14,18 @@ END $$;
 
 #[rustfmt::skip]
 pub const MAP_POSITION_SCHEMA_ALTER: &str = "
-ALTER TYPE public.\"MapPosition\"
+ALTER TYPE public.\"map_position\"
     OWNER TO postgres;
 ";
 
 #[rustfmt::skip]
 pub const POSITION_SCHEMA: &str = "
 DO $$ BEGIN
-	CREATE TYPE public.\"Position\" AS
+	CREATE TYPE public.\"location\" AS
 	(
 		x integer,
 		y integer,
-		map \"MapPosition\"
+		map map_position
 	);
 EXCEPTION
     WHEN duplicate_object THEN null;
@@ -34,6 +34,6 @@ END $$;
 
 #[rustfmt::skip]
 pub const POSITION_SCHEMA_ALTER: &str = "
-ALTER TYPE public.\"Position\"
+ALTER TYPE public.\"location\"
     OWNER TO postgres;
 ";

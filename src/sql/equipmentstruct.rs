@@ -57,8 +57,8 @@ impl PGEquipItem {
         }
     }
 
-    pub fn into_insert_all(items: Vec<PGEquipItem>) -> String {
-        items.into_iter().map(|item| item.into_insert()).join("\n")
+    pub fn into_insert_all(items: Vec<PGEquipItem>) -> Vec<String> {
+        items.into_iter().map(|item| item.into_insert()).collect()
     }
 
     pub fn into_insert(self) -> String {
@@ -77,8 +77,8 @@ impl PGEquipItem {
         )
     }
 
-    pub fn into_update_all(items: Vec<PGEquipItem>) -> String {
-        items.into_iter().map(|item| item.into_update()).join("\n")
+    pub fn into_update_all(items: Vec<PGEquipItem>) -> Vec<String> {
+        items.into_iter().map(|item| item.into_update()).collect()
     }
 
     pub fn into_update(self) -> String {

@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
     ByteBufferWrite,
     sqlx::Type,
 )]
-#[sqlx(type_name = "MapPosition")]
+#[sqlx(type_name = "map_position")]
 pub struct MapPosition {
     pub x: i32,
     pub y: i32,
