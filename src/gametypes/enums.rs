@@ -16,7 +16,7 @@ use serde_repr::*;
     ByteBufferWrite,
     sqlx::Type,
 )]
-#[sqlx(type_name = "UserAccess")]
+#[sqlx(type_name = "user_access")]
 #[repr(i8)]
 pub enum UserAccess {
     #[default]
@@ -407,7 +407,7 @@ pub enum NpcMode {
     ByteBufferWrite,
     sqlx::Type,
 )]
-#[sqlx(type_name = "LogType")]
+#[sqlx(type_name = "log_type")]
 #[repr(u8)]
 pub enum LogType {
     Login,

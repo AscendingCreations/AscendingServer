@@ -49,7 +49,7 @@ pub fn find_player(storage: &Storage, email: &str, password: &str) -> Result<Opt
     "#,
         )
         .bind(email)
-        .fetch_optional(&*storage.pgconn.borrow()),
+        .fetch_optional(&storage.pgconn),
     )?;
 
     if let Some(userdata) = userdata {
@@ -79,7 +79,7 @@ pub fn check_existance(storage: &Storage, username: &str, email: &str) -> Result
         &rt,
         sqlx::query_as(r#"SELECT EXISTS(SELECT 1 FROM player WHERE username=$1) as check"#)
             .bind(username)
-            .fetch_one(&*storage.pgconn.borrow()),
+            .fetch_one(&storage.pgconn),
     )?;
 
     if check.check {
@@ -90,7 +90,7 @@ pub fn check_existance(storage: &Storage, username: &str, email: &str) -> Result
         &rt,
         sqlx::query_as(r#"SELECT EXISTS(SELECT 1 FROM player WHERE email=$1) as check"#)
             .bind(email)
-            .fetch_one(&*storage.pgconn.borrow()),
+            .fetch_one(&storage.pgconn),
     )?;
 
     if check.check {
@@ -129,13 +129,14 @@ pub fn new_player(
             .bind(player.email)
             .bind(player.sprite)
             .bind(player.indeath)
+            .bind(player.level)
             .bind(player.levelexp)
             .bind(player.resetcount)
             .bind(player.pk)
             .bind(player.data)
             .bind(player.vital)
             .bind(player.access)
-            .fetch_one(&*storage.pgconn.borrow()),
+            .fetch_one(&storage.pgconn),
     )?;
 
     let inv_insert = PGInvItem::into_insert_all(PGInvItem::new(
@@ -143,20 +144,32 @@ pub fn new_player(
         uid.0,
     ));
 
-    local.block_on(
-        &rt,
-        sqlx::query(&inv_insert).execute(&*storage.pgconn.borrow()),
-    )?;
+    local.block_on(&rt, async {
+        for script in inv_insert {
+            match sqlx::query(&script).execute(&storage.pgconn).await {
+                Ok(_) => continue,
+                Err(e) => return Err(e),
+            };
+        }
+
+        Ok(())
+    })?;
 
     let equip_insert = PGEquipItem::into_insert_all(PGEquipItem::new(
         &world.cloned_get_or_panic::<Equipment>(entity).items,
         uid.0,
     ));
 
-    local.block_on(
-        &rt,
-        sqlx::query(&equip_insert).execute(&*storage.pgconn.borrow()),
-    )?;
+    local.block_on(&rt, async {
+        for script in equip_insert {
+            match sqlx::query(&script).execute(&storage.pgconn).await {
+                Ok(_) => continue,
+                Err(e) => return Err(e),
+            };
+        }
+
+        Ok(())
+    })?;
     Ok(uid.0)
 }
 
@@ -171,11 +184,11 @@ pub fn load_player(
 
     let player_with_id: PGPlayerWithID = local.block_on(&rt,
         sqlx::query_as(r#"
-        SELECT uid, username, address, password, itemtimer, deathtimer, vals, spawn, pos, email, sprite, indeath, level, levelexp, resetcount, pk, data, vital, passresetcode, access
+        SELECT uid, username, address, password, itemtimer, deathtimer, vals, spawn, spawn_map, pos, pos_map, email, sprite, indeath, level, levelexp, resetcount, pk, data, vital, passresetcode, access
 	    FROM public.player where uid = $1;
         "#)
             .bind(accountid)
-            .fetch_one(&*storage.pgconn.borrow()),
+            .fetch_one(&storage.pgconn),
     )?;
 
     player_with_id.into_player(world, entity);
@@ -189,7 +202,7 @@ pub fn load_player(
         "#,
         )
         .bind(accountid)
-        .fetch_all(&*storage.pgconn.borrow()),
+        .fetch_all(&storage.pgconn),
     )?;
 
     PGInvItem::array_into_items(
@@ -206,7 +219,7 @@ pub fn load_player(
         "#,
         )
         .bind(accountid)
-        .fetch_all(&*storage.pgconn.borrow()),
+        .fetch_all(&storage.pgconn),
     )?;
 
     PGEquipItem::array_into_items(
@@ -242,7 +255,7 @@ pub fn update_player(
         .bind(player.vital)
         .bind(player.indeath)
         .bind(player.pk)
-        .execute(&*storage.pgconn.borrow()),
+        .execute(&storage.pgconn),
     )?;
 
     Ok(())
@@ -260,7 +273,7 @@ pub fn update_inv(
     let account = world.cloned_get_or_panic::<Account>(entity);
     let update = PGInvItem::single(&inv.items, account.id, slot).into_update();
 
-    local.block_on(&rt, sqlx::query(&update).execute(&*storage.pgconn.borrow()))?;
+    local.block_on(&rt, sqlx::query(&update).execute(&storage.pgconn))?;
     Ok(())
 }
 
@@ -276,7 +289,7 @@ pub fn update_equipment(
     let account = world.cloned_get_or_panic::<Account>(entity);
     let update = PGEquipItem::single(&equip.items, account.id, slot).into_update();
 
-    local.block_on(&rt, sqlx::query(&update).execute(&*storage.pgconn.borrow()))?;
+    local.block_on(&rt, sqlx::query(&update).execute(&storage.pgconn))?;
 
     Ok(())
 }
@@ -301,7 +314,7 @@ pub fn update_address(
         )
         .bind(player.uid)
         .bind(player.address)
-        .execute(&*storage.pgconn.borrow()),
+        .execute(&storage.pgconn),
     )?;
 
     Ok(())
@@ -327,7 +340,7 @@ pub fn update_playerdata(
         )
         .bind(player.uid)
         .bind(player.data)
-        .execute(&*storage.pgconn.borrow()),
+        .execute(&storage.pgconn),
     )?;
 
     Ok(())
@@ -354,7 +367,7 @@ pub fn update_passreset(
         )
         .bind(player.uid)
         .bind(player.passresetcode)
-        .execute(&*storage.pgconn.borrow()),
+        .execute(&storage.pgconn),
     )?;
 
     Ok(())
@@ -380,7 +393,7 @@ pub fn update_spawn(
         )
         .bind(player.uid)
         .bind(player.spawn)
-        .execute(&*storage.pgconn.borrow()),
+        .execute(&storage.pgconn),
     )?;
 
     Ok(())
@@ -406,7 +419,7 @@ pub fn update_pos(
         )
         .bind(player.uid)
         .bind(player.pos)
-        .execute(&*storage.pgconn.borrow()),
+        .execute(&storage.pgconn),
     )?;
 
     Ok(())
@@ -432,7 +445,7 @@ pub fn update_currency(
         )
         .bind(player.uid)
         .bind(player.vals)
-        .execute(&*storage.pgconn.borrow()),
+        .execute(&storage.pgconn),
     )?;
 
     Ok(())
@@ -460,7 +473,7 @@ pub fn update_level(
         .bind(player.level)
         .bind(player.levelexp)
         .bind(player.vital)
-        .execute(&*storage.pgconn.borrow()),
+        .execute(&storage.pgconn),
     )?;
 
     Ok(())
@@ -486,7 +499,7 @@ pub fn update_resetcount(
         )
         .bind(player.uid)
         .bind(player.resetcount)
-        .execute(&*storage.pgconn.borrow()),
+        .execute(&storage.pgconn),
     )?;
 
     Ok(())

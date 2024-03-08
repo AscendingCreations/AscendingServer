@@ -52,16 +52,19 @@ impl PGPlayer {
             String::from("FailedPasswordHash")
         };
 
+        let pos = world.get_or_panic::<Position>(entity);
+        let spawn = world.get_or_panic::<Spawn>(entity).pos;
+
         PGPlayer {
             address: world.get::<&Socket>(entity.0).unwrap().addr.clone(),
             sprite: i16::unshift_signed(&(world.get_or_panic::<Sprite>(entity).id)),
-            spawn: world.get_or_panic::<Spawn>(entity).pos,
+            spawn,
             itemtimer: world.get_or_panic::<PlayerItemTimer>(entity).itemtimer,
             vals: i64::unshift_signed(&world.get_or_panic::<Money>(entity).vals),
             data: world.get_or_panic::<EntityData>(entity).0.to_vec(),
             access: world.cloned_get_or_panic::<UserAccess>(entity),
             passresetcode: None,
-            pos: world.cloned_get_or_panic::<Position>(entity),
+            pos,
             vital: world.get_or_panic::<Vitals>(entity).vital.to_vec(),
             deathtimer: world.get_or_panic::<DeathTimer>(entity).0,
             indeath: world.get_or_panic::<DeathType>(entity).is_spirit(),
@@ -100,18 +103,20 @@ pub struct PGPlayerWithID {
 impl PGPlayerWithID {
     pub fn new(world: &mut hecs::World, entity: &Entity) -> PGPlayerWithID {
         let account = world.get::<&Account>(entity.0).unwrap();
+        let pos = world.get_or_panic::<Position>(entity);
+        let spawn = world.get_or_panic::<Spawn>(entity).pos;
 
         PGPlayerWithID {
             uid: account.id,
             username: account.username.clone(),
             address: world.get::<&Socket>(entity.0).unwrap().addr.clone(),
             sprite: i16::unshift_signed(&world.get_or_panic::<Sprite>(entity).id),
-            spawn: world.get_or_panic::<Spawn>(entity).pos,
+            spawn,
             itemtimer: world.get_or_panic::<PlayerItemTimer>(entity).itemtimer,
             vals: i64::unshift_signed(&world.get_or_panic::<Money>(entity).vals),
             data: world.get_or_panic::<EntityData>(entity).0.to_vec(),
             access: world.cloned_get_or_panic::<UserAccess>(entity),
-            pos: world.cloned_get_or_panic::<Position>(entity),
+            pos,
             vital: world.get_or_panic::<Vitals>(entity).vital.to_vec(),
             deathtimer: world.get_or_panic::<DeathTimer>(entity).0,
             indeath: world.get_or_panic::<DeathType>(entity).is_spirit(),
@@ -209,10 +214,11 @@ pub struct PGPlayerLogOut {
 
 impl PGPlayerLogOut {
     pub fn new(world: &mut hecs::World, entity: &Entity) -> PGPlayerLogOut {
+        let pos = world.get_or_panic::<Position>(entity);
         PGPlayerLogOut {
             uid: world.get::<&Account>(entity.0).unwrap().id,
             itemtimer: world.get_or_panic::<PlayerItemTimer>(entity).itemtimer,
-            pos: world.cloned_get_or_panic::<Position>(entity),
+            pos,
             vital: world.get_or_panic::<Vitals>(entity).vital.to_vec(),
             deathtimer: world.get_or_panic::<DeathTimer>(entity).0,
             indeath: world.get_or_panic::<DeathType>(entity).is_spirit(),
@@ -312,9 +318,10 @@ pub struct PGPlayerSpawn {
 
 impl PGPlayerSpawn {
     pub fn new(world: &mut hecs::World, entity: &Entity) -> PGPlayerSpawn {
+        let spawn = world.get_or_panic::<Spawn>(entity).pos;
         PGPlayerSpawn {
             uid: world.get::<&Account>(entity.0).unwrap().id,
-            spawn: world.get_or_panic::<Spawn>(entity).pos,
+            spawn,
         }
     }
 }
@@ -327,9 +334,11 @@ pub struct PGPlayerPos {
 
 impl PGPlayerPos {
     pub fn new(world: &mut hecs::World, entity: &Entity) -> PGPlayerPos {
+        let pos = world.cloned_get_or_panic::<Position>(entity);
+
         PGPlayerPos {
             uid: world.get::<&Account>(entity.0).unwrap().id,
-            pos: world.cloned_get_or_panic::<Position>(entity),
+            pos,
         }
     }
 }
