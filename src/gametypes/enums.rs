@@ -549,6 +549,7 @@ pub enum ServerPackets {
     PlayerData,
     PlayerSpawn,
     PlayerMove,
+    PlayerWarp,
     PlayerMapSwap,
     Dataremovelist,
     Dataremove,

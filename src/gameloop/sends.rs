@@ -96,7 +96,7 @@ pub fn send_mapitem(
 }
 
 #[inline]
-pub fn playerdata(world: &World, _storage: &Storage, entity: &Entity) -> Option<ByteBuffer> {
+pub fn playerdata(world: &World, entity: &Entity) -> Option<ByteBuffer> {
     let mut buf = ByteBuffer::new_packet_with(512).ok()?;
 
     buf.write(ServerPackets::PlayerData as u32).ok()?;
@@ -154,7 +154,7 @@ pub fn send_dir(world: &World, storage: &Storage, entity: &Entity, toself: bool)
 }
 
 #[inline]
-pub fn send_move(world: &World, storage: &Storage, entity: &Entity, warp: bool) -> Result<()> {
+pub fn send_move(world: &World, storage: &Storage, entity: &Entity) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(24)?;
 
     let pos = world.get_or_panic::<Position>(entity);
@@ -163,14 +163,24 @@ pub fn send_move(world: &World, storage: &Storage, entity: &Entity, warp: bool) 
     buf.write(*entity)?;
     buf.write(pos)?;
     buf.write(world.get_or_panic::<Dir>(entity).0)?;
-    buf.write(warp)?;
     buf.finish()?;
 
-    if warp {
-        send_to_maps(world, storage, pos.map, buf, None);
-    } else {
-        send_to_maps(world, storage, pos.map, buf, Some(*entity));
-    }
+    send_to_maps(world, storage, pos.map, buf, Some(*entity));
+
+    Ok(())
+}
+
+pub fn send_warp(world: &World, storage: &Storage, entity: &Entity) -> Result<()> {
+    let mut buf = ByteBuffer::new_packet_with(24)?;
+
+    let pos = world.get_or_panic::<Position>(entity);
+
+    buf.write(ServerPackets::PlayerWarp as u32)?;
+    buf.write(*entity)?;
+    buf.write(pos)?;
+    buf.finish()?;
+
+    send_to_maps(world, storage, pos.map, buf, None);
 
     Ok(())
 }

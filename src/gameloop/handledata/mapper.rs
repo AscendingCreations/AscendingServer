@@ -34,9 +34,18 @@ impl PacketRouter {
                 ClientPacket::Register,
                 routes::handle_register as PacketFunction,
             ),
-            (ClientPacket::Login, routes::handle_login as PacketFunction),
-            (ClientPacket::Move, routes::handle_move as PacketFunction),
-            (ClientPacket::Dir, routes::handle_dir as PacketFunction),
+            (
+                ClientPacket::Login, 
+                routes::handle_login as PacketFunction
+            ),
+            (
+                ClientPacket::Move, 
+                routes::handle_move as PacketFunction
+            ),
+            (
+                ClientPacket::Dir, 
+                routes::handle_dir as PacketFunction
+            ),
             (
                 ClientPacket::Attack,
                 routes::handle_attack as PacketFunction,

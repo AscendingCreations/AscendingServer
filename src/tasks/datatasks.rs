@@ -25,6 +25,7 @@ pub enum DataTaskToken {
     NpcVitals(MapPosition),
     NpcDamage(MapPosition),
     PlayerMove(MapPosition),
+    PlayerWarp(MapPosition),
     PlayerDir(MapPosition),
     PlayerDeath(MapPosition),
     PlayerUnload(MapPosition),
@@ -85,6 +86,7 @@ impl DataTaskToken {
     pub fn limits(&self) -> u32 {
         match self {
             DataTaskToken::NpcMove(_) | DataTaskToken::PlayerMove(_) => 40,
+            DataTaskToken::PlayerWarp(_) => 40,
             DataTaskToken::NpcDir(_)
             | DataTaskToken::PlayerDir(_)
             | DataTaskToken::NpcDeath(_)
@@ -109,6 +111,7 @@ impl DataTaskToken {
         match self {
             DataTaskToken::NpcMove(_) => ServerPackets::NpcMove as u32,
             DataTaskToken::PlayerMove(_) => ServerPackets::PlayerMove as u32,
+            DataTaskToken::PlayerWarp(_) => ServerPackets::PlayerWarp as u32,
             DataTaskToken::NpcDir(_) => ServerPackets::NpcDir as u32,
             DataTaskToken::PlayerDir(_) => ServerPackets::PlayerDir as u32,
             DataTaskToken::NpcDeath(_) => ServerPackets::NpcDeath as u32,
@@ -136,6 +139,7 @@ impl DataTaskToken {
             DataTaskToken::GlobalChat => send_to_all(world, storage, buf),
             DataTaskToken::NpcMove(mappos)
             | DataTaskToken::PlayerMove(mappos)
+            | DataTaskToken::PlayerWarp(mappos)
             | DataTaskToken::NpcDir(mappos)
             | DataTaskToken::PlayerDir(mappos)
             | DataTaskToken::NpcDeath(mappos)

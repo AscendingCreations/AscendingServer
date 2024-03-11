@@ -36,6 +36,34 @@ impl MovePacket {
     }
 }
 
+
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    Deserialize,
+    Serialize,
+    PartialEq,
+    Eq,
+    ByteBufferRead,
+    ByteBufferWrite,
+)]
+pub struct WarpPacket {
+    pub entity: Entity,
+    pub position: Position,
+}
+
+impl WarpPacket {
+    pub fn new(entity: Entity, position: Position) -> Self {
+        Self {
+            entity,
+            position,
+        }
+    }
+}
+
+
 #[derive(
     Copy,
     Clone,

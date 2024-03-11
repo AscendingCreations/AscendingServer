@@ -22,7 +22,7 @@ pub fn handle_data(
             }
         }
         OnlineType::Accepted => match id {
-            ClientPacket::Login => {}
+            ClientPacket::Login | ClientPacket::Register => {}
             _ => return Err(AscendingError::PacketManipulation { name: "".into() }),
         },
         OnlineType::None => {

@@ -1,5 +1,5 @@
 use crate::{
-    containers::Storage, gameloop::*, gametypes::*, maps::*, players::*, sql::*, tasks::*,
+    containers::Storage, gameloop::*, gametypes::*, maps::*, players::{*, map::*,}, sql::*, tasks::*,
 };
 use bytey::ByteBuffer;
 use chrono::Duration;
@@ -15,13 +15,6 @@ pub fn handle_register(
     let password = data.read::<String>()?;
     let email = data.read::<String>()?;
     let sprite: u8 = data.read()?;
-
-    let string_sample = "Hello World".to_string();
-
-    println!(
-        "Received from client {:?} {:?} {:?} {:?}, {:?}",
-        username, password, email, sprite, string_sample
-    );
 
     let socket_id = world.get::<&Socket>(entity.0).unwrap().id;
 
