@@ -155,7 +155,7 @@ fn handle_register(
                 .id = sprite as u16;
         }
 
-        let res = new_player(storage, world, entity, username, password, email);
+        let res = new_player(storage, world, entity, username, email, password);
         if let Err(e) = res {
             println!("{}", e);
             return send_infomsg(
@@ -166,8 +166,11 @@ fn handle_register(
             );
         }
 
-        return send_infomsg(storage, socket_id,
-             "Account Was Created. Please wait for the Verification code sent to your email before logging in.".into(), 1);
+        println!("Login Ok");
+        return send_loginok(storage, socket_id);
+
+        //return send_infomsg(storage, socket_id,
+        //     "Account Was Created. Please wait for the Verification code sent to your email before logging in.".into(), 1);
     }
 
     Err(AscendingError::InvalidSocket)

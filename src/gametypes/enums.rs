@@ -9,15 +9,14 @@ use serde_repr::*;
     Debug,
     PartialEq,
     Eq,
-    Serialize_repr,
-    Deserialize_repr,
+    Serialize,
+    Deserialize,
     Default,
     ByteBufferRead,
     ByteBufferWrite,
     sqlx::Type,
 )]
 #[sqlx(type_name = "user_access")]
-#[repr(i8)]
 pub enum UserAccess {
     #[default]
     None,

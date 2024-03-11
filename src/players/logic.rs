@@ -454,3 +454,7 @@ pub fn get_damage_percentage(damage: u32, hp: (u32, u32)) -> f64 {
     let abs_damage = cmp::min(damage, curhp) as f64;
     abs_damage / curhp as f64
 }
+
+pub fn joingame(entity: &Entity) {
+    
+}
