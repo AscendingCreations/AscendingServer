@@ -163,11 +163,12 @@ pub fn npc_targeting(
     world
         .get::<&mut Target>(entity.0)
         .expect("Could not find Target")
-        .targettimer =
-        *storage.gettick.borrow() + Duration::milliseconds(base.target_auto_switch_chance);
+        .targettimer = *storage.gettick.borrow()
+        + Duration::try_milliseconds(base.target_auto_switch_chance).unwrap_or_default();
     world
         .get::<&mut AttackTimer>(entity.0)
         .expect("Could not find Target")
-        .0 = *storage.gettick.borrow() + Duration::milliseconds(base.attack_wait);
+        .0 = *storage.gettick.borrow()
+        + Duration::try_milliseconds(base.attack_wait).unwrap_or_default();
     true
 }

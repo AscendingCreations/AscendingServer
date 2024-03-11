@@ -135,11 +135,13 @@ impl PGPlayerWithID {
         world
             .get::<&mut Account>(entity.0)
             .expect("Could not find Account")
-            .username = self.username.clone();
+            .username
+            .clone_from(&self.username);
         world
             .get::<&mut Socket>(entity.0)
             .expect("Could not find Socket")
-            .addr = self.address.clone();
+            .addr
+            .clone_from(&self.address);
         world
             .get::<&mut Sprite>(entity.0)
             .expect("Could not find Sprite")

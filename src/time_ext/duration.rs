@@ -7,7 +7,7 @@ pub struct MyDuration(pub chrono::Duration);
 
 impl MyDuration {
     pub fn milliseconds(mills: i64) -> MyDuration {
-        MyDuration(chrono::Duration::milliseconds(mills))
+        MyDuration(chrono::Duration::try_milliseconds(mills).unwrap_or_default())
     }
 
     pub fn as_std(&self) -> std::time::Duration {
@@ -54,7 +54,9 @@ impl<'r> sqlx::Decode<'r, Postgres> for MyDuration {
         value: sqlx::postgres::PgValueRef<'r>,
     ) -> sqlx::Result<Self, Box<dyn std::error::Error + 'static + Send + Sync>> {
         let value = <i64 as sqlx::Decode<Postgres>>::decode(value)?;
-        Ok(Self(chrono::Duration::milliseconds(value)))
+        Ok(Self(
+            chrono::Duration::try_milliseconds(value).unwrap_or_default(),
+        ))
     }
 }
 
@@ -78,29 +80,29 @@ impl<'de> Deserialize<'de> for MyDuration {
     where
         D: Deserializer<'de>,
     {
-        Ok(MyDuration(chrono::Duration::milliseconds(
-            i64::deserialize(deserializer)?,
-        )))
+        Ok(MyDuration(
+            chrono::Duration::try_milliseconds(i64::deserialize(deserializer)?).unwrap_or_default(),
+        ))
     }
 }
 
 impl ByteBufferRead for MyDuration {
     fn read_from_buffer(buffer: &mut ByteBuffer) -> bytey::Result<Self> {
-        Ok(MyDuration(chrono::Duration::milliseconds(
-            buffer.read::<i64>()?,
-        )))
+        Ok(MyDuration(
+            chrono::Duration::try_milliseconds(buffer.read::<i64>()?).unwrap_or_default(),
+        ))
     }
 
     fn read_from_buffer_le(buffer: &mut ByteBuffer) -> bytey::Result<Self> {
-        Ok(MyDuration(chrono::Duration::milliseconds(
-            buffer.read_le::<i64>()?,
-        )))
+        Ok(MyDuration(
+            chrono::Duration::try_milliseconds(buffer.read_le::<i64>()?).unwrap_or_default(),
+        ))
     }
 
     fn read_from_buffer_be(buffer: &mut ByteBuffer) -> bytey::Result<Self> {
-        Ok(MyDuration(chrono::Duration::milliseconds(
-            buffer.read_be::<i64>()?,
-        )))
+        Ok(MyDuration(
+            chrono::Duration::try_milliseconds(buffer.read_be::<i64>()?).unwrap_or_default(),
+        ))
     }
 }
 

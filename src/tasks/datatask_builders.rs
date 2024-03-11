@@ -221,7 +221,7 @@ pub struct MapItemPacket {
     //3 messages per packet
     pub id: Entity, //Items map ID
     pub position: Position,
-    pub item: Item,         //
+    pub item: Item,            //
     pub owner: Option<Entity>, //9
 }
 

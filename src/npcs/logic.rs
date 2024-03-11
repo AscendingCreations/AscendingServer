@@ -52,7 +52,8 @@ pub fn update_npcs(world: &mut World, storage: &Storage) {
                         world
                             .get::<&mut MoveTimer>(id.0)
                             .expect("Could not find MoveTimer")
-                            .0 = tick + Duration::milliseconds(npcdata.movement_wait);
+                            .0 = tick
+                            + Duration::try_milliseconds(npcdata.movement_wait).unwrap_or_default();
                     }
 
                     //attacking

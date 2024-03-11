@@ -32,7 +32,6 @@ use containers::Storage;
 //use time_ext::{MyDuration, MyInstant};
 use hecs::World;
 
-
 fn read_line() -> String {
     let mut rv = String::new();
     std::io::stdin().read_line(&mut rv).unwrap();
@@ -44,10 +43,10 @@ fn main() {
         Some(n) => n,
         None => return,
     };
-
+    let router = PacketRouter::init();
     let mut world = World::new();
 
-    game_loop(&mut world, &storage);
+    game_loop(&mut world, &storage, &router);
     println!("done. Press enter to exit program.");
 
     let _ret = read_line();

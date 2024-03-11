@@ -68,7 +68,7 @@ pub fn npc_movement(world: &mut hecs::World, storage: &Storage, entity: &Entity,
         world
             .get::<&mut NpcAITimer>(entity.0)
             .expect("Could not find NpcAITimer")
-            .0 = *storage.gettick.borrow() + Duration::milliseconds(2500);
+            .0 = *storage.gettick.borrow() + Duration::try_milliseconds(2500).unwrap_or_default();
     }
 
     if world.get_or_panic::<NpcMoving>(entity).0 {

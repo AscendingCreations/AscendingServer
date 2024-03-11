@@ -1,11 +1,11 @@
 use crate::{
     containers::Storage, gameloop::handle_data, gametypes::*, maps::update_maps, npcs::*,
-    players::*, socket::*, time_ext::MyInstant,
+    players::*, socket::*, time_ext::MyInstant, PacketRouter,
 };
 use chrono::Duration;
 use hecs::World;
 
-pub fn game_loop(world: &mut World, storage: &Storage) {
+pub fn game_loop(world: &mut World, storage: &Storage, router: &PacketRouter) {
     let mut tick: MyInstant;
     let mut tmr100: MyInstant = MyInstant::now();
     let mut tmr500: MyInstant = MyInstant::now();
@@ -19,18 +19,18 @@ pub fn game_loop(world: &mut World, storage: &Storage) {
         if tick > tmr100 {
             update_npcs(world, storage);
             update_players(world, storage);
-            tmr100 = tick + Duration::milliseconds(100);
+            tmr100 = tick + Duration::try_milliseconds(100).unwrap_or_default();
         }
 
         if tick > tmr500 {
             if let Err(e) = update_maps(world, storage) {
                 println!("Error: {:?}", e);
             }
-            tmr500 = tick + Duration::milliseconds(500);
+            tmr500 = tick + Duration::try_milliseconds(500).unwrap_or_default();
         }
 
         if tick > tmr1000 {
-            tmr1000 = tick + Duration::milliseconds(1000);
+            tmr1000 = tick + Duration::try_milliseconds(1000).unwrap_or_default();
         }
 
         if tick > tmr60000 {
@@ -43,14 +43,14 @@ pub fn game_loop(world: &mut World, storage: &Storage) {
                     time.hour = 0;
                 }
             }
-            tmr60000 = tick + Duration::milliseconds(60000);
+            tmr60000 = tick + Duration::try_milliseconds(60000).unwrap_or_default();
         }
 
         if let Err(e) = poll_events(world, storage) {
             println!("Poll event error: {:?}", e);
         }
 
-        process_packets(world, storage);
+        process_packets(world, storage, router);
     }
 }
 
@@ -78,7 +78,7 @@ pub fn get_length(storage: &Storage, buffer: &mut ByteBuffer, id: usize) -> Opti
     }
 }
 
-pub fn process_packets(world: &mut World, storage: &Storage) {
+pub fn process_packets(world: &mut World, storage: &Storage, router: &PacketRouter) {
     let mut count: usize;
     let mut rem_arr: Vec<Entity> = Vec::with_capacity(32);
     let mut length: u64;
@@ -131,7 +131,7 @@ pub fn process_packets(world: &mut World, storage: &Storage) {
                     }
                 };
 
-                if handle_data(world, storage, &mut buffer, entity).is_err() {
+                if handle_data(router, world, storage, &mut buffer, entity).is_err() {
                     if let Some(client) =
                         storage.server.borrow().clients.get(&mio::Token(socket_id))
                     {

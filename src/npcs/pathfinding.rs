@@ -147,7 +147,7 @@ pub fn a_star_path(
         }
 
         'found: for mut child in children_nodes {
-            if closed.get(&child.pos).is_some() {
+            if closed.contains_key(&child.pos) {
                 continue 'found;
             }
 

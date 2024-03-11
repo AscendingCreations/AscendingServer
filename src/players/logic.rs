@@ -210,7 +210,7 @@ pub fn player_earn_exp(
         world
             .get::<&mut Combat>(entity.0)
             .expect("Could not find Combat")
-            .0 = *storage.gettick.borrow() + Duration::milliseconds(2000);
+            .0 = *storage.gettick.borrow() + Duration::try_milliseconds(2000).unwrap_or_default();
     }
 
     let leveldifference = victimlevel - world.get_or_panic::<Level>(entity).0;
@@ -455,6 +455,4 @@ pub fn get_damage_percentage(damage: u32, hp: (u32, u32)) -> f64 {
     abs_damage / curhp as f64
 }
 
-pub fn joingame(entity: &Entity) {
-    
-}
+pub fn joingame(_entity: &Entity) {}
