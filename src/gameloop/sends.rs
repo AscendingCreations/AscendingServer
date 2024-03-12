@@ -10,7 +10,7 @@ pub fn send_infomsg(
 ) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(128)?;
 
-    buf.write(ServerPackets::AlertMsg as u32)?;
+    buf.write(ServerPackets::AlertMsg)?;
     buf.write(message)?;
     buf.write(close_socket)?;
     buf.finish()?;
@@ -28,7 +28,7 @@ pub fn send_fltalert(
 ) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(128)?;
 
-    buf.write(ServerPackets::FltAlert as u32)?;
+    buf.write(ServerPackets::FltAlert)?;
     buf.write(ftltype)?;
     buf.write(message)?;
     buf.finish()?;
@@ -38,10 +38,11 @@ pub fn send_fltalert(
 }
 
 #[inline]
-pub fn send_loginok(storage: &Storage, socket_id: usize) -> Result<()> {
+pub fn send_loginok(storage: &Storage, socket_id: usize, entity: &Entity) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(16)?;
 
-    buf.write(ServerPackets::LoginOk as u32)?;
+    buf.write(ServerPackets::LoginOk)?;
+    buf.write(*entity)?;
     buf.write(storage.time.borrow().hour)?;
     buf.write(storage.time.borrow().min)?;
     buf.finish()?;
@@ -54,7 +55,7 @@ pub fn send_loginok(storage: &Storage, socket_id: usize) -> Result<()> {
 pub fn send_updatemap(world: &World, storage: &Storage, entity: &Entity) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(16)?;
 
-    buf.write(ServerPackets::UpdateMap as u32)?;
+    buf.write(ServerPackets::UpdateMap)?;
     buf.finish()?;
 
     let id: usize = world.get::<&Socket>(entity.0)?.id;
@@ -81,7 +82,7 @@ pub fn send_mapitem(
 
         let mut buf = ByteBuffer::new_packet_with(64)?;
 
-        buf.write(ServerPackets::MapItems as u32)?;
+        buf.write(ServerPackets::MapItems)?;
         buf.write(*item)?;
         buf.write(itemdata)?;
         buf.finish()?;
@@ -96,49 +97,11 @@ pub fn send_mapitem(
 }
 
 #[inline]
-pub fn playerdata(world: &World, entity: &Entity) -> Option<ByteBuffer> {
-    let mut buf = ByteBuffer::new_packet_with(512).ok()?;
-
-    buf.write(ServerPackets::PlayerData as u32).ok()?;
-    buf.write(*entity).ok()?;
-    buf.write(
-        world
-            .cloned_get_or_panic::<Account>(entity)
-            .username
-            .clone(),
-    )
-    .ok()?;
-    buf.write(world.get_or_panic::<UserAccess>(entity)).ok()?;
-    buf.write(world.get_or_panic::<Sprite>(entity).id).ok()?;
-    buf.write(world.get_or_panic::<Position>(entity)).ok()?;
-    buf.write(world.get_or_panic::<Dir>(entity).0).ok()?;
-    buf.write(world.get_or_panic::<Level>(entity).0).ok()?;
-    buf.write(world.get_or_panic::<Player>(entity).levelexp)
-        .ok()?;
-    buf.write(world.get_or_panic::<Vitals>(entity).vital).ok()?;
-    buf.write(world.get_or_panic::<Vitals>(entity).vitalmax)
-        .ok()?;
-    buf.write(world.cloned_get_or_panic::<Equipment>(entity).items.clone())
-        .ok()?;
-    buf.write(world.get_or_panic::<IsUsingType>(entity)).ok()?;
-    buf.write(world.get_or_panic::<Player>(entity).resetcount)
-        .ok()?;
-    buf.write(world.get_or_panic::<DeathType>(entity)).ok()?;
-    buf.write(world.get_or_panic::<Hidden>(entity).0).ok()?;
-    buf.write(world.get_or_panic::<Attacking>(entity).0).ok()?;
-    buf.write(world.get_or_panic::<Player>(entity).pvpon).ok()?;
-    buf.write(world.get_or_panic::<Player>(entity).pk).ok()?;
-    buf.finish().ok()?;
-
-    Some(buf)
-}
-
-#[inline]
 pub fn send_dir(world: &World, storage: &Storage, entity: &Entity, toself: bool) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(16)?;
     let closure = |toself, id| if toself { Some(id) } else { None };
 
-    buf.write(ServerPackets::PlayerDir as u32)?;
+    buf.write(ServerPackets::PlayerDir)?;
     buf.write(world.get_or_panic::<Dir>(entity).0)?;
     buf.finish()?;
 
@@ -159,7 +122,7 @@ pub fn send_move(world: &World, storage: &Storage, entity: &Entity) -> Result<()
 
     let pos = world.get_or_panic::<Position>(entity);
 
-    buf.write(ServerPackets::PlayerMove as u32)?;
+    buf.write(ServerPackets::PlayerMove)?;
     buf.write(*entity)?;
     buf.write(pos)?;
     buf.write(world.get_or_panic::<Dir>(entity).0)?;
@@ -175,7 +138,7 @@ pub fn send_warp(world: &World, storage: &Storage, entity: &Entity) -> Result<()
 
     let pos = world.get_or_panic::<Position>(entity);
 
-    buf.write(ServerPackets::PlayerWarp as u32)?;
+    buf.write(ServerPackets::PlayerWarp)?;
     buf.write(*entity)?;
     buf.write(pos)?;
     buf.finish()?;
@@ -193,7 +156,7 @@ pub fn send_data_remove_list(
 ) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(24)?;
 
-    buf.write(ServerPackets::Dataremovelist as u32)?;
+    buf.write(ServerPackets::Dataremovelist)?;
     buf.write(datatype)?;
     buf.write(remove.to_vec())?;
     buf.finish()?;
@@ -212,7 +175,7 @@ pub fn send_data_remove(
 ) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(24)?;
 
-    buf.write(ServerPackets::Dataremove as u32)?;
+    buf.write(ServerPackets::Dataremove)?;
     buf.write(datatype)?;
     buf.write(id)?;
     buf.finish()?;
@@ -225,7 +188,7 @@ pub fn send_data_remove(
 pub fn send_data_remove_all(world: &World, storage: &Storage, id: u64, datatype: u8) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(24)?;
 
-    buf.write(ServerPackets::Dataremove as u32)?;
+    buf.write(ServerPackets::Dataremove)?;
     buf.write(datatype)?;
     buf.write(id)?;
     buf.finish()?;
@@ -241,7 +204,7 @@ pub fn send_vitals(world: &World, storage: &Storage, entity: &Entity) -> Result<
 
     let vitals = world.get_or_panic::<Vitals>(entity);
 
-    buf.write(ServerPackets::PlayerVitals as u32)?;
+    buf.write(ServerPackets::PlayerVitals)?;
     buf.write(vitals.vital)?;
     buf.write(vitals.vitalmax)?;
     buf.finish()?;
@@ -261,7 +224,7 @@ pub fn send_vitals(world: &World, storage: &Storage, entity: &Entity) -> Result<
 pub fn send_inv(world: &World, storage: &Storage, entity: &Entity) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(6500)?;
 
-    buf.write(ServerPackets::PlayerInv as u32)?;
+    buf.write(ServerPackets::PlayerInv)?;
     buf.write(world.cloned_get_or_panic::<Inventory>(entity).items.clone())?;
     buf.finish()?;
 
@@ -274,7 +237,7 @@ pub fn send_inv(world: &World, storage: &Storage, entity: &Entity) -> Result<()>
 pub fn send_invslot(world: &World, storage: &Storage, entity: &Entity, id: usize) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(32)?;
 
-    buf.write(ServerPackets::PlayerInvSlot as u32)?;
+    buf.write(ServerPackets::PlayerInvSlot)?;
     buf.write(id)?;
     buf.write(world.cloned_get_or_panic::<Inventory>(entity).items[id])?;
     buf.finish()?;
@@ -289,7 +252,7 @@ pub fn send_attack(world: &World, storage: &Storage, entity: &Entity, toself: bo
     let mut buf = ByteBuffer::new_packet_with(16)?;
     let closure = |toself, id| if toself { Some(id) } else { None };
 
-    buf.write(ServerPackets::PlayerAttack as u32)?;
+    buf.write(ServerPackets::PlayerAttack)?;
     buf.write(*entity)?;
     buf.finish()?;
 
@@ -308,7 +271,7 @@ pub fn send_attack(world: &World, storage: &Storage, entity: &Entity, toself: bo
 pub fn send_equipment(world: &World, storage: &Storage, entity: &Entity) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(16)?;
 
-    buf.write(ServerPackets::PlayerEquipment as u32)?;
+    buf.write(ServerPackets::PlayerEquipment)?;
     buf.write(world.cloned_get_or_panic::<Equipment>(entity).items.clone())?;
     buf.finish()?;
 
@@ -327,7 +290,7 @@ pub fn send_equipment(world: &World, storage: &Storage, entity: &Entity) -> Resu
 pub fn send_level(world: &World, storage: &Storage, entity: &Entity) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(16)?;
 
-    buf.write(ServerPackets::PlayerLevel as u32)?;
+    buf.write(ServerPackets::PlayerLevel)?;
     buf.write(world.get_or_panic::<Level>(entity).0)?;
     buf.write(world.get_or_panic::<Player>(entity).levelexp)?;
     buf.finish()?;
@@ -340,7 +303,7 @@ pub fn send_level(world: &World, storage: &Storage, entity: &Entity) -> Result<(
 pub fn send_money(world: &World, storage: &Storage, entity: &Entity) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(16)?;
 
-    buf.write(ServerPackets::PlayerMoney as u32)?;
+    buf.write(ServerPackets::PlayerMoney)?;
     buf.write(world.get_or_panic::<Money>(entity).vals)?;
     buf.finish()?;
 
@@ -358,7 +321,7 @@ pub fn send_life_status(
     let mut buf = ByteBuffer::new_packet_with(16)?;
     let closure = |toself, id| if toself { Some(id) } else { None };
 
-    buf.write(ServerPackets::PlayerDeath as u32)?;
+    buf.write(ServerPackets::PlayerDeath)?;
     buf.write(*entity)?;
     buf.write(world.get_or_panic::<DeathType>(entity))?;
     buf.finish()?;
@@ -378,7 +341,7 @@ pub fn send_action(world: &World, storage: &Storage, entity: &Entity, toself: bo
     let mut buf = ByteBuffer::new_packet_with(16)?;
     let closure = |toself, id| if toself { Some(id) } else { None };
 
-    buf.write(ServerPackets::PlayerAction as u32)?;
+    buf.write(ServerPackets::PlayerAction)?;
     buf.write(world.get_or_panic::<Dir>(entity).0)?;
     buf.finish()?;
 
@@ -397,7 +360,7 @@ pub fn send_pvp(world: &World, storage: &Storage, entity: &Entity, toself: bool)
     let mut buf = ByteBuffer::new_packet_with(16)?;
     let closure = |toself, id| if toself { Some(id) } else { None };
 
-    buf.write(ServerPackets::PlayerPvp as u32)?;
+    buf.write(ServerPackets::PlayerPvp)?;
     buf.write(world.get_or_panic::<Player>(entity).pvpon)?;
     buf.finish()?;
 
@@ -416,7 +379,7 @@ pub fn send_pk(world: &World, storage: &Storage, entity: &Entity, toself: bool) 
     let mut buf = ByteBuffer::new_packet_with(16)?;
     let closure = |toself, id| if toself { Some(id) } else { None };
 
-    buf.write(ServerPackets::PlayerPk as u32)?;
+    buf.write(ServerPackets::PlayerPk)?;
     buf.write(world.get_or_panic::<Player>(entity).pk)?;
     buf.finish()?;
 
@@ -453,7 +416,7 @@ pub fn send_message(
         MessageChannel::Private => {
             let mut buf = ByteBuffer::new_packet_with(msg.len() + head.len() + 32)?;
 
-            buf.write(ServerPackets::ChatMsg as u32)?;
+            buf.write(ServerPackets::ChatMsg)?;
             buf.write(chan)?;
             buf.write(head)?;
             buf.write(msg)?;
@@ -468,7 +431,7 @@ pub fn send_message(
         MessageChannel::Quest | MessageChannel::Npc => {
             let mut buf = ByteBuffer::new_packet_with(msg.len() + head.len() + 32)?;
 
-            buf.write(ServerPackets::ChatMsg as u32)?;
+            buf.write(ServerPackets::ChatMsg)?;
             buf.write(chan)?;
             buf.write(head)?;
             buf.write(msg)?;

@@ -1,5 +1,5 @@
 use crate::{
-    containers::Storage, gameloop::*, gametypes::*, maps::*, players::{*, map::*,}, sql::*, tasks::*,
+    containers::Storage, gameloop::*, gametypes::*, maps::*, players::*, sql::*, tasks::*,
 };
 use bytey::ByteBuffer;
 use chrono::Duration;
@@ -111,9 +111,8 @@ pub fn handle_register(
             );
         }
 
-        println!("Login Ok");
-        return send_loginok(storage, socket_id);
-
+        joingame(world, storage, entity);
+        return Ok(());
         //return send_infomsg(storage, socket_id,
         //     "Account Was Created. Please wait for the Verification code sent to your email before logging in.".into(), 1);
     }
@@ -173,7 +172,7 @@ pub fn handle_login(
             return send_infomsg(storage, socket_id, "Error Loading User.".into(), 1);
         }
 
-        send_loginok(storage, socket_id)?;
+        send_loginok(storage, socket_id, entity)?;
 
         //joingame(index);
         return Ok(());
@@ -206,7 +205,7 @@ pub fn handle_move(
         let pos = world.get_or_panic::<Position>(p);
 
         if data_pos != pos {
-            player_warp(world, storage, entity, &data_pos, dir);
+            player_warp(world, storage, entity, &data_pos);
             return Ok(());
         }
 

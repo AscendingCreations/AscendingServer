@@ -30,7 +30,6 @@ pub fn update_players(world: &mut World, storage: &Storage) {
                     storage,
                     id,
                     &world.get_or_panic::<Position>(id),
-                    world.get_or_panic::<Dir>(id).0,
                 );
 
                 //lets heal them fully on revival.
@@ -327,4 +326,19 @@ pub fn get_damage_percentage(damage: u32, hp: (u32, u32)) -> f64 {
     let curhp = cmp::min(hp.0, hp.1);
     let abs_damage = cmp::min(damage, curhp) as f64;
     abs_damage / curhp as f64
+}
+
+pub fn joingame(
+    world: &mut hecs::World,
+    storage: &Storage,
+    entity: &Entity,
+) {
+    let socket_id = world.get::<&Socket>(entity.0).unwrap().id;
+    
+    let position = world.get_or_panic::<Position>(entity);
+    player_warp(world, storage, entity, &position);
+
+    println!("Login Ok");
+
+    let _ = send_loginok(storage, socket_id, entity);
 }

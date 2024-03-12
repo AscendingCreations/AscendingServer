@@ -85,8 +85,8 @@ impl DataTaskToken {
     //the max empty space 1384 bytes of usable data in the packet.
     pub fn limits(&self) -> u32 {
         match self {
-            DataTaskToken::NpcMove(_) | DataTaskToken::PlayerMove(_) => 40,
-            DataTaskToken::PlayerWarp(_) => 40,
+            DataTaskToken::NpcMove(_) | DataTaskToken::PlayerMove(_) => 31,
+            DataTaskToken::PlayerWarp(_) => 31,
             DataTaskToken::NpcDir(_)
             | DataTaskToken::PlayerDir(_)
             | DataTaskToken::NpcDeath(_)
@@ -107,30 +107,30 @@ impl DataTaskToken {
     }
 
     /// Id of the packet for the data type.
-    pub fn packet_id(&self) -> u32 {
+    pub fn packet_id(&self) -> ServerPackets {
         match self {
-            DataTaskToken::NpcMove(_) => ServerPackets::NpcMove as u32,
-            DataTaskToken::PlayerMove(_) => ServerPackets::PlayerMove as u32,
-            DataTaskToken::PlayerWarp(_) => ServerPackets::PlayerWarp as u32,
-            DataTaskToken::NpcDir(_) => ServerPackets::NpcDir as u32,
-            DataTaskToken::PlayerDir(_) => ServerPackets::PlayerDir as u32,
-            DataTaskToken::NpcDeath(_) => ServerPackets::NpcDeath as u32,
-            DataTaskToken::PlayerDeath(_) => ServerPackets::PlayerDeath as u32,
-            DataTaskToken::NpcUnload(_) => ServerPackets::NpcUnload as u32,
-            DataTaskToken::PlayerUnload(_) => ServerPackets::PlayerUnload as u32,
-            DataTaskToken::NpcAttack(_) => ServerPackets::NpcAttack as u32,
-            DataTaskToken::PlayerAttack(_) => ServerPackets::PlayerAttack as u32,
-            DataTaskToken::NpcVitals(_) => ServerPackets::NpcVital as u32,
-            DataTaskToken::PlayerVitals(_) => ServerPackets::PlayerVitals as u32,
-            DataTaskToken::ItemUnload(_) => ServerPackets::MapItemsUnload as u32,
-            DataTaskToken::NpcSpawn(_) => ServerPackets::NpcData as u32,
-            DataTaskToken::PlayerSpawn(_) => ServerPackets::PlayerSpawn as u32,
-            DataTaskToken::MapChat(_) => ServerPackets::ChatMsg as u32,
-            DataTaskToken::GlobalChat => ServerPackets::ChatMsg as u32,
-            DataTaskToken::ItemLoad(_) => ServerPackets::MapItems as u32,
-            DataTaskToken::NpcDamage(_) => ServerPackets::MapItems as u32, //TODO: Make a packet ID for Damages. This is to display the damage done to a player/npc on hit.
-            DataTaskToken::PlayerDamage(_) => ServerPackets::MapItems as u32,
-            DataTaskToken::PlayerLevel(_) => ServerPackets::PlayerLevel as u32,
+            DataTaskToken::NpcMove(_) => ServerPackets::NpcMove,
+            DataTaskToken::PlayerMove(_) => ServerPackets::PlayerMove,
+            DataTaskToken::PlayerWarp(_) => ServerPackets::PlayerWarp,
+            DataTaskToken::NpcDir(_) => ServerPackets::NpcDir,
+            DataTaskToken::PlayerDir(_) => ServerPackets::PlayerDir,
+            DataTaskToken::NpcDeath(_) => ServerPackets::NpcDeath,
+            DataTaskToken::PlayerDeath(_) => ServerPackets::PlayerDeath,
+            DataTaskToken::NpcUnload(_) => ServerPackets::NpcUnload,
+            DataTaskToken::PlayerUnload(_) => ServerPackets::PlayerUnload,
+            DataTaskToken::NpcAttack(_) => ServerPackets::NpcAttack,
+            DataTaskToken::PlayerAttack(_) => ServerPackets::PlayerAttack,
+            DataTaskToken::NpcVitals(_) => ServerPackets::NpcVital,
+            DataTaskToken::PlayerVitals(_) => ServerPackets::PlayerVitals,
+            DataTaskToken::ItemUnload(_) => ServerPackets::MapItemsUnload,
+            DataTaskToken::NpcSpawn(_) => ServerPackets::NpcData,
+            DataTaskToken::PlayerSpawn(_) => ServerPackets::PlayerSpawn,
+            DataTaskToken::MapChat(_) => ServerPackets::ChatMsg,
+            DataTaskToken::GlobalChat => ServerPackets::ChatMsg,
+            DataTaskToken::ItemLoad(_) => ServerPackets::MapItems,
+            DataTaskToken::NpcDamage(_) => ServerPackets::MapItems, //TODO: Make a packet ID for Damages. This is to display the damage done to a player/npc on hit.
+            DataTaskToken::PlayerDamage(_) => ServerPackets::MapItems,
+            DataTaskToken::PlayerLevel(_) => ServerPackets::PlayerLevel,
         }
     }
 
@@ -162,7 +162,7 @@ impl DataTaskToken {
     }
 }
 
-pub fn new_cache(packet_id: u32) -> Result<ByteBuffer> {
+pub fn new_cache(packet_id: ServerPackets) -> Result<ByteBuffer> {
     let mut buffer = ByteBuffer::new_packet_with(1412)?;
     //prelocate space for count and packetID
     buffer.write(packet_id)?;
