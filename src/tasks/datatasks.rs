@@ -48,6 +48,13 @@ impl DataTaskToken {
             Entry::Vacant(v) => {
                 let mut buffer = new_cache(self.packet_id())?;
                 data.write_to_buffer(&mut buffer)?;
+                if buffer.length() > PACKET_DATA_LIMIT {
+                    warn!(
+                        "Buffer Length for single write of {:?} Exceeded PACKET_DATA_LIMIT",
+                        self
+                    );
+                }
+
                 v.insert(VecDeque::from_iter([(1, buffer, false)]));
             }
             Entry::Occupied(mut o) => {
@@ -151,7 +158,6 @@ pub fn process_tasks(world: &mut hecs::World, storage: &Storage) -> Result<()> {
 
     Ok(())
 }
-
 
 pub fn new_cache(packet_id: ServerPackets) -> Result<ByteBuffer> {
     //Set it to the max packet size - the size holder - packet_id - count
