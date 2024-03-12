@@ -3,14 +3,12 @@ use crate::{
     gametypes::{AscendingError, MapPosition, Result, ServerPackets},
     socket::*,
 };
-
 use indexmap::map::Entry;
+use log::warn;
+use std::collections::VecDeque;
 /* Information Packet Data Portion Worse case is 1400 bytes
 * This means you can fit based on Packet Size: 8bytes + Packet ID: 4bytes  + Data array count: 4bytes
-this leaves you with 1384 bytes to play with per packet.
-* Item Size of 17 bytes can send up to 81 per packet.
-* Npc Size 80 bytes can send up to 17 per packet.
-* player Size 226 bytes can send up to 6 per packet.
+*this leaves you with 1384 bytes to play with per packet.
 */
 
 //Token uses the Maps position to Store in the IndexMap.
@@ -40,37 +38,49 @@ pub enum DataTaskToken {
     GlobalChat,
 }
 
+/// Max size of data a packet can hold before it gets split by the OS.
+const PACKET_DATA_LIMIT: usize = 1400;
+
 impl DataTaskToken {
     pub fn add_task<T: ByteBufferWrite>(self, storage: &Storage, data: &T) -> Result<()> {
+        //Newer packets get pushed to the back.
         match storage.map_cache.borrow_mut().entry(self) {
             Entry::Vacant(v) => {
                 let mut buffer = new_cache(self.packet_id())?;
                 data.write_to_buffer(&mut buffer)?;
-                v.insert(vec![(1, buffer, false)]);
+                v.insert(VecDeque::from_iter([(1, buffer, false)]));
             }
             Entry::Occupied(mut o) => {
                 let buffers = o.get_mut();
 
                 if buffers.is_empty() {
                     let mut buffer = new_cache(self.packet_id())?;
-                    //write the data into the packet.
                     data.write_to_buffer(&mut buffer)?;
-                    //push it to the buffer list.
-                    buffers.push((1, buffer, false));
+                    buffers.push_back((1, buffer, false));
                 } else {
+                    let size = std::mem::size_of::<T>();
                     let (count, buffer, is_finished) = buffers
-                        .last_mut()
+                        .back_mut()
                         .ok_or(AscendingError::PacketCacheNotFound(self))?;
-                    data.write_to_buffer(buffer)?;
-                    *count += 1;
 
-                    // If buffer is full lets make another one thats empty.
-                    // Also lets Finish the old buffer by adding the count.
-                    // We will use the count to deturmine if we send the packet or not.
-                    if *count >= self.limits() && !*is_finished {
+                    if size + buffer.length() > PACKET_DATA_LIMIT {
                         *is_finished = true;
                         finish_cache(buffer, *count, false)?;
-                        buffers.push((0, new_cache(self.packet_id())?, false));
+
+                        let mut buffer = new_cache(self.packet_id())?;
+
+                        data.write_to_buffer(&mut buffer)?;
+
+                        if buffer.length() > PACKET_DATA_LIMIT {
+                            warn!(
+                                "Buffer Length for single write of {:?} Exceeded PACKET_DATA_LIMIT",
+                                self
+                            );
+                        }
+                        buffers.push_back((1, buffer, false));
+                    } else {
+                        data.write_to_buffer(buffer)?;
+                        *count += 1;
                     }
                 }
             }
@@ -81,90 +91,72 @@ impl DataTaskToken {
         Ok(())
     }
 
-    //This is the amount of items per packet being sent limit. this is based on
-    //the max empty space 1384 bytes of usable data in the packet.
-    pub fn limits(&self) -> u32 {
-        match self {
-            DataTaskToken::NpcMove(_) | DataTaskToken::PlayerMove(_) => 31,
-            DataTaskToken::PlayerWarp(_) => 31,
-            DataTaskToken::NpcDir(_)
-            | DataTaskToken::PlayerDir(_)
-            | DataTaskToken::NpcDeath(_)
-            | DataTaskToken::PlayerDeath(_) => 153,
-            DataTaskToken::NpcUnload(_)
-            | DataTaskToken::PlayerUnload(_)
-            | DataTaskToken::NpcAttack(_)
-            | DataTaskToken::PlayerAttack(_)
-            | DataTaskToken::ItemUnload(_) => 173,
-            DataTaskToken::PlayerLevel(_) => 69,
-            DataTaskToken::NpcDamage(_) | DataTaskToken::PlayerDamage(_) => 86,
-            DataTaskToken::NpcSpawn(_) => 11,
-            DataTaskToken::PlayerSpawn(_) => 6,
-            DataTaskToken::MapChat(_) | DataTaskToken::GlobalChat => 4, // This one might be more special since it will range heavily.
-            DataTaskToken::ItemLoad(_) => 28,
-            DataTaskToken::NpcVitals(_) | DataTaskToken::PlayerVitals(_) => 43,
-        }
-    }
-
     /// Id of the packet for the data type.
     pub fn packet_id(&self) -> ServerPackets {
+        use DataTaskToken::*;
         match self {
-            DataTaskToken::NpcMove(_) => ServerPackets::NpcMove,
-            DataTaskToken::PlayerMove(_) => ServerPackets::PlayerMove,
-            DataTaskToken::PlayerWarp(_) => ServerPackets::PlayerWarp,
-            DataTaskToken::NpcDir(_) => ServerPackets::NpcDir,
-            DataTaskToken::PlayerDir(_) => ServerPackets::PlayerDir,
-            DataTaskToken::NpcDeath(_) => ServerPackets::NpcDeath,
-            DataTaskToken::PlayerDeath(_) => ServerPackets::PlayerDeath,
-            DataTaskToken::NpcUnload(_) => ServerPackets::NpcUnload,
-            DataTaskToken::PlayerUnload(_) => ServerPackets::PlayerUnload,
-            DataTaskToken::NpcAttack(_) => ServerPackets::NpcAttack,
-            DataTaskToken::PlayerAttack(_) => ServerPackets::PlayerAttack,
-            DataTaskToken::NpcVitals(_) => ServerPackets::NpcVital,
-            DataTaskToken::PlayerVitals(_) => ServerPackets::PlayerVitals,
-            DataTaskToken::ItemUnload(_) => ServerPackets::MapItemsUnload,
-            DataTaskToken::NpcSpawn(_) => ServerPackets::NpcData,
-            DataTaskToken::PlayerSpawn(_) => ServerPackets::PlayerSpawn,
-            DataTaskToken::MapChat(_) => ServerPackets::ChatMsg,
-            DataTaskToken::GlobalChat => ServerPackets::ChatMsg,
-            DataTaskToken::ItemLoad(_) => ServerPackets::MapItems,
-            DataTaskToken::NpcDamage(_) => ServerPackets::MapItems, //TODO: Make a packet ID for Damages. This is to display the damage done to a player/npc on hit.
-            DataTaskToken::PlayerDamage(_) => ServerPackets::MapItems,
-            DataTaskToken::PlayerLevel(_) => ServerPackets::PlayerLevel,
+            NpcMove(_) => ServerPackets::NpcMove,
+            PlayerMove(_) => ServerPackets::PlayerMove,
+            PlayerWarp(_) => ServerPackets::PlayerWarp,
+            NpcDir(_) => ServerPackets::NpcDir,
+            PlayerDir(_) => ServerPackets::PlayerDir,
+            NpcDeath(_) => ServerPackets::NpcDeath,
+            PlayerDeath(_) => ServerPackets::PlayerDeath,
+            NpcUnload(_) => ServerPackets::NpcUnload,
+            PlayerUnload(_) => ServerPackets::PlayerUnload,
+            NpcAttack(_) => ServerPackets::NpcAttack,
+            PlayerAttack(_) => ServerPackets::PlayerAttack,
+            NpcVitals(_) => ServerPackets::NpcVital,
+            PlayerVitals(_) => ServerPackets::PlayerVitals,
+            ItemUnload(_) => ServerPackets::MapItemsUnload,
+            NpcSpawn(_) => ServerPackets::NpcData,
+            PlayerSpawn(_) => ServerPackets::PlayerSpawn,
+            MapChat(_) => ServerPackets::ChatMsg,
+            GlobalChat => ServerPackets::ChatMsg,
+            ItemLoad(_) => ServerPackets::MapItems,
+            NpcDamage(_) => ServerPackets::MapItems, //TODO: Make a packet ID for Damages. This is to display the damage done to a player/npc on hit.
+            PlayerDamage(_) => ServerPackets::MapItems,
+            PlayerLevel(_) => ServerPackets::PlayerLevel,
         }
     }
 
-    pub fn send(&self, world: &mut hecs::World, storage: &Storage, buf: ByteBuffer) {
+    pub fn send(&self, world: &mut hecs::World, storage: &Storage, buf: ByteBuffer) -> Result<()> {
+        use DataTaskToken::*;
         match self {
-            DataTaskToken::GlobalChat => send_to_all(world, storage, buf),
-            DataTaskToken::NpcMove(mappos)
-            | DataTaskToken::PlayerMove(mappos)
-            | DataTaskToken::PlayerWarp(mappos)
-            | DataTaskToken::NpcDir(mappos)
-            | DataTaskToken::PlayerDir(mappos)
-            | DataTaskToken::NpcDeath(mappos)
-            | DataTaskToken::PlayerDeath(mappos)
-            | DataTaskToken::NpcUnload(mappos)
-            | DataTaskToken::PlayerUnload(mappos)
-            | DataTaskToken::NpcAttack(mappos)
-            | DataTaskToken::PlayerAttack(mappos)
-            | DataTaskToken::ItemUnload(mappos)
-            | DataTaskToken::NpcSpawn(mappos)
-            | DataTaskToken::PlayerSpawn(mappos)
-            | DataTaskToken::MapChat(mappos)
-            | DataTaskToken::ItemLoad(mappos)
-            | DataTaskToken::PlayerVitals(mappos)
-            | DataTaskToken::PlayerLevel(mappos)
-            | DataTaskToken::PlayerDamage(mappos)
-            | DataTaskToken::NpcDamage(mappos)
-            | DataTaskToken::NpcVitals(mappos) => send_to_maps(world, storage, *mappos, buf, None),
+            GlobalChat => send_to_all(world, storage, buf),
+            NpcMove(mappos) | PlayerMove(mappos) | PlayerWarp(mappos) | NpcDir(mappos)
+            | PlayerDir(mappos) | NpcDeath(mappos) | PlayerDeath(mappos) | NpcUnload(mappos)
+            | PlayerUnload(mappos) | NpcAttack(mappos) | PlayerAttack(mappos)
+            | ItemUnload(mappos) | NpcSpawn(mappos) | PlayerSpawn(mappos) | MapChat(mappos)
+            | ItemLoad(mappos) | PlayerVitals(mappos) | PlayerLevel(mappos)
+            | PlayerDamage(mappos) | NpcDamage(mappos) | NpcVitals(mappos) => {
+                send_to_maps(world, storage, *mappos, buf, None)
+            }
         }
+
+        Ok(())
     }
 }
 
+pub fn process_tasks(world: &mut hecs::World, storage: &Storage) -> Result<()> {
+    while let Some(id) = storage.map_cache_ids.borrow_mut().pop() {
+        if let Some(buffers) = storage.map_cache.borrow_mut().get_mut(&id) {
+            //We send the older packets first hence pop front as they are the oldest.
+            while let Some((count, mut buffer, is_finished)) = buffers.pop_front() {
+                finish_cache(&mut buffer, count, is_finished)?;
+                id.send(world, storage, buffer)?;
+            }
+        }
+    }
+
+    Ok(())
+}
+
+
 pub fn new_cache(packet_id: ServerPackets) -> Result<ByteBuffer> {
-    let mut buffer = ByteBuffer::new_packet_with(1412)?;
-    //prelocate space for count and packetID
+    //Set it to the max packet size - the size holder - packet_id - count
+    let mut buffer = ByteBuffer::new_packet_with(PACKET_DATA_LIMIT - 8)?;
+    //Write the packet ID so we know where it goes.
     buffer.write(packet_id)?;
     //preallocate space for count.
     buffer.write(0u32)?;

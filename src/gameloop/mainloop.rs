@@ -1,6 +1,6 @@
 use crate::{
     containers::Storage, gameloop::handle_data, gametypes::*, maps::update_maps, npcs::*,
-    players::*, socket::*, time_ext::MyInstant, PacketRouter,
+    players::*, socket::*, tasks::process_tasks, time_ext::MyInstant, PacketRouter,
 };
 use chrono::Duration;
 use hecs::World;
@@ -51,6 +51,7 @@ pub fn game_loop(world: &mut World, storage: &Storage, router: &PacketRouter) {
         }
 
         process_packets(world, storage, router);
+        process_tasks(world, storage).unwrap();
     }
 }
 
@@ -85,19 +86,6 @@ pub fn process_packets(world: &mut World, storage: &Storage, router: &PacketRout
 
     'user_loop: for entity in &*storage.recv_ids.borrow() {
         count = 0;
-
-        //if let Some(player) = storage.players.borrow().get(*i) {
-        /*for (entity, (_, socket)) in world
-            .query::<((&WorldEntityType, &OnlineType), &Socket)>()
-            .iter()
-            .filter(|(_entity,
-                ((worldentitytype, onlinetype), _))| {
-                **worldentitytype == WorldEntityType::Player && **onlinetype == OnlineType::Online
-            })
-        {*/
-        /*if !is_player_online(world, entity) {
-            continue;
-        }*/
 
         let (lock, socket_id) = {
             let socket = world.get::<&Socket>(entity.0).unwrap();

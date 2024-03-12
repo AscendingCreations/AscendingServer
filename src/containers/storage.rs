@@ -21,7 +21,7 @@ use sqlx::{
     postgres::{PgConnectOptions, PgPoolOptions},
     ConnectOptions, PgPool,
 };
-use std::{cell::RefCell, fs, io::BufReader, sync::Arc};
+use std::{cell::RefCell, collections::VecDeque, fs, io::BufReader, sync::Arc};
 use tokio::runtime::Runtime;
 use tokio::task;
 
@@ -35,7 +35,7 @@ pub struct Storage {
     pub maps: IndexMap<MapPosition, RefCell<MapData>>,
     //This is for buffering the specific packets needing to send.
     #[allow(clippy::type_complexity)]
-    pub map_cache: RefCell<IndexMap<DataTaskToken, Vec<(u32, ByteBuffer, bool)>>>,
+    pub map_cache: RefCell<IndexMap<DataTaskToken, VecDeque<(u32, ByteBuffer, bool)>>>,
     //This keeps track of what Things need sending. So we can leave it loaded and only loop whats needed.
     pub map_cache_ids: RefCell<IndexSet<DataTaskToken>>,
     pub poll: RefCell<mio::Poll>,
