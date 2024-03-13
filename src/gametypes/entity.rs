@@ -32,7 +32,7 @@ pub struct KillCount {
     pub killcounttimer: MyInstant,
 }
 
-#[derive(Derivative, Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Derivative, Debug, Copy, Clone, PartialEq, Eq, ByteBufferRead, ByteBufferWrite)]
 #[derivative(Default)]
 pub struct Vitals {
     #[derivative(Default(value = "[25, 2, 100]"))]

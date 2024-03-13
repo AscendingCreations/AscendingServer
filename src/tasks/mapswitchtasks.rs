@@ -205,7 +205,7 @@ pub fn init_data_lists(
             storage
                 .map_switch_tasks
                 .borrow_mut()
-                .insert(MapSwitchTasks::Player(task_npc)),
+                .insert(MapSwitchTasks::Npc(task_npc)),
         );
     world
         .get::<&mut crate::players::MapSwitchTasks>(user.0)
@@ -215,6 +215,6 @@ pub fn init_data_lists(
             storage
                 .map_switch_tasks
                 .borrow_mut()
-                .insert(MapSwitchTasks::Player(task_item)),
+                .insert(MapSwitchTasks::Items(task_item)),
         );
 }

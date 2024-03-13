@@ -8,6 +8,7 @@ pub fn player_warp(
     storage: &Storage,
     entity: &Entity,
     new_pos: &Position,
+    spawn: bool,
 ) {
     if world.get_or_panic::<Position>(entity).map != new_pos.map {
         let old_pos = player_switch_maps(world, storage, entity, *new_pos);
@@ -22,13 +23,17 @@ pub fn player_warp(
         let _ = DataTaskToken::PlayerSpawn(new_pos.map)
             .add_task(storage, &PlayerSpawnPacket::new(world, entity));
         init_data_lists(world, storage, entity, old_pos.map);
-        //send_weather();
     } else {
         player_swap_pos(world, storage, entity, *new_pos);
-        let _ = DataTaskToken::PlayerWarp(new_pos.map).add_task(
-            storage,
-            &WarpPacket::new(*entity, *new_pos),
-        );
+        if spawn {
+            let _ = DataTaskToken::PlayerSpawn(new_pos.map)
+                .add_task(storage, &PlayerSpawnPacket::new(world, entity));
+        } else {
+            let _ = DataTaskToken::PlayerWarp(new_pos.map).add_task(
+                storage,
+                &WarpPacket::new(*entity, *new_pos),
+            );
+        }
     }
 
     {
@@ -70,12 +75,12 @@ pub fn player_movement(
     }
 
     if !new_pos.update_pos_map(storage) {
-        player_warp(world, storage, entity, &player_position);
+        player_warp(world, storage, entity, &player_position, false);
         return false;
     }
 
     if map_path_blocked(storage, player_position, new_pos, dir) {
-        player_warp(world, storage, entity, &player_position);
+        player_warp(world, storage, entity, &player_position, false);
         return false;
     }
 

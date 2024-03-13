@@ -38,13 +38,51 @@ pub fn send_fltalert(
 }
 
 #[inline]
-pub fn send_loginok(storage: &Storage, socket_id: usize, entity: &Entity) -> Result<()> {
-    let mut buf = ByteBuffer::new_packet_with(16)?;
+pub fn send_loginok(storage: &Storage, socket_id: usize) -> Result<()> {
+    let mut buf = ByteBuffer::new_packet_with(12)?;
 
     buf.write(ServerPackets::LoginOk)?;
-    buf.write(*entity)?;
     buf.write(storage.time.borrow().hour)?;
     buf.write(storage.time.borrow().min)?;
+    buf.finish()?;
+
+    send_to(storage, socket_id, buf);
+    Ok(())
+}
+
+#[inline]
+pub fn send_myindex(storage: &Storage, socket_id: usize, entity: &Entity) -> Result<()> {
+    let mut buf = ByteBuffer::new_packet_with(8)?;
+
+    buf.write(ServerPackets::MyIndex)?;
+    buf.write(*entity)?;
+    buf.finish()?;
+
+    send_to(storage, socket_id, buf);
+    Ok(())
+}
+
+#[inline]
+pub fn send_playerdata(world: &World, storage: &Storage, socket_id: usize, entity: &Entity) -> Result<()> {
+    let mut buf = ByteBuffer::new_packet_with(418)?;
+
+    buf.write(ServerPackets::PlayerData)?;
+    buf.write(world.get::<&Account>(entity.0).unwrap().username.clone())?;
+    buf.write(world.cloned_get_or_panic::<UserAccess>(entity))?;
+    buf.write(world.get_or_panic::<Dir>(entity).0)?;
+    let equipment = world.cloned_get_or_panic::<Equipment>(entity);
+    buf.write(equipment)?;
+    buf.write(world.get_or_panic::<Hidden>(entity).0)?;
+    buf.write(world.get_or_panic::<Level>(entity).0)?;
+    buf.write(world.cloned_get_or_panic::<DeathType>(entity))?;
+    buf.write(world.get_or_panic::<Physical>(entity).damage)?;
+    buf.write(world.get_or_panic::<Physical>(entity).defense)?;
+    buf.write(world.cloned_get_or_panic::<Position>(entity))?;
+    buf.write(world.get_or_panic::<Player>(entity).pk)?;
+    buf.write(world.get_or_panic::<Player>(entity).pvpon)?;
+    buf.write(world.get_or_panic::<Sprite>(entity).id as u8)?;
+    buf.write(world.get_or_panic::<Vitals>(entity).vital)?;
+    buf.write(world.get_or_panic::<Vitals>(entity).vitalmax)?;
     buf.finish()?;
 
     send_to(storage, socket_id, buf);

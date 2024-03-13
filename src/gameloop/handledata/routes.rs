@@ -172,7 +172,7 @@ pub fn handle_login(
             return send_infomsg(storage, socket_id, "Error Loading User.".into(), 1);
         }
 
-        send_loginok(storage, socket_id, entity)?;
+        send_loginok(storage, socket_id)?;
 
         //joingame(index);
         return Ok(());
@@ -205,11 +205,12 @@ pub fn handle_move(
         let pos = world.get_or_panic::<Position>(p);
 
         if data_pos != pos {
-            player_warp(world, storage, entity, &data_pos);
+            player_warp(world, storage, entity, &data_pos, false);
             return Ok(());
         }
 
         player_movement(world, storage, entity, dir);
+        return Ok(());
     }
 
     Err(AscendingError::InvalidSocket)

@@ -30,6 +30,7 @@ pub fn update_players(world: &mut World, storage: &Storage) {
                     storage,
                     id,
                     &world.get_or_panic::<Position>(id),
+                    false,
                 );
 
                 //lets heal them fully on revival.
@@ -334,11 +335,17 @@ pub fn joingame(
     entity: &Entity,
 ) {
     let socket_id = world.get::<&Socket>(entity.0).unwrap().id;
+
+    {
+        *world.get::<&mut OnlineType>(entity.0).unwrap() = OnlineType::Online;
+    }
+
+    let _ = send_myindex(storage, socket_id, entity);
+    let _ = send_playerdata(world, storage, socket_id, entity);
     
     let position = world.get_or_panic::<Position>(entity);
-    player_warp(world, storage, entity, &position);
+    player_warp(world, storage, entity, &position, true);
 
     println!("Login Ok");
-
-    let _ = send_loginok(storage, socket_id, entity);
+    let _ = send_loginok(storage, socket_id);
 }

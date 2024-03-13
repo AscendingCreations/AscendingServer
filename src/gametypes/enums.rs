@@ -546,6 +546,8 @@ pub enum ServerPackets {
     UpdateMap,
     MapItems,
     MapItemsUnload,
+    MyIndex,
+    PlayerData,
     PlayerSpawn,
     PlayerMove,
     PlayerWarp,
