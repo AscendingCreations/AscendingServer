@@ -16,6 +16,7 @@ mod socket;
 mod sql;
 mod tasks;
 mod time_ext;
+mod database;
 
 use std::{fs::File, io::Write};
 

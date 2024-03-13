@@ -100,6 +100,7 @@ dependencies = [
  "rustls-pki-types",
  "serde",
  "serde-big-array",
+ "serde_json",
  "serde_repr",
  "slab",
  "sqlx",

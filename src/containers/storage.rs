@@ -153,7 +153,7 @@ impl Storage {
         let pgconn = establish_connection(&config, &mut rt, &local).unwrap();
         crate::sql::initiate(&pgconn, &mut rt, &local).unwrap();
 
-        let storage = Self {
+        let mut storage = Self {
             //we will just comment it out for now as we go along and remove later.
             //players: RefCell::new(slab::Slab::new()),
             //npcs: RefCell::new(slab::Slab::new()),
@@ -174,6 +174,18 @@ impl Storage {
             rt: RefCell::new(rt),
             local: RefCell::new(local),
         };
+
+        let map_data_entry = crate::database::map::get_maps();
+        map_data_entry.iter().for_each(|map_data| {
+            storage.maps.insert(
+                MapPosition { 
+                    x: map_data.x, 
+                    y: map_data.y, 
+                    group: map_data.group as i32, 
+                }, 
+                RefCell::new(MapData::default()),
+            );
+        });
 
         Some(storage)
     }
