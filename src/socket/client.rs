@@ -335,6 +335,8 @@ pub fn send_to_maps(
                 continue;
             }
 
+            println!("Sending via map {:?}", map.position);
+
             if let Some(client) = storage.server.borrow().clients.get(&mio::Token(socket.id)) {
                 client
                     .borrow_mut()

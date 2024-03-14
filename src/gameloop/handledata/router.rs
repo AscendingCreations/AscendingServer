@@ -16,23 +16,32 @@ pub fn handle_data(
     let onlinetype = world.get_or_panic::<OnlineType>(entity);
 
     match onlinetype {
-        OnlineType::Online => {
-            if id == ClientPacket::Login {
-                return Err(AscendingError::MultiLogin);
+        OnlineType::Online => match id {
+            ClientPacket::Login | ClientPacket::Register => {
+                println!("Multi Login Error");
+                return Err(AscendingError::MultiLogin)
             }
+            _ => {}
         }
         OnlineType::Accepted => match id {
             ClientPacket::Login | ClientPacket::Register => {}
-            _ => return Err(AscendingError::PacketManipulation { name: "".into() }),
+            _ => {
+                println!("Packet Manipulation Error");
+                return Err(AscendingError::PacketManipulation { name: "".into() })
+            }
         },
         OnlineType::None => {
+            println!("Online Type None Error");
             return Err(AscendingError::PacketManipulation { name: "".into() });
         }
     }
 
     let fun = match router.0.get(&id) {
         Some(fun) => fun,
-        None => return Err(AscendingError::InvalidPacket),
+        None => {
+            println!("Invalid Packet Error");
+            return Err(AscendingError::InvalidPacket)
+        },
     };
 
     fun(world, storage, data, entity)

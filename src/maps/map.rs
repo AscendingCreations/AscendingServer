@@ -93,16 +93,16 @@ impl MapData {
         for i in self.get_surrounding(true) {
             if i != self.position {
                 match storage.maps.get(&i) {
-                    Some(map) => {
-                        map.borrow_mut().players_on_map =
-                            map.borrow().players_on_map.saturating_add(1)
+                    Some(map) => {                        
+                        let count = map.borrow().players_on_map.saturating_add(1);
+                        map.borrow_mut().players_on_map = count;
                     }
                     None => continue,
                 }
             }
         }
 
-        self.players_on_map += 1;
+        self.players_on_map = self.players_on_map.saturating_add(1);
     }
 
     pub fn add_npc(&mut self, id: Entity) {
@@ -117,15 +117,15 @@ impl MapData {
             if i != self.position {
                 match storage.maps.get(&i) {
                     Some(map) => {
-                        map.borrow_mut().players_on_map =
-                            map.borrow().players_on_map.saturating_sub(1)
+                        let count = map.borrow().players_on_map.saturating_sub(1);
+                        map.borrow_mut().players_on_map = count;
                     }
                     None => continue,
                 }
             }
         }
 
-        self.players_on_map -= 1;
+        self.players_on_map = self.players_on_map.saturating_sub(1);
     }
 
     pub fn remove_npc(&mut self, id: Entity) {

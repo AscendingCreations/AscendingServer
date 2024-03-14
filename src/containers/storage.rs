@@ -183,7 +183,16 @@ impl Storage {
                     y: map_data.y, 
                     group: map_data.group as i32, 
                 }, 
-                RefCell::new(MapData::default()),
+                RefCell::new(
+                    MapData {
+                        position: MapPosition {
+                            x: map_data.x,
+                            y: map_data.y,
+                            group: map_data.group as i32,
+                        },
+                        ..Default::default()
+                    }
+                ),
             );
         });
 
