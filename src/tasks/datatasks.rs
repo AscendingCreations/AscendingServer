@@ -36,6 +36,9 @@ pub enum DataTaskToken {
     MapChat(MapPosition),
     ItemUnload(MapPosition),
     ItemLoad(MapPosition),
+    PlayerSpawnToEntity(usize), //SocketID
+    NpcSpawnToEntity(usize),    //SocketID
+    ItemLoadToEntity(usize),    //SocketID
     GlobalChat,
 }
 
@@ -117,11 +120,11 @@ impl DataTaskToken {
             NpcVitals(_) => ServerPackets::NpcVital,
             PlayerVitals(_) => ServerPackets::PlayerVitals,
             ItemUnload(_) => ServerPackets::MapItemsUnload,
-            NpcSpawn(_) => ServerPackets::NpcData,
-            PlayerSpawn(_) => ServerPackets::PlayerSpawn,
+            NpcSpawn(_) | NpcSpawnToEntity(_) => ServerPackets::NpcData,
+            PlayerSpawn(_) | PlayerSpawnToEntity(_) => ServerPackets::PlayerSpawn,
             MapChat(_) => ServerPackets::ChatMsg,
             GlobalChat => ServerPackets::ChatMsg,
-            ItemLoad(_) => ServerPackets::MapItems,
+            ItemLoad(_) | ItemLoadToEntity(_) => ServerPackets::MapItems,
             NpcDamage(_) => ServerPackets::MapItems, //TODO: Make a packet ID for Damages. This is to display the damage done to a player/npc on hit.
             PlayerDamage(_) => ServerPackets::MapItems,
             PlayerLevel(_) => ServerPackets::PlayerLevel,
@@ -140,6 +143,9 @@ impl DataTaskToken {
             | PlayerDamage(mappos) | NpcDamage(mappos) | NpcVitals(mappos) => {
                 send_to_maps(world, storage, *mappos, buf, None)
             }
+            PlayerSpawnToEntity(socket_id)
+            | NpcSpawnToEntity(socket_id)
+            | ItemLoadToEntity(socket_id) => send_to(storage, *socket_id, buf),
         }
 
         Ok(())

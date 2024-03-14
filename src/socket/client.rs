@@ -281,8 +281,8 @@ pub fn accept_connection(
 }
 
 #[inline]
-pub fn send_to(storage: &Storage, id: usize, buf: ByteBuffer) {
-    if let Some(client) = storage.server.borrow().clients.get(&mio::Token(id)) {
+pub fn send_to(storage: &Storage, socket_id: usize, buf: ByteBuffer) {
+    if let Some(client) = storage.server.borrow().clients.get(&mio::Token(socket_id)) {
         client.borrow_mut().send(&storage.poll.borrow(), buf);
     }
 }

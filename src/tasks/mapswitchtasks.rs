@@ -136,56 +136,16 @@ pub fn process_data_lists(world: &mut World, storage: &Storage) {
     for (entity, tasks) in maptasks.iter_mut() {
         let mut contains_data = false;
 
-        for task in tasks {
-            let mut count = 0;
+        let socket_id = world.get::<&Socket>(entity.0).map(|s| s.id);
+        if let Ok(socket_id) = socket_id {
+            for task in tasks {
+                let mut count = 0;
 
-            let amount_left = match task {
-                MapSwitchTasks::Npc(entities) => {
-                    while let Some(entity) = entities.pop() {
-                        let _ =
-                            DataTaskToken::NpcSpawn(world.get_or_panic::<Spawn>(&entity).pos.map)
+                let amount_left = match task {
+                    MapSwitchTasks::Npc(entities) => {
+                        while let Some(entity) = entities.pop() {
+                            let _ = DataTaskToken::NpcSpawnToEntity(socket_id)
                                 .add_task(storage, &NpcSpawnPacket::new(world, &entity));
-
-                        count += 1;
-
-                        if count >= PROCESS_LIMIT {
-                            break;
-                        }
-                    }
-
-                    entities.len()
-                }
-                MapSwitchTasks::Player(entities) => {
-                    while let Some(entity) = entities.pop() {
-                        let _ = DataTaskToken::PlayerSpawn(
-                            world.get_or_panic::<Spawn>(&entity).pos.map,
-                        )
-                        .add_task(storage, &PlayerSpawnPacket::new(world, &entity));
-
-                        count += 1;
-
-                        if count >= PROCESS_LIMIT {
-                            break;
-                        }
-                    }
-
-                    entities.len()
-                }
-                MapSwitchTasks::Items(entities) => {
-                    while let Some(entity) = entities.pop() {
-                        if let Ok(map_item) = world.get::<&MapItem>(entity.0) {
-                            let _ = DataTaskToken::NpcSpawn(
-                                world.get_or_panic::<Spawn>(&entity).pos.map,
-                            )
-                            .add_task(
-                                storage,
-                                &MapItemPacket::new(
-                                    entity,
-                                    map_item.pos,
-                                    map_item.item,
-                                    map_item.ownerid,
-                                ),
-                            );
 
                             count += 1;
 
@@ -193,14 +153,51 @@ pub fn process_data_lists(world: &mut World, storage: &Storage) {
                                 break;
                             }
                         }
+
+                        entities.len()
                     }
+                    MapSwitchTasks::Player(entities) => {
+                        while let Some(entity) = entities.pop() {
+                            let _ = DataTaskToken::PlayerSpawnToEntity(socket_id)
+                                .add_task(storage, &PlayerSpawnPacket::new(world, &entity));
 
-                    entities.len()
+                            count += 1;
+
+                            if count >= PROCESS_LIMIT {
+                                break;
+                            }
+                        }
+
+                        entities.len()
+                    }
+                    MapSwitchTasks::Items(entities) => {
+                        while let Some(entity) = entities.pop() {
+                            if let Ok(map_item) = world.get::<&MapItem>(entity.0) {
+                                let _ = DataTaskToken::ItemLoadToEntity(socket_id).add_task(
+                                    storage,
+                                    &MapItemPacket::new(
+                                        entity,
+                                        map_item.pos,
+                                        map_item.item,
+                                        map_item.ownerid,
+                                    ),
+                                );
+
+                                count += 1;
+
+                                if count >= PROCESS_LIMIT {
+                                    break;
+                                }
+                            }
+                        }
+
+                        entities.len()
+                    }
+                };
+
+                if amount_left > 0 {
+                    contains_data = true;
                 }
-            };
-
-            if amount_left > 0 {
-                contains_data = true;
             }
         }
 
