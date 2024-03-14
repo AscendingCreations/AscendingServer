@@ -32,6 +32,16 @@ pub fn init_data_lists(
         storage.map_switch_tasks.borrow_mut().insert(*user, vec![]);
     }
 
+    let socket_id = world.get::<&Socket>(user.0).unwrap().id;
+
+    // Lets remove any lengering Packet Sends if they still Exist.
+    {
+        let mut map_cache = storage.map_cache.borrow_mut();
+        map_cache.swap_remove(&DataTaskToken::NpcSpawnToEntity(socket_id));
+        map_cache.swap_remove(&DataTaskToken::PlayerSpawnToEntity(socket_id));
+        map_cache.swap_remove(&DataTaskToken::ItemLoadToEntity(socket_id));
+    }
+
     //setup the old and new information so we know what to remove and add for.
     let mut old_players = IndexSet::with_capacity(32);
     let mut old_npcs = IndexSet::with_capacity(32);
@@ -93,8 +103,6 @@ pub fn init_data_lists(
             });
         }
     }
-
-    let socket_id = world.get::<&Socket>(user.0).unwrap().id;
 
     //Gather our Entities to Send for Removal. Type doesnt matter here.
     let mut removals = old_players
