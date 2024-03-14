@@ -36,9 +36,9 @@ pub struct Storage {
     pub maps: IndexMap<MapPosition, RefCell<MapData>>,
     //This is for buffering the specific packets needing to send.
     #[allow(clippy::type_complexity)]
-    pub map_cache: RefCell<IndexMap<DataTaskToken, VecDeque<(u32, ByteBuffer, bool)>>>,
+    pub packet_cache: RefCell<IndexMap<DataTaskToken, VecDeque<(u32, ByteBuffer, bool)>>>,
     //This keeps track of what Things need sending. So we can leave it loaded and only loop whats needed.
-    pub map_cache_ids: RefCell<IndexSet<DataTaskToken>>,
+    pub packet_cache_ids: RefCell<IndexSet<DataTaskToken>>,
     pub poll: RefCell<mio::Poll>,
     pub server: RefCell<Server>,
     pub gettick: RefCell<MyInstant>,
@@ -163,8 +163,8 @@ impl Storage {
             npc_ids: RefCell::new(IndexSet::default()),
             player_names: RefCell::new(HashMap::default()), //for player names to ID's
             maps: IndexMap::default(),
-            map_cache: RefCell::new(IndexMap::default()),
-            map_cache_ids: RefCell::new(IndexSet::default()),
+            packet_cache: RefCell::new(IndexMap::default()),
+            packet_cache_ids: RefCell::new(IndexSet::default()),
             poll: RefCell::new(poll),
             server: RefCell::new(server),
             gettick: RefCell::new(MyInstant::now()),

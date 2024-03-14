@@ -36,10 +36,16 @@ pub fn init_data_lists(
 
     // Lets remove any lengering Packet Sends if they still Exist.
     {
-        let mut map_cache = storage.map_cache.borrow_mut();
-        map_cache.swap_remove(&DataTaskToken::NpcSpawnToEntity(socket_id));
-        map_cache.swap_remove(&DataTaskToken::PlayerSpawnToEntity(socket_id));
-        map_cache.swap_remove(&DataTaskToken::ItemLoadToEntity(socket_id));
+        let mut packet_cache = storage.packet_cache.borrow_mut();
+        let mut packet_cache_ids = storage.packet_cache_ids.borrow_mut();
+        for key in [
+            DataTaskToken::NpcSpawnToEntity(socket_id),
+            DataTaskToken::PlayerSpawnToEntity(socket_id),
+            DataTaskToken::ItemLoadToEntity(socket_id),
+        ] {
+            packet_cache.swap_remove(&key);
+            packet_cache_ids.swap_remove(&key);
+        }
     }
 
     //setup the old and new information so we know what to remove and add for.

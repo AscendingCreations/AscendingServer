@@ -48,7 +48,7 @@ pub const PACKET_DATA_LIMIT: usize = 1400;
 impl DataTaskToken {
     pub fn add_task<T: ByteBufferWrite>(self, storage: &Storage, data: &T) -> Result<()> {
         //Newer packets get pushed to the back.
-        match storage.map_cache.borrow_mut().entry(self) {
+        match storage.packet_cache.borrow_mut().entry(self) {
             Entry::Vacant(v) => {
                 let mut buffer = new_cache(self.packet_id())?;
                 data.write_to_buffer(&mut buffer)?;
@@ -97,7 +97,7 @@ impl DataTaskToken {
             }
         }
 
-        storage.map_cache_ids.borrow_mut().insert(self);
+        storage.packet_cache_ids.borrow_mut().insert(self);
 
         Ok(())
     }
@@ -153,12 +153,17 @@ impl DataTaskToken {
 }
 
 pub fn process_tasks(world: &mut World, storage: &Storage) -> Result<()> {
-    while let Some(id) = storage.map_cache_ids.borrow_mut().pop() {
-        if let Some(buffers) = storage.map_cache.borrow_mut().get_mut(&id) {
+    while let Some(id) = storage.packet_cache_ids.borrow_mut().pop() {
+        if let Some(buffers) = storage.packet_cache.borrow_mut().get_mut(&id) {
             //We send the older packets first hence pop front as they are the oldest.
             while let Some((count, mut buffer, is_finished)) = buffers.pop_front() {
                 finish_cache(&mut buffer, count, is_finished)?;
                 id.send(world, storage, buffer)?;
+            }
+
+            //lets resize these if they get to unruly.
+            if buffers.capacity() > 100 && buffers.len() < 50 {
+                buffers.shrink_to_fit()
             }
         }
     }
