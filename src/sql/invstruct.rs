@@ -43,7 +43,7 @@ impl PGInvItem {
     }
 
     pub fn into_item(self, inv: &mut [Item]) {
-        let slot = self.id as usize;
+        let slot = self.id.shift_signed() as usize;
 
         inv[slot].num = self.num.shift_signed();
         inv[slot].val = self.val.shift_signed();
