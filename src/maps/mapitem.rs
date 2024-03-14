@@ -10,7 +10,7 @@ pub struct MapItem {
     #[bytey(skip)]
     pub ownertimer: Option<MyInstant>,
     #[bytey(skip)]
-    pub ownerid: Entity,
+    pub ownerid: Option<Entity>,
     pub pos: Position,
 }
 

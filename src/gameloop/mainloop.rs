@@ -1,6 +1,14 @@
 use crate::{
-    containers::Storage, gameloop::handle_data, gametypes::*, maps::update_maps, npcs::*,
-    players::*, socket::*, tasks::process_tasks, time_ext::MyInstant, PacketRouter,
+    containers::Storage,
+    gameloop::handle_data,
+    gametypes::*,
+    maps::update_maps,
+    npcs::*,
+    players::*,
+    socket::*,
+    tasks::{process_data_lists, process_tasks},
+    time_ext::MyInstant,
+    PacketRouter,
 };
 use chrono::Duration;
 use hecs::World;
@@ -51,6 +59,7 @@ pub fn game_loop(world: &mut World, storage: &Storage, router: &PacketRouter) {
         }
 
         process_packets(world, storage, router);
+        process_data_lists(world, storage);
         process_tasks(world, storage).unwrap();
     }
 }

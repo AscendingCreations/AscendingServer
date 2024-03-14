@@ -191,20 +191,14 @@ pub fn send_warp(world: &mut World, storage: &Storage, entity: &Entity) -> Resul
     Ok(())
 }
 
-pub fn send_data_remove_list(
-    storage: &Storage,
-    playerid: usize,
-    remove: &[Entity],
-    datatype: u8,
-) -> Result<()> {
-    let mut buf = ByteBuffer::new_packet_with(24)?;
+pub fn send_data_remove_list(storage: &Storage, socket_id: usize, remove: &[Entity]) -> Result<()> {
+    let mut buf = ByteBuffer::new_packet_with(PACKET_DATA_LIMIT - 8)?;
 
     buf.write(ServerPackets::Dataremovelist)?;
-    buf.write(datatype)?;
     buf.write(remove.to_vec())?;
     buf.finish()?;
 
-    send_to(storage, playerid, buf);
+    send_to(storage, socket_id, buf);
 
     Ok(())
 }

@@ -76,11 +76,6 @@ pub struct Money {
     pub vals: u64,
 }
 
-#[derive(Clone, Debug, Default)]
-pub struct MapSwitchTasks {
-    pub tasks: Vec<usize>,
-}
-
 #[derive(Copy, Clone, Debug, Default)]
 pub struct Player {
     pub levelexp: u64,

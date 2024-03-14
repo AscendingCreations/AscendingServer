@@ -288,7 +288,7 @@ pub fn send_to(storage: &Storage, id: usize, buf: ByteBuffer) {
 }
 
 #[inline]
-pub fn send_to_all(world: &hecs::World, storage: &Storage, buf: ByteBuffer) {
+pub fn send_to_all(world: &mut World, storage: &Storage, buf: ByteBuffer) {
     for (_entity, (_, socket)) in world
         .query::<((&WorldEntityType, &OnlineType), &Socket)>()
         .iter()

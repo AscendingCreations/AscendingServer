@@ -40,7 +40,7 @@ pub enum DataTaskToken {
 }
 
 /// Max size of data a packet can hold before it gets split by the OS.
-const PACKET_DATA_LIMIT: usize = 1400;
+pub const PACKET_DATA_LIMIT: usize = 1400;
 
 impl DataTaskToken {
     pub fn add_task<T: ByteBufferWrite>(self, storage: &Storage, data: &T) -> Result<()> {

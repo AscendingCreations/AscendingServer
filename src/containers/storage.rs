@@ -44,7 +44,7 @@ pub struct Storage {
     pub gettick: RefCell<MyInstant>,
     pub pgconn: PgPool,
     pub time: RefCell<GameTime>,
-    pub map_switch_tasks: RefCell<slab::Slab<MapSwitchTasks>>, //Data Tasks For dealing with Player Warp and MapSwitch
+    pub map_switch_tasks: RefCell<IndexMap<Entity, Vec<MapSwitchTasks>>>, //Data Tasks For dealing with Player Warp and MapSwitch
     pub bases: Bases,
     pub rt: RefCell<Runtime>,
     pub local: RefCell<task::LocalSet>,
@@ -170,7 +170,7 @@ impl Storage {
             gettick: RefCell::new(MyInstant::now()),
             pgconn,
             time: RefCell::new(GameTime::default()),
-            map_switch_tasks: RefCell::new(slab::Slab::new()),
+            map_switch_tasks: RefCell::new(IndexMap::default()),
             bases: Bases::new()?,
             rt: RefCell::new(rt),
             local: RefCell::new(local),
@@ -223,7 +223,6 @@ impl Storage {
                 Equipment::default(),
                 Sprite::default(),
                 Money::default(),
-                crate::players::MapSwitchTasks::default(),
                 Player::default(),
                 Spawn::default(),
                 Target::default(),

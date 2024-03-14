@@ -629,7 +629,7 @@ pub fn handle_dropitem(
         };
         mapitem.ownertimer =
             Some(*storage.gettick.borrow() + Duration::try_milliseconds(5000).unwrap_or_default());
-        mapitem.ownerid = *p;
+        mapitem.ownerid = Some(*p);
         mapitem.pos = world.get_or_panic::<Position>(p);
 
         let leftover = take_itemslot(world, storage, entity, slot, amount);
@@ -643,7 +643,7 @@ pub fn handle_dropitem(
         let id = map.add_mapitem(world, mapitem);
         let _ = DataTaskToken::ItemLoad(world.get_or_panic::<Position>(p).map).add_task(
             storage,
-            &MapItemPacket::new(id, mapitem.pos, mapitem.item, Some(mapitem.ownerid)),
+            &MapItemPacket::new(id, mapitem.pos, mapitem.item, mapitem.ownerid),
         );
 
         return Ok(());
