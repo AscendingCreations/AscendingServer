@@ -3,3 +3,4 @@ target/
 *.pdb
 *.lib
 out/
+*.txt

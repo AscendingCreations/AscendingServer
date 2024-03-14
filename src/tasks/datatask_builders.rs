@@ -1,5 +1,6 @@
 use crate::{gametypes::*, items::*, npcs::*, players::*};
 use bytey::{ByteBufferRead, ByteBufferWrite};
+use hecs::World;
 use serde::{Deserialize, Serialize};
 
 //Only 42 of these can be sent per Packet
@@ -36,7 +37,6 @@ impl MovePacket {
     }
 }
 
-
 #[derive(
     Copy,
     Clone,
@@ -56,13 +56,9 @@ pub struct WarpPacket {
 
 impl WarpPacket {
     pub fn new(entity: Entity, position: Position) -> Self {
-        Self {
-            entity,
-            position,
-        }
+        Self { entity, position }
     }
 }
-
 
 #[derive(
     Copy,
@@ -141,7 +137,7 @@ pub struct NpcSpawnPacket {
 }
 
 impl NpcSpawnPacket {
-    pub fn new(world: &mut hecs::World, entity: &Entity) -> Self {
+    pub fn new(world: &mut World, entity: &Entity) -> Self {
         Self {
             dir: world.get_or_panic::<Dir>(entity).0,
             hidden: world.get_or_panic::<Hidden>(entity).0,
@@ -182,7 +178,7 @@ pub struct PlayerSpawnPacket {
 }
 
 impl PlayerSpawnPacket {
-    pub fn new(world: &mut hecs::World, entity: &Entity) -> Self {
+    pub fn new(world: &mut World, entity: &Entity) -> Self {
         Self {
             username: world.get::<&Account>(entity.0).unwrap().username.clone(),
             dir: world.get_or_panic::<Dir>(entity).0,

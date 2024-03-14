@@ -3,6 +3,7 @@ use crate::{
     gametypes::Result,
     socket::{accept_connection, Client, ClientState},
 };
+use hecs::World;
 use mio::{net::TcpListener, Events, Poll};
 use std::{cell::RefCell, collections::VecDeque, io, sync::Arc, time::Duration};
 
@@ -45,7 +46,7 @@ impl Server {
         })
     }
 
-    pub fn accept(&mut self, world: &mut hecs::World, storage: &Storage) -> Result<()> {
+    pub fn accept(&mut self, world: &mut World, storage: &Storage) -> Result<()> {
         /* Wait for a new connection to accept and try to grab a token from the bag. */
         loop {
             let (stream, addr) = match self.listener.accept() {
@@ -90,7 +91,7 @@ impl Server {
     }
 }
 
-pub fn poll_events(world: &mut hecs::World, storage: &Storage) -> Result<()> {
+pub fn poll_events(world: &mut World, storage: &Storage) -> Result<()> {
     let mut events = Events::with_capacity(1024);
 
     storage

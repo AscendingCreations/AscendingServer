@@ -63,7 +63,12 @@ pub fn send_myindex(storage: &Storage, socket_id: usize, entity: &Entity) -> Res
 }
 
 #[inline]
-pub fn send_playerdata(world: &World, storage: &Storage, socket_id: usize, entity: &Entity) -> Result<()> {
+pub fn send_playerdata(
+    world: &mut World,
+    storage: &Storage,
+    socket_id: usize,
+    entity: &Entity,
+) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(418)?;
 
     buf.write(ServerPackets::PlayerData)?;
@@ -90,7 +95,7 @@ pub fn send_playerdata(world: &World, storage: &Storage, socket_id: usize, entit
 }
 
 #[inline]
-pub fn send_updatemap(world: &World, storage: &Storage, entity: &Entity) -> Result<()> {
+pub fn send_updatemap(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(16)?;
 
     buf.write(ServerPackets::UpdateMap)?;
@@ -104,7 +109,7 @@ pub fn send_updatemap(world: &World, storage: &Storage, entity: &Entity) -> Resu
 
 #[inline]
 pub fn send_mapitem(
-    world: &mut hecs::World,
+    world: &mut World,
     storage: &Storage,
     position: MapPosition,
     id: Entity,
@@ -135,7 +140,7 @@ pub fn send_mapitem(
 }
 
 #[inline]
-pub fn send_dir(world: &World, storage: &Storage, entity: &Entity, toself: bool) -> Result<()> {
+pub fn send_dir(world: &mut World, storage: &Storage, entity: &Entity, toself: bool) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(16)?;
     let closure = |toself, id| if toself { Some(id) } else { None };
 
@@ -155,7 +160,7 @@ pub fn send_dir(world: &World, storage: &Storage, entity: &Entity, toself: bool)
 }
 
 #[inline]
-pub fn send_move(world: &World, storage: &Storage, entity: &Entity) -> Result<()> {
+pub fn send_move(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(24)?;
 
     let pos = world.get_or_panic::<Position>(entity);
@@ -171,7 +176,7 @@ pub fn send_move(world: &World, storage: &Storage, entity: &Entity) -> Result<()
     Ok(())
 }
 
-pub fn send_warp(world: &World, storage: &Storage, entity: &Entity) -> Result<()> {
+pub fn send_warp(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(24)?;
 
     let pos = world.get_or_panic::<Position>(entity);
@@ -205,7 +210,7 @@ pub fn send_data_remove_list(
 }
 
 pub fn send_data_remove(
-    world: &World,
+    world: &mut World,
     storage: &Storage,
     id: u64,
     map: MapPosition,
@@ -223,7 +228,12 @@ pub fn send_data_remove(
     Ok(())
 }
 
-pub fn send_data_remove_all(world: &World, storage: &Storage, id: u64, datatype: u8) -> Result<()> {
+pub fn send_data_remove_all(
+    world: &mut World,
+    storage: &Storage,
+    id: u64,
+    datatype: u8,
+) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(24)?;
 
     buf.write(ServerPackets::Dataremove)?;
@@ -237,7 +247,7 @@ pub fn send_data_remove_all(world: &World, storage: &Storage, id: u64, datatype:
 }
 
 #[inline]
-pub fn send_vitals(world: &World, storage: &Storage, entity: &Entity) -> Result<()> {
+pub fn send_vitals(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(32)?;
 
     let vitals = world.get_or_panic::<Vitals>(entity);
@@ -259,7 +269,7 @@ pub fn send_vitals(world: &World, storage: &Storage, entity: &Entity) -> Result<
 }
 
 #[inline]
-pub fn send_inv(world: &World, storage: &Storage, entity: &Entity) -> Result<()> {
+pub fn send_inv(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(6500)?;
 
     buf.write(ServerPackets::PlayerInv)?;
@@ -272,7 +282,12 @@ pub fn send_inv(world: &World, storage: &Storage, entity: &Entity) -> Result<()>
 }
 
 #[inline]
-pub fn send_invslot(world: &World, storage: &Storage, entity: &Entity, id: usize) -> Result<()> {
+pub fn send_invslot(
+    world: &mut World,
+    storage: &Storage,
+    entity: &Entity,
+    id: usize,
+) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(32)?;
 
     buf.write(ServerPackets::PlayerInvSlot)?;
@@ -286,7 +301,12 @@ pub fn send_invslot(world: &World, storage: &Storage, entity: &Entity, id: usize
 }
 
 #[inline]
-pub fn send_attack(world: &World, storage: &Storage, entity: &Entity, toself: bool) -> Result<()> {
+pub fn send_attack(
+    world: &mut World,
+    storage: &Storage,
+    entity: &Entity,
+    toself: bool,
+) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(16)?;
     let closure = |toself, id| if toself { Some(id) } else { None };
 
@@ -306,7 +326,7 @@ pub fn send_attack(world: &World, storage: &Storage, entity: &Entity, toself: bo
 }
 
 #[inline]
-pub fn send_equipment(world: &World, storage: &Storage, entity: &Entity) -> Result<()> {
+pub fn send_equipment(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(16)?;
 
     buf.write(ServerPackets::PlayerEquipment)?;
@@ -325,7 +345,7 @@ pub fn send_equipment(world: &World, storage: &Storage, entity: &Entity) -> Resu
 }
 
 #[inline]
-pub fn send_level(world: &World, storage: &Storage, entity: &Entity) -> Result<()> {
+pub fn send_level(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(16)?;
 
     buf.write(ServerPackets::PlayerLevel)?;
@@ -338,7 +358,7 @@ pub fn send_level(world: &World, storage: &Storage, entity: &Entity) -> Result<(
 }
 
 #[inline]
-pub fn send_money(world: &World, storage: &Storage, entity: &Entity) -> Result<()> {
+pub fn send_money(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(16)?;
 
     buf.write(ServerPackets::PlayerMoney)?;
@@ -351,7 +371,7 @@ pub fn send_money(world: &World, storage: &Storage, entity: &Entity) -> Result<(
 
 #[inline]
 pub fn send_life_status(
-    world: &World,
+    world: &mut World,
     storage: &Storage,
     entity: &Entity,
     toself: bool,
@@ -375,7 +395,12 @@ pub fn send_life_status(
 }
 
 #[inline]
-pub fn send_action(world: &World, storage: &Storage, entity: &Entity, toself: bool) -> Result<()> {
+pub fn send_action(
+    world: &mut World,
+    storage: &Storage,
+    entity: &Entity,
+    toself: bool,
+) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(16)?;
     let closure = |toself, id| if toself { Some(id) } else { None };
 
@@ -394,7 +419,7 @@ pub fn send_action(world: &World, storage: &Storage, entity: &Entity, toself: bo
 }
 
 #[inline]
-pub fn send_pvp(world: &World, storage: &Storage, entity: &Entity, toself: bool) -> Result<()> {
+pub fn send_pvp(world: &mut World, storage: &Storage, entity: &Entity, toself: bool) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(16)?;
     let closure = |toself, id| if toself { Some(id) } else { None };
 
@@ -413,7 +438,7 @@ pub fn send_pvp(world: &World, storage: &Storage, entity: &Entity, toself: bool)
 }
 
 #[inline]
-pub fn send_pk(world: &World, storage: &Storage, entity: &Entity, toself: bool) -> Result<()> {
+pub fn send_pk(world: &mut World, storage: &Storage, entity: &Entity, toself: bool) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(16)?;
     let closure = |toself, id| if toself { Some(id) } else { None };
 

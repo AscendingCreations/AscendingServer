@@ -4,6 +4,7 @@ use crate::{
     maps::MapItem,
 };
 use bit_op::{bit_u8::*, BitOp};
+use hecs::World;
 use serde::{Deserialize, Serialize};
 use serde_big_array::BigArray;
 
@@ -62,7 +63,7 @@ impl MapData {
         self.players_on_map > 0
     }
 
-    pub fn add_mapitem(&mut self, world: &mut hecs::World, mapitem: MapItem) -> Entity {
+    pub fn add_mapitem(&mut self, world: &mut World, mapitem: MapItem) -> Entity {
         let id = world.spawn((WorldEntityType::MapItem, mapitem));
         let _ = world.insert_one(id, EntityType::MapItem(Entity(id)));
         self.itemids.insert(Entity(id));
@@ -93,7 +94,7 @@ impl MapData {
         for i in self.get_surrounding(true) {
             if i != self.position {
                 match storage.maps.get(&i) {
-                    Some(map) => {                        
+                    Some(map) => {
                         let count = map.borrow().players_on_map.saturating_add(1);
                         map.borrow_mut().players_on_map = count;
                     }

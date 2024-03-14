@@ -3,10 +3,11 @@ use crate::{
     PacketRouter, WorldExtras,
 };
 use bytey::ByteBuffer;
+use hecs::World;
 
 pub fn handle_data(
     router: &PacketRouter,
-    world: &mut hecs::World,
+    world: &mut World,
     storage: &Storage,
     data: &mut ByteBuffer,
     entity: &Entity,
@@ -19,15 +20,15 @@ pub fn handle_data(
         OnlineType::Online => match id {
             ClientPacket::Login | ClientPacket::Register => {
                 println!("Multi Login Error");
-                return Err(AscendingError::MultiLogin)
+                return Err(AscendingError::MultiLogin);
             }
             _ => {}
-        }
+        },
         OnlineType::Accepted => match id {
             ClientPacket::Login | ClientPacket::Register => {}
             _ => {
                 println!("Packet Manipulation Error");
-                return Err(AscendingError::PacketManipulation { name: "".into() })
+                return Err(AscendingError::PacketManipulation { name: "".into() });
             }
         },
         OnlineType::None => {
@@ -40,8 +41,8 @@ pub fn handle_data(
         Some(fun) => fun,
         None => {
             println!("Invalid Packet Error");
-            return Err(AscendingError::InvalidPacket)
-        },
+            return Err(AscendingError::InvalidPacket);
+        }
     };
 
     fun(world, storage, data, entity)

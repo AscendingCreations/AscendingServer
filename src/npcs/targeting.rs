@@ -1,7 +1,8 @@
 use crate::{containers::Storage, gametypes::*, maps::*, npcs::*, players::*};
 use chrono::Duration;
+use hecs::World;
 
-pub fn targeting(world: &mut hecs::World, storage: &Storage, entity: &Entity, base: &NpcData) {
+pub fn targeting(world: &mut World, storage: &Storage, entity: &Entity, base: &NpcData) {
     // Check if we have a current Target and that they are Alive.
     // This way we dont need to change the target if we have one.
     (|| match world.get_or_panic::<Target>(entity).targettype {
@@ -90,7 +91,7 @@ pub fn targeting(world: &mut hecs::World, storage: &Storage, entity: &Entity, ba
 }
 
 pub fn npc_targeting(
-    world: &mut hecs::World,
+    world: &mut World,
     storage: &Storage,
     entity: &Entity,
     base: &NpcData,

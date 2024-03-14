@@ -1,5 +1,6 @@
 use crate::{containers::*, gametypes::*, maps::MapItem};
 use bytey::{ByteBufferRead, ByteBufferWrite};
+use hecs::World;
 use serde::{Deserialize, Serialize};
 use serde_repr::*;
 
@@ -167,7 +168,7 @@ impl EntityType {
         }
     }
 
-    pub fn get_pos(&self, world: &mut hecs::World, _storage: &Storage) -> Option<Position> {
+    pub fn get_pos(&self, world: &mut World, _storage: &Storage) -> Option<Position> {
         match self {
             EntityType::Map(position) => Some(*position),
             EntityType::Player(i, _) => Some(world.get_or_panic::<Position>(i)),

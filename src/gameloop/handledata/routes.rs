@@ -3,10 +3,11 @@ use crate::{
 };
 use bytey::ByteBuffer;
 use chrono::Duration;
+use hecs::World;
 use regex::Regex;
 
 pub fn handle_register(
-    world: &mut hecs::World,
+    world: &mut World,
     storage: &Storage,
     data: &mut ByteBuffer,
     entity: &Entity,
@@ -121,7 +122,7 @@ pub fn handle_register(
 }
 
 pub fn handle_login(
-    world: &mut hecs::World,
+    world: &mut World,
     storage: &Storage,
     data: &mut ByteBuffer,
     entity: &Entity,
@@ -182,7 +183,7 @@ pub fn handle_login(
 }
 
 pub fn handle_move(
-    world: &mut hecs::World,
+    world: &mut World,
     storage: &Storage,
     data: &mut ByteBuffer,
     entity: &Entity,
@@ -217,7 +218,7 @@ pub fn handle_move(
 }
 
 pub fn handle_dir(
-    world: &mut hecs::World,
+    world: &mut World,
     storage: &Storage,
     data: &mut ByteBuffer,
     entity: &Entity,
@@ -248,7 +249,7 @@ pub fn handle_dir(
 }
 
 pub fn handle_attack(
-    world: &mut hecs::World,
+    world: &mut World,
     storage: &Storage,
     data: &mut ByteBuffer,
     entity: &Entity,
@@ -286,7 +287,7 @@ pub fn handle_attack(
 }
 
 pub fn handle_useitem(
-    world: &mut hecs::World,
+    world: &mut World,
     storage: &Storage,
     data: &mut ByteBuffer,
     entity: &Entity,
@@ -320,7 +321,7 @@ pub fn handle_useitem(
 }
 
 pub fn handle_unequip(
-    world: &mut hecs::World,
+    world: &mut World,
     storage: &Storage,
     data: &mut ByteBuffer,
     entity: &Entity,
@@ -370,7 +371,7 @@ pub fn handle_unequip(
 }
 
 pub fn handle_switchinvslot(
-    world: &mut hecs::World,
+    world: &mut World,
     storage: &Storage,
     data: &mut ByteBuffer,
     entity: &Entity,
@@ -459,7 +460,7 @@ pub fn handle_switchinvslot(
 }
 
 pub fn handle_pickup(
-    world: &mut hecs::World,
+    world: &mut World,
     storage: &Storage,
     _data: &mut ByteBuffer,
     entity: &Entity,
@@ -572,7 +573,7 @@ pub fn handle_pickup(
 }
 
 pub fn handle_dropitem(
-    world: &mut hecs::World,
+    world: &mut World,
     storage: &Storage,
     data: &mut ByteBuffer,
     entity: &Entity,
@@ -652,7 +653,7 @@ pub fn handle_dropitem(
 }
 
 pub fn handle_deleteitem(
-    world: &mut hecs::World,
+    world: &mut World,
     storage: &Storage,
     data: &mut ByteBuffer,
     entity: &Entity,
@@ -693,7 +694,7 @@ pub fn handle_deleteitem(
 }
 
 pub fn handle_message(
-    world: &mut hecs::World,
+    world: &mut World,
     storage: &Storage,
     data: &mut ByteBuffer,
     entity: &Entity,

@@ -1,7 +1,9 @@
+use hecs::World;
+
 use crate::{containers::*, gameloop::*, gametypes::*, items::*, players::*, sql::*};
 
 #[inline]
-pub fn save_item(world: &mut hecs::World, storage: &Storage, entity: &Entity, slot: usize) {
+pub fn save_item(world: &mut World, storage: &Storage, entity: &Entity, slot: usize) {
     let _ = update_inv(storage, world, entity, slot);
     let _ = send_invslot(world, storage, entity, slot);
 }
@@ -73,7 +75,7 @@ pub fn find_slot(
 
 #[inline]
 pub fn auto_set_inv_item(
-    world: &mut hecs::World,
+    world: &mut World,
     storage: &Storage,
     entity: &crate::Entity,
     item: &mut Item,
@@ -112,7 +114,7 @@ pub fn auto_set_inv_item(
 #[allow(clippy::too_many_arguments)]
 #[inline]
 pub fn set_inv_item(
-    world: &mut hecs::World,
+    world: &mut World,
     storage: &Storage,
     entity: &crate::Entity,
     item: &mut Item,
@@ -166,7 +168,7 @@ pub fn set_inv_item(
 
 #[inline]
 pub fn give_item(
-    world: &mut hecs::World,
+    world: &mut World,
     storage: &Storage,
     entity: &crate::Entity,
     item: &mut Item,
@@ -179,7 +181,7 @@ pub fn give_item(
 
 #[inline]
 pub fn set_inv_slot(
-    world: &mut hecs::World,
+    world: &mut World,
     storage: &Storage,
     entity: &crate::Entity,
     item: &mut Item,
@@ -200,7 +202,7 @@ pub fn set_inv_slot(
 
 #[inline]
 pub fn take_inv_items(
-    world: &mut hecs::World,
+    world: &mut World,
     storage: &Storage,
     entity: &crate::Entity,
     num: u32,
@@ -235,7 +237,7 @@ pub fn take_inv_items(
 
 #[inline]
 pub fn take_item(
-    world: &mut hecs::World,
+    world: &mut World,
     storage: &Storage,
     entity: &crate::Entity,
     num: u32,
@@ -249,7 +251,7 @@ pub fn take_item(
 
 #[inline]
 pub fn take_itemslot(
-    world: &mut hecs::World,
+    world: &mut World,
     storage: &Storage,
     entity: &crate::Entity,
     slot: usize,

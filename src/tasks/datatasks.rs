@@ -3,6 +3,7 @@ use crate::{
     gametypes::{AscendingError, MapPosition, Result, ServerPackets},
     socket::*,
 };
+use hecs::World;
 use indexmap::map::Entry;
 use log::warn;
 use std::collections::VecDeque;
@@ -127,7 +128,7 @@ impl DataTaskToken {
         }
     }
 
-    pub fn send(&self, world: &mut hecs::World, storage: &Storage, buf: ByteBuffer) -> Result<()> {
+    pub fn send(&self, world: &mut World, storage: &Storage, buf: ByteBuffer) -> Result<()> {
         use DataTaskToken::*;
         match self {
             GlobalChat => send_to_all(world, storage, buf),
@@ -145,7 +146,7 @@ impl DataTaskToken {
     }
 }
 
-pub fn process_tasks(world: &mut hecs::World, storage: &Storage) -> Result<()> {
+pub fn process_tasks(world: &mut World, storage: &Storage) -> Result<()> {
     while let Some(id) = storage.map_cache_ids.borrow_mut().pop() {
         if let Some(buffers) = storage.map_cache.borrow_mut().get_mut(&id) {
             //We send the older packets first hence pop front as they are the oldest.

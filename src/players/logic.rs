@@ -1,6 +1,4 @@
-use crate::{
-    containers::Storage, gameloop::*, gametypes::*, players::*, sql::*, tasks::*,
-};
+use crate::{containers::Storage, gameloop::*, gametypes::*, players::*, sql::*, tasks::*};
 use chrono::Duration;
 use std::cmp;
 
@@ -61,7 +59,7 @@ pub fn update_players(world: &mut World, storage: &Storage) {
 }
 
 pub fn player_earn_exp(
-    world: &mut hecs::World,
+    world: &mut World,
     storage: &Storage,
     entity: &Entity,
     victimlevel: i32,
@@ -157,7 +155,7 @@ pub fn player_earn_exp(
     let _ = update_level(storage, world, entity);
 }
 
-pub fn player_get_next_lvl_exp(world: &mut hecs::World, entity: &Entity) -> u64 {
+pub fn player_get_next_lvl_exp(world: &mut World, entity: &Entity) -> u64 {
     let mut query = world
         .query_one::<&Level>(entity.0)
         .expect("player_get_next_lvl_exp could not find query");
@@ -186,7 +184,7 @@ pub fn player_get_next_lvl_exp(world: &mut hecs::World, entity: &Entity) -> u64 
     }
 }
 
-pub fn player_calc_max_hp(world: &mut hecs::World, entity: &Entity) -> i32 {
+pub fn player_calc_max_hp(world: &mut World, entity: &Entity) -> i32 {
     let mut query = world
         .query_one::<&Level>(entity.0)
         .expect("player_calc_max_hp could not find query");
@@ -198,7 +196,7 @@ pub fn player_calc_max_hp(world: &mut hecs::World, entity: &Entity) -> i32 {
     }
 }
 
-pub fn player_calc_max_mp(world: &mut hecs::World, entity: &Entity) -> i32 {
+pub fn player_calc_max_mp(world: &mut World, entity: &Entity) -> i32 {
     let mut query = world
         .query_one::<&Level>(entity.0)
         .expect("player_calc_max_mp could not find query");
@@ -211,7 +209,7 @@ pub fn player_calc_max_mp(world: &mut hecs::World, entity: &Entity) -> i32 {
 }
 
 pub fn player_get_weapon_damage(
-    world: &mut hecs::World,
+    world: &mut World,
     storage: &Storage,
     entity: &Entity,
 ) -> (i16, i16) {
@@ -239,7 +237,7 @@ pub fn player_get_weapon_damage(
 }
 
 pub fn player_get_armor_defense(
-    world: &mut hecs::World,
+    world: &mut World,
     storage: &Storage,
     entity: &Entity,
 ) -> (i16, i16) {
@@ -268,7 +266,7 @@ pub fn player_get_armor_defense(
 }
 
 pub fn player_repair_equipment(
-    world: &mut hecs::World,
+    world: &mut World,
     storage: &Storage,
     entity: &Entity,
     slot: usize,
@@ -329,11 +327,7 @@ pub fn get_damage_percentage(damage: u32, hp: (u32, u32)) -> f64 {
     abs_damage / curhp as f64
 }
 
-pub fn joingame(
-    world: &mut hecs::World,
-    storage: &Storage,
-    entity: &Entity,
-) {
+pub fn joingame(world: &mut World, storage: &Storage, entity: &Entity) {
     let socket_id = world.get::<&Socket>(entity.0).unwrap().id;
 
     {
@@ -342,7 +336,7 @@ pub fn joingame(
 
     let _ = send_myindex(storage, socket_id, entity);
     let _ = send_playerdata(world, storage, socket_id, entity);
-    
+
     let position = world.get_or_panic::<Position>(entity);
     player_warp(world, storage, entity, &position, true);
 

@@ -1,8 +1,9 @@
 use crate::{containers::Storage, gametypes::*};
+use hecs::World;
 use rand::{thread_rng, Rng};
 use std::cmp::min;
 
-pub fn update_maps(world: &mut hecs::World, storage: &Storage) -> Result<()> {
+pub fn update_maps(world: &mut World, storage: &Storage) -> Result<()> {
     let mut rng = thread_rng();
     let mut spawnable = Vec::new();
     let mut len = storage.npc_ids.borrow().len();

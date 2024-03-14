@@ -1,4 +1,5 @@
 use crate::{containers::Storage, gametypes::*, maps::*, npcs::*, players::*, tasks::*};
+use hecs::World;
 use rand::{thread_rng, Rng};
 
 pub fn entity_cast_check(
@@ -14,7 +15,7 @@ pub fn entity_cast_check(
 }
 
 pub fn try_cast(
-    world: &mut hecs::World,
+    world: &mut World,
     caster: &Entity,
     base: &NpcData,
     target: EntityType,
@@ -57,7 +58,7 @@ pub fn try_cast(
     false
 }
 
-pub fn npc_cast(world: &mut hecs::World, npc: &Entity, base: &NpcData) -> Option<EntityType> {
+pub fn npc_cast(world: &mut World, npc: &Entity, base: &NpcData) -> Option<EntityType> {
     match base.behaviour {
         AIBehavior::Agressive
         | AIBehavior::AgressiveHealer
@@ -76,7 +77,7 @@ pub fn npc_cast(world: &mut hecs::World, npc: &Entity, base: &NpcData) -> Option
     }
 }
 
-pub fn npc_combat(world: &mut hecs::World, storage: &Storage, entity: &Entity, base: &NpcData) {
+pub fn npc_combat(world: &mut World, storage: &Storage, entity: &Entity, base: &NpcData) {
     if let Some(entitytype) = npc_cast(world, entity, base) {
         match entitytype {
             EntityType::Player(i, _accid) => {
@@ -117,7 +118,7 @@ pub fn npc_combat(world: &mut hecs::World, storage: &Storage, entity: &Entity, b
 }
 
 pub fn npc_combat_damage(
-    world: &mut hecs::World,
+    world: &mut World,
     entity: &Entity,
     enemy_entity: &Entity,
     base: &NpcData,

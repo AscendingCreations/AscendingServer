@@ -8,6 +8,7 @@ use crate::{
     tasks::{DataTaskToken, MapSwitchTasks},
     time_ext::MyInstant,
 };
+use hecs::World;
 //use futures::executor::block_on;
 use mio::Poll;
 use rustls::{
@@ -178,33 +179,26 @@ impl Storage {
         let map_data_entry = crate::database::map::get_maps();
         map_data_entry.iter().for_each(|map_data| {
             storage.maps.insert(
-                MapPosition { 
-                    x: map_data.x, 
-                    y: map_data.y, 
-                    group: map_data.group as i32, 
-                }, 
-                RefCell::new(
-                    MapData {
-                        position: MapPosition {
-                            x: map_data.x,
-                            y: map_data.y,
-                            group: map_data.group as i32,
-                        },
-                        ..Default::default()
-                    }
-                ),
+                MapPosition {
+                    x: map_data.x,
+                    y: map_data.y,
+                    group: map_data.group as i32,
+                },
+                RefCell::new(MapData {
+                    position: MapPosition {
+                        x: map_data.x,
+                        y: map_data.y,
+                        group: map_data.group as i32,
+                    },
+                    ..Default::default()
+                }),
             );
         });
 
         Some(storage)
     }
 
-    pub fn add_empty_player(
-        &self,
-        world: &mut hecs::World,
-        id: usize,
-        addr: String,
-    ) -> Result<Entity> {
+    pub fn add_empty_player(&self, world: &mut World, id: usize, addr: String) -> Result<Entity> {
         let socket = Socket::new(id, addr)?;
 
         let identity = world.spawn((
@@ -218,7 +212,7 @@ impl Storage {
         Ok(Entity(identity))
     }
 
-    pub fn add_player_data(&self, world: &mut hecs::World, entity: &Entity) {
+    pub fn add_player_data(&self, world: &mut World, entity: &Entity) {
         let _ = world.insert(
             entity.0,
             (
@@ -259,7 +253,7 @@ impl Storage {
         );
     }
 
-    pub fn remove_player(&self, world: &mut hecs::World, id: Entity) -> Option<(Socket, Position)> {
+    pub fn remove_player(&self, world: &mut World, id: Entity) -> Option<(Socket, Position)> {
         // only removes the Components in the Fisbone ::<>
         let ret = world.remove::<(Socket, Position)>(id.0).ok();
         let account = world.remove::<(Account,)>(id.0).ok();
@@ -274,7 +268,7 @@ impl Storage {
         ret
     }
 
-    pub fn add_npc(&self, world: &mut hecs::World, npc_id: u64) -> Result<Entity> {
+    pub fn add_npc(&self, world: &mut World, npc_id: u64) -> Result<Entity> {
         let npcdata = NpcData::load_npc(npc_id).expect("Cannot find NPC");
 
         let identity = world.spawn((
@@ -324,7 +318,7 @@ impl Storage {
         Ok(Entity(identity))
     }
 
-    pub fn remove_npc(&self, world: &mut hecs::World, id: Entity) -> Option<Position> {
+    pub fn remove_npc(&self, world: &mut World, id: Entity) -> Option<Position> {
         let ret: Position = world.cloned_get_or_panic::<Position>(&id);
         //Removes Everything related to the Entity.
         let _ = world.despawn(id.0);

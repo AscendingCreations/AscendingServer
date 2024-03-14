@@ -1,7 +1,8 @@
 use crate::{containers::Storage, gametypes::*, maps::*, npcs::*, players::Account, tasks::*};
 use chrono::Duration;
+use hecs::World;
 
-pub fn npc_movement(world: &mut hecs::World, storage: &Storage, entity: &Entity, _base: &NpcData) {
+pub fn npc_movement(world: &mut World, storage: &Storage, entity: &Entity, _base: &NpcData) {
     //AI Timer is used to Reset the Moves every so offten to recalculate them for possible changes.
     if world.get_or_panic::<NpcAITimer>(entity).0 < *storage.gettick.borrow()
         && world.get_or_panic::<NpcMoving>(entity).0

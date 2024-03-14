@@ -1,4 +1,5 @@
 use crate::{containers::Storage, gametypes::*, maps::*, players::*, socket::*};
+use hecs::World;
 use mio::{net::TcpStream, Interest};
 use std::io::{self, Read, Write};
 
@@ -85,7 +86,7 @@ impl Client {
     pub fn process(
         &mut self,
         event: &mio::event::Event,
-        world: &mut hecs::World,
+        world: &mut World,
         storage: &Storage,
     ) -> Result<()> {
         //We set it as None so we can fully control when to enable it again based on conditions.
@@ -119,7 +120,7 @@ impl Client {
     }
 
     #[inline]
-    pub fn close_socket(&mut self, world: &mut hecs::World, storage: &Storage) -> Result<()> {
+    pub fn close_socket(&mut self, world: &mut World, storage: &Storage) -> Result<()> {
         match self.state {
             ClientState::Closed => Ok(()),
             _ => {
@@ -131,7 +132,7 @@ impl Client {
         }
     }
 
-    pub fn read(&mut self, world: &mut hecs::World, storage: &Storage) {
+    pub fn read(&mut self, world: &mut World, storage: &Storage) {
         let socket = match world.get::<&mut Socket>(self.entity.0) {
             Ok(v) => v,
             Err(_) => {
@@ -175,7 +176,7 @@ impl Client {
         }
     }
 
-    pub fn write(&mut self, world: &mut hecs::World) {
+    pub fn write(&mut self, world: &mut World) {
         let mut count: usize = 0;
 
         //make sure the player exists if nto we have a socket closing
@@ -254,7 +255,7 @@ impl Client {
 }
 
 #[inline]
-pub fn disconnect(playerid: Entity, world: &mut hecs::World, storage: &Storage) {
+pub fn disconnect(playerid: Entity, world: &mut World, storage: &Storage) {
     if let Some((_socket, position)) = storage.remove_player(world, playerid) {
         if let Some(map) = storage.maps.get(&position.map) {
             map.borrow_mut().remove_player(storage, playerid);
@@ -269,7 +270,7 @@ pub fn accept_connection(
     server: &Server,
     socketid: usize,
     addr: String,
-    world: &mut hecs::World,
+    world: &mut World,
     storage: &Storage,
 ) -> Option<Entity> {
     if server.clients.len() + 1 >= MAX_SOCKET_PLAYERS {
@@ -305,7 +306,7 @@ pub fn send_to_all(world: &hecs::World, storage: &Storage, buf: ByteBuffer) {
 
 #[inline]
 pub fn send_to_maps(
-    world: &hecs::World,
+    world: &mut World,
     storage: &Storage,
     position: MapPosition,
     buf: ByteBuffer,
@@ -318,30 +319,35 @@ pub fn send_to_maps(
         }
         .borrow();
 
-        for (entity, (_, socket)) in world
-            .query::<((&WorldEntityType, &OnlineType, &Position), &Socket)>()
-            .iter()
-            .filter(|(_entity, ((worldentitytype, onlinetype, pos), _))| {
-                **worldentitytype == WorldEntityType::Player
-                    && **onlinetype == OnlineType::Online
-                    && pos.map == map.position
-            })
-        {
-            // ToDo: Avoid index
-            if avoidindex
-                .map(|value| value == Entity(entity))
-                .unwrap_or(false)
-            {
+        for entity in &map.players {
+            if avoidindex.map(|value| value == *entity).unwrap_or(false) {
                 continue;
             }
 
-            println!("Sending via map {:?}", map.position);
+            let (status, socket) = world
+                .query_one_mut::<(&OnlineType, &Socket)>(entity.0)
+                .unwrap();
 
-            if let Some(client) = storage.server.borrow().clients.get(&mio::Token(socket.id)) {
-                client
-                    .borrow_mut()
-                    .send(&storage.poll.borrow(), buf.clone());
+            if *status == OnlineType::Online {
+                if let Some(client) = storage.server.borrow().clients.get(&mio::Token(socket.id)) {
+                    client
+                        .borrow_mut()
+                        .send(&storage.poll.borrow(), buf.clone());
+                }
             }
         }
     }
 }
+
+//Example code for querying.
+/*for (entity, (_, socket)) in world
+    .query::<((&WorldEntityType, &OnlineType, &Position), &Socket)>()
+    .iter()
+    .filter(|(_entity, ((worldentitytype, onlinetype, pos), _))| {
+        **worldentitytype == WorldEntityType::Player
+            && **onlinetype == OnlineType::Online
+            && pos.map == map.position
+    })
+{
+    // ToDo: Avoid index
+}*/

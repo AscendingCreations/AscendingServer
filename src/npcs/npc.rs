@@ -1,3 +1,5 @@
+use hecs::World;
+
 use crate::{containers::*, gametypes::*, tasks::*, time_ext::MyInstant};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Default)]
@@ -53,11 +55,7 @@ pub fn is_npc_same(from_entity: &crate::Entity, to_entity: &crate::Entity) -> bo
 }
 
 #[inline(always)]
-pub fn npc_set_move_path(
-    world: &mut hecs::World,
-    entity: &crate::Entity,
-    path: Vec<(Position, u8)>,
-) {
+pub fn npc_set_move_path(world: &mut World, entity: &crate::Entity, path: Vec<(Position, u8)>) {
     world
         .get::<&mut NpcMoves>(entity.0)
         .expect("Could not find NpcMoves")
@@ -69,7 +67,7 @@ pub fn npc_set_move_path(
 }
 
 #[inline(always)]
-pub fn npc_clear_move_path(world: &mut hecs::World, entity: &crate::Entity) {
+pub fn npc_clear_move_path(world: &mut World, entity: &crate::Entity) {
     world
         .get::<&mut NpcMoves>(entity.0)
         .expect("Could not find NpcMoves")
@@ -82,7 +80,7 @@ pub fn npc_clear_move_path(world: &mut hecs::World, entity: &crate::Entity) {
 }
 
 #[inline(always)]
-pub fn set_npc_dir(world: &mut hecs::World, storage: &Storage, entity: &crate::Entity, dir: u8) {
+pub fn set_npc_dir(world: &mut World, storage: &Storage, entity: &crate::Entity, dir: u8) {
     if world.get_or_panic::<Dir>(entity).0 != dir {
         world
             .get::<&mut Dir>(entity.0)
@@ -96,7 +94,7 @@ pub fn set_npc_dir(world: &mut hecs::World, storage: &Storage, entity: &crate::E
 
 #[inline(always)]
 pub fn npc_swap_pos(
-    world: &mut hecs::World,
+    world: &mut World,
     storage: &Storage,
     entity: &crate::Entity,
     pos: Position,
@@ -120,7 +118,7 @@ pub fn npc_swap_pos(
 
 #[inline(always)]
 pub fn npc_switch_maps(
-    world: &mut hecs::World,
+    world: &mut World,
     storage: &Storage,
     entity: &crate::Entity,
     pos: Position,
@@ -151,44 +149,44 @@ pub fn npc_switch_maps(
     oldpos
 }
 
-pub fn npc_getx(world: &mut hecs::World, entity: &crate::Entity) -> i32 {
+pub fn npc_getx(world: &mut World, entity: &crate::Entity) -> i32 {
     world.get_or_panic::<Position>(entity).x
 }
 
-pub fn npc_gety(world: &mut hecs::World, entity: &crate::Entity) -> i32 {
+pub fn npc_gety(world: &mut World, entity: &crate::Entity) -> i32 {
     world.get_or_panic::<Position>(entity).y
 }
 
-pub fn npc_getmap(world: &mut hecs::World, entity: &crate::Entity) -> MapPosition {
+pub fn npc_getmap(world: &mut World, entity: &crate::Entity) -> MapPosition {
     world.get_or_panic::<Position>(entity).map
 }
 
-pub fn npc_gethp(world: &mut hecs::World, entity: &crate::Entity) -> i32 {
+pub fn npc_gethp(world: &mut World, entity: &crate::Entity) -> i32 {
     world.get_or_panic::<Vitals>(entity).vital[VitalTypes::Hp as usize]
 }
 
-pub fn npc_setx(world: &mut hecs::World, entity: &crate::Entity, x: i32) {
+pub fn npc_setx(world: &mut World, entity: &crate::Entity, x: i32) {
     world
         .get::<&mut Position>(entity.0)
         .expect("Could not find Position")
         .x = x;
 }
 
-pub fn npc_sety(world: &mut hecs::World, entity: &crate::Entity, y: i32) {
+pub fn npc_sety(world: &mut World, entity: &crate::Entity, y: i32) {
     world
         .get::<&mut Position>(entity.0)
         .expect("Could not find Position")
         .y = y;
 }
 
-pub fn npc_setmap(world: &mut hecs::World, entity: &crate::Entity, map: MapPosition) {
+pub fn npc_setmap(world: &mut World, entity: &crate::Entity, map: MapPosition) {
     world
         .get::<&mut Position>(entity.0)
         .expect("Could not find Position")
         .map = map;
 }
 
-pub fn npc_sethp(world: &mut hecs::World, entity: &crate::Entity, hp: i32) {
+pub fn npc_sethp(world: &mut World, entity: &crate::Entity, hp: i32) {
     world
         .get::<&mut Vitals>(entity.0)
         .expect("Could not find Position")
@@ -196,7 +194,7 @@ pub fn npc_sethp(world: &mut hecs::World, entity: &crate::Entity, hp: i32) {
 }
 
 #[inline(always)]
-pub fn damage_npc(world: &mut hecs::World, entity: &crate::Entity, damage: i32) {
+pub fn damage_npc(world: &mut World, entity: &crate::Entity, damage: i32) {
     world
         .get::<&mut Vitals>(entity.0)
         .expect("Could not find Position")

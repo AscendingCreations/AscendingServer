@@ -91,7 +91,7 @@ pub struct Player {
     pub movesavecount: u16,
 }
 
-pub fn is_player_online(world: &mut hecs::World, entity: &crate::Entity) -> bool {
+pub fn is_player_online(world: &mut World, entity: &crate::Entity) -> bool {
     *world
         .get::<&WorldEntityType>(entity.0)
         .expect("Could not find WorldEntityType")
@@ -104,7 +104,7 @@ pub fn is_player_online(world: &mut hecs::World, entity: &crate::Entity) -> bool
 
 #[inline(always)]
 pub fn player_switch_maps(
-    world: &mut hecs::World,
+    world: &mut World,
     storage: &Storage,
     entity: &crate::Entity,
     new_pos: Position,
@@ -138,7 +138,7 @@ pub fn player_switch_maps(
 
 #[inline(always)]
 pub fn player_swap_pos(
-    world: &mut hecs::World,
+    world: &mut World,
     storage: &Storage,
     entity: &crate::Entity,
     pos: Position,
@@ -168,7 +168,7 @@ pub fn player_swap_pos(
     }
 }
 
-pub fn player_add_up_vital(world: &mut hecs::World, entity: &crate::Entity, vital: usize) -> i32 {
+pub fn player_add_up_vital(world: &mut World, entity: &crate::Entity, vital: usize) -> i32 {
     let mut query = world
         .query_one::<&mut Vitals>(entity.0)
         .expect("player_add_up_vital could not find query");
@@ -187,7 +187,7 @@ pub fn player_add_up_vital(world: &mut hecs::World, entity: &crate::Entity, vita
 }
 
 #[inline(always)]
-pub fn player_set_dir(world: &mut hecs::World, storage: &Storage, entity: &crate::Entity, dir: u8) {
+pub fn player_set_dir(world: &mut World, storage: &Storage, entity: &crate::Entity, dir: u8) {
     let mut query = world
         .query_one::<(&mut Dir, &Position)>(entity.0)
         .expect("player_set_dir could not find query");
@@ -202,7 +202,7 @@ pub fn player_set_dir(world: &mut hecs::World, storage: &Storage, entity: &crate
     }
 }
 
-pub fn player_getx(world: &mut hecs::World, entity: &crate::Entity) -> i32 {
+pub fn player_getx(world: &mut World, entity: &crate::Entity) -> i32 {
     let mut query = world
         .query_one::<&Position>(entity.0)
         .expect("player_getx could not find query");
@@ -214,7 +214,7 @@ pub fn player_getx(world: &mut hecs::World, entity: &crate::Entity) -> i32 {
     }
 }
 
-pub fn player_gety(world: &mut hecs::World, entity: &crate::Entity) -> i32 {
+pub fn player_gety(world: &mut World, entity: &crate::Entity) -> i32 {
     let mut query = world
         .query_one::<&Position>(entity.0)
         .expect("player_gety could not find query");
@@ -226,7 +226,7 @@ pub fn player_gety(world: &mut hecs::World, entity: &crate::Entity) -> i32 {
     }
 }
 
-pub fn player_getmap(world: &mut hecs::World, entity: &crate::Entity) -> MapPosition {
+pub fn player_getmap(world: &mut World, entity: &crate::Entity) -> MapPosition {
     let mut query = world
         .query_one::<&Position>(entity.0)
         .expect("player_getmap could not find query");
@@ -238,7 +238,7 @@ pub fn player_getmap(world: &mut hecs::World, entity: &crate::Entity) -> MapPosi
     }
 }
 
-pub fn player_gethp(world: &mut hecs::World, entity: &crate::Entity) -> i32 {
+pub fn player_gethp(world: &mut World, entity: &crate::Entity) -> i32 {
     let mut query = world
         .query_one::<&Vitals>(entity.0)
         .expect("player_gethp could not find query");
@@ -250,7 +250,7 @@ pub fn player_gethp(world: &mut hecs::World, entity: &crate::Entity) -> i32 {
     }
 }
 
-pub fn player_setx(world: &mut hecs::World, entity: &crate::Entity, x: i32) {
+pub fn player_setx(world: &mut World, entity: &crate::Entity, x: i32) {
     let mut query = world
         .query_one::<&mut Position>(entity.0)
         .expect("player_setx could not find query");
@@ -260,7 +260,7 @@ pub fn player_setx(world: &mut hecs::World, entity: &crate::Entity, x: i32) {
     }
 }
 
-pub fn player_sety(world: &mut hecs::World, entity: &crate::Entity, y: i32) {
+pub fn player_sety(world: &mut World, entity: &crate::Entity, y: i32) {
     let mut query = world
         .query_one::<&mut Position>(entity.0)
         .expect("player_sety could not find query");
@@ -270,7 +270,7 @@ pub fn player_sety(world: &mut hecs::World, entity: &crate::Entity, y: i32) {
     }
 }
 
-pub fn player_setmap(world: &mut hecs::World, entity: &crate::Entity, map: MapPosition) {
+pub fn player_setmap(world: &mut World, entity: &crate::Entity, map: MapPosition) {
     let mut query = world
         .query_one::<&mut Position>(entity.0)
         .expect("player_setmap could not find query");
@@ -280,7 +280,7 @@ pub fn player_setmap(world: &mut hecs::World, entity: &crate::Entity, map: MapPo
     }
 }
 
-pub fn player_sethp(world: &mut hecs::World, entity: &crate::Entity, hp: i32) {
+pub fn player_sethp(world: &mut World, entity: &crate::Entity, hp: i32) {
     let mut query = world
         .query_one::<&mut Vitals>(entity.0)
         .expect("player_sethp could not find query");
@@ -291,7 +291,7 @@ pub fn player_sethp(world: &mut hecs::World, entity: &crate::Entity, hp: i32) {
 }
 
 #[inline]
-pub fn damage_player(world: &mut hecs::World, entity: &crate::Entity, damage: i32) {
+pub fn damage_player(world: &mut World, entity: &crate::Entity, damage: i32) {
     let mut query = world
         .query_one::<&mut Vitals>(entity.0)
         .expect("damage_player could not find query");
@@ -304,7 +304,7 @@ pub fn damage_player(world: &mut hecs::World, entity: &crate::Entity, damage: i3
 
 #[inline]
 pub fn player_give_vals(
-    world: &mut hecs::World,
+    world: &mut World,
     storage: &Storage,
     entity: &crate::Entity,
     amount: u64,
@@ -347,12 +347,7 @@ pub fn player_give_vals(
 }
 
 #[inline]
-pub fn player_take_vals(
-    world: &mut hecs::World,
-    storage: &Storage,
-    entity: &crate::Entity,
-    amount: u64,
-) {
+pub fn player_take_vals(world: &mut World, storage: &Storage, entity: &crate::Entity, amount: u64) {
     let mut cur = amount;
 
     let player_money = world.get_or_panic::<Money>(entity);

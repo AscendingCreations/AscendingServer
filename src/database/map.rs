@@ -1,9 +1,7 @@
+use serde::{Deserialize, Serialize};
 use std::fs::{self, OpenOptions};
 use std::io::BufReader;
 use std::path::Path;
-use serde::{Deserialize, Serialize};
-
-use crate::database::map;
 
 const MAP_PATH: &str = "./data/maps/";
 
@@ -53,12 +51,10 @@ pub fn get_maps() -> Vec<MapData> {
 
     let mut map_data: Vec<MapData> = Vec::new();
 
-    for entry in entries {
-        if let Ok(entry_data) = entry {
-            if let Ok(filename) = entry_data.file_name().into_string() {
-                if let Some(mapdata) = load_file(filename) {
-                    map_data.push(mapdata);
-                }
+    for entry_data in entries.flatten() {
+        if let Ok(filename) = entry_data.file_name().into_string() {
+            if let Some(mapdata) = load_file(filename) {
+                map_data.push(mapdata);
             }
         }
     }

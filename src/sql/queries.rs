@@ -1,5 +1,6 @@
 use crate::{containers::*, gametypes::*, players::*, sql::*};
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
+use hecs::World;
 use sqlx::{FromRow, PgPool};
 use tokio::{runtime::Runtime, task};
 
@@ -102,7 +103,7 @@ pub fn check_existance(storage: &Storage, username: &str, email: &str) -> Result
 
 pub fn new_player(
     storage: &Storage,
-    world: &mut hecs::World,
+    world: &mut World,
     entity: &crate::Entity,
     username: String,
     email: String,
@@ -173,11 +174,7 @@ pub fn new_player(
     Ok(uid.0)
 }
 
-pub fn load_player(
-    storage: &Storage,
-    world: &mut hecs::World,
-    entity: &crate::Entity,
-) -> Result<()> {
+pub fn load_player(storage: &Storage, world: &mut World, entity: &crate::Entity) -> Result<()> {
     let rt = storage.rt.borrow_mut();
     let local = storage.local.borrow();
     let accountid = world.get::<&Account>(entity.0).unwrap().id;
@@ -230,11 +227,7 @@ pub fn load_player(
     Ok(())
 }
 
-pub fn update_player(
-    storage: &Storage,
-    world: &mut hecs::World,
-    entity: &crate::Entity,
-) -> Result<()> {
+pub fn update_player(storage: &Storage, world: &mut World, entity: &crate::Entity) -> Result<()> {
     let rt = storage.rt.borrow_mut();
     let local = storage.local.borrow();
     let player = PGPlayerLogOut::new(world, entity);
@@ -263,7 +256,7 @@ pub fn update_player(
 
 pub fn update_inv(
     storage: &Storage,
-    world: &mut hecs::World,
+    world: &mut World,
     entity: &crate::Entity,
     slot: usize,
 ) -> Result<()> {
@@ -279,7 +272,7 @@ pub fn update_inv(
 
 pub fn update_equipment(
     storage: &Storage,
-    world: &mut hecs::World,
+    world: &mut World,
     entity: &crate::Entity,
     slot: usize,
 ) -> Result<()> {
@@ -294,11 +287,7 @@ pub fn update_equipment(
     Ok(())
 }
 
-pub fn update_address(
-    storage: &Storage,
-    world: &mut hecs::World,
-    entity: &crate::Entity,
-) -> Result<()> {
+pub fn update_address(storage: &Storage, world: &mut World, entity: &crate::Entity) -> Result<()> {
     let rt = storage.rt.borrow_mut();
     let local = storage.local.borrow();
     let player = PGPlayerAddress::new(world, entity);
@@ -322,7 +311,7 @@ pub fn update_address(
 
 pub fn update_playerdata(
     storage: &Storage,
-    world: &mut hecs::World,
+    world: &mut World,
     entity: &crate::Entity,
 ) -> Result<()> {
     let rt = storage.rt.borrow_mut();
@@ -348,7 +337,7 @@ pub fn update_playerdata(
 
 pub fn update_passreset(
     storage: &Storage,
-    world: &mut hecs::World,
+    world: &mut World,
     entity: &crate::Entity,
     resetpassword: Option<String>,
 ) -> Result<()> {
@@ -373,11 +362,7 @@ pub fn update_passreset(
     Ok(())
 }
 
-pub fn update_spawn(
-    storage: &Storage,
-    world: &mut hecs::World,
-    entity: &crate::Entity,
-) -> Result<()> {
+pub fn update_spawn(storage: &Storage, world: &mut World, entity: &crate::Entity) -> Result<()> {
     let rt = storage.rt.borrow_mut();
     let local = storage.local.borrow();
     let player = PGPlayerSpawn::new(world, entity);
@@ -399,11 +384,7 @@ pub fn update_spawn(
     Ok(())
 }
 
-pub fn update_pos(
-    storage: &Storage,
-    world: &mut hecs::World,
-    entity: &crate::Entity,
-) -> Result<()> {
+pub fn update_pos(storage: &Storage, world: &mut World, entity: &crate::Entity) -> Result<()> {
     let rt = storage.rt.borrow_mut();
     let local = storage.local.borrow();
     let player = PGPlayerPos::new(world, entity);
@@ -425,11 +406,7 @@ pub fn update_pos(
     Ok(())
 }
 
-pub fn update_currency(
-    storage: &Storage,
-    world: &mut hecs::World,
-    entity: &crate::Entity,
-) -> Result<()> {
+pub fn update_currency(storage: &Storage, world: &mut World, entity: &crate::Entity) -> Result<()> {
     let rt = storage.rt.borrow_mut();
     let local = storage.local.borrow();
     let player = PGPlayerCurrency::new(world, entity);
@@ -451,11 +428,7 @@ pub fn update_currency(
     Ok(())
 }
 
-pub fn update_level(
-    storage: &Storage,
-    world: &mut hecs::World,
-    entity: &crate::Entity,
-) -> Result<()> {
+pub fn update_level(storage: &Storage, world: &mut World, entity: &crate::Entity) -> Result<()> {
     let rt = storage.rt.borrow_mut();
     let local = storage.local.borrow();
     let player = PGPlayerLevel::new(world, entity);
@@ -481,7 +454,7 @@ pub fn update_level(
 
 pub fn update_resetcount(
     storage: &Storage,
-    world: &mut hecs::World,
+    world: &mut World,
     entity: &crate::Entity,
 ) -> Result<()> {
     let rt = storage.rt.borrow_mut();

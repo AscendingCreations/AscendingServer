@@ -1,10 +1,10 @@
-use crate::{
-    containers::Storage, gametypes::*, maps::*, players::*, sql::*, tasks::*,
-};
+use hecs::World;
+
+use crate::{containers::Storage, gametypes::*, maps::*, players::*, sql::*, tasks::*};
 
 //TODO: Add Result<(), AscendingError> to all Functions that return nothing.
 pub fn player_warp(
-    world: &mut hecs::World,
+    world: &mut World,
     storage: &Storage,
     entity: &Entity,
     new_pos: &Position,
@@ -12,14 +12,10 @@ pub fn player_warp(
 ) {
     if world.get_or_panic::<Position>(entity).map != new_pos.map {
         let old_pos = player_switch_maps(world, storage, entity, *new_pos);
-        let _ = DataTaskToken::PlayerWarp(old_pos.map).add_task(
-            storage,
-            &WarpPacket::new(*entity, *new_pos),
-        );
-        let _ = DataTaskToken::PlayerWarp(new_pos.map).add_task(
-            storage,
-            &WarpPacket::new(*entity, *new_pos),
-        );
+        let _ = DataTaskToken::PlayerWarp(old_pos.map)
+            .add_task(storage, &WarpPacket::new(*entity, *new_pos));
+        let _ = DataTaskToken::PlayerWarp(new_pos.map)
+            .add_task(storage, &WarpPacket::new(*entity, *new_pos));
         let _ = DataTaskToken::PlayerSpawn(new_pos.map)
             .add_task(storage, &PlayerSpawnPacket::new(world, entity));
         init_data_lists(world, storage, entity, old_pos.map);
@@ -29,10 +25,8 @@ pub fn player_warp(
             let _ = DataTaskToken::PlayerSpawn(new_pos.map)
                 .add_task(storage, &PlayerSpawnPacket::new(world, entity));
         } else {
-            let _ = DataTaskToken::PlayerWarp(new_pos.map).add_task(
-                storage,
-                &WarpPacket::new(*entity, *new_pos),
-            );
+            let _ = DataTaskToken::PlayerWarp(new_pos.map)
+                .add_task(storage, &WarpPacket::new(*entity, *new_pos));
         }
     }
 
@@ -53,12 +47,7 @@ pub fn player_warp(
     }
 }
 
-pub fn player_movement(
-    world: &mut hecs::World,
-    storage: &Storage,
-    entity: &Entity,
-    dir: u8,
-) -> bool {
+pub fn player_movement(world: &mut World, storage: &Storage, entity: &Entity, dir: u8) -> bool {
     let adj = [(0, -1), (1, 0), (0, 1), (-1, 0)];
     let player_position = world.get_or_panic::<Position>(entity);
     let mut new_pos = Position::new(
