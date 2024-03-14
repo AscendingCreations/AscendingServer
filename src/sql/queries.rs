@@ -181,7 +181,7 @@ pub fn load_player(storage: &Storage, world: &mut World, entity: &crate::Entity)
 
     let player_with_id: PGPlayerWithID = local.block_on(&rt,
         sqlx::query_as(r#"
-        SELECT uid, username, address, password, itemtimer, deathtimer, vals, spawn, spawn_map, pos, pos_map, email, sprite, indeath, level, levelexp, resetcount, pk, data, vital, passresetcode, access
+        SELECT uid, username, address, password, itemtimer, deathtimer, vals, spawn, pos, email, sprite, indeath, level, levelexp, resetcount, pk, data, vital, passresetcode, access
 	    FROM public.player where uid = $1;
         "#)
             .bind(accountid)
