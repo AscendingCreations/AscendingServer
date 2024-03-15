@@ -106,7 +106,7 @@ pub fn update_npcs(world: &mut World, storage: &Storage) {
 
     for i in unloadnpcs {
         if let Some(pos) = storage.remove_npc(world, i) {
-            let _ = DataTaskToken::NpcUnload(pos.map).add_task(storage, &(i));
+            let _ = DataTaskToken::EntityUnload(pos.map).add_task(storage, &(i));
         }
     }
 }

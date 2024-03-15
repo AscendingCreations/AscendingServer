@@ -18,7 +18,6 @@ pub enum DataTaskToken {
     NpcMove(MapPosition),
     NpcDir(MapPosition),
     NpcDeath(MapPosition),
-    NpcUnload(MapPosition),
     NpcAttack(MapPosition),
     NpcSpawn(MapPosition),
     NpcVitals(MapPosition),
@@ -27,15 +26,14 @@ pub enum DataTaskToken {
     PlayerWarp(MapPosition),
     PlayerDir(MapPosition),
     PlayerDeath(MapPosition),
-    PlayerUnload(MapPosition),
     PlayerAttack(MapPosition),
     PlayerSpawn(MapPosition),
     PlayerLevel(MapPosition),
     PlayerVitals(MapPosition),
     PlayerDamage(MapPosition),
     MapChat(MapPosition),
-    ItemUnload(MapPosition),
     ItemLoad(MapPosition),
+    EntityUnload(MapPosition),
     PlayerSpawnToEntity(usize), //SocketID
     NpcSpawnToEntity(usize),    //SocketID
     ItemLoadToEntity(usize),    //SocketID
@@ -113,13 +111,11 @@ impl DataTaskToken {
             PlayerDir(_) => ServerPackets::PlayerDir,
             NpcDeath(_) => ServerPackets::NpcDeath,
             PlayerDeath(_) => ServerPackets::PlayerDeath,
-            NpcUnload(_) => ServerPackets::NpcUnload,
-            PlayerUnload(_) => ServerPackets::PlayerUnload,
             NpcAttack(_) => ServerPackets::NpcAttack,
             PlayerAttack(_) => ServerPackets::PlayerAttack,
             NpcVitals(_) => ServerPackets::NpcVital,
             PlayerVitals(_) => ServerPackets::PlayerVitals,
-            ItemUnload(_) => ServerPackets::MapItemsUnload,
+            EntityUnload(_) => ServerPackets::EntityUnload,
             NpcSpawn(_) | NpcSpawnToEntity(_) => ServerPackets::NpcData,
             PlayerSpawn(_) | PlayerSpawnToEntity(_) => ServerPackets::PlayerSpawn,
             MapChat(_) => ServerPackets::ChatMsg,
@@ -136,9 +132,9 @@ impl DataTaskToken {
         match self {
             GlobalChat => send_to_all(world, storage, buf),
             NpcMove(mappos) | PlayerMove(mappos) | PlayerWarp(mappos) | NpcDir(mappos)
-            | PlayerDir(mappos) | NpcDeath(mappos) | PlayerDeath(mappos) | NpcUnload(mappos)
-            | PlayerUnload(mappos) | NpcAttack(mappos) | PlayerAttack(mappos)
-            | ItemUnload(mappos) | NpcSpawn(mappos) | PlayerSpawn(mappos) | MapChat(mappos)
+            | PlayerDir(mappos) | NpcDeath(mappos) | PlayerDeath(mappos)
+            | EntityUnload(mappos) | NpcAttack(mappos) | PlayerAttack(mappos)
+            | NpcSpawn(mappos) | PlayerSpawn(mappos) | MapChat(mappos)
             | ItemLoad(mappos) | PlayerVitals(mappos) | PlayerLevel(mappos)
             | PlayerDamage(mappos) | NpcDamage(mappos) | NpcVitals(mappos) => {
                 send_to_maps(world, storage, *mappos, buf, None)

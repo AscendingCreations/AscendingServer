@@ -556,7 +556,7 @@ pub fn handle_pickup(
         if let Some(id) = remid {
             if let Some(map) = storage.maps.get(&id.0) {
                 map.borrow_mut().remove_item(id.1);
-                let _ = DataTaskToken::ItemUnload(id.0).add_task(storage, &(id.1));
+                let _ = DataTaskToken::EntityUnload(id.0).add_task(storage, &(id.1));
             }
         }
         {
@@ -785,6 +785,23 @@ pub fn handle_message(
         };
 
         return send_message(world, storage, entity, msg, head, channel, usersocket);
+    }
+
+    Err(AscendingError::InvalidSocket)
+}
+
+pub fn handle_admincommand(
+    _world: &mut World,
+    storage: &Storage,
+    data: &mut ByteBuffer,
+    entity: &Entity,
+) -> Result<()> {
+    if let Some(p) = storage.player_ids.borrow().get(entity) {
+        let command = data.read::<AdminCommand>()?;
+
+        println!("Command Received {:?}", command);
+
+        return Ok(());
     }
 
     Err(AscendingError::InvalidSocket)

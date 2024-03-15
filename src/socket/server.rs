@@ -97,7 +97,7 @@ pub fn poll_events(world: &mut World, storage: &Storage) -> Result<()> {
     storage
         .poll
         .borrow_mut()
-        .poll(&mut events, Some(Duration::from_millis(100)))?;
+        .poll(&mut events, Some(Duration::from_millis(0)))?;
 
     for event in events.iter() {
         match event.token() {

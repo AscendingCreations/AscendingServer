@@ -546,7 +546,6 @@ pub enum ServerPackets {
     Ingame,
     UpdateMap,
     MapItems,
-    MapItemsUnload,
     MyIndex,
     PlayerData,
     PlayerSpawn,
@@ -573,7 +572,6 @@ pub enum ServerPackets {
     PlayerPvp,
     PlayerPk,
     PlayerEmail,
-    NpcUnload,
     NpcData,
     NpcMove,
     NpcDir,
@@ -584,7 +582,7 @@ pub enum ServerPackets {
     Sound,
     Target,
     SyncCheck,
-    PlayerUnload,
+    EntityUnload,
     LoadStatus,
     ServerPacketCount,
 }
@@ -750,4 +748,18 @@ pub enum MessageChannel {
     Help,
     Quest,
     Npc,
+}
+
+#[derive(
+    Clone,
+    Debug,
+    PartialEq,
+    Eq,
+    ByteBufferRead,
+    ByteBufferWrite,
+)]
+pub enum AdminCommand {
+    KickPlayer(String),
+    WarpTo(Position),
+    SpawnNpc(i32, Position),
 }

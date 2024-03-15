@@ -216,43 +216,6 @@ pub fn send_data_remove_list(storage: &Storage, socket_id: usize, remove: &[Enti
     Ok(())
 }
 
-pub fn send_data_remove(
-    world: &mut World,
-    storage: &Storage,
-    id: u64,
-    map: MapPosition,
-    datatype: u8,
-) -> Result<()> {
-    let mut buf = ByteBuffer::new_packet_with(24)?;
-
-    buf.write(ServerPackets::Dataremove)?;
-    buf.write(datatype)?;
-    buf.write(id)?;
-    buf.finish()?;
-
-    send_to_maps(world, storage, map, buf, None);
-
-    Ok(())
-}
-
-pub fn send_data_remove_all(
-    world: &mut World,
-    storage: &Storage,
-    id: u64,
-    datatype: u8,
-) -> Result<()> {
-    let mut buf = ByteBuffer::new_packet_with(24)?;
-
-    buf.write(ServerPackets::Dataremove)?;
-    buf.write(datatype)?;
-    buf.write(id)?;
-    buf.finish()?;
-
-    send_to_all(world, storage, buf);
-
-    Ok(())
-}
-
 #[inline]
 pub fn send_vitals(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(32)?;

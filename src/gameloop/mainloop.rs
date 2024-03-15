@@ -144,14 +144,6 @@ pub fn process_packets(world: &mut World, storage: &Storage, router: &PacketRout
                 let cursor = buffer.cursor() - 8;
                 let _ = buffer.move_cursor(cursor);
 
-                if let Some(client) = storage.server.borrow().clients.get(&mio::Token(socket_id)) {
-                    client.borrow_mut().poll_state.add(SocketPollState::Read);
-                    client
-                        .borrow_mut()
-                        .reregister(&storage.poll.borrow_mut())
-                        .unwrap();
-                }
-
                 rem_arr.push(*entity);
                 break;
             }
@@ -171,6 +163,14 @@ pub fn process_packets(world: &mut World, storage: &Storage, router: &PacketRout
     }
 
     for i in rem_arr {
+        /*if let Some(client) = storage.server.borrow().clients.get(&mio::Token(socket_id)) {
+            client.borrow_mut().poll_state.add(SocketPollState::Read);
+            client
+                .borrow_mut()
+                .reregister(&storage.poll.borrow_mut())
+                .unwrap();
+        }*/
+
         storage.recv_ids.borrow_mut().swap_remove(&i);
     }
 }

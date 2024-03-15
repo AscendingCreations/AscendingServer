@@ -1,4 +1,4 @@
-use crate::{containers::Storage, gametypes::*, maps::*, players::*, socket::*};
+use crate::{containers::Storage, gametypes::*, maps::*, players::*, socket::*, tasks::DataTaskToken};
 use hecs::World;
 use mio::{net::TcpStream, Interest};
 use std::io::{self, Read, Write};
@@ -90,7 +90,7 @@ impl Client {
         storage: &Storage,
     ) -> Result<()> {
         //We set it as None so we can fully control when to enable it again based on conditions.
-        self.poll_state.set(SocketPollState::None);
+        self.poll_state.set(SocketPollState::Read);
 
         // Check if the Event has some readable Data from the Poll State.
         if event.is_readable() {
@@ -261,6 +261,8 @@ pub fn disconnect(playerid: Entity, world: &mut World, storage: &Storage) {
             map.borrow_mut().remove_player(storage, playerid);
             //todo Add save for player world here.
             //todo Add Update Players on map here.
+            map.borrow_mut().remove_entity_from_grid(position);
+            let _ = DataTaskToken::EntityUnload(position.map).add_task(storage, &(playerid));
         }
     }
 }
