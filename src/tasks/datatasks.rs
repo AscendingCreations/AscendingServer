@@ -183,8 +183,8 @@ pub fn new_cache(packet_id: ServerPackets) -> Result<ByteBuffer> {
 
 pub fn finish_cache(buffer: &mut ByteBuffer, count: u32, is_finished: bool) -> Result<()> {
     if !is_finished {
-        //Move it 8 bytes for Size + 4 bytes for Packet ID to get count location.
-        buffer.move_cursor(12)?;
+        //Move it 8 bytes for Size + 2 bytes for Packet ID enum to get count location.
+        buffer.move_cursor(10)?;
         //Write the count from the offset cursor position.
         //This will overwrite old data which in this case is empty.
         buffer.write(count)?;

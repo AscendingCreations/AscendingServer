@@ -6,34 +6,93 @@ use crate::{
 use bit_op::{bit_u8::*, BitOp};
 use hecs::World;
 use serde::{Deserialize, Serialize};
-use serde_big_array::BigArray;
+//use serde_big_array::BigArray;
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
+use std::fs::{self, OpenOptions};
+use std::io::BufReader;
+use std::path::Path;
+
+const MAP_PATH: &str = "./data/maps/";
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub enum MapAttribute {
+    Walkable,
+    Blocked,
+    Warp(i32, i32, u64, u32, u32),
+    Sign(String),
+    Count,
+}
+
+/*#[derive(Copy, Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct Tile {
     data: [i32; 4],
     attr: u8,
-}
+}*/
 
 //TODO: Update to use MAP (x,y,group) for map locations and Remove map links?
 #[derive(Clone, Derivative, Serialize, Deserialize)]
 #[derivative(Default(new = "true"))]
 pub struct Map {
     pub position: MapPosition,
-    #[derivative(Default(value = "[Tile::default(); MAP_MAX_X * MAP_MAX_Y]"))]
-    #[serde(with = "BigArray")]
-    pub tiles: [Tile; MAP_MAX_X * MAP_MAX_Y],
+    //#[derivative(Default(value = "[Tile::default(); MAP_MAX_X * MAP_MAX_Y]"))]
+    //#[serde(with = "BigArray")]
+    //pub tiles: [Tile; MAP_MAX_X * MAP_MAX_Y],
+    pub attribute: Vec<MapAttribute>,
     // Tiles for zone spawning. (x, y) using u8 to cut down the size and since maps should never Exceed 64x64
     // As super large maps are stupid within a Seamless Structure.
-    pub zonespawns: [Vec<(u8, u8)>; 5],
-    pub music: u32,
-    pub weather: Weather,
+    pub zonespawns: [Vec<(u16, u16)>; 5],
     // (Max spawns per zone, [npc_id; 5])
     pub zones: [(u64, [Option<u64>; 5]); 5],
+    pub music: u32,
+    pub weather: Weather,
 }
 
 impl Map {
     pub fn get_surrounding(&self, include_corners: bool) -> Vec<MapPosition> {
         get_surrounding(self.position, include_corners)
+    }
+}
+
+pub fn get_maps() -> Vec<Map> {
+    let entries = fs::read_dir(MAP_PATH).unwrap();
+
+    let mut map_data: Vec<Map> = Vec::new();
+
+    for entry_data in entries.flatten() {
+        if let Ok(filename) = entry_data.file_name().into_string() {
+            if let Some(mapdata) = load_map(filename) {
+                map_data.push(mapdata);
+            }
+        }
+    }
+
+    map_data
+}
+
+fn load_map(filename: String) -> Option<Map> {
+    let name = format!("{}{}", MAP_PATH, filename);
+
+    if !Path::new(&name).exists() {
+        println!("Map does not exist");
+        return None;
+    }
+
+    match OpenOptions::new().read(true).open(&name) {
+        Ok(file) => {
+            let reader = BufReader::new(file);
+
+            match serde_json::from_reader(reader) {
+                Ok(data) => Some(data),
+                Err(e) => {
+                    println!("Failed to load {}, Err {:?}", name, e);
+                    None
+                }
+            }
+        }
+        Err(e) => {
+            println!("Failed to load {}, Err {:?}", name, e);
+            None
+        }
     }
 }
 

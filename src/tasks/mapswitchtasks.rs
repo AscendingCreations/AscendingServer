@@ -21,15 +21,17 @@ pub fn init_data_lists(
     world: &mut World,
     storage: &Storage,
     user: &crate::Entity,
-    oldmap: MapPosition,
+    oldmap: Option<MapPosition>,
 ) {
+    let mut map_switch_tasks = storage.map_switch_tasks.borrow_mut();
+
     //Remove old tasks and replace with new ones during map switching.
-    if let Some(tasks) = storage.map_switch_tasks.borrow_mut().get_mut(user) {
+    if let Some(tasks) = map_switch_tasks.get_mut(user) {
         //If this contains any tasks we will clear them first. as we only want to send whats relevent.
         tasks.clear();
     } else {
         //if the task was removed after processing then we simply add a new one.
-        storage.map_switch_tasks.borrow_mut().insert(*user, vec![]);
+        map_switch_tasks.insert(*user, vec![]);
     }
 
     let socket_id = world.get::<&Socket>(user.0).unwrap().id;
@@ -63,19 +65,21 @@ pub fn init_data_lists(
     let mut task_item = Vec::with_capacity(50);
 
     //get the old map npcs, players and items so we can send remove requests.
-    for m in get_surrounding(oldmap, true) {
-        if let Some(map) = storage.maps.get(&m) {
-            map.borrow().players.iter().for_each(|id| {
-                old_players.insert(*id);
-            });
+    if let Some(old_map) = oldmap {
+        for m in get_surrounding(old_map, true) {
+            if let Some(map) = storage.maps.get(&m) {
+                map.borrow().players.iter().for_each(|id| {
+                    old_players.insert(*id);
+                });
 
-            map.borrow().npcs.iter().for_each(|id| {
-                old_npcs.insert(*id);
-            });
+                map.borrow().npcs.iter().for_each(|id| {
+                    old_npcs.insert(*id);
+                });
 
-            map.borrow().itemids.iter().for_each(|id| {
-                old_items.insert(*id);
-            });
+                map.borrow().itemids.iter().for_each(|id| {
+                    old_items.insert(*id);
+                });
+            }
         }
     }
 
@@ -134,7 +138,7 @@ pub fn init_data_lists(
 
     let _ = send_data_remove_list(storage, socket_id, &removals);
 
-    if let Some(tasks) = storage.map_switch_tasks.borrow_mut().get_mut(user) {
+    if let Some(tasks) = map_switch_tasks.get_mut(user) {
         tasks.push(MapSwitchTasks::Player(task_player));
         tasks.push(MapSwitchTasks::Npc(task_npc));
         tasks.push(MapSwitchTasks::Items(task_item));

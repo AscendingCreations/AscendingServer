@@ -334,12 +334,22 @@ pub fn joingame(world: &mut World, storage: &Storage, entity: &Entity) {
         *world.get::<&mut OnlineType>(entity.0).unwrap() = OnlineType::Online;
     }
 
+    // Send player index and data
     let _ = send_myindex(storage, socket_id, entity);
     let _ = send_playerdata(world, storage, socket_id, entity);
 
+    // Set player position based on the loaded data
     let position = world.get_or_panic::<Position>(entity);
     player_warp(world, storage, entity, &position, true);
 
+    // Add player on map
+    if let Some(mapref) = storage.maps.get(&position.map) {
+        let mut map = mapref.borrow_mut();
+        map.add_player(storage, *entity);
+        map.add_entity_to_grid(position);
+    }
+
     println!("Login Ok");
+    // Finish loading
     let _ = send_loginok(storage, socket_id);
 }

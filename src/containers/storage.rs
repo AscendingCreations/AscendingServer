@@ -176,22 +176,30 @@ impl Storage {
             local: RefCell::new(local),
         };
 
-        let map_data_entry = crate::database::map::get_maps();
+        let map_data_entry = crate::maps::get_maps();
         map_data_entry.iter().for_each(|map_data| {
             storage.maps.insert(
                 MapPosition {
-                    x: map_data.x,
-                    y: map_data.y,
-                    group: map_data.group as i32,
+                    x: map_data.position.x,
+                    y: map_data.position.y,
+                    group: map_data.position.group,
                 },
                 RefCell::new(MapData {
                     position: MapPosition {
-                        x: map_data.x,
-                        y: map_data.y,
-                        group: map_data.group as i32,
+                        x: map_data.position.x,
+                        y: map_data.position.y,
+                        group: map_data.position.group as i32,
                     },
                     ..Default::default()
                 }),
+            );
+
+            storage.bases.maps.insert(
+                MapPosition {
+                    x: map_data.position.x,
+                    y: map_data.position.y,
+                    group: map_data.position.group,
+                }, map_data.clone()
             );
         });
 
@@ -248,8 +256,10 @@ impl Storage {
                 UserAccess::default(),
                 Position::default(),
                 DeathType::default(),
+                IsUsingType::default(),
             ),
         );
+        self.player_ids.borrow_mut().insert(*entity);
     }
 
     pub fn remove_player(&self, world: &mut World, id: Entity) -> Option<(Socket, Position)> {

@@ -135,7 +135,7 @@ pub fn handle_login(
 
     let socket_id = world.get::<&Socket>(entity.0).unwrap().id;
 
-    if let Some(p) = storage.player_ids.borrow().get(entity) {
+    if !storage.player_ids.borrow().contains(entity) {
         if username.len() >= 64 || password.len() >= 128 {
             return send_infomsg(
                 storage,
@@ -165,7 +165,7 @@ pub fn handle_login(
         storage.add_player_data(world, entity);
 
         world
-            .get::<&mut Account>(p.0)
+            .get::<&mut Account>(entity.0)
             .expect("Could not find Account")
             .id = id;
 
@@ -173,9 +173,7 @@ pub fn handle_login(
             return send_infomsg(storage, socket_id, "Error Loading User.".into(), 1);
         }
 
-        send_loginok(storage, socket_id)?;
-
-        //joingame(index);
+        joingame(world, storage, entity);
         return Ok(());
     }
 
@@ -196,8 +194,8 @@ pub fn handle_move(
             return Ok(());
         }
 
-        let dir: u8 = data.read()?;
-        let data_pos: Position = data.read()?;
+        let dir = data.read::<u8>()?;
+        let data_pos = data.read::<Position>()?;
 
         if storage.bases.maps.get(&data_pos.map).is_none() || dir > 3 {
             return Err(AscendingError::InvalidPacket);
@@ -211,9 +209,11 @@ pub fn handle_move(
         }
 
         player_movement(world, storage, entity, dir);
+        println!("Move Complete");
         return Ok(());
     }
 
+    println!("Invalid Socket");
     Err(AscendingError::InvalidSocket)
 }
 

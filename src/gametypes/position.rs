@@ -125,7 +125,7 @@ impl Position {
 
         //precheck to make sure its not outside the 9 by 9 map area so calculations are correct.
         //TODO: Make this work for further outside the default map zones.
-        if self.x > 63 || self.x < -63 || self.y > 63 || self.y < 63 {
+        if self.x > 63 || self.x < -63 || self.y > 63 || self.y < -63 {
             return false;
         }
 

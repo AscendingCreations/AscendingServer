@@ -160,18 +160,31 @@ pub fn send_dir(world: &mut World, storage: &Storage, entity: &Entity, toself: b
 }
 
 #[inline]
-pub fn send_move(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
-    let mut buf = ByteBuffer::new_packet_with(24)?;
-
-    let pos = world.get_or_panic::<Position>(entity);
+pub fn send_move(
+    world: &mut World,
+    storage: &Storage,
+    entity: &Entity,
+    pos: Position,
+    warp: bool,
+    switch: bool,
+    dir: u8,
+    send_to_pos: Option<Position>
+) -> Result<()> {
+    let mut buf = ByteBuffer::new_packet_with(31)?;
 
     buf.write(ServerPackets::PlayerMove)?;
     buf.write(*entity)?;
     buf.write(pos)?;
-    buf.write(world.get_or_panic::<Dir>(entity).0)?;
+    buf.write(warp)?;
+    buf.write(switch)?;
+    buf.write(dir)?;
     buf.finish()?;
 
-    send_to_maps(world, storage, pos.map, buf, Some(*entity));
+    if let Some(sendpos) = send_to_pos {
+        send_to_maps(world, storage, sendpos.map, buf, Some(*entity));
+    } else {
+        send_to_maps(world, storage, pos.map, buf, Some(*entity));
+    }
 
     Ok(())
 }

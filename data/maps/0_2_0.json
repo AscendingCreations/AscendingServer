@@ -1,7 +1,9 @@
 {
-  "x": 0,
-  "y": 2,
-  "group": 0,
+  "position": {
+    "x": 0,
+    "y": 2,
+    "group": 0
+  },
   "tile": [
     {
       "id": [
@@ -10341,5 +10343,6 @@
       ]
     ]
   ],
-  "fixed_weather": 0
+  "music": 0,
+  "weather": 0
 }

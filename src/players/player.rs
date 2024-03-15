@@ -107,27 +107,27 @@ pub fn player_switch_maps(
     let player_position = world.get_or_panic::<Position>(entity);
 
     let old_position = player_position;
-    let mut map = match storage.maps.get(&player_position.map) {
-        Some(map) => map,
-        None => return old_position,
-    }
-    .borrow_mut();
-    map.remove_player(storage, *entity);
-    map.remove_entity_from_grid(player_position);
 
-    let mut map = match storage.maps.get(&new_pos.map) {
-        Some(map) => map,
-        None => return old_position,
+    if let Some(mapref) = storage.maps.get(&player_position.map) {
+        let mut map = mapref.borrow_mut();
+        map.remove_player(storage, *entity);
+        map.remove_entity_from_grid(player_position);
+    } else {
+        return old_position;
     }
-    .borrow_mut();
-    map.add_player(storage, *entity);
-    map.add_entity_to_grid(new_pos);
 
-    {
-        *world
-            .get::<&mut Position>(entity.0)
-            .expect("Could not find Position") = new_pos;
+    if let Some(mapref) = storage.maps.get(&new_pos.map) {
+        let mut map = mapref.borrow_mut();
+        map.add_player(storage, *entity);
+        map.add_entity_to_grid(new_pos);
+    } else {
+        return old_position;
     }
+
+    *world
+        .get::<&mut Position>(entity.0)
+        .expect("Could not find Position") = new_pos;
+
     old_position
 }
 
