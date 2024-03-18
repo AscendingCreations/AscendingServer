@@ -1,4 +1,4 @@
-use crate::{containers::Storage, gametypes::*, npcs::npc_warp};
+use crate::{containers::Storage, gametypes::*, npcs::{npc_warp, NpcSpawnedZone}};
 use hecs::World;
 use rand::{thread_rng, Rng};
 use std::{borrow::BorrowMut, cmp::min};
@@ -28,7 +28,7 @@ pub fn update_maps(world: &mut World, storage: &Storage) -> Result<()> {
                 for (id, (max_npcs, zone_npcs)) in map.zones.iter().enumerate() {
                     let data = map_data.borrow();
                     //We want to only allow this many npcs per map to spawn at a time.
-                    if count + 1 >= NPCS_SPAWNCAP {
+                    if count >= NPCS_SPAWNCAP {
                         break;
                     }
 
@@ -58,7 +58,7 @@ pub fn update_maps(world: &mut World, storage: &Storage) -> Result<()> {
                             }
 
                             //Lets only allow spawning of a set amount each time. keep from over burdening the system.
-                            if count + 1 >= max_spawnable || len + 1 >= MAX_WORLD_NPCS {
+                            if count >= max_spawnable || len >= MAX_WORLD_NPCS {
                                 break;
                             }
 
@@ -94,7 +94,7 @@ pub fn update_maps(world: &mut World, storage: &Storage) -> Result<()> {
                     if let Ok(id) = storage.add_npc(world, npc_id) {
                         data.add_npc(id);
                         data.zones[zone] = data.zones[zone].saturating_add(1);
-                        spawn_npc(world, storage, spawn, id);
+                        spawn_npc(world, storage, spawn, Some(zone), id);
                     }
                 }
             }
@@ -104,9 +104,11 @@ pub fn update_maps(world: &mut World, storage: &Storage) -> Result<()> {
     Ok(())
 }
 
-pub fn spawn_npc(world: &mut World, storage: &Storage, pos: Position, entity: Entity) {
+pub fn spawn_npc(world: &mut World, storage: &Storage, pos: Position, zone: Option<usize>, entity: Entity) {
     {
         *world.get::<&mut Position>(entity.0).expect("Could not find Position") = pos;
+        world.get::<&mut Spawn>(entity.0).expect("Could not find Spawn").pos = pos;
+        world.get::<&mut NpcSpawnedZone>(entity.0).expect("Could not find NpcSpawnedZone").0 = zone;
+        *world.get::<&mut DeathType>(entity.0).expect("Could not find DeathType") = DeathType::Spawning;
     }
-    npc_warp(world, storage, &entity, &pos, true);
 }

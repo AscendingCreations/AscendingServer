@@ -263,7 +263,7 @@ pub fn handle_attack(
         }
 
         let dir = data.read::<u8>()?;
-        let _id = data.read::<u8>()?;
+        let target = data.read::<Option<Entity>>()?;
 
         if dir > 3 {
             return Err(AscendingError::InvalidPacket);
@@ -278,6 +278,18 @@ pub fn handle_attack(
             }
             send_dir(world, storage, entity, true)?;
         };
+
+        if let Some(entity) = target {
+            if world.contains(entity.0) {
+                match world.get_or_panic::<&WorldEntityType>(&entity) {
+                    WorldEntityType::Npc => {
+                        *world.get::<&mut DeathType>(entity.0).expect("Could not find DeathType") = DeathType::UnSpawned;
+                    }
+                    _ => {}
+                }
+                
+            }
+        }
 
         //TODO Add Attack funciton call here for player attacks
         return Ok(());
@@ -812,7 +824,7 @@ pub fn handle_admincommand(
                     let mut data = mapdata.borrow_mut();
                     if let Ok(id) = storage.add_npc(world, index as u64) {
                         data.add_npc(id);
-                        spawn_npc(world, storage, pos, id);
+                        spawn_npc(world, storage, pos, None, id);
                     }
                 }
             }

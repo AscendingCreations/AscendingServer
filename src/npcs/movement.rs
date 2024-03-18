@@ -7,7 +7,6 @@ pub fn npc_warp(
     storage: &Storage,
     entity: &Entity,
     new_pos: &Position,
-    spawn: bool,
 ) {
     if world.get_or_panic::<Position>(entity).map != new_pos.map {
         let old_pos = npc_switch_maps(world, storage, entity, *new_pos);
@@ -19,13 +18,8 @@ pub fn npc_warp(
             .add_task(storage, &NpcSpawnPacket::new(world, entity));
     } else {
         npc_swap_pos(world, storage, entity, *new_pos);
-        if spawn {
-            let _ = DataTaskToken::NpcSpawn(new_pos.map)
-                .add_task(storage, &NpcSpawnPacket::new(world, entity));
-        } else {
-            let _ = DataTaskToken::NpcWarp(new_pos.map)
-                .add_task(storage, &WarpPacket::new(*entity, *new_pos));
-        }
+        let _ = DataTaskToken::NpcWarp(new_pos.map)
+            .add_task(storage, &WarpPacket::new(*entity, *new_pos));
     }
 }
 

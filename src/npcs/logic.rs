@@ -72,7 +72,6 @@ pub fn update_npcs(world: &mut World, storage: &Storage) {
                     {}
                 }
             }
-
             DeathType::UnSpawned => unloadnpcs.push(*id),
             DeathType::Spawning => {
                 if world.get_or_panic::<NpcTimer>(id).spawntimer < tick {
@@ -83,7 +82,7 @@ pub fn update_npcs(world: &mut World, storage: &Storage) {
                     };
 
                     //make sure we can spawn here before even spawning them.
-                    if map_data
+                    if !map_data
                         .borrow()
                         .is_blocked_tile(world.get_or_panic::<Spawn>(id).pos)
                     {
@@ -95,6 +94,7 @@ pub fn update_npcs(world: &mut World, storage: &Storage) {
                         map_data
                             .borrow_mut()
                             .add_entity_to_grid(world.get_or_panic::<Spawn>(id).pos);
+                        
                         let _ = DataTaskToken::NpcSpawn(world.get_or_panic::<Spawn>(id).pos.map)
                             .add_task(storage, &NpcSpawnPacket::new(world, id));
                     }
@@ -105,7 +105,17 @@ pub fn update_npcs(world: &mut World, storage: &Storage) {
     }
 
     for i in unloadnpcs {
+        let zone_data = world.get_or_panic::<NpcSpawnedZone>(&i).0;
+
         if let Some(pos) = storage.remove_npc(world, i) {
+            if let Some(mapdata) = storage.maps.get(&pos.map) {
+                let mut data = mapdata.borrow_mut();
+                
+                data.remove_npc(i);
+                if let Some(zone) = zone_data {
+                    data.zones[zone] = data.zones[zone].saturating_sub(1);
+                }
+            }
             let _ = DataTaskToken::EntityUnload(pos.map).add_task(storage, &(i));
         }
     }

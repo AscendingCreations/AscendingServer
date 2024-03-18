@@ -244,6 +244,7 @@ impl Storage {
                 Vitals::default(),
                 Dir::default(),
                 AttackTimer::default(),
+                WorldEntityType::Player,
             ),
         );
         let _ = world.insert(
