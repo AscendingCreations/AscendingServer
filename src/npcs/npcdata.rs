@@ -74,7 +74,7 @@ impl NpcData {
             vitalmax: [self.maxhp as i32, self.maxmp as i32, self.maxsp as i32],
             pdamage: self.pdamage,
             pdefense: self.pdefense,
-            life: DeathType::UnSpawned,
+            life: DeathType::Dead,
             dir: rng.gen_range(0..4),
             mode: NpcMode::Normal,
             ..Default::default()

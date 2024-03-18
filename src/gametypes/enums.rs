@@ -499,7 +499,6 @@ pub enum DeathType {
     Alive,
     Spirit,
     Dead,
-    UnSpawned,
     Spawning,
 }
 
@@ -514,10 +513,6 @@ impl DeathType {
 
     pub fn is_alive(self) -> bool {
         matches!(self, DeathType::Alive)
-    }
-
-    pub fn is_unspawned(self) -> bool {
-        matches!(self, DeathType::UnSpawned)
     }
 
     pub fn is_spawning(self) -> bool {

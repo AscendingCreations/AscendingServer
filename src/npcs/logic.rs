@@ -14,7 +14,7 @@ pub fn update_npcs(world: &mut World, storage: &Storage) {
                 {
                     *world
                         .get::<&mut DeathType>(id.0)
-                        .expect("Could not find DeathType") = DeathType::UnSpawned;
+                        .expect("Could not find DeathType") = DeathType::Dead;
                     unloadnpcs.push(*id);
                     continue;
                 }
@@ -72,7 +72,7 @@ pub fn update_npcs(world: &mut World, storage: &Storage) {
                     {}
                 }
             }
-            DeathType::UnSpawned => unloadnpcs.push(*id),
+            DeathType::Dead => unloadnpcs.push(*id),
             DeathType::Spawning => {
                 if world.get_or_panic::<NpcTimer>(id).spawntimer < tick {
                     let map_data = match storage.maps.get(&world.get_or_panic::<Spawn>(id).pos.map)

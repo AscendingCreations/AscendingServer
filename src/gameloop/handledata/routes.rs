@@ -283,11 +283,10 @@ pub fn handle_attack(
             if world.contains(entity.0) {
                 match world.get_or_panic::<&WorldEntityType>(&entity) {
                     WorldEntityType::Npc => {
-                        *world.get::<&mut DeathType>(entity.0).expect("Could not find DeathType") = DeathType::UnSpawned;
+                        *world.get::<&mut DeathType>(entity.0).expect("Could not find DeathType") = DeathType::Dead;
                     }
                     _ => {}
                 }
-                
             }
         }
 
