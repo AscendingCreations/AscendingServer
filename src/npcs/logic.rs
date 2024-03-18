@@ -24,7 +24,7 @@ pub fn update_npcs(world: &mut World, storage: &Storage) {
                     .npcs
                     .get(world.get_or_panic::<NpcIndex>(id).0 as usize)
                 {
-                    if !storage
+                    /*if !storage
                         .time
                         .borrow()
                         .in_range(npcdata.spawntime.0, npcdata.spawntime.1)
@@ -34,7 +34,7 @@ pub fn update_npcs(world: &mut World, storage: &Storage) {
                             .expect("Could not find DeathType") = DeathType::UnSpawned;
                         unloadnpcs.push(*id);
                         continue;
-                    }
+                    }*/
 
                     //targeting
                     if npcdata.can_target

@@ -4,10 +4,6 @@ use std::cmp;
 
 use hecs::World;
 
-pub mod movement;
-
-pub use movement::*;
-
 pub fn update_players(world: &mut World, storage: &Storage) {
     let tick = *storage.gettick.borrow();
 

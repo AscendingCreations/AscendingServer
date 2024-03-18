@@ -1,7 +1,9 @@
-use crate::{containers::Storage, gametypes::*};
+use crate::{containers::Storage, gametypes::*, npcs::npc_warp};
 use hecs::World;
 use rand::{thread_rng, Rng};
-use std::cmp::min;
+use std::{borrow::BorrowMut, cmp::min};
+
+use super::MapData;
 
 pub fn update_maps(world: &mut World, storage: &Storage) -> Result<()> {
     let mut rng = thread_rng();
@@ -63,21 +65,23 @@ pub fn update_maps(world: &mut World, storage: &Storage) -> Result<()> {
                             let mut loop_count = 0;
 
                             //Only try to find a spot so many times randomly.
-                            while loop_count < 10 {
-                                let pos_id = rng.gen_range(0..map.zonespawns[id].len());
-                                let (x, y) = map.zonespawns[id][pos_id];
-                                let spawn = Position::new(x as i32, y as i32, *position);
+                            if !map.zonespawns[id].is_empty() {
+                                while loop_count < 10 {
+                                    let pos_id = rng.gen_range(0..map.zonespawns[id].len());
+                                    let (x, y) = map.zonespawns[id][pos_id];
+                                    let spawn = Position::new(x as i32, y as i32, *position);
 
-                                loop_count += 1;
+                                    loop_count += 1;
 
-                                //Check if the tile is blocked or not.
-                                if !data.is_blocked_tile(spawn) {
-                                    //Set NPC as spawnable and to do further checks later.
-                                    //Doing this to make the code more readable.
-                                    spawnable.push((spawn, id, npc_id));
-                                    count = count.saturating_add(1);
-                                    len = len.saturating_add(1);
-                                    break;
+                                    //Check if the tile is blocked or not.
+                                    if !data.is_blocked_tile(spawn) {
+                                        //Set NPC as spawnable and to do further checks later.
+                                        //Doing this to make the code more readable.
+                                        spawnable.push((spawn, id, npc_id));
+                                        count = count.saturating_add(1);
+                                        len = len.saturating_add(1);
+                                        break;
+                                    }
                                 }
                             }
                         }
@@ -86,9 +90,11 @@ pub fn update_maps(world: &mut World, storage: &Storage) -> Result<()> {
 
                 let mut data = map_data.borrow_mut();
                 //Lets Spawn the npcs here;
-                for (_spawn, _zone, npc_id) in spawnable.drain(..) {
+                for (spawn, zone, npc_id) in spawnable.drain(..) {
                     if let Ok(id) = storage.add_npc(world, npc_id) {
                         data.add_npc(id);
+                        data.zones[zone] = data.zones[zone].saturating_add(1);
+                        spawn_npc(world, storage, spawn, id);
                     }
                 }
             }
@@ -96,4 +102,11 @@ pub fn update_maps(world: &mut World, storage: &Storage) -> Result<()> {
     }
 
     Ok(())
+}
+
+pub fn spawn_npc(world: &mut World, storage: &Storage, pos: Position, entity: Entity) {
+    {
+        *world.get::<&mut Position>(entity.0).expect("Could not find Position") = pos;
+    }
+    npc_warp(world, storage, &entity, &pos, true);
 }

@@ -93,6 +93,40 @@ pub fn set_npc_dir(world: &mut World, storage: &Storage, entity: &crate::Entity,
 }
 
 #[inline(always)]
+pub fn npc_switch_maps(
+    world: &mut World,
+    storage: &Storage,
+    entity: &crate::Entity,
+    new_pos: Position,
+) -> Position {
+    let npc_position = world.get_or_panic::<Position>(entity);
+
+    let old_position = npc_position;
+
+    if let Some(mapref) = storage.maps.get(&npc_position.map) {
+        let mut map = mapref.borrow_mut();
+        map.remove_npc(*entity);
+        map.remove_entity_from_grid(npc_position);
+    } else {
+        return old_position;
+    }
+
+    if let Some(mapref) = storage.maps.get(&new_pos.map) {
+        let mut map = mapref.borrow_mut();
+        map.add_npc(*entity);
+        map.add_entity_to_grid(new_pos);
+    } else {
+        return old_position;
+    }
+
+    *world
+        .get::<&mut Position>(entity.0)
+        .expect("Could not find Position") = new_pos;
+
+    old_position
+}
+
+#[inline(always)]
 pub fn npc_swap_pos(
     world: &mut World,
     storage: &Storage,
@@ -113,39 +147,6 @@ pub fn npc_swap_pos(
         map.remove_entity_from_grid(oldpos);
         map.add_entity_to_grid(pos);
     }
-    oldpos
-}
-
-#[inline(always)]
-pub fn npc_switch_maps(
-    world: &mut World,
-    storage: &Storage,
-    entity: &crate::Entity,
-    pos: Position,
-) -> Position {
-    let oldpos = world.get_or_panic::<Position>(entity);
-    let mut map = match storage
-        .maps
-        .get(&world.get_or_panic::<Position>(entity).map)
-    {
-        Some(map) => map,
-        None => return oldpos,
-    }
-    .borrow_mut();
-    map.remove_npc(*entity);
-    map.remove_entity_from_grid(world.get_or_panic::<Position>(entity));
-
-    let mut map = match storage.maps.get(&pos.map) {
-        Some(map) => map,
-        None => return oldpos,
-    }
-    .borrow_mut();
-    map.add_npc(*entity);
-    map.add_entity_to_grid(pos);
-
-    *world
-        .get::<&mut Position>(entity.0)
-        .expect("Could not find Position") = pos;
     oldpos
 }
 

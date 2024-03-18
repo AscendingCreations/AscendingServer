@@ -14,8 +14,9 @@ use std::path::Path;
 
 const MAP_PATH: &str = "./data/maps/";
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub enum MapAttribute {
+    #[default]
     Walkable,
     Blocked,
     Warp(i32, i32, u64, u32, u32),
@@ -109,6 +110,7 @@ pub struct MapData {
     pub zones: [u64; 5], //contains the NPC spawn Count of each Zone.
     #[derivative(Default(value = "[(0, false, 0); MAP_MAX_X * MAP_MAX_Y]"))]
     pub move_grid: [(u8, bool, u8); MAP_MAX_X * MAP_MAX_Y], // (count, False=tile|True=Npc or player, Dir Blocking)
+    pub map_attribute: Vec<MapAttribute>,
     pub players_on_map: u64,
 }
 
@@ -130,8 +132,15 @@ impl MapData {
     }
 
     pub fn is_blocked_tile(&self, pos: Position) -> bool {
-        (self.move_grid[pos.as_tile()].0 > 0 && !self.move_grid[pos.as_tile()].1)
-            || (self.move_grid[pos.as_tile()].1 && self.move_grid[pos.as_tile()].0 >= 5)
+        if let Some(attribute) = self.map_attribute.get(pos.as_tile()) {
+            match attribute {
+                MapAttribute::Blocked => return true,
+                _ => {}
+            }
+        }
+
+        (self.move_grid[pos.as_tile()].0 > 0 && !self.move_grid[pos.as_tile()].1) ||
+            (self.move_grid[pos.as_tile()].1 && self.move_grid[pos.as_tile()].0 >= 5)
     }
 
     pub fn remove_entity_from_grid(&mut self, pos: Position) {

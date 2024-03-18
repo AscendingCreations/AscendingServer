@@ -574,6 +574,7 @@ pub enum ServerPackets {
     PlayerEmail,
     NpcData,
     NpcMove,
+    NpcWarp,
     NpcDir,
     NpcVital,
     NpcAttack,

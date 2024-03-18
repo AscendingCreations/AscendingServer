@@ -791,15 +791,32 @@ pub fn handle_message(
 }
 
 pub fn handle_admincommand(
-    _world: &mut World,
+    world: &mut World,
     storage: &Storage,
     data: &mut ByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
-    if let Some(p) = storage.player_ids.borrow().get(entity) {
+    if let Some(_p) = storage.player_ids.borrow().get(entity) {
         let command = data.read::<AdminCommand>()?;
 
-        println!("Command Received {:?}", command);
+        match command {
+            AdminCommand::KickPlayer(name) => {
+                println!("Kicking Player {:?}", name);
+            }
+            AdminCommand::WarpTo(pos) => {
+                println!("Warping to {:?}", pos);
+            }
+            AdminCommand::SpawnNpc(index, pos) => {
+                println!("Spawning NPC {index} on {:?}", pos);
+                if let Some(mapdata) = storage.maps.get(&pos.map) {
+                    let mut data = mapdata.borrow_mut();
+                    if let Ok(id) = storage.add_npc(world, index as u64) {
+                        data.add_npc(id);
+                        spawn_npc(world, storage, pos, id);
+                    }
+                }
+            }
+        }
 
         return Ok(());
     }

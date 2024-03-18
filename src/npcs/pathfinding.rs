@@ -187,7 +187,21 @@ pub fn npc_rand_movement(storage: &Storage, pos: Position, dir: u8) -> Vec<(Posi
             lastpos.map,
         );
 
-        if !path_map_switch(
+        if node_pos.x < 0 || node_pos.x >= 32 || node_pos.y < 0 || node_pos.y >= 32 {
+            let adj = [(lastpos.x, 31), (0, lastpos.y), (lastpos.x, 0), (31, lastpos.y)];
+            let map_adj = [(0, -1), (1, 0), (0, 1), (-1, 0)];
+            node_pos = Position::new(
+                adj[movedir as usize].0,
+                adj[movedir as usize].1,
+                MapPosition {
+                    x: lastpos.map.x + map_adj[movedir as usize].0,
+                    y: lastpos.map.y + map_adj[movedir as usize].1,
+                    group: lastpos.map.group
+                }
+            );
+        }
+
+        /*if !path_map_switch(
             storage,
             &allowed_maps,
             lastpos,
@@ -195,15 +209,14 @@ pub fn npc_rand_movement(storage: &Storage, pos: Position, dir: u8) -> Vec<(Posi
             movedir as u8,
         ) {
             continue;
-        }
+        }*/
 
         if map_path_blocked(storage, lastpos, node_pos, movedir as u8) && lastdir != movedir {
-            path.push((lastpos, movedir as u8));
+            path.insert(0, (lastpos, movedir as u8));
         } else {
             path.insert(0, (node_pos, movedir as u8));
             lastpos = node_pos;
         }
-
         lastdir = movedir;
     }
 

@@ -169,7 +169,7 @@ impl Position {
     //must be gaurenteed to fit within the Grid. Or errors will occur.
     #[inline]
     pub fn as_tile(&self) -> usize {
-        ((self.y * (MAP_MAX_X as i32 - 1)) + self.x) as usize
+        ((self.y * (MAP_MAX_X as i32)) + self.x) as usize
     }
 }
 

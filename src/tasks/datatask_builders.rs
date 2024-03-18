@@ -119,10 +119,9 @@ impl DeathPacket {
     ByteBufferWrite,
 )]
 pub struct NpcSpawnPacket {
+    pub entity: Entity,
     pub dir: u8,
     pub hidden: bool,
-    //Npc global ID
-    pub entity: Entity,
     pub level: i32,
     pub life: DeathType,
     pub mode: NpcMode,

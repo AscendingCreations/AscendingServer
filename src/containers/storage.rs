@@ -190,6 +190,7 @@ impl Storage {
                         y: map_data.position.y,
                         group: map_data.position.group as i32,
                     },
+                    map_attribute: map_data.attribute.clone(),
                     ..Default::default()
                 }),
             );
@@ -201,6 +202,11 @@ impl Storage {
                     group: map_data.position.group,
                 }, map_data.clone()
             );
+        });
+
+        let npc_data_entry = crate::npcs::get_npc();
+        npc_data_entry.iter().enumerate().for_each(|(index, npc_data)| {
+            storage.bases.npcs[index] = npc_data.clone();
         });
 
         Some(storage)
@@ -278,7 +284,7 @@ impl Storage {
     }
 
     pub fn add_npc(&self, world: &mut World, npc_id: u64) -> Result<Entity> {
-        let npcdata = NpcData::load_npc(npc_id).expect("Cannot find NPC");
+        let npcdata = NpcData::load_npc(self, npc_id).expect("Cannot find NPC");
 
         let identity = world.spawn((
             WorldEntityType::Npc,
@@ -299,7 +305,18 @@ impl Storage {
         ));
         world.insert(
             identity,
-            (Spawn::default(), NpcMode::Normal, Hidden::default()),
+            (
+                Spawn::default(), 
+                NpcMode::Normal, 
+                Hidden::default(),
+                Level::default(),
+                Vitals::default(),
+                Physical::default(),
+                DeathType::default(),
+                NpcMovePos::default(),
+                Target::default(),
+                InCombat::default(),
+            ),
         )?;
 
         if !npcdata.behaviour.is_friendly() {
@@ -307,14 +324,11 @@ impl Storage {
                 .insert(
                     identity,
                     (
-                        Level::default(),
-                        Vitals::default(),
                         NpcHitBy::default(),
                         Target::default(),
                         AttackTimer::default(),
                         DeathTimer::default(),
                         Combat::default(),
-                        Physical::default(),
                         Stunned::default(),
                         Attacking::default(),
                         InCombat::default(),
@@ -323,6 +337,8 @@ impl Storage {
                 .expect("Failed to add additional NPC Data");
         }
         world.insert_one(identity, EntityType::Npc(Entity(identity)))?;
+
+        self.npc_ids.borrow_mut().insert(Entity(identity));
 
         Ok(Entity(identity))
     }

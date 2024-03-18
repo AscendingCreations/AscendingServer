@@ -1,0 +1,111 @@
+{
+  "name": "",
+  "level": 1,
+  "sprite": 0,
+  "respawn_wait": 1,
+  "movement_wait": 1,
+  "attack_wait": 1,
+  "intervaled_wait": 1,
+  "spawn_wait": 1,
+  "maxhp": 1,
+  "maxsp": 0,
+  "maxmp": 0,
+  "sight": 0,
+  "follow_sight": 0,
+  "walkdistance": 0,
+  "pdamage": 1,
+  "pdefense": 1,
+  "canpassthru": false,
+  "size": {
+    "x": 1,
+    "y": 1,
+    "width": 1,
+    "height": 1
+  },
+  "behaviour": 0,
+  "maxdamage": 1,
+  "mindamage": 1,
+  "target_auto_switch": false,
+  "target_attacked_switch": false,
+  "target_auto_switch_chance": 0,
+  "target_range_dropout": false,
+  "can_target": false,
+  "can_move": false,
+  "can_attack_player": false,
+  "has_allys": false,
+  "has_enemies": false,
+  "can_attack": false,
+  "has_selfonly": false,
+  "has_friendonly": false,
+  "has_groundonly": false,
+  "runsaway": false,
+  "isanimated": false,
+  "run_damage": 0,
+  "spawntime": [
+    {
+      "hour": 0,
+      "min": 0,
+      "sec": 0
+    },
+    {
+      "hour": 0,
+      "min": 0,
+      "sec": 0
+    }
+  ],
+  "range": 0,
+  "enemies": [],
+  "drops": [
+    [
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0
+    ]
+  ],
+  "drops_max": 0
+}

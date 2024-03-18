@@ -1,14 +1,20 @@
+use crate::containers::Storage;
 use crate::gametypes::*;
 //use rand::{thread_rng, Rng};
 use serde::{Deserialize, Serialize};
+use std::fs::OpenOptions;
+use std::io::BufReader;
 
 #[derive(Derivative, Clone, Debug, Default, Serialize, Deserialize)]
 #[derivative(PartialEq)]
 pub struct NpcData {
     pub name: String,
     pub level: i32,
+    pub sprite: i32,
+    pub respawn_wait: i64,
     pub movement_wait: i64,
     pub attack_wait: i64,
+    pub intervaled_wait: i64,
     pub spawn_wait: i64,
     pub maxhp: u32,
     pub maxsp: u32,
@@ -30,12 +36,19 @@ pub struct NpcData {
     pub can_target: bool,
     pub can_move: bool,
     pub can_attack_player: bool,
+    pub has_allys: bool,
     pub has_enemies: bool,
     pub can_attack: bool,
+    pub has_selfonly: bool,
+    pub has_friendonly: bool,
+    pub has_groundonly: bool,
+    pub runsaway: bool,
+    pub isanimated: bool,
+    pub run_damage: u32,
     pub spawntime: (GameTime, GameTime),
     pub range: i32,        //attack range. How far they need to be to hit their target.
     pub enemies: Vec<u64>, //list of enemies the npcs can attack of other npc's... WAR!
-    pub drops: Vec<(u32, u32, u32)>, //item dropped on death, chance, amount
+    pub drops: [(u32, u32, u32); 10], //item dropped on death, chance, amount
     pub drops_max: u16, //number of Different items that will be picked  0..=drops_max. that we can cycle thru and drop at random.
 }
 
@@ -83,9 +96,49 @@ impl NpcData {
     pub fn is_friendly(&self) -> bool {
         self.behaviour.is_friendly()
     }
+    
     /// load npc data from json with serdes.
     /// if ID does not exist or file nto found return None.
-    pub fn load_npc(_id: u64) -> Option<NpcData> {
+    pub fn load_npc(storage: &Storage, id: u64) -> Option<NpcData> {
+        let npc_data = storage.bases.npcs.get(id as usize);
+        if let Some(data) = npc_data {
+            return Some(data.clone());
+        }
         None
+    }
+}
+
+pub fn get_npc() -> Vec<NpcData> {
+    let mut npc_data: Vec<NpcData> = Vec::new();
+
+    let mut count = 0;
+    let mut got_data = true;
+
+    while got_data {
+        if let Some(data) = load_file(count) {
+            npc_data.push(data);
+            count += 1;
+            got_data = true;
+        } else {
+            got_data = false;
+        }
+    }
+
+    npc_data
+}
+
+fn load_file(id: u64) -> Option<NpcData> {
+    let name = format!("./data/npcs/{}.json", id);
+
+    match OpenOptions::new().read(true).open(&name) {
+        Ok(file) => {
+            let reader = BufReader::new(file);
+
+            match serde_json::from_reader(reader) {
+                Ok(v) => Some(v),
+                Err(_) => None,
+            }
+        }
+        Err(_) => None,
     }
 }

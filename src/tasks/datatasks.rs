@@ -1,7 +1,7 @@
 use crate::{
     containers::Storage,
     gametypes::{AscendingError, MapPosition, Result, ServerPackets},
-    socket::*,
+    socket::*, MapPos,
 };
 use hecs::World;
 use indexmap::map::Entry;
@@ -16,6 +16,7 @@ use std::collections::VecDeque;
 #[derive(Copy, Clone, Debug, Hash, PartialEq, Eq)]
 pub enum DataTaskToken {
     NpcMove(MapPosition),
+    NpcWarp(MapPosition),
     NpcDir(MapPosition),
     NpcDeath(MapPosition),
     NpcAttack(MapPosition),
@@ -105,6 +106,7 @@ impl DataTaskToken {
         use DataTaskToken::*;
         match self {
             NpcMove(_) => ServerPackets::NpcMove,
+            NpcWarp(_) => ServerPackets::NpcWarp,
             PlayerMove(_) => ServerPackets::PlayerMove,
             PlayerWarp(_) => ServerPackets::PlayerWarp,
             NpcDir(_) => ServerPackets::NpcDir,
@@ -131,8 +133,8 @@ impl DataTaskToken {
         use DataTaskToken::*;
         match self {
             GlobalChat => send_to_all(world, storage, buf),
-            NpcMove(mappos) | PlayerMove(mappos) | PlayerWarp(mappos) | NpcDir(mappos)
-            | PlayerDir(mappos) | NpcDeath(mappos) | PlayerDeath(mappos)
+            NpcMove(mappos) | NpcWarp(mappos) | PlayerMove(mappos) | PlayerWarp(mappos) 
+            | PlayerDir(mappos) | NpcDeath(mappos) | NpcDir(mappos) | PlayerDeath(mappos)
             | EntityUnload(mappos) | NpcAttack(mappos) | PlayerAttack(mappos)
             | NpcSpawn(mappos) | PlayerSpawn(mappos) | MapChat(mappos)
             | ItemLoad(mappos) | PlayerVitals(mappos) | PlayerLevel(mappos)

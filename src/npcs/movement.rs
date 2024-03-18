@@ -2,6 +2,33 @@ use crate::{containers::Storage, gametypes::*, maps::*, npcs::*, players::Accoun
 use chrono::Duration;
 use hecs::World;
 
+pub fn npc_warp(
+    world: &mut World,
+    storage: &Storage,
+    entity: &Entity,
+    new_pos: &Position,
+    spawn: bool,
+) {
+    if world.get_or_panic::<Position>(entity).map != new_pos.map {
+        let old_pos = npc_switch_maps(world, storage, entity, *new_pos);
+        let _ = DataTaskToken::NpcWarp(old_pos.map)
+            .add_task(storage, &WarpPacket::new(*entity, *new_pos));
+        let _ = DataTaskToken::NpcWarp(new_pos.map)
+            .add_task(storage, &WarpPacket::new(*entity, *new_pos));
+        let _ = DataTaskToken::NpcSpawn(new_pos.map)
+            .add_task(storage, &NpcSpawnPacket::new(world, entity));
+    } else {
+        npc_swap_pos(world, storage, entity, *new_pos);
+        if spawn {
+            let _ = DataTaskToken::NpcSpawn(new_pos.map)
+                .add_task(storage, &NpcSpawnPacket::new(world, entity));
+        } else {
+            let _ = DataTaskToken::NpcWarp(new_pos.map)
+                .add_task(storage, &WarpPacket::new(*entity, *new_pos));
+        }
+    }
+}
+
 pub fn npc_movement(world: &mut World, storage: &Storage, entity: &Entity, _base: &NpcData) {
     //AI Timer is used to Reset the Moves every so offten to recalculate them for possible changes.
     if world.get_or_panic::<NpcAITimer>(entity).0 < *storage.gettick.borrow()
