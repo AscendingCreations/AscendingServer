@@ -209,11 +209,9 @@ pub fn handle_move(
         }
 
         player_movement(world, storage, entity, dir);
-        println!("Move Complete");
         return Ok(());
     }
 
-    println!("Invalid Socket");
     Err(AscendingError::InvalidSocket)
 }
 
@@ -823,7 +821,7 @@ pub fn handle_admincommand(
                     let mut data = mapdata.borrow_mut();
                     if let Ok(id) = storage.add_npc(world, index as u64) {
                         data.add_npc(id);
-                        spawn_npc(world, storage, pos, None, id);
+                        spawn_npc(world, pos, None, id);
                     }
                 }
             }

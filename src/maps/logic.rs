@@ -1,9 +1,7 @@
-use crate::{containers::Storage, gametypes::*, npcs::{npc_warp, NpcSpawnedZone}};
+use crate::{containers::Storage, gametypes::*, npcs::NpcSpawnedZone};
 use hecs::World;
 use rand::{thread_rng, Rng};
-use std::{borrow::BorrowMut, cmp::min};
-
-use super::MapData;
+use std::cmp::min;
 
 pub fn update_maps(world: &mut World, storage: &Storage) -> Result<()> {
     let mut rng = thread_rng();
@@ -94,7 +92,7 @@ pub fn update_maps(world: &mut World, storage: &Storage) -> Result<()> {
                     if let Ok(id) = storage.add_npc(world, npc_id) {
                         data.add_npc(id);
                         data.zones[zone] = data.zones[zone].saturating_add(1);
-                        spawn_npc(world, storage, spawn, Some(zone), id);
+                        spawn_npc(world, spawn, Some(zone), id);
                     }
                 }
             }
@@ -104,7 +102,7 @@ pub fn update_maps(world: &mut World, storage: &Storage) -> Result<()> {
     Ok(())
 }
 
-pub fn spawn_npc(world: &mut World, storage: &Storage, pos: Position, zone: Option<usize>, entity: Entity) {
+pub fn spawn_npc(world: &mut World, pos: Position, zone: Option<usize>, entity: Entity) {
     {
         *world.get::<&mut Position>(entity.0).expect("Could not find Position") = pos;
         world.get::<&mut Spawn>(entity.0).expect("Could not find Spawn").pos = pos;

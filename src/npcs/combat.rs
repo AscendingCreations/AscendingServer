@@ -2,6 +2,15 @@ use crate::{containers::Storage, gametypes::*, maps::*, npcs::*, players::*, tas
 use hecs::World;
 use rand::{thread_rng, Rng};
 
+#[inline(always)]
+pub fn damage_npc(world: &mut World, entity: &crate::Entity, damage: i32) {
+    world
+        .get::<&mut Vitals>(entity.0)
+        .expect("Could not find Position")
+        .vital[VitalTypes::Hp as usize] =
+        world.get_or_panic::<Vitals>(entity).vital[VitalTypes::Hp as usize].saturating_sub(damage);
+}
+
 pub fn entity_cast_check(
     caster_pos: Position,
     target_pos: Position,

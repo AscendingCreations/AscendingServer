@@ -1,7 +1,7 @@
 use crate::{
     containers::Storage,
     gametypes::{AscendingError, MapPosition, Result, ServerPackets},
-    socket::*, MapPos,
+    socket::*,
 };
 use hecs::World;
 use indexmap::map::Entry;

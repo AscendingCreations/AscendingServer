@@ -53,34 +53,6 @@ pub struct NpcData {
 }
 
 impl NpcData {
-    /*pub fn new_npc(&self, spawn: Position, zone: usize, npc_id: u64) -> Npc {
-        Npc {
-            num: npc_id,
-            spawntimer: MyInstant::from_dur(self.spawn_wait),
-            spawned_zone: Some(zone),
-            e: self.new_entity(spawn),
-            ..Default::default()
-        }
-    }
-
-    pub fn new_entity(&self, spawn: Position) -> Entity {
-        let mut rng = thread_rng();
-
-        Entity {
-            spawn,
-            level: self.level,
-            pos: spawn,
-            vital: [self.maxhp as i32, self.maxmp as i32, self.maxsp as i32],
-            vitalmax: [self.maxhp as i32, self.maxmp as i32, self.maxsp as i32],
-            pdamage: self.pdamage,
-            pdefense: self.pdefense,
-            life: DeathType::Dead,
-            dir: rng.gen_range(0..4),
-            mode: NpcMode::Normal,
-            ..Default::default()
-        }
-    }*/
-
     pub fn is_agressive(&self) -> bool {
         self.behaviour.is_agressive()
     }

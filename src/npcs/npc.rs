@@ -193,12 +193,3 @@ pub fn npc_sethp(world: &mut World, entity: &crate::Entity, hp: i32) {
         .expect("Could not find Position")
         .vital[VitalTypes::Hp as usize] = hp;
 }
-
-#[inline(always)]
-pub fn damage_npc(world: &mut World, entity: &crate::Entity, damage: i32) {
-    world
-        .get::<&mut Vitals>(entity.0)
-        .expect("Could not find Position")
-        .vital[VitalTypes::Hp as usize] =
-        world.get_or_panic::<Vitals>(entity).vital[VitalTypes::Hp as usize].saturating_sub(damage);
-}

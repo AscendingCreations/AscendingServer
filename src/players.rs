@@ -1,8 +1,10 @@
 mod inv;
 mod logic;
 mod player;
+mod combat;
 pub mod movement;
 
+pub use combat::*;
 pub use inv::*;
 pub use logic::*;
 pub use player::*;

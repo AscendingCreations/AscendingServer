@@ -24,17 +24,17 @@ pub fn update_npcs(world: &mut World, storage: &Storage) {
                     .npcs
                     .get(world.get_or_panic::<NpcIndex>(id).0 as usize)
                 {
-                    /*if !storage
+                    if !storage
                         .time
                         .borrow()
                         .in_range(npcdata.spawntime.0, npcdata.spawntime.1)
                     {
                         *world
                             .get::<&mut DeathType>(id.0)
-                            .expect("Could not find DeathType") = DeathType::UnSpawned;
+                            .expect("Could not find DeathType") = DeathType::Dead;
                         unloadnpcs.push(*id);
                         continue;
-                    }*/
+                    }
 
                     //targeting
                     if npcdata.can_target
@@ -96,7 +96,7 @@ pub fn update_npcs(world: &mut World, storage: &Storage) {
                             .add_entity_to_grid(world.get_or_panic::<Spawn>(id).pos);
                         
                         let _ = DataTaskToken::NpcSpawn(world.get_or_panic::<Spawn>(id).pos.map)
-                            .add_task(storage, &NpcSpawnPacket::new(world, id));
+                            .add_task(storage, &NpcSpawnPacket::new(world, id, true));
                     }
                 }
             }

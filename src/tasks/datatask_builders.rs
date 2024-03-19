@@ -133,10 +133,11 @@ pub struct NpcSpawnPacket {
     pub sprite: u16,
     pub vital: [i32; VITALS_MAX],
     pub vitalmax: [i32; VITALS_MAX],
+    pub did_spawn: bool,
 }
 
 impl NpcSpawnPacket {
-    pub fn new(world: &mut World, entity: &Entity) -> Self {
+    pub fn new(world: &mut World, entity: &Entity, did_spawn: bool) -> Self {
         Self {
             dir: world.get_or_panic::<Dir>(entity).0,
             hidden: world.get_or_panic::<Hidden>(entity).0,
@@ -151,6 +152,7 @@ impl NpcSpawnPacket {
             sprite: world.get_or_panic::<Sprite>(entity).id,
             vital: world.get_or_panic::<Vitals>(entity).vital,
             vitalmax: world.get_or_panic::<Vitals>(entity).vitalmax,
+            did_spawn,
         }
     }
 }
@@ -174,10 +176,11 @@ pub struct PlayerSpawnPacket {
     pub sprite: u8,
     pub vital: [i32; VITALS_MAX],
     pub vitalmax: [i32; VITALS_MAX],
+    pub did_spawn: bool,
 }
 
 impl PlayerSpawnPacket {
-    pub fn new(world: &mut World, entity: &Entity) -> Self {
+    pub fn new(world: &mut World, entity: &Entity, did_spawn: bool) -> Self {
         Self {
             username: world.get::<&Account>(entity.0).unwrap().username.clone(),
             dir: world.get_or_panic::<Dir>(entity).0,
@@ -197,6 +200,7 @@ impl PlayerSpawnPacket {
             },
             pk: world.get_or_panic::<Player>(entity).pk,
             pvpon: world.get_or_panic::<Player>(entity).pvpon,
+            did_spawn,
         }
     }
 }

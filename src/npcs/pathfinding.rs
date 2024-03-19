@@ -177,7 +177,7 @@ pub fn npc_rand_movement(storage: &Storage, pos: Position, dir: u8) -> Vec<(Posi
     let mut path = Vec::with_capacity(16);
     let mut lastpos = pos;
     let mut lastdir: usize = dir as usize;
-    let allowed_maps = get_surrounding_set(pos.map);
+    //let allowed_maps = get_surrounding_set(pos.map);
 
     for _ in 1..rng.gen_range(2..10) {
         let movedir = rng.gen_range(0..=3);

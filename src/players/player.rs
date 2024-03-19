@@ -286,18 +286,6 @@ pub fn player_sethp(world: &mut World, entity: &crate::Entity, hp: i32) {
 }
 
 #[inline]
-pub fn damage_player(world: &mut World, entity: &crate::Entity, damage: i32) {
-    let mut query = world
-        .query_one::<&mut Vitals>(entity.0)
-        .expect("damage_player could not find query");
-
-    if let Some(player_vital) = query.get() {
-        player_vital.vital[VitalTypes::Hp as usize] =
-            player_vital.vital[VitalTypes::Hp as usize].saturating_sub(damage);
-    }
-}
-
-#[inline]
 pub fn player_give_vals(
     world: &mut World,
     storage: &Storage,

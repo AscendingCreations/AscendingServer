@@ -163,7 +163,7 @@ pub fn process_data_lists(world: &mut World, storage: &Storage) {
                     MapSwitchTasks::Npc(entities) => {
                         while let Some(entity) = entities.pop() {
                             let _ = DataTaskToken::NpcSpawnToEntity(socket_id)
-                                .add_task(storage, &NpcSpawnPacket::new(world, &entity));
+                                .add_task(storage, &NpcSpawnPacket::new(world, &entity, false));
 
                             count += 1;
 
@@ -177,7 +177,7 @@ pub fn process_data_lists(world: &mut World, storage: &Storage) {
                     MapSwitchTasks::Player(entities) => {
                         while let Some(entity) = entities.pop() {
                             let _ = DataTaskToken::PlayerSpawnToEntity(socket_id)
-                                .add_task(storage, &PlayerSpawnPacket::new(world, &entity));
+                                .add_task(storage, &PlayerSpawnPacket::new(world, &entity, false));
 
                             count += 1;
 

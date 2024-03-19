@@ -317,12 +317,6 @@ pub fn get_next_stat_exp(level: u32) -> u64 {
     level as u64 * exp_per_level as u64
 }
 
-pub fn get_damage_percentage(damage: u32, hp: (u32, u32)) -> f64 {
-    let curhp = cmp::min(hp.0, hp.1);
-    let abs_damage = cmp::min(damage, curhp) as f64;
-    abs_damage / curhp as f64
-}
-
 pub fn joingame(world: &mut World, storage: &Storage, entity: &Entity) {
     let socket_id = world.get::<&Socket>(entity.0).unwrap().id;
 

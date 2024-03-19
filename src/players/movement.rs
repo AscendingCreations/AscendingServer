@@ -17,13 +17,13 @@ pub fn player_warp(
         let _ = DataTaskToken::PlayerWarp(new_pos.map)
             .add_task(storage, &WarpPacket::new(*entity, *new_pos));
         let _ = DataTaskToken::PlayerSpawn(new_pos.map)
-            .add_task(storage, &PlayerSpawnPacket::new(world, entity));
+            .add_task(storage, &PlayerSpawnPacket::new(world, entity, true));
         init_data_lists(world, storage, entity, Some(old_pos.map));
     } else {
         player_swap_pos(world, storage, entity, *new_pos);
         if spawn {
             let _ = DataTaskToken::PlayerSpawn(new_pos.map)
-                .add_task(storage, &PlayerSpawnPacket::new(world, entity));
+                .add_task(storage, &PlayerSpawnPacket::new(world, entity, true));
             init_data_lists(world, storage, entity, None);
         } else {
             let _ = DataTaskToken::PlayerWarp(new_pos.map)
@@ -120,7 +120,7 @@ pub fn player_movement(world: &mut World, storage: &Storage, entity: &Entity, di
         //let _ = send_move(world, storage, entity, new_pos, false, true, player_dir.0, Some(oldpos));
         //let _ = send_move(world, storage, entity, new_pos, false, true, player_dir.0, None);
         let _ = DataTaskToken::PlayerSpawn(new_pos.map)
-            .add_task(storage, &PlayerSpawnPacket::new(world, entity));
+            .add_task(storage, &PlayerSpawnPacket::new(world, entity, true));
 
         init_data_lists(world, storage, entity, Some(oldpos.map));
     } else {
