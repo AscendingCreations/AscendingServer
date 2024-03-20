@@ -160,6 +160,7 @@ pub fn send_dir(world: &mut World, storage: &Storage, entity: &Entity, toself: b
 }
 
 #[inline]
+#[allow(clippy::too_many_arguments)]
 pub fn send_move(
     world: &mut World,
     storage: &Storage,
@@ -168,7 +169,7 @@ pub fn send_move(
     warp: bool,
     switch: bool,
     dir: u8,
-    send_to_pos: Option<Position>
+    send_to_pos: Option<Position>,
 ) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(31)?;
 

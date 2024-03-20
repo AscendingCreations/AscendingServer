@@ -68,7 +68,7 @@ impl NpcData {
     pub fn is_friendly(&self) -> bool {
         self.behaviour.is_friendly()
     }
-    
+
     /// load npc data from json with serdes.
     /// if ID does not exist or file nto found return None.
     pub fn load_npc(storage: &Storage, id: u64) -> Option<NpcData> {
@@ -102,7 +102,7 @@ pub fn get_npc() -> Vec<NpcData> {
 fn load_file(id: u64) -> Option<NpcData> {
     let name = format!("./data/npcs/{}.json", id);
 
-    match OpenOptions::new().read(true).open(&name) {
+    match OpenOptions::new().read(true).open(name) {
         Ok(file) => {
             let reader = BufReader::new(file);
 

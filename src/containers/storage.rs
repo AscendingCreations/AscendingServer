@@ -176,38 +176,36 @@ impl Storage {
             local: RefCell::new(local),
         };
 
-        let map_data_entry = crate::maps::get_maps();
-        map_data_entry.iter().for_each(|map_data| {
-            storage.maps.insert(
-                MapPosition {
-                    x: map_data.position.x,
-                    y: map_data.position.y,
-                    group: map_data.position.group,
-                },
-                RefCell::new(MapData {
-                    position: MapPosition {
-                        x: map_data.position.x,
-                        y: map_data.position.y,
-                        group: map_data.position.group as i32,
-                    },
-                    map_attribute: map_data.attribute.clone(),
-                    ..Default::default()
-                }),
-            );
+        let mut map_data_entry = crate::maps::get_maps();
+        while let Some(map_data) = map_data_entry.pop() {
+            let position = MapPosition {
+                x: map_data.position.x,
+                y: map_data.position.y,
+                group: map_data.position.group,
+            };
 
-            storage.bases.maps.insert(
-                MapPosition {
-                    x: map_data.position.x,
-                    y: map_data.position.y,
-                    group: map_data.position.group,
-                }, map_data.clone()
-            );
-        });
+            let mut map = MapData {
+                position,
+                ..Default::default()
+            };
+
+            for id in 0..MAP_MAX_X * MAP_MAX_Y {
+                if let MapAttribute::Blocked = map_data.attribute[id] {
+                    map.add_blocked_tile(id);
+                }
+            }
+
+            storage.maps.insert(position, RefCell::new(map));
+            storage.bases.maps.insert(position, map_data);
+        }
 
         let npc_data_entry = crate::npcs::get_npc();
-        npc_data_entry.iter().enumerate().for_each(|(index, npc_data)| {
-            storage.bases.npcs[index] = npc_data.clone();
-        });
+        npc_data_entry
+            .iter()
+            .enumerate()
+            .for_each(|(index, npc_data)| {
+                storage.bases.npcs[index] = npc_data.clone();
+            });
 
         Some(storage)
     }
@@ -308,8 +306,8 @@ impl Storage {
         world.insert(
             identity,
             (
-                Spawn::default(), 
-                NpcMode::Normal, 
+                Spawn::default(),
+                NpcMode::Normal,
                 Hidden::default(),
                 Level::default(),
                 Vitals::default(),

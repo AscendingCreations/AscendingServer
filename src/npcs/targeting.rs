@@ -117,7 +117,9 @@ pub fn try_target_entity(
                 let target_pos = world.get_or_panic::<Position>(&id);
                 let deathtype = world.get_or_panic::<DeathType>(&id);
                 !can_target(pos, target_pos, deathtype, 1)
-            } else { true }
+            } else {
+                true
+            }
         }
         _ => true,
     };
@@ -125,8 +127,10 @@ pub fn try_target_entity(
     let npc_index = world.get_or_default::<NpcIndex>(entity).0;
     let npc_base = storage.bases.npcs.get(npc_index as usize);
 
-    if let Some(base) = npc_base && cantarget {
-        let entity_copy = entitytype.clone();
+    if let Some(base) = npc_base
+        && cantarget
+    {
+        let entity_copy = entitytype;
         match entitytype {
             EntityType::Npc(id) | EntityType::Player(id, _) => {
                 if world.contains(id.0) {
@@ -145,11 +149,12 @@ pub fn try_target_entity(
                             .get::<&mut Target>(entity.0)
                             .expect("Could not find Target")
                             .targettimer = *storage.gettick.borrow()
-                            + Duration::try_milliseconds(base.target_auto_switch_chance).unwrap_or_default();
+                            + Duration::try_milliseconds(base.target_auto_switch_chance)
+                                .unwrap_or_default();
                     }
                 }
             }
-            _ => {},
+            _ => {}
         }
     }
 }
@@ -167,8 +172,9 @@ pub fn update_target_pos(world: &mut World, entity: &Entity) {
                 let target_pos = world.get_or_panic::<Position>(&id);
                 let deathtype = world.get_or_panic::<DeathType>(&id);
 
-                if check_surrounding(pos.map, target_pos.map, true)
-                    == MapPos::None || !deathtype.is_alive() {
+                if check_surrounding(pos.map, target_pos.map, true) == MapPos::None
+                    || !deathtype.is_alive()
+                {
                     *world
                         .get::<&mut Target>(entity.0)
                         .expect("Could not find Target") = Target::default();

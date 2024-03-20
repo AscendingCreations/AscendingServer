@@ -49,6 +49,7 @@ pub fn player_warp(
 }
 
 pub fn player_movement(world: &mut World, storage: &Storage, entity: &Entity, dir: u8) -> bool {
+    //Down, Right, Up, Left
     let adj = [(0, -1), (1, 0), (0, 1), (-1, 0)];
     let player_position = world.get_or_panic::<Position>(entity);
     let mut new_pos = Position::new(
@@ -58,7 +59,12 @@ pub fn player_movement(world: &mut World, storage: &Storage, entity: &Entity, di
     );
 
     if new_pos.x < 0 || new_pos.x >= 32 || new_pos.y < 0 || new_pos.y >= 32 {
-        let adj = [(player_position.x, 31), (0, player_position.y), (player_position.x, 0), (31, player_position.y)];
+        let adj = [
+            (player_position.x, 31),
+            (0, player_position.y),
+            (player_position.x, 0),
+            (31, player_position.y),
+        ];
         let map_adj = [(0, -1), (1, 0), (0, 1), (-1, 0)];
         new_pos = Position::new(
             adj[dir as usize].0,
@@ -66,8 +72,8 @@ pub fn player_movement(world: &mut World, storage: &Storage, entity: &Entity, di
             MapPosition {
                 x: player_position.map.x + map_adj[dir as usize].0,
                 y: player_position.map.y + map_adj[dir as usize].1,
-                group: player_position.map.group
-            }
+                group: player_position.map.group,
+            },
         );
     }
 

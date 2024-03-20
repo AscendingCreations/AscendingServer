@@ -110,7 +110,6 @@ pub struct MapData {
     pub zones: [u64; 5], //contains the NPC spawn Count of each Zone.
     #[derivative(Default(value = "[(0, false, 0); MAP_MAX_X * MAP_MAX_Y]"))]
     pub move_grid: [(u8, bool, u8); MAP_MAX_X * MAP_MAX_Y], // (count, False=tile|True=Npc or player, Dir Blocking)
-    pub map_attribute: Vec<MapAttribute>,
     pub players_on_map: u64,
 }
 
@@ -132,15 +131,23 @@ impl MapData {
     }
 
     pub fn is_blocked_tile(&self, pos: Position) -> bool {
+        /*
+        we might bring this back if we have more attributes that might matter.
+        however we should directly get this from the Storage and not add it to MapData.
         if let Some(attribute) = self.map_attribute.get(pos.as_tile()) {
             match attribute {
                 MapAttribute::Blocked => return true,
                 _ => {}
             }
-        }
+        }*/
 
-        (self.move_grid[pos.as_tile()].0 > 0 && !self.move_grid[pos.as_tile()].1) ||
-            (self.move_grid[pos.as_tile()].1 && self.move_grid[pos.as_tile()].0 >= 5)
+        (self.move_grid[pos.as_tile()].0 > 0 && !self.move_grid[pos.as_tile()].1)
+            || (self.move_grid[pos.as_tile()].1 && self.move_grid[pos.as_tile()].0 >= 5)
+    }
+
+    pub fn add_blocked_tile(&mut self, id: usize) {
+        self.move_grid[id].0 = 1;
+        self.move_grid[id].1 = false;
     }
 
     pub fn remove_entity_from_grid(&mut self, pos: Position) {
@@ -450,6 +457,9 @@ pub fn map_path_blocked(
     next_pos: Position,
     movedir: u8,
 ) -> bool {
+    // Directional blocking might be in the wrong order as it should be.
+    // 0 down, 1 right, 2 up, 3 left
+    //TODO: Sherwin check this please when you get a chance.
     let blocked = match movedir {
         0 => {
             if let Some(map) = storage.maps.get(&cur_pos.map) {
