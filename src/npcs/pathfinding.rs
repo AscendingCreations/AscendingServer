@@ -1,6 +1,6 @@
 use crate::{containers::*, gametypes::*, maps::*};
 use rand::{thread_rng, Rng};
-use std::{cmp::Reverse, collections::BinaryHeap};
+use std::{cmp::Reverse, collections::{BinaryHeap, VecDeque}};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct PathNode {
@@ -65,7 +65,7 @@ pub fn a_star_path(
     start: Position,
     dir: u8,
     stop: Position,
-) -> Option<Vec<(Position, u8)>> {
+) -> Option<VecDeque<(Position, u8)>> {
     let mut id = 0;
     let mut nodes = Vec::with_capacity(32);
     let mut opened = BinaryHeap::with_capacity(32);
@@ -93,11 +93,11 @@ pub fn a_star_path(
         closed.insert(nodes[current_index].pos, current_index);
 
         if current_node.pos == stop {
-            let mut path = Vec::with_capacity(16);
+            let mut path = VecDeque::with_capacity(16);
             let mut current = current_node;
 
             loop {
-                path.insert(0, (current.pos, current.dir));
+                path.push_front((current.pos, current.dir));
 
                 if let Some(nextid) = current.parent {
                     current = nodes[nextid]
@@ -171,10 +171,10 @@ pub fn a_star_path(
     None
 }
 
-pub fn npc_rand_movement(storage: &Storage, pos: Position, dir: u8) -> Vec<(Position, u8)> {
+pub fn npc_rand_movement(storage: &Storage, pos: Position, dir: u8) -> VecDeque<(Position, u8)> {
     let mut rng = thread_rng();
     let adjacent = [(0, -1), (1, 0), (0, 1), (-1, 0)];
-    let mut path = Vec::with_capacity(16);
+    let mut path = VecDeque::with_capacity(16);
     let mut lastpos = pos;
     let mut lastdir: usize = dir as usize;
     //let allowed_maps = get_surrounding_set(pos.map);
@@ -212,9 +212,9 @@ pub fn npc_rand_movement(storage: &Storage, pos: Position, dir: u8) -> Vec<(Posi
         }*/
 
         if map_path_blocked(storage, lastpos, node_pos, movedir as u8) && lastdir != movedir {
-            path.insert(0, (lastpos, movedir as u8));
+            path.push_back((lastpos, movedir as u8));
         } else {
-            path.insert(0, (node_pos, movedir as u8));
+            path.push_back((node_pos, movedir as u8));
             lastpos = node_pos;
         }
         lastdir = movedir;

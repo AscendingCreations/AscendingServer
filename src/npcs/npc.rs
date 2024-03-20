@@ -1,3 +1,5 @@
+use std::collections::VecDeque;
+
 use hecs::World;
 
 use crate::{containers::*, gametypes::*, tasks::*, time_ext::MyInstant};
@@ -41,7 +43,7 @@ pub struct NpcHitBy(#[derivative(Default(value = "Vec::new()"))] pub Vec<(u32, u
 
 #[derive(Derivative, Debug, Clone, PartialEq, Eq)]
 #[derivative(Default)]
-pub struct NpcMoves(#[derivative(Default(value = "Vec::new()"))] pub Vec<(Position, u8)>);
+pub struct NpcMoves(#[derivative(Default(value = "VecDeque::new()"))] pub VecDeque<(Position, u8)>);
 
 #[derive(Default, Debug, Copy, Clone, PartialEq, Eq)]
 pub struct NpcSpawnedZone(pub Option<usize>);
@@ -55,7 +57,7 @@ pub fn is_npc_same(from_entity: &crate::Entity, to_entity: &crate::Entity) -> bo
 }
 
 #[inline(always)]
-pub fn npc_set_move_path(world: &mut World, entity: &crate::Entity, path: Vec<(Position, u8)>) {
+pub fn npc_set_move_path(world: &mut World, entity: &crate::Entity, path: VecDeque<(Position, u8)>) {
     world
         .get::<&mut NpcMoves>(entity.0)
         .expect("Could not find NpcMoves")

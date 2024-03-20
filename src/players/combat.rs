@@ -1,4 +1,4 @@
-use crate::{containers::Storage, gametypes::*, maps::check_surrounding, npcs::damage_npc, tasks::{DataTaskToken, VitalsPacket}};
+use crate::{containers::Storage, gametypes::*, maps::check_surrounding, players::*, npcs::{damage_npc, try_target_entity}, tasks::{DataTaskToken, VitalsPacket}};
 use hecs::World;
 use rand::*;
 use std::cmp;
@@ -80,6 +80,13 @@ pub fn player_combat(world: &mut World, storage: &Storage, entity: &Entity, targ
                             
                             &VitalsPacket::new(*target_entity, vitals.vital, vitals.vitalmax)
                         });
+                    
+                    let acc_id = world.cloned_get_or_default::<Account>(entity).id;
+                    try_target_entity(
+                        world, 
+                        storage, 
+                        target_entity, 
+                        EntityType::Player(*entity, acc_id))
                 } else {
                     *world.get::<&mut DeathType>(target_entity.0).expect("Could not find DeathType") =
                         DeathType::Dead;

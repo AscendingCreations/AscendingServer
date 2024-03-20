@@ -49,15 +49,15 @@ impl MapPosition {
 
     pub fn map_offset(&self, dir: MapPosDir) -> MapPosition {
         match dir {
-            MapPosDir::UpLeft => MapPosition::new(self.x + 1, self.y + 1, self.group),
+            MapPosDir::UpLeft => MapPosition::new(self.x - 1, self.y + 1, self.group),
             MapPosDir::Up => MapPosition::new(self.x, self.y + 1, self.group),
-            MapPosDir::UpRight => MapPosition::new(self.x - 1, self.y + 1, self.group),
-            MapPosDir::Left => MapPosition::new(self.x + 1, self.y, self.group),
+            MapPosDir::UpRight => MapPosition::new(self.x + 1, self.y + 1, self.group),
+            MapPosDir::Left => MapPosition::new(self.x - 1, self.y, self.group),
             MapPosDir::None | MapPosDir::Center => MapPosition::new(self.x, self.y, self.group),
-            MapPosDir::Right => MapPosition::new(self.x - 1, self.y, self.group),
-            MapPosDir::DownLeft => MapPosition::new(self.x + 1, self.y - 1, self.group),
+            MapPosDir::Right => MapPosition::new(self.x + 1, self.y, self.group),
+            MapPosDir::DownLeft => MapPosition::new(self.x - 1, self.y - 1, self.group),
             MapPosDir::Down => MapPosition::new(self.x, self.y - 1, self.group),
-            MapPosDir::DownRight => MapPosition::new(self.x - 1, self.y - 1, self.group),
+            MapPosDir::DownRight => MapPosition::new(self.x + 1, self.y - 1, self.group),
         }
     }
 }

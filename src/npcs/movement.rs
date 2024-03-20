@@ -38,6 +38,7 @@ pub fn npc_movement(world: &mut World, storage: &Storage, entity: &Entity, _base
                 .map(|map| map.borrow().players_on_map())
                 .unwrap_or(false)
         {
+            update_target_pos(world, entity);
             if let Some(path) = a_star_path(
                 storage,
                 world.get_or_panic::<Position>(entity),
@@ -77,7 +78,7 @@ pub fn npc_movement(world: &mut World, storage: &Storage, entity: &Entity, _base
             .get::<&mut NpcMoves>(entity.0)
             .expect("Could not find NpcMoves")
             .0
-            .pop()
+            .pop_front()
         {
             Some(v) => v,
             None => return,
@@ -93,7 +94,7 @@ pub fn npc_movement(world: &mut World, storage: &Storage, entity: &Entity, _base
                 .get::<&mut NpcMoves>(entity.0)
                 .expect("Could not find NpcMoves")
                 .0
-                .push(next);
+                .push_back(next);
 
             return;
         }

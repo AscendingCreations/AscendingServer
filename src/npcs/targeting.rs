@@ -90,6 +90,100 @@ pub fn targeting(world: &mut World, storage: &Storage, entity: &Entity, base: &N
     }
 }
 
+fn can_target(
+    caster_pos: Position,
+    target_pos: Position,
+    target_death: DeathType,
+    range: i32,
+) -> bool {
+    let check = check_surrounding(caster_pos.map, target_pos.map, true);
+    let pos = target_pos.map_offset(check.into());
+
+    range >= caster_pos.checkdistance(pos) && target_death.is_alive()
+}
+
+pub fn try_target_entity(
+    world: &mut World,
+    storage: &Storage,
+    entity: &Entity,
+    entitytype: EntityType,
+) {
+    let target = world.get_or_panic::<Target>(entity);
+    let pos = world.get_or_panic::<Position>(entity);
+
+    let cantarget = match target.targettype {
+        EntityType::Npc(id) | EntityType::Player(id, _) => {
+            if world.contains(id.0) {
+                let target_pos = world.get_or_panic::<Position>(&id);
+                let deathtype = world.get_or_panic::<DeathType>(&id);
+                !can_target(pos, target_pos, deathtype, 1)
+            } else { true }
+        }
+        _ => true,
+    };
+
+    let npc_index = world.get_or_default::<NpcIndex>(entity).0;
+    let npc_base = storage.bases.npcs.get(npc_index as usize);
+
+    if let Some(base) = npc_base && cantarget {
+        let entity_copy = entitytype.clone();
+        match entitytype {
+            EntityType::Npc(id) | EntityType::Player(id, _) => {
+                if world.contains(id.0) {
+                    let target_pos = world.get_or_panic::<Position>(&id);
+                    let deathtype = world.get_or_panic::<DeathType>(&id);
+                    if can_target(pos, target_pos, deathtype, 1) {
+                        world
+                            .get::<&mut Target>(entity.0)
+                            .expect("Could not find Target")
+                            .targetpos = target_pos;
+                        world
+                            .get::<&mut Target>(entity.0)
+                            .expect("Could not find Target")
+                            .targettype = entity_copy;
+                        world
+                            .get::<&mut Target>(entity.0)
+                            .expect("Could not find Target")
+                            .targettimer = *storage.gettick.borrow()
+                            + Duration::try_milliseconds(base.target_auto_switch_chance).unwrap_or_default();
+                    }
+                }
+            }
+            _ => {},
+        }
+    }
+}
+
+pub fn update_target_pos(world: &mut World, entity: &Entity) {
+    if !world.contains(entity.0) {
+        return;
+    }
+
+    let pos = world.get_or_panic::<Position>(entity);
+
+    match world.get_or_panic::<Target>(entity).targettype {
+        EntityType::Npc(id) | EntityType::Player(id, _) => {
+            if world.contains(id.0) {
+                let target_pos = world.get_or_panic::<Position>(&id);
+                let deathtype = world.get_or_panic::<DeathType>(&id);
+
+                if check_surrounding(pos.map, target_pos.map, true)
+                    == MapPos::None || !deathtype.is_alive() {
+                    *world
+                        .get::<&mut Target>(entity.0)
+                        .expect("Could not find Target") = Target::default();
+                } else {
+                    world
+                        .get::<&mut Target>(entity.0)
+                        .expect("Could not find Target")
+                        .targetpos = target_pos;
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
 pub fn npc_targeting(
     world: &mut World,
     storage: &Storage,

@@ -3,7 +3,7 @@
   "level": 1,
   "sprite": 1,
   "respawn_wait": 1,
-  "movement_wait": 1000,
+  "movement_wait": 350,
   "attack_wait": 1,
   "intervaled_wait": 1,
   "spawn_wait": 1,
