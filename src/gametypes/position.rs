@@ -85,28 +85,28 @@ impl Position {
     pub fn map_offset(&self, dir: MapPosDir) -> Position {
         match dir {
             MapPosDir::UpLeft => Position::new(
-                self.x - MAP_MAX_X as i32,
-                self.y - MAP_MAX_Y as i32,
+                self.x + MAP_MAX_X as i32,
+                self.y + MAP_MAX_Y as i32,
                 self.map,
             ),
-            MapPosDir::Up => Position::new(self.x, self.y - MAP_MAX_Y as i32, self.map),
+            MapPosDir::Up => Position::new(self.x, self.y + MAP_MAX_Y as i32, self.map),
             MapPosDir::UpRight => Position::new(
-                self.x + MAP_MAX_X as i32,
-                self.y - MAP_MAX_Y as i32,
-                self.map,
-            ),
-            MapPosDir::Left => Position::new(self.x - MAP_MAX_X as i32, self.y, self.map),
-            MapPosDir::None | MapPosDir::Center => Position::new(self.x, self.y, self.map),
-            MapPosDir::Right => Position::new(self.x + MAP_MAX_X as i32, self.y, self.map),
-            MapPosDir::DownLeft => Position::new(
                 self.x - MAP_MAX_X as i32,
                 self.y + MAP_MAX_Y as i32,
                 self.map,
             ),
-            MapPosDir::Down => Position::new(self.x, self.y + MAP_MAX_Y as i32, self.map),
-            MapPosDir::DownRight => Position::new(
+            MapPosDir::Left => Position::new(self.x + MAP_MAX_X as i32, self.y, self.map),
+            MapPosDir::None | MapPosDir::Center => Position::new(self.x, self.y, self.map),
+            MapPosDir::Right => Position::new(self.x - MAP_MAX_X as i32, self.y, self.map),
+            MapPosDir::DownLeft => Position::new(
                 self.x + MAP_MAX_X as i32,
-                self.y + MAP_MAX_Y as i32,
+                self.y - MAP_MAX_Y as i32,
+                self.map,
+            ),
+            MapPosDir::Down => Position::new(self.x, self.y - MAP_MAX_Y as i32, self.map),
+            MapPosDir::DownRight => Position::new(
+                self.x - MAP_MAX_X as i32,
+                self.y - MAP_MAX_Y as i32,
                 self.map,
             ),
         }

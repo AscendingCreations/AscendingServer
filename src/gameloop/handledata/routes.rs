@@ -256,6 +256,7 @@ pub fn handle_attack(
         if !world.get_or_panic::<DeathType>(p).is_alive()
             || world.get_or_panic::<IsUsingType>(p).inuse()
             || world.get_or_panic::<Attacking>(p).0
+            || world.get_or_panic::<AttackTimer>(p).0 > *storage.gettick.borrow()
         {
             return Ok(());
         }
@@ -277,18 +278,18 @@ pub fn handle_attack(
             send_dir(world, storage, entity, true)?;
         };
 
-        if let Some(entity) = target {
-            if world.contains(entity.0) {
-                match world.get_or_panic::<&WorldEntityType>(&entity) {
-                    WorldEntityType::Npc => {
-                        *world.get::<&mut DeathType>(entity.0).expect("Could not find DeathType") = DeathType::Dead;
-                    }
-                    _ => {}
+        if let Some(target_entity) = target {
+            if world.contains(target_entity.0) {
+                player_combat(world, storage, entity, &target_entity);
+                {
+                    world
+                        .get::<&mut AttackTimer>(entity.0)
+                        .expect("Could not find AttackTimer")
+                        .0 =
+                        *storage.gettick.borrow() + Duration::try_milliseconds(250).unwrap_or_default();
                 }
             }
         }
-
-        //TODO Add Attack funciton call here for player attacks
         return Ok(());
     }
 
@@ -827,6 +828,29 @@ pub fn handle_admincommand(
             }
         }
 
+        return Ok(());
+    }
+
+    Err(AscendingError::InvalidSocket)
+}
+
+pub fn handle_settarget(
+    world: &mut World,
+    storage: &Storage,
+    data: &mut ByteBuffer,
+    entity: &Entity,
+) -> Result<()> {
+    if let Some(_p) = storage.player_ids.borrow().get(entity) {
+        let target = data.read::<Option<Entity>>()?;
+
+        if let Some(target_entity) = target {
+            if !world.contains(target_entity.0) {
+                return Ok(());
+            }
+        }
+        world.get::<&mut PlayerTarget>(entity.0).expect("Could not find PlayerTarget").0 =
+            target;
+        
         return Ok(());
     }
 

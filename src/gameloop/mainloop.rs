@@ -68,7 +68,7 @@ pub fn get_length(storage: &Storage, buffer: &mut ByteBuffer, id: usize) -> Opti
     if buffer.length() - buffer.cursor() >= 8 {
         let length = buffer.read::<u64>().ok()?;
 
-        if !(4..=8192).contains(&length) {
+        if !(1..=8192).contains(&length) {
             if let Some(client) = storage.server.borrow().clients.get(&mio::Token(id)) {
                 client.borrow_mut().set_to_closing(storage);
             }

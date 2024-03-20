@@ -11,7 +11,7 @@ pub fn damage_npc(world: &mut World, entity: &crate::Entity, damage: i32) {
         world.get_or_panic::<Vitals>(entity).vital[VitalTypes::Hp as usize].saturating_sub(damage);
 }
 
-pub fn entity_cast_check(
+fn entity_cast_check(
     caster_pos: Position,
     target_pos: Position,
     target_death: DeathType,

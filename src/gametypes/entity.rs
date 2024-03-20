@@ -26,6 +26,10 @@ pub struct Target {
 
 #[derive(Derivative, Debug, Copy, Clone, PartialEq, Eq)]
 #[derivative(Default)]
+pub struct PlayerTarget(pub Option<Entity>);
+
+#[derive(Derivative, Debug, Copy, Clone, PartialEq, Eq)]
+#[derivative(Default)]
 pub struct KillCount {
     pub count: u32,
     #[derivative(Default(value = "MyInstant::now()"))]

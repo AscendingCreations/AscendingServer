@@ -24,6 +24,7 @@ pub enum ClientPacket {
     DeleteItem,
     Message,
     AdminCommand,
+    SetTarget,
     Size,
 }
 
@@ -74,6 +75,10 @@ impl PacketRouter {
             (
                 ClientPacket::AdminCommand,
                 routes::handle_admincommand as PacketFunction,
+            ),
+            (
+                ClientPacket::SetTarget,
+                routes::handle_settarget as PacketFunction,
             ),
         ]))
     }

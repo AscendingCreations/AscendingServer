@@ -264,6 +264,7 @@ impl Storage {
                 Position::default(),
                 DeathType::default(),
                 IsUsingType::default(),
+                PlayerTarget::default(),
             ),
         );
         self.player_ids.borrow_mut().insert(*entity);
