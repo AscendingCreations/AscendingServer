@@ -145,3 +145,25 @@ pub fn player_combat_damage(world: &mut World, entity: &Entity, target_entity: &
 
     damage as i32
 }
+
+pub fn kill_player(world: &mut World, storage: &Storage, entity: &Entity) {
+    {
+        if let Ok(mut vitals) = world.get::<&mut Vitals>(entity.0) {
+            vitals.vital = vitals.vitalmax;
+        }
+        world
+            .get::<&mut PlayerTarget>(entity.0)
+            .expect("Could not find PlayerTarget")
+            .0 = None;
+    }
+    let _ = DataTaskToken::PlayerVitals(world.get_or_default::<Position>(entity).map).add_task(
+        storage,
+        {
+            let vitals = world.get_or_panic::<Vitals>(entity);
+
+            &VitalsPacket::new(*entity, vitals.vital, vitals.vitalmax)
+        },
+    );
+    let spawn = world.get_or_panic::<Spawn>(entity);
+    player_warp(world, storage, entity, &spawn.pos, true);
+}

@@ -96,13 +96,20 @@ pub fn npc_combat(world: &mut World, storage: &Storage, entity: &Entity, base: &
 
                     let _ = DataTaskToken::NpcAttack(world.get_or_default::<Position>(entity).map)
                         .add_task(storage, entity);
-                    let _ =
-                        DataTaskToken::PlayerVitals(world.get_or_default::<Position>(entity).map)
-                            .add_task(storage, {
-                                let vitals = world.get_or_panic::<Vitals>(&i);
+                    let vitals = world.get_or_panic::<Vitals>(&i);
+                    if vitals.vital[0] > 0 {
+                        let _ = DataTaskToken::PlayerVitals(
+                            world.get_or_default::<Position>(entity).map,
+                        )
+                        .add_task(storage, {
+                            let vitals = world.get_or_panic::<Vitals>(&i);
 
-                                &VitalsPacket::new(i, vitals.vital, vitals.vitalmax)
-                            });
+                            &VitalsPacket::new(i, vitals.vital, vitals.vitalmax)
+                        });
+                    } else {
+                        remove_all_npc_target(world, &i);
+                        kill_player(world, storage, &i);
+                    }
                     //TODO Send Attack Msg/Damage
                 }
             }

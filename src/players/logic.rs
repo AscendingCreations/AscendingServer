@@ -351,3 +351,24 @@ pub fn joingame(world: &mut World, storage: &Storage, entity: &Entity) {
         Some(socket_id),
     );
 }
+
+pub fn remove_all_npc_target(world: &mut World, entity: &Entity) {
+    for (_, (_, target)) in world
+        .query::<(&WorldEntityType, &mut Target)>()
+        .iter()
+        .filter(|(_entity, (worldentitytype, target))| {
+            let mut can_target = true;
+            if **worldentitytype != WorldEntityType::Npc {
+                can_target = false;
+            }
+            if let EntityType::Player(i, _) = target.targettype {
+                if i != *entity {
+                    can_target = false;
+                }
+            }
+            can_target
+        })
+    {
+        *target = Target::default();
+    }
+}
