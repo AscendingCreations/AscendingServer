@@ -68,10 +68,15 @@ impl DataTaskToken {
                     data.write_to_buffer(&mut buffer)?;
                     buffers.push_back((1, buffer, false));
                 } else {
+                    //try to get the size but if its a internal Vec thsi migth be wrong.
                     let size = std::mem::size_of::<T>();
                     let (count, buffer, is_finished) = buffers
                         .back_mut()
                         .ok_or(AscendingError::PacketCacheNotFound(self))?;
+
+                    //build a initial packet to get the true size.
+                    let mut packet = ByteBuffer::with_capacity(size)?;
+                    data.write_to_buffer(&mut packet)?;
 
                     if size + buffer.length() > PACKET_DATA_LIMIT {
                         *is_finished = true;
@@ -79,7 +84,7 @@ impl DataTaskToken {
 
                         let mut buffer = new_cache(self.packet_id())?;
 
-                        data.write_to_buffer(&mut buffer)?;
+                        buffer.write_slice(packet.as_slice())?;
 
                         if buffer.length() > PACKET_DATA_LIMIT {
                             warn!(
@@ -89,7 +94,7 @@ impl DataTaskToken {
                         }
                         buffers.push_back((1, buffer, false));
                     } else {
-                        data.write_to_buffer(buffer)?;
+                        buffer.write_slice(packet.as_slice())?;
                         *count += 1;
                     }
                 }
@@ -133,12 +138,12 @@ impl DataTaskToken {
         use DataTaskToken::*;
         match self {
             GlobalChat => send_to_all(world, storage, buf),
-            NpcMove(mappos) | NpcWarp(mappos) | PlayerMove(mappos) | PlayerWarp(mappos) 
+            NpcMove(mappos) | NpcWarp(mappos) | PlayerMove(mappos) | PlayerWarp(mappos)
             | PlayerDir(mappos) | NpcDeath(mappos) | NpcDir(mappos) | PlayerDeath(mappos)
             | EntityUnload(mappos) | NpcAttack(mappos) | PlayerAttack(mappos)
-            | NpcSpawn(mappos) | PlayerSpawn(mappos) | MapChat(mappos)
-            | ItemLoad(mappos) | PlayerVitals(mappos) | PlayerLevel(mappos)
-            | PlayerDamage(mappos) | NpcDamage(mappos) | NpcVitals(mappos) => {
+            | NpcSpawn(mappos) | PlayerSpawn(mappos) | MapChat(mappos) | ItemLoad(mappos)
+            | PlayerVitals(mappos) | PlayerLevel(mappos) | PlayerDamage(mappos)
+            | NpcDamage(mappos) | NpcVitals(mappos) => {
                 send_to_maps(world, storage, *mappos, buf, None)
             }
             PlayerSpawnToEntity(socket_id)
