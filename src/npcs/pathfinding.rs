@@ -5,15 +5,17 @@ use std::{
     collections::{BinaryHeap, VecDeque},
 };
 
+use super::can_target;
+
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct PathNode {
-    g: i32,
-    h: i32,
-    f: i32,
-    parent: Option<usize>,
-    pos: Position,
-    dir: u8,
-    offset: Position,
+    pub g: i32,
+    pub h: i32,
+    pub f: i32,
+    pub parent: Option<usize>,
+    pub pos: Position,
+    pub dir: u8,
+    pub offset: Position,
 }
 
 impl PathNode {
@@ -72,9 +74,11 @@ pub fn a_star_path(
     stop: Position,
 ) -> Option<VecDeque<(Position, u8)>> {
     let mut id = 0;
-    let mut nodes = Vec::with_capacity(32);
-    let mut opened = BinaryHeap::with_capacity(32);
-    let mut closed = HashMap::with_capacity_and_hasher(32, Default::default());
+    let mut nodes: Vec<PathNode> = Vec::with_capacity(256);
+    let mut opened = BinaryHeap::with_capacity(256);
+    let mut closed = HashMap::with_capacity_and_hasher(256, Default::default());
+    let mut contained = HashMap::with_capacity_and_hasher(256, Default::default());
+    let mut children_nodes = Vec::with_capacity(16);
     //Build the list of allowed maps the npc can look at when building its path. We want to limit this so they can not kill the
     //server by over processing. If the target is outside these maps we should untarget them.
     let allowed_maps = get_extended_surrounding_set(start.map);
@@ -100,29 +104,17 @@ pub fn a_star_path(
         closed.insert(nodes[current_index].pos, current_index);
 
         //If we hit the Final location we then go backwards from the current node
-        //And follow the Parents till the Start location.
-        if current_node.pos == stop {
-            let mut path = VecDeque::with_capacity(16);
-            let mut current = current_node;
-
-            loop {
-                //Push it so the Back ends up in the back and the first moves are in the front.
-                path.push_front((current.pos, current.dir));
-
-                if let Some(nextid) = current.parent {
-                    //Prevent us from using the position our Aggressor is on.
-                    if nodes[nextid].pos != start {
-                        current = nodes[nextid];
-                    } else {
-                        return Some(path);
-                    }
-                } else {
-                    return Some(path);
-                }
+        //And follow the Parents till the Start location. if the final location is blocked we will
+        //find a location within a range of 1 regardless if blocked or not.
+        if let Some(map) = storage.maps.get(&current_node.pos.map) {
+            if map.borrow().is_blocked_tile(stop)
+                && can_target(current_node.pos, stop, DeathType::Alive, 1)
+            {
+                return npc_path_gather(&nodes, &current_node, start);
             }
+        } else if current_node.pos == stop {
+            return npc_path_gather(&nodes, &current_node, start);
         }
-
-        let mut children_nodes = Vec::with_capacity(16);
 
         //Cycle each direction to get a Rated path ontop of each current location.
         //We only build out and process 4 directions at a time. this helps us
@@ -173,7 +165,7 @@ pub fn a_star_path(
         }
 
         //We now cycle through the Children we gathered.
-        'found: for mut child in children_nodes {
+        'found: while let Some(mut child) = children_nodes.pop() {
             //we make sure we are not heading back towards tiles we already processed once.
             if closed.contains_key(&child.pos) {
                 continue 'found;
@@ -189,25 +181,59 @@ pub fn a_star_path(
             //out of the children we processed.
             child.f = child.g + child.h;
 
-            for Reverse((_, opened_id)) in &opened {
-                // if we loop in here and one of our last pushed Nodes == one of our new children
-                // we will ignore it and continue with more children as it already exists.
-                //TODO: change this to a HashSet to avoid looping everything and get a much faster lookup.
-                if nodes[*opened_id].pos == child.pos && child.g >= nodes[*opened_id].g {
+            if let Some(&i) = contained.get(&child.pos) {
+                let node: PathNode = nodes[i];
+                if child.g >= node.g {
                     continue 'found;
                 }
             }
+            /*for Reverse((_, opened_id)) in &opened {
+                // if we loop in here and one of our last pushed Nodes == one of our new children
+                // we will ignore it and continue with more children as it already exists.
+                if nodes[*opened_id].pos == child.pos && child.g >= nodes[*opened_id].g {
+                    continue 'found;
+                }
+            }*/
 
+            //should allow for quicker find than looping backwards.
+            contained.insert(child.pos, id);
             //If the node was worthy we then push it to the end of our list.
             nodes.push(child);
             //We then push it to our open node list of nodes we want to pop off. Best node gets popped off first based on its F value.
             opened.push(Reverse((child.f, id)));
             id += 1;
         }
+
+        children_nodes.clear();
     }
 
     //We ran out of Tiles to check and crashed out failed to find path to target.
     None
+}
+
+pub fn npc_path_gather(
+    nodes: &[PathNode],
+    current_node: &PathNode,
+    start: Position,
+) -> Option<VecDeque<(Position, u8)>> {
+    let mut path = VecDeque::with_capacity(64);
+    let mut current = *current_node;
+
+    loop {
+        //Push it so the Back ends up in the back and the first moves are in the front.
+        path.push_front((current.pos, current.dir));
+
+        if let Some(nextid) = current.parent {
+            //Prevent us from using the position our Aggressor is on.
+            if nodes[nextid].pos != start {
+                current = nodes[nextid];
+            } else {
+                break Some(path);
+            }
+        } else {
+            break Some(path);
+        }
+    }
 }
 
 pub fn npc_rand_movement(storage: &Storage, pos: Position, dir: u8) -> VecDeque<(Position, u8)> {

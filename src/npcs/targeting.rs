@@ -90,7 +90,7 @@ pub fn targeting(world: &mut World, storage: &Storage, entity: &Entity, base: &N
     }
 }
 
-fn can_target(
+pub fn can_target(
     caster_pos: Position,
     target_pos: Position,
     target_death: DeathType,
