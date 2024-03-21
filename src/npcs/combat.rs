@@ -151,7 +151,8 @@ pub fn npc_combat_damage(
     let mut damage = data
         .get_or_panic::<Physical>()
         .damage
-        .saturating_sub(def / offset);
+        .saturating_sub(def / offset)
+        .max(base.mindamage);
     let mut rng = thread_rng();
 
     //set to max before we set to max i32 just in case. Order matters here.

@@ -16,6 +16,18 @@ pub fn is_next_to_target(entity_pos: Position, target_pos: Position, range: i32)
             && (target_pos.x >= entity_pos.x - 1 && target_pos.x <= entity_pos.x + 1))
 }
 
+pub fn get_target_direction(entity_pos: Position, target_pos: Position) -> u8 {
+    if entity_pos.x > target_pos.x {
+        3
+    } else if entity_pos.x < target_pos.x {
+        1
+    } else if entity_pos.y < target_pos.y {
+        2
+    } else {
+        0
+    }
+}
+
 pub fn npc_movement(world: &mut World, storage: &Storage, entity: &Entity, _base: &NpcData) {
     //AI Timer is used to Reset the Moves every so offten to recalculate them for possible changes.
     if world.get_or_panic::<Target>(entity).targettype != EntityType::None
@@ -31,14 +43,21 @@ pub fn npc_movement(world: &mut World, storage: &Storage, entity: &Entity, _base
         let pos = world.get_or_panic::<Position>(entity);
         let target_pos = world.get_or_panic::<Target>(entity).targetpos;
 
-        if old_pos != target_pos && !is_next_to_target(pos, target_pos, 1) {
-            if let Some(path) = a_star_path(
-                storage,
-                pos,
-                world.get_or_panic::<Dir>(entity).0,
-                target_pos,
-            ) {
-                npc_set_move_path(world, entity, path);
+        if old_pos != target_pos {
+            if is_next_to_target(pos, target_pos, 1) {
+                let n_dir = get_target_direction(pos, target_pos);
+                if world.get_or_panic::<Dir>(entity).0 != n_dir {
+                    set_npc_dir(world, storage, entity, n_dir);
+                }
+            } else {
+                if let Some(path) = a_star_path(
+                    storage,
+                    pos,
+                    world.get_or_panic::<Dir>(entity).0,
+                    target_pos,
+                ) {
+                    npc_set_move_path(world, entity, path);
+                }
             }
         }
     }
@@ -67,7 +86,12 @@ pub fn npc_movement(world: &mut World, storage: &Storage, entity: &Entity, _base
             let target_pos = world.get_or_panic::<Target>(entity).targetpos;
 
             update_target_pos(world, entity);
-            if !is_next_to_target(pos, target_pos, 1) {
+            if is_next_to_target(pos, target_pos, 1) {
+                let n_dir = get_target_direction(pos, target_pos);
+                if world.get_or_panic::<Dir>(entity).0 != n_dir {
+                    set_npc_dir(world, storage, entity, n_dir);
+                }
+            } else {
                 if let Some(path) = a_star_path(
                     storage,
                     pos,

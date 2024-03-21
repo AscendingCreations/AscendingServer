@@ -1,4 +1,11 @@
-use crate::{containers::Storage, gametypes::*, maps::check_surrounding, players::*, npcs::{damage_npc, try_target_entity}, tasks::{DataTaskToken, VitalsPacket}};
+use crate::{
+    containers::Storage,
+    gametypes::*,
+    maps::check_surrounding,
+    npcs::{damage_npc, try_target_entity},
+    players::*,
+    tasks::{DataTaskToken, VitalsPacket},
+};
 use hecs::World;
 use rand::*;
 use std::cmp;
@@ -33,11 +40,7 @@ fn entity_cast_check(
     range >= caster_pos.checkdistance(pos) && target_death.is_alive()
 }
 
-pub fn try_player_cast(
-    world: &mut World,
-    caster: &Entity,
-    target: &Entity,
-) -> bool {
+pub fn try_player_cast(world: &mut World, caster: &Entity, target: &Entity) -> bool {
     if !world.contains(caster.0) || !world.contains(target.0) {
         return false;
     }
@@ -49,7 +52,12 @@ pub fn try_player_cast(
     entity_cast_check(caster_pos, target_pos, life, 1)
 }
 
-pub fn player_combat(world: &mut World, storage: &Storage, entity: &Entity, target_entity: &Entity) {
+pub fn player_combat(
+    world: &mut World,
+    storage: &Storage,
+    entity: &Entity,
+    target_entity: &Entity,
+) {
     if try_player_cast(world, entity, target_entity) {
         let world_entity_type = world.get_or_default::<WorldEntityType>(target_entity);
         match world_entity_type {
@@ -59,12 +67,11 @@ pub fn player_combat(world: &mut World, storage: &Storage, entity: &Entity, targ
 
                 let _ = DataTaskToken::PlayerAttack(world.get_or_default::<Position>(entity).map)
                     .add_task(storage, entity);
-                let _ =
-                    DataTaskToken::PlayerVitals(world.get_or_default::<Position>(entity).map)
-                        .add_task(storage, {
-                            let vitals = world.get_or_panic::<Vitals>(target_entity);
-                            &VitalsPacket::new(*target_entity, vitals.vital, vitals.vitalmax)
-                        });
+                let _ = DataTaskToken::PlayerVitals(world.get_or_default::<Position>(entity).map)
+                    .add_task(storage, {
+                        let vitals = world.get_or_panic::<Vitals>(target_entity);
+                        &VitalsPacket::new(*target_entity, vitals.vital, vitals.vitalmax)
+                    });
             }
             WorldEntityType::Npc => {
                 let damage = player_combat_damage(world, entity, target_entity);
@@ -77,19 +84,20 @@ pub fn player_combat(world: &mut World, storage: &Storage, entity: &Entity, targ
                 if vitals.vital[0] > 0 {
                     let _ = DataTaskToken::NpcVitals(world.get_or_default::<Position>(entity).map)
                         .add_task(storage, {
-                            
                             &VitalsPacket::new(*target_entity, vitals.vital, vitals.vitalmax)
                         });
-                    
+
                     let acc_id = world.cloned_get_or_default::<Account>(entity).id;
                     try_target_entity(
-                        world, 
-                        storage, 
-                        target_entity, 
-                        EntityType::Player(*entity, acc_id))
+                        world,
+                        storage,
+                        target_entity,
+                        EntityType::Player(*entity, acc_id),
+                    )
                 } else {
-                    *world.get::<&mut DeathType>(target_entity.0).expect("Could not find DeathType") =
-                        DeathType::Dead;
+                    *world
+                        .get::<&mut DeathType>(target_entity.0)
+                        .expect("Could not find DeathType") = DeathType::Dead;
                 }
             }
             _ => {}
@@ -97,11 +105,7 @@ pub fn player_combat(world: &mut World, storage: &Storage, entity: &Entity, targ
     }
 }
 
-pub fn player_combat_damage(
-    world: &mut World,
-    entity: &Entity,
-    target_entity: &Entity,
-) -> i32 {
+pub fn player_combat_damage(world: &mut World, entity: &Entity, target_entity: &Entity) -> i32 {
     let data = world.entity(entity.0).expect("Could not get Entity");
     let edata = world.entity(target_entity.0).expect("Could not get Entity");
 

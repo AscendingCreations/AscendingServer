@@ -316,6 +316,7 @@ impl Storage {
                 NpcMovePos::default(),
                 Target::default(),
                 InCombat::default(),
+                AttackTimer::default(),
             ),
         )?;
 

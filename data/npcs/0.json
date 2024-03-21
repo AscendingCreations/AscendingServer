@@ -4,7 +4,7 @@
   "sprite": 1,
   "respawn_wait": 1,
   "movement_wait": 350,
-  "attack_wait": 1,
+  "attack_wait": 1000,
   "intervaled_wait": 1,
   "spawn_wait": 1,
   "maxhp": 1,
@@ -22,7 +22,7 @@
     "width": 1,
     "height": 1
   },
-  "behaviour": 0,
+  "behaviour": 2,
   "maxdamage": 1,
   "mindamage": 1,
   "target_auto_switch": false,
@@ -31,10 +31,10 @@
   "target_range_dropout": false,
   "can_target": false,
   "can_move": true,
-  "can_attack_player": false,
+  "can_attack_player": true,
   "has_allys": false,
   "has_enemies": false,
-  "can_attack": false,
+  "can_attack": true,
   "has_selfonly": false,
   "has_friendonly": false,
   "has_groundonly": false,
@@ -53,7 +53,7 @@
       "sec": 59
     }
   ],
-  "range": 0,
+  "range": 1,
   "enemies": [],
   "drops": [
     [

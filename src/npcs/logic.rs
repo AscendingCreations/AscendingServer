@@ -62,9 +62,15 @@ pub fn update_npcs(world: &mut World, storage: &Storage) {
                             Some(map) => map.borrow().players_on_map(),
                             None => continue,
                         }
-                        && world.get_or_panic::<AttackTimer>(id).0 < tick
+                        && world.get_or_panic::<AttackTimer>(id).0 <= tick
                     {
                         npc_combat(world, storage, id, npcdata);
+
+                        world
+                            .get::<&mut AttackTimer>(id.0)
+                            .expect("Could not find AttackTimer")
+                            .0 = tick
+                            + Duration::try_milliseconds(npcdata.attack_wait).unwrap_or_default();
                     }
 
                     if world.get_or_panic::<InCombat>(id).0
@@ -94,7 +100,7 @@ pub fn update_npcs(world: &mut World, storage: &Storage) {
                         map_data
                             .borrow_mut()
                             .add_entity_to_grid(world.get_or_panic::<Spawn>(id).pos);
-                        
+
                         let _ = DataTaskToken::NpcSpawn(world.get_or_panic::<Spawn>(id).pos.map)
                             .add_task(storage, &NpcSpawnPacket::new(world, id, true));
                     }
@@ -110,7 +116,7 @@ pub fn update_npcs(world: &mut World, storage: &Storage) {
         if let Some(pos) = storage.remove_npc(world, i) {
             if let Some(mapdata) = storage.maps.get(&pos.map) {
                 let mut data = mapdata.borrow_mut();
-                
+
                 data.remove_npc(i);
                 if let Some(zone) = zone_data {
                     data.zones[zone] = data.zones[zone].saturating_sub(1);
