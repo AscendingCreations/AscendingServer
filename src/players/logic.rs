@@ -292,7 +292,6 @@ pub fn player_repair_equipment(
         }
     }
 
-    //Sherwin: We seperated these so the Reference can get unloaded after being used. Then we can use it again.
     if update {
         let _ = send_equipment(world, storage, entity);
         let _ = update_equipment(storage, world, entity, slot);

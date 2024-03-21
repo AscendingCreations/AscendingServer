@@ -4,18 +4,26 @@ use hecs::World;
 
 pub fn npc_movement(world: &mut World, storage: &Storage, entity: &Entity, _base: &NpcData) {
     //AI Timer is used to Reset the Moves every so offten to recalculate them for possible changes.
-    if world.get_or_panic::<NpcAITimer>(entity).0 < *storage.gettick.borrow()
-        && world.get_or_panic::<NpcMoving>(entity).0
+    if world.get_or_panic::<Target>(entity).targettype != EntityType::None
+        && storage
+            .maps
+            .get(&world.get_or_panic::<Position>(entity).map)
+            .map(|map| map.borrow().players_on_map())
+            .unwrap_or(false)
     {
-        world
-            .get::<&mut NpcMoves>(entity.0)
-            .expect("Could not find NpcMoves")
-            .0
-            .clear();
-        world
-            .get::<&mut NpcMoving>(entity.0)
-            .expect("Could not find NpcMoves")
-            .0 = false;
+        let old_pos = world.get_or_panic::<Target>(entity).targetpos;
+        update_target_pos(world, entity);
+
+        if old_pos != world.get_or_panic::<Target>(entity).targetpos {
+            if let Some(path) = a_star_path(
+                storage,
+                world.get_or_panic::<Position>(entity),
+                world.get_or_panic::<Dir>(entity).0,
+                world.get_or_panic::<Target>(entity).targetpos,
+            ) {
+                npc_set_move_path(world, entity, path);
+            }
+        }
     }
 
     if !world.get_or_panic::<NpcMoving>(entity).0
@@ -31,7 +39,7 @@ pub fn npc_movement(world: &mut World, storage: &Storage, entity: &Entity, _base
             ) {
                 npc_set_move_path(world, entity, path);
             }
-        } else if world.get_or_panic::<Target>(entity).targettype != EntityType::None
+        /*} else if world.get_or_panic::<Target>(entity).targettype != EntityType::None
             && storage
                 .maps
                 .get(&world.get_or_panic::<Position>(entity).map)
@@ -46,31 +54,31 @@ pub fn npc_movement(world: &mut World, storage: &Storage, entity: &Entity, _base
                 world.get_or_panic::<Target>(entity).targetpos,
             ) {
                 npc_set_move_path(world, entity, path);
-            }
-        } else {
-            //no special movement lets give them some if we can;
-            if storage
+            }*/
+        //no special movement lets give them some if we can;
+        } else if world.get_or_panic::<NpcAITimer>(entity).0 < *storage.gettick.borrow()
+            && storage
                 .maps
                 .get(&world.get_or_panic::<Position>(entity).map)
                 .map(|map| map.borrow().players_on_map())
                 .unwrap_or(false)
-            {
-                npc_set_move_path(
-                    world,
-                    entity,
-                    npc_rand_movement(
-                        storage,
-                        world.get_or_panic::<Position>(entity),
-                        world.get_or_panic::<Dir>(entity).0,
-                    ),
-                );
-            }
-        }
+        {
+            let moves = npc_rand_movement(
+                storage,
+                world.get_or_panic::<Position>(entity),
+                world.get_or_panic::<Dir>(entity).0,
+            );
+            //get a count of moves to increase the AI wait timer.
+            let count = moves.len();
 
-        world
-            .get::<&mut NpcAITimer>(entity.0)
-            .expect("Could not find NpcAITimer")
-            .0 = *storage.gettick.borrow() + Duration::try_milliseconds(2500).unwrap_or_default();
+            npc_set_move_path(world, entity, moves);
+
+            world
+                .get::<&mut NpcAITimer>(entity.0)
+                .expect("Could not find NpcAITimer")
+                .0 = *storage.gettick.borrow()
+                + Duration::try_milliseconds(count as i64 * 1000).unwrap_or_default();
+        }
     }
 
     if world.get_or_panic::<NpcMoving>(entity).0 {
@@ -81,7 +89,13 @@ pub fn npc_movement(world: &mut World, storage: &Storage, entity: &Entity, _base
             .pop_front()
         {
             Some(v) => v,
-            None => return,
+            None => {
+                world
+                    .get::<&mut NpcMoving>(entity.0)
+                    .expect("Could not find NpcMoving")
+                    .0 = false;
+                return;
+            }
         };
 
         if map_path_blocked(

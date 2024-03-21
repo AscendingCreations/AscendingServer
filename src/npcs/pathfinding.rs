@@ -57,9 +57,9 @@ pub fn path_map_switch(
 
     if next_pos.left_map() {
         match movedir {
-            0 => return set_pos(next_pos, MapPosDir::Up, cur_pos.x, 0),
+            0 => return set_pos(next_pos, MapPosDir::Down, cur_pos.x, MAP_MAX_Y as i32 - 1),
             1 => return set_pos(next_pos, MapPosDir::Right, 0, cur_pos.y),
-            2 => return set_pos(next_pos, MapPosDir::Down, cur_pos.x, MAP_MAX_Y as i32 - 1),
+            2 => return set_pos(next_pos, MapPosDir::Up, cur_pos.x, 0),
             _ => return set_pos(next_pos, MapPosDir::Left, MAP_MAX_X as i32 - 1, cur_pos.y),
         }
     }
@@ -112,7 +112,9 @@ pub fn a_star_path(
             {
                 return npc_path_gather(&nodes, &current_node, start);
             }
-        } else if current_node.pos == stop {
+        }
+
+        if current_node.pos == stop {
             return npc_path_gather(&nodes, &current_node, start);
         }
 
