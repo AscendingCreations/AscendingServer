@@ -153,10 +153,8 @@ pub fn a_star_path(
                 continue;
             }
 
-            //ignore any that is the Same location as the start or stop locations.
-            if (node_pos.x == start.x && node_pos.y == start.y && node_pos.map == start.map)
-                || (node_pos.x == stop.x || node_pos.y == stop.y || node_pos.map == stop.map)
-            {
+            //ignore any that is the Same location as the start location.
+            if node_pos.x == start.x && node_pos.y == start.y && node_pos.map == start.map {
                 continue;
             }
 
