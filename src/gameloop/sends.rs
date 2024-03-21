@@ -451,10 +451,11 @@ pub fn send_message(
             let mut buf = ByteBuffer::new_packet_with(msg.len() + head.len() + 32)?;
 
             buf.write(ServerPackets::ChatMsg)?;
+            buf.write(1 as u32)?;
             buf.write(chan)?;
             buf.write(head)?;
             buf.write(msg)?;
-            buf.write(access)?;
+            buf.write(Some(access))?;
             buf.finish()?;
 
             if let Some(i) = id {
@@ -466,10 +467,11 @@ pub fn send_message(
             let mut buf = ByteBuffer::new_packet_with(msg.len() + head.len() + 32)?;
 
             buf.write(ServerPackets::ChatMsg)?;
+            buf.write(1 as u32)?;
             buf.write(chan)?;
             buf.write(head)?;
             buf.write(msg)?;
-            buf.write(access)?;
+            buf.write(Some(access))?;
             buf.finish()?;
             send_to(storage, world.get::<&Socket>(entity.0).unwrap().id, buf);
         }

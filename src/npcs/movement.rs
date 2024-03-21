@@ -39,7 +39,7 @@ pub fn npc_movement(world: &mut World, storage: &Storage, entity: &Entity, _base
             ) {
                 npc_set_move_path(world, entity, path);
             }
-        /*} else if world.get_or_panic::<Target>(entity).targettype != EntityType::None
+        } else if world.get_or_panic::<Target>(entity).targettype != EntityType::None
             && storage
                 .maps
                 .get(&world.get_or_panic::<Position>(entity).map)
@@ -54,7 +54,7 @@ pub fn npc_movement(world: &mut World, storage: &Storage, entity: &Entity, _base
                 world.get_or_panic::<Target>(entity).targetpos,
             ) {
                 npc_set_move_path(world, entity, path);
-            }*/
+            }
         //no special movement lets give them some if we can;
         } else if world.get_or_panic::<NpcAITimer>(entity).0 < *storage.gettick.borrow()
             && storage

@@ -341,4 +341,13 @@ pub fn joingame(world: &mut World, storage: &Storage, entity: &Entity) {
     println!("Login Ok");
     // Finish loading
     let _ = send_loginok(storage, socket_id);
+    let _ = send_message(
+        world,
+        storage,
+        entity,
+        "Welcome Message".into(),
+        String::new(),
+        MessageChannel::Private,
+        Some(socket_id),
+    );
 }
