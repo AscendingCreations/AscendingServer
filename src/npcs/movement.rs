@@ -2,6 +2,20 @@ use crate::{containers::Storage, gametypes::*, maps::*, npcs::*, players::Accoun
 use chrono::Duration;
 use hecs::World;
 
+pub fn is_next_to_target(entity_pos: Position, target_pos: Position, range: i32) -> bool {
+    let check = check_surrounding(entity_pos.map, target_pos.map, true);
+    let pos = target_pos.map_offset(check.into());
+
+    if range < entity_pos.checkdistance(pos) {
+        return false;
+    }
+
+    (target_pos.x == entity_pos.x
+        && (target_pos.y >= entity_pos.y - 1 && target_pos.y <= entity_pos.y + 1))
+        || (target_pos.y == entity_pos.y
+            && (target_pos.x >= entity_pos.x - 1 && target_pos.x <= entity_pos.x + 1))
+}
+
 pub fn npc_movement(world: &mut World, storage: &Storage, entity: &Entity, _base: &NpcData) {
     //AI Timer is used to Reset the Moves every so offten to recalculate them for possible changes.
     if world.get_or_panic::<Target>(entity).targettype != EntityType::None
@@ -14,12 +28,15 @@ pub fn npc_movement(world: &mut World, storage: &Storage, entity: &Entity, _base
         let old_pos = world.get_or_panic::<Target>(entity).targetpos;
         update_target_pos(world, entity);
 
-        if old_pos != world.get_or_panic::<Target>(entity).targetpos {
+        let pos = world.get_or_panic::<Position>(entity);
+        let target_pos = world.get_or_panic::<Target>(entity).targetpos;
+
+        if old_pos != target_pos && !is_next_to_target(pos, target_pos, 1) {
             if let Some(path) = a_star_path(
                 storage,
-                world.get_or_panic::<Position>(entity),
+                pos,
                 world.get_or_panic::<Dir>(entity).0,
-                world.get_or_panic::<Target>(entity).targetpos,
+                target_pos,
             ) {
                 npc_set_move_path(world, entity, path);
             }
@@ -46,14 +63,19 @@ pub fn npc_movement(world: &mut World, storage: &Storage, entity: &Entity, _base
                 .map(|map| map.borrow().players_on_map())
                 .unwrap_or(false)
         {
+            let pos = world.get_or_panic::<Position>(entity);
+            let target_pos = world.get_or_panic::<Target>(entity).targetpos;
+
             update_target_pos(world, entity);
-            if let Some(path) = a_star_path(
-                storage,
-                world.get_or_panic::<Position>(entity),
-                world.get_or_panic::<Dir>(entity).0,
-                world.get_or_panic::<Target>(entity).targetpos,
-            ) {
-                npc_set_move_path(world, entity, path);
+            if !is_next_to_target(pos, target_pos, 1) {
+                if let Some(path) = a_star_path(
+                    storage,
+                    pos,
+                    world.get_or_panic::<Dir>(entity).0,
+                    target_pos,
+                ) {
+                    npc_set_move_path(world, entity, path);
+                }
             }
         //no special movement lets give them some if we can;
         } else if world.get_or_panic::<NpcAITimer>(entity).0 < *storage.gettick.borrow()
