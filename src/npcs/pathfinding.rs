@@ -238,13 +238,12 @@ pub fn npc_path_gather(
     }
 }
 
-pub fn npc_rand_movement(storage: &Storage, pos: Position, dir: u8) -> VecDeque<(Position, u8)> {
+pub fn npc_rand_movement(storage: &Storage, pos: Position) -> VecDeque<(Position, u8)> {
     let mut rng = thread_rng();
     //down, right, up, left
     let adjacent = [(0, -1), (1, 0), (0, 1), (-1, 0)];
     let mut path = VecDeque::with_capacity(16);
     let mut lastpos = pos;
-    let mut lastdir: usize = dir as usize;
     let allowed_maps = get_surrounding_set(pos.map);
 
     //Lets get a range of movements in one go.
@@ -256,25 +255,6 @@ pub fn npc_rand_movement(storage: &Storage, pos: Position, dir: u8) -> VecDeque<
             lastpos.map,
         );
 
-        if node_pos.x < 0 || node_pos.x >= 32 || node_pos.y < 0 || node_pos.y >= 32 {
-            let adj = [
-                (lastpos.x, 31),
-                (0, lastpos.y),
-                (lastpos.x, 0),
-                (31, lastpos.y),
-            ];
-
-            node_pos = Position::new(
-                adj[movedir as usize].0,
-                adj[movedir as usize].1,
-                MapPosition {
-                    x: lastpos.map.x + adjacent[movedir as usize].0,
-                    y: lastpos.map.y + adjacent[movedir as usize].1,
-                    group: lastpos.map.group,
-                },
-            );
-        }
-
         if !path_map_switch(
             storage,
             &allowed_maps,
@@ -285,13 +265,12 @@ pub fn npc_rand_movement(storage: &Storage, pos: Position, dir: u8) -> VecDeque<
             continue;
         }
 
-        if map_path_blocked(storage, lastpos, node_pos, movedir as u8) && lastdir != movedir {
+        if map_path_blocked(storage, lastpos, node_pos, movedir as u8) {
             path.push_back((lastpos, movedir as u8));
         } else {
             path.push_back((node_pos, movedir as u8));
             lastpos = node_pos;
         }
-        lastdir = movedir;
     }
 
     path

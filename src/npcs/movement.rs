@@ -63,11 +63,7 @@ pub fn npc_movement(world: &mut World, storage: &Storage, entity: &Entity, _base
                 .map(|map| map.borrow().players_on_map())
                 .unwrap_or(false)
         {
-            let moves = npc_rand_movement(
-                storage,
-                world.get_or_panic::<Position>(entity),
-                world.get_or_panic::<Dir>(entity).0,
-            );
+            let moves = npc_rand_movement(storage, world.get_or_panic::<Position>(entity));
             //get a count of moves to increase the AI wait timer.
             let count = moves.len();
 
@@ -104,11 +100,17 @@ pub fn npc_movement(world: &mut World, storage: &Storage, entity: &Entity, _base
             next.0,
             next.1,
         ) {
-            world
-                .get::<&mut NpcMoves>(entity.0)
-                .expect("Could not find NpcMoves")
-                .0
-                .push_back(next);
+            if world.get_or_panic::<Target>(entity).targettype != EntityType::None
+                || world.get_or_panic::<NpcMovePos>(entity).0.is_some()
+            {
+                world
+                    .get::<&mut NpcMoves>(entity.0)
+                    .expect("Could not find NpcMoves")
+                    .0
+                    .push_front(next);
+            } else {
+                npc_clear_move_path(world, entity);
+            }
 
             return;
         }

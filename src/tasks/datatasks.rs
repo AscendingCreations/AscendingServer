@@ -78,7 +78,7 @@ impl DataTaskToken {
                     let mut packet = ByteBuffer::with_capacity(size)?;
                     data.write_to_buffer(&mut packet)?;
 
-                    if size + buffer.length() > PACKET_DATA_LIMIT {
+                    if packet.length() + buffer.length() > PACKET_DATA_LIMIT {
                         *is_finished = true;
                         finish_cache(buffer, *count, false)?;
 
