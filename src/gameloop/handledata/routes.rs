@@ -285,8 +285,8 @@ pub fn handle_attack(
                     world
                         .get::<&mut AttackTimer>(entity.0)
                         .expect("Could not find AttackTimer")
-                        .0 =
-                        *storage.gettick.borrow() + Duration::try_milliseconds(250).unwrap_or_default();
+                        .0 = *storage.gettick.borrow()
+                        + Duration::try_milliseconds(250).unwrap_or_default();
                 }
             }
         }
@@ -653,7 +653,7 @@ pub fn handle_dropitem(
         let id = map.add_mapitem(world, mapitem);
         let _ = DataTaskToken::ItemLoad(world.get_or_panic::<Position>(p).map).add_task(
             storage,
-            &MapItemPacket::new(id, mapitem.pos, mapitem.item, mapitem.ownerid),
+            &MapItemPacket::new(id, mapitem.pos, mapitem.item, mapitem.ownerid, true),
         );
 
         return Ok(());
@@ -848,9 +848,11 @@ pub fn handle_settarget(
                 return Ok(());
             }
         }
-        world.get::<&mut PlayerTarget>(entity.0).expect("Could not find PlayerTarget").0 =
-            target;
-        
+        world
+            .get::<&mut PlayerTarget>(entity.0)
+            .expect("Could not find PlayerTarget")
+            .0 = target;
+
         return Ok(());
     }
 

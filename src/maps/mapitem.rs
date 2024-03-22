@@ -3,7 +3,6 @@ use bytey::{ByteBufferRead, ByteBufferWrite};
 
 #[derive(Copy, Clone, PartialEq, Eq, Default, ByteBufferRead, ByteBufferWrite)]
 pub struct MapItem {
-    pub id: Entity,
     pub item: Item,
     #[bytey(skip)]
     pub despawn: Option<MyInstant>,

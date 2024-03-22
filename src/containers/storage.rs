@@ -34,6 +34,7 @@ pub struct Storage {
     pub npc_ids: RefCell<IndexSet<Entity>>,
     pub player_names: RefCell<HashMap<String, Entity>>, //for player names to ID's
     pub maps: IndexMap<MapPosition, RefCell<MapData>>,
+    pub map_items: RefCell<IndexMap<Position, Entity>>,
     //This is for buffering the specific packets needing to send.
     #[allow(clippy::type_complexity)]
     pub packet_cache: RefCell<IndexMap<DataTaskToken, VecDeque<(u32, ByteBuffer, bool)>>>,
@@ -163,6 +164,7 @@ impl Storage {
             npc_ids: RefCell::new(IndexSet::default()),
             player_names: RefCell::new(HashMap::default()), //for player names to ID's
             maps: IndexMap::default(),
+            map_items: RefCell::new(IndexMap::default()),
             packet_cache: RefCell::new(IndexMap::default()),
             packet_cache_ids: RefCell::new(IndexSet::default()),
             poll: RefCell::new(poll),
@@ -190,8 +192,19 @@ impl Storage {
             };
 
             for id in 0..MAP_MAX_X * MAP_MAX_Y {
-                if let MapAttribute::Blocked = map_data.attribute[id] {
-                    map.add_blocked_tile(id);
+                match map_data.attribute[id] {
+                    MapAttribute::Blocked => {
+                        map.add_blocked_tile(id);
+                    }
+                    MapAttribute::ItemSpawn(index, amount, timer) => {
+                        map.add_spawnable_item(
+                            Position::new(id as i32 % 32, id as i32 / 32, map_data.position),
+                            index,
+                            amount,
+                            timer,
+                        );
+                    }
+                    _ => {}
                 }
             }
 

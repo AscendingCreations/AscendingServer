@@ -49,15 +49,13 @@ pub fn npc_movement(world: &mut World, storage: &Storage, entity: &Entity, _base
                 if world.get_or_panic::<Dir>(entity).0 != n_dir {
                     set_npc_dir(world, storage, entity, n_dir);
                 }
-            } else {
-                if let Some(path) = a_star_path(
-                    storage,
-                    pos,
-                    world.get_or_panic::<Dir>(entity).0,
-                    target_pos,
-                ) {
-                    npc_set_move_path(world, entity, path);
-                }
+            } else if let Some(path) = a_star_path(
+                storage,
+                pos,
+                world.get_or_panic::<Dir>(entity).0,
+                target_pos,
+            ) {
+                npc_set_move_path(world, entity, path);
             }
         }
     }
@@ -91,15 +89,13 @@ pub fn npc_movement(world: &mut World, storage: &Storage, entity: &Entity, _base
                 if world.get_or_panic::<Dir>(entity).0 != n_dir {
                     set_npc_dir(world, storage, entity, n_dir);
                 }
-            } else {
-                if let Some(path) = a_star_path(
-                    storage,
-                    pos,
-                    world.get_or_panic::<Dir>(entity).0,
-                    target_pos,
-                ) {
-                    npc_set_move_path(world, entity, path);
-                }
+            } else if let Some(path) = a_star_path(
+                storage,
+                pos,
+                world.get_or_panic::<Dir>(entity).0,
+                target_pos,
+            ) {
+                npc_set_move_path(world, entity, path);
             }
         //no special movement lets give them some if we can;
         } else if world.get_or_panic::<NpcAITimer>(entity).0 < *storage.gettick.borrow()

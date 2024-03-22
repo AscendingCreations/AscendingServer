@@ -250,15 +250,23 @@ pub struct MapItemPacket {
     pub position: Position,
     pub item: Item,            //
     pub owner: Option<Entity>, //9
+    pub did_spawn: bool,
 }
 
 impl MapItemPacket {
-    pub fn new(id: Entity, position: Position, item: Item, owner: Option<Entity>) -> Self {
+    pub fn new(
+        id: Entity,
+        position: Position,
+        item: Item,
+        owner: Option<Entity>,
+        did_spawn: bool,
+    ) -> Self {
         Self {
             id,
             position,
             item,
             owner,
+            did_spawn,
         }
     }
 }

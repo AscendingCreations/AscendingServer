@@ -451,7 +451,7 @@ pub fn send_message(
             let mut buf = ByteBuffer::new_packet_with(msg.len() + head.len() + 32)?;
 
             buf.write(ServerPackets::ChatMsg)?;
-            buf.write(1 as u32)?;
+            buf.write(1_u32)?;
             buf.write(chan)?;
             buf.write(head)?;
             buf.write(msg)?;
@@ -467,7 +467,7 @@ pub fn send_message(
             let mut buf = ByteBuffer::new_packet_with(msg.len() + head.len() + 32)?;
 
             buf.write(ServerPackets::ChatMsg)?;
-            buf.write(1 as u32)?;
+            buf.write(1_u32)?;
             buf.write(chan)?;
             buf.write(head)?;
             buf.write(msg)?;

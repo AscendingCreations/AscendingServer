@@ -1,7 +1,15 @@
-use crate::{containers::Storage, gametypes::*, npcs::NpcSpawnedZone};
+use crate::{
+    containers::Storage,
+    gametypes::*,
+    items::Item,
+    npcs::NpcSpawnedZone,
+    tasks::{DataTaskToken, MapItemPacket},
+};
 use hecs::World;
 use rand::{thread_rng, Rng};
 use std::cmp::min;
+
+use super::MapItem;
 
 pub fn update_maps(world: &mut World, storage: &Storage) -> Result<()> {
     let mut rng = thread_rng();
@@ -96,17 +104,68 @@ pub fn update_maps(world: &mut World, storage: &Storage) -> Result<()> {
                     }
                 }
             }
+
+            let mut add_items = Vec::new();
+
+            for data in map_data.borrow().spawnable_item.iter() {
+                let mut storage_mapitem = storage.map_items.borrow_mut();
+                if !storage_mapitem.contains_key(&data.2) {
+                    let map_item = create_mapitem(data.0, data.1, data.2);
+                    let id = world.spawn((WorldEntityType::MapItem, map_item));
+                    let _ = world.insert_one(id, EntityType::MapItem(Entity(id)));
+                    storage_mapitem.insert(data.2, Entity(id));
+                    let _ = DataTaskToken::ItemLoad(data.2.map).add_task(
+                        storage,
+                        &MapItemPacket::new(
+                            Entity(id),
+                            map_item.pos,
+                            map_item.item,
+                            map_item.ownerid,
+                            true,
+                        ),
+                    );
+                    add_items.push(Entity(id));
+                }
+            }
+
+            for entity in add_items {
+                map_data.borrow_mut().itemids.insert(entity);
+            }
         }
     }
 
     Ok(())
 }
 
+pub fn create_mapitem(index: u32, value: u16, pos: Position) -> MapItem {
+    MapItem {
+        item: Item {
+            num: index,
+            val: value,
+            ..Default::default()
+        },
+        despawn: None,
+        ownertimer: None,
+        ownerid: None,
+        pos,
+    }
+}
+
 pub fn spawn_npc(world: &mut World, pos: Position, zone: Option<usize>, entity: Entity) {
     {
-        *world.get::<&mut Position>(entity.0).expect("Could not find Position") = pos;
-        world.get::<&mut Spawn>(entity.0).expect("Could not find Spawn").pos = pos;
-        world.get::<&mut NpcSpawnedZone>(entity.0).expect("Could not find NpcSpawnedZone").0 = zone;
-        *world.get::<&mut DeathType>(entity.0).expect("Could not find DeathType") = DeathType::Spawning;
+        *world
+            .get::<&mut Position>(entity.0)
+            .expect("Could not find Position") = pos;
+        world
+            .get::<&mut Spawn>(entity.0)
+            .expect("Could not find Spawn")
+            .pos = pos;
+        world
+            .get::<&mut NpcSpawnedZone>(entity.0)
+            .expect("Could not find NpcSpawnedZone")
+            .0 = zone;
+        *world
+            .get::<&mut DeathType>(entity.0)
+            .expect("Could not find DeathType") = DeathType::Spawning;
     }
 }

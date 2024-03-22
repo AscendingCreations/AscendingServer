@@ -198,6 +198,7 @@ pub fn process_data_lists(world: &mut World, storage: &Storage) {
                                         map_item.pos,
                                         map_item.item,
                                         map_item.ownerid,
+                                        false,
                                     ),
                                 );
 

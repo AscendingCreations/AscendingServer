@@ -21,6 +21,7 @@ pub enum MapAttribute {
     Blocked,
     Warp(i32, i32, u64, u32, u32),
     Sign(String),
+    ItemSpawn(u32, u16, u64),
     Count,
 }
 
@@ -111,6 +112,7 @@ pub struct MapData {
     #[derivative(Default(value = "[(0, false, 0); MAP_MAX_X * MAP_MAX_Y]"))]
     pub move_grid: [(u8, bool, u8); MAP_MAX_X * MAP_MAX_Y], // (count, False=tile|True=Npc or player, Dir Blocking)
     pub players_on_map: u64,
+    pub spawnable_item: Vec<(u32, u16, Position, u64)>,
 }
 
 impl MapData {
@@ -121,6 +123,10 @@ impl MapData {
     #[inline(always)]
     pub fn players_on_map(&self) -> bool {
         self.players_on_map > 0
+    }
+
+    pub fn add_spawnable_item(&mut self, pos: Position, index: u32, amount: u16, timer: u64) {
+        self.spawnable_item.push((index, amount, pos, timer));
     }
 
     pub fn add_mapitem(&mut self, world: &mut World, mapitem: MapItem) -> Entity {
