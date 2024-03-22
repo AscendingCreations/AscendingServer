@@ -9787,13 +9787,7 @@
     "Blocked",
     "Walkable",
     "Walkable",
-    {
-      "ItemSpawn": [
-        1,
-        0,
-        5000
-      ]
-    },
+    "Walkable",
     "Walkable",
     "Walkable",
     "Walkable",

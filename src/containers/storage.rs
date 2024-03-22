@@ -192,16 +192,16 @@ impl Storage {
             };
 
             for id in 0..MAP_MAX_X * MAP_MAX_Y {
-                match map_data.attribute[id] {
+                match map_data.attribute[id].clone() {
                     MapAttribute::Blocked => {
                         map.add_blocked_tile(id);
                     }
-                    MapAttribute::ItemSpawn(index, amount, timer) => {
+                    MapAttribute::ItemSpawn(itemdata) => {
                         map.add_spawnable_item(
                             Position::new(id as i32 % 32, id as i32 / 32, map_data.position),
-                            index,
-                            amount,
-                            timer,
+                            itemdata.index,
+                            itemdata.amount,
+                            itemdata.timer,
                         );
                     }
                     _ => {}
