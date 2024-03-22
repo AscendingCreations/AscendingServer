@@ -188,7 +188,13 @@ impl MapData {
     pub fn is_blocked_tile(&self, pos: Position, entity_type: WorldEntityType) -> bool {
         match self.move_grid[pos.as_tile()].attr {
             GridAttribute::Walkable => false,
-            GridAttribute::Entity => self.move_grid[pos.as_tile()].count >= 5,
+            GridAttribute::Entity => {
+                if entity_type == WorldEntityType::MapItem {
+                    false
+                } else {
+                    self.move_grid[pos.as_tile()].count >= 5
+                }
+            }
             GridAttribute::Blocked => true,
             GridAttribute::NpcBlock => entity_type == WorldEntityType::Npc,
         }
