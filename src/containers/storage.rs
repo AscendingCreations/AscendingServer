@@ -194,7 +194,7 @@ impl Storage {
             for id in 0..MAP_MAX_X * MAP_MAX_Y {
                 match map_data.attribute[id].clone() {
                     MapAttribute::Blocked => {
-                        map.add_blocked_tile(id);
+                        map.move_grid[id].attr = GridAttribute::Blocked;
                     }
                     MapAttribute::ItemSpawn(itemdata) => {
                         map.add_spawnable_item(

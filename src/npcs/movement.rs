@@ -141,6 +141,7 @@ pub fn npc_movement(world: &mut World, storage: &Storage, entity: &Entity, _base
             world.get_or_panic::<Position>(entity),
             next.0,
             next.1,
+            WorldEntityType::Npc,
         ) {
             if world.get_or_panic::<Target>(entity).targettype != EntityType::None
                 || world.get_or_panic::<NpcMovePos>(entity).0.is_some()

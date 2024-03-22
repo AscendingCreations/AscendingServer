@@ -42,11 +42,25 @@ pub enum MapAttribute {
     Count,
 }
 
-/*#[derive(Copy, Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
-pub struct Tile {
-    data: [i32; 4],
-    attr: u8,
-}*/
+/// The Block Type per Tile. This does not include Attributes so you will need
+/// to cycle through the Static Map Attribute Vec to get that information.
+/// this is only used to deturmine if something is blocked or not.
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Default)]
+pub enum GridAttribute {
+    #[default]
+    Walkable,
+    Entity,
+    Blocked,
+    NpcBlock,
+}
+
+/// Data that is changable per Tile for Blocking purposes within MapData
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Default)]
+pub struct GridTile {
+    pub count: u8,
+    pub attr: GridAttribute,
+    pub dir_block: u8,
+}
 
 //TODO: Update to use MAP (x,y,group) for map locations and Remove map links?
 #[derive(Clone, Derivative, Serialize, Deserialize)]
@@ -138,8 +152,8 @@ pub struct MapData {
     //#[derivative(Default(value = "slab::Slab::with_capacity(16)"))]
     //pub items: slab::Slab<MapItem>,
     pub zones: [u64; 5], //contains the NPC spawn Count of each Zone.
-    #[derivative(Default(value = "[(0, false, 0); MAP_MAX_X * MAP_MAX_Y]"))]
-    pub move_grid: [(u8, bool, u8); MAP_MAX_X * MAP_MAX_Y], // (count, False=tile|True=Npc or player, Dir Blocking)
+    #[derivative(Default(value = "[GridTile::default(); MAP_MAX_X * MAP_MAX_Y]"))]
+    pub move_grid: [GridTile; MAP_MAX_X * MAP_MAX_Y], // (count, False=tile|True=Npc or player, Dir Blocking)
     pub players_on_map: u64,
     pub spawnable_item: Vec<SpawnItemData>,
 }
@@ -171,37 +185,26 @@ impl MapData {
         Entity(id)
     }
 
-    pub fn is_blocked_tile(&self, pos: Position) -> bool {
-        /*
-        we might bring this back if we have more attributes that might matter.
-        however we should directly get this from the Storage and not add it to MapData.
-        if let Some(attribute) = self.map_attribute.get(pos.as_tile()) {
-            match attribute {
-                MapAttribute::Blocked => return true,
-                _ => {}
-            }
-        }*/
-
-        (self.move_grid[pos.as_tile()].0 > 0 && !self.move_grid[pos.as_tile()].1)
-            || (self.move_grid[pos.as_tile()].1 && self.move_grid[pos.as_tile()].0 >= 5)
-    }
-
-    pub fn add_blocked_tile(&mut self, id: usize) {
-        self.move_grid[id].0 = 1;
-        self.move_grid[id].1 = false;
+    pub fn is_blocked_tile(&self, pos: Position, entity_type: WorldEntityType) -> bool {
+        match self.move_grid[pos.as_tile()].attr {
+            GridAttribute::Walkable => false,
+            GridAttribute::Entity => self.move_grid[pos.as_tile()].count >= 5,
+            GridAttribute::Blocked => true,
+            GridAttribute::NpcBlock => entity_type == WorldEntityType::Npc,
+        }
     }
 
     pub fn remove_entity_from_grid(&mut self, pos: Position) {
-        self.move_grid[pos.as_tile()].0 = self.move_grid[pos.as_tile()].0.saturating_sub(1);
+        self.move_grid[pos.as_tile()].count = self.move_grid[pos.as_tile()].count.saturating_sub(1);
 
-        if self.move_grid[pos.as_tile()].0 == 0 {
-            self.move_grid[pos.as_tile()].1 = false;
+        if self.move_grid[pos.as_tile()].count == 0 {
+            self.move_grid[pos.as_tile()].attr = GridAttribute::Walkable;
         }
     }
 
     pub fn add_entity_to_grid(&mut self, pos: Position) {
-        self.move_grid[pos.as_tile()].0 = self.move_grid[pos.as_tile()].0.saturating_add(1);
-        self.move_grid[pos.as_tile()].1 = true;
+        self.move_grid[pos.as_tile()].count = self.move_grid[pos.as_tile()].count.saturating_add(1);
+        self.move_grid[pos.as_tile()].attr = GridAttribute::Entity;
     }
 
     pub fn add_player(&mut self, storage: &Storage, id: Entity) {
@@ -497,6 +500,7 @@ pub fn map_path_blocked(
     cur_pos: Position,
     next_pos: Position,
     movedir: u8,
+    entity_type: WorldEntityType,
 ) -> bool {
     // Directional blocking might be in the wrong order as it should be.
     // 0 down, 1 right, 2 up, 3 left
@@ -504,28 +508,28 @@ pub fn map_path_blocked(
     let blocked = match movedir {
         0 => {
             if let Some(map) = storage.maps.get(&cur_pos.map) {
-                map.borrow().move_grid[cur_pos.as_tile()].2.get(B0) == 0b00000001
+                map.borrow().move_grid[cur_pos.as_tile()].dir_block.get(B0) == 0b00000001
             } else {
                 true
             }
         }
         1 => {
             if let Some(map) = storage.maps.get(&cur_pos.map) {
-                map.borrow().move_grid[cur_pos.as_tile()].2.get(B3) == 0b00001000
+                map.borrow().move_grid[cur_pos.as_tile()].dir_block.get(B3) == 0b00001000
             } else {
                 true
             }
         }
         2 => {
             if let Some(map) = storage.maps.get(&cur_pos.map) {
-                map.borrow().move_grid[cur_pos.as_tile()].2.get(B1) == 0b00000010
+                map.borrow().move_grid[cur_pos.as_tile()].dir_block.get(B1) == 0b00000010
             } else {
                 true
             }
         }
         _ => {
             if let Some(map) = storage.maps.get(&cur_pos.map) {
-                map.borrow().move_grid[cur_pos.as_tile()].2.get(B2) == 0b00000100
+                map.borrow().move_grid[cur_pos.as_tile()].dir_block.get(B2) == 0b00000100
             } else {
                 true
             }
@@ -534,7 +538,7 @@ pub fn map_path_blocked(
 
     if !blocked {
         return match storage.maps.get(&next_pos.map) {
-            Some(map) => map.borrow().is_blocked_tile(next_pos),
+            Some(map) => map.borrow().is_blocked_tile(next_pos, entity_type),
             None => true,
         };
     }

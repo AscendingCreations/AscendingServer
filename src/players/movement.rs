@@ -89,7 +89,13 @@ pub fn player_movement(world: &mut World, storage: &Storage, entity: &Entity, di
         return false;
     }
 
-    if map_path_blocked(storage, player_position, new_pos, dir) {
+    if map_path_blocked(
+        storage,
+        player_position,
+        new_pos,
+        dir,
+        WorldEntityType::Player,
+    ) {
         player_warp(world, storage, entity, &player_position, false);
         return false;
     }

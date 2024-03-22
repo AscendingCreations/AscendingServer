@@ -90,7 +90,7 @@ pub fn update_npcs(world: &mut World, storage: &Storage) {
                     //make sure we can spawn here before even spawning them.
                     if !map_data
                         .borrow()
-                        .is_blocked_tile(world.get_or_panic::<Spawn>(id).pos)
+                        .is_blocked_tile(world.get_or_panic::<Spawn>(id).pos, WorldEntityType::Npc)
                     {
                         {
                             *world

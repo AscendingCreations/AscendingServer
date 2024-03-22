@@ -44,7 +44,10 @@ pub fn try_drop_item(
     let set_pos = if !storage_mapitem.contains_key(&pos) {
         let mapdata = storage.maps.get(&pos.map);
         if let Some(map_data) = mapdata {
-            if !map_data.borrow().is_blocked_tile(pos) {
+            if !map_data
+                .borrow()
+                .is_blocked_tile(pos, WorldEntityType::MapItem)
+            {
                 Some(pos)
             } else {
                 None
@@ -77,7 +80,10 @@ pub fn try_drop_item(
                 if !storage_mapitem.contains_key(&check_pos) {
                     let mapdata = storage.maps.get(&check_pos.map);
                     if let Some(map_data) = mapdata {
-                        if !map_data.borrow().is_blocked_tile(check_pos) {
+                        if !map_data
+                            .borrow()
+                            .is_blocked_tile(check_pos, WorldEntityType::MapItem)
+                        {
                             got_pos = Some(check_pos);
                         }
                     }
