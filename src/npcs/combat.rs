@@ -1,3 +1,5 @@
+use std::borrow::Borrow;
+
 use crate::{containers::Storage, gametypes::*, maps::*, npcs::*, players::*, tasks::*};
 use hecs::World;
 use rand::{thread_rng, Rng};
@@ -182,4 +184,36 @@ pub fn npc_combat_damage(
     }
 
     damage as i32
+}
+
+pub fn kill_npc(world: &mut World, storage: &Storage, entity: &Entity) {
+    let npc_index = world.get_or_panic::<NpcIndex>(entity).0;
+    let npc_pos = world.get_or_panic::<Position>(entity);
+    let npcbase = storage.bases.npcs[npc_index as usize].borrow();
+
+    let mut rng = thread_rng();
+
+    let mut count = 0;
+    for index in 0..10 {
+        if npcbase.drops[index].0 > 0 && rng.gen_range(1..=npcbase.drops[index].2) == 1 {
+            if !try_drop_item(
+                world,
+                storage,
+                npcbase.drops[index].0,
+                npcbase.drops[index].1 as u16,
+                npc_pos,
+            ) {
+                break;
+            }
+
+            count += 1;
+            if count >= npcbase.drops_max {
+                break;
+            }
+        }
+    }
+
+    *world
+        .get::<&mut DeathType>(entity.0)
+        .expect("Could not find DeathType") = DeathType::Dead;
 }

@@ -2,7 +2,7 @@ use crate::{
     containers::Storage,
     gametypes::*,
     maps::check_surrounding,
-    npcs::{damage_npc, try_target_entity},
+    npcs::{damage_npc, kill_npc, try_target_entity},
     players::*,
     tasks::{DataTaskToken, VitalsPacket},
 };
@@ -95,9 +95,7 @@ pub fn player_combat(
                         EntityType::Player(*entity, acc_id),
                     )
                 } else {
-                    *world
-                        .get::<&mut DeathType>(target_entity.0)
-                        .expect("Could not find DeathType") = DeathType::Dead;
+                    kill_npc(world, storage, target_entity);
                 }
             }
             _ => {}
