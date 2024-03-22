@@ -2,6 +2,7 @@ use crate::{
     containers::{HashSet, IndexSet, Storage},
     gametypes::*,
     maps::MapItem,
+    time_ext::MyInstant,
 };
 use bit_op::{bit_u8::*, BitOp};
 use hecs::World;
@@ -114,6 +115,18 @@ fn load_map(filename: String) -> Option<Map> {
     }
 }
 
+#[derive(Derivative, Debug, Copy, Clone, PartialEq, Eq)]
+#[derivative(Default)]
+pub struct SpawnItemData {
+    pub index: u32,
+    pub amount: u16,
+    pub pos: Position,
+    pub timer_set: u64,
+    // Editable
+    #[derivative(Default(value = "MyInstant::now()"))]
+    pub timer: MyInstant,
+}
+
 #[derive(Clone, Derivative)]
 #[derivative(Default(new = "true"))]
 pub struct MapData {
@@ -128,7 +141,7 @@ pub struct MapData {
     #[derivative(Default(value = "[(0, false, 0); MAP_MAX_X * MAP_MAX_Y]"))]
     pub move_grid: [(u8, bool, u8); MAP_MAX_X * MAP_MAX_Y], // (count, False=tile|True=Npc or player, Dir Blocking)
     pub players_on_map: u64,
-    pub spawnable_item: Vec<(u32, u16, Position, u64)>,
+    pub spawnable_item: Vec<SpawnItemData>,
 }
 
 impl MapData {
@@ -141,8 +154,14 @@ impl MapData {
         self.players_on_map > 0
     }
 
-    pub fn add_spawnable_item(&mut self, pos: Position, index: u32, amount: u16, timer: u64) {
-        self.spawnable_item.push((index, amount, pos, timer));
+    pub fn add_spawnable_item(&mut self, pos: Position, index: u32, amount: u16, timer_set: u64) {
+        self.spawnable_item.push(SpawnItemData {
+            index,
+            amount,
+            pos,
+            timer_set,
+            ..Default::default()
+        });
     }
 
     pub fn add_mapitem(&mut self, world: &mut World, mapitem: MapItem) -> Entity {

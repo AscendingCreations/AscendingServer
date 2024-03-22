@@ -5,6 +5,7 @@ use crate::{
     npcs::NpcSpawnedZone,
     tasks::{DataTaskToken, MapItemPacket},
 };
+use chrono::Duration;
 use hecs::World;
 use rand::{thread_rng, Rng};
 use std::cmp::min;
@@ -15,6 +16,7 @@ pub fn update_maps(world: &mut World, storage: &Storage) -> Result<()> {
     let mut rng = thread_rng();
     let mut spawnable = Vec::new();
     let mut len = storage.npc_ids.borrow().len();
+    let tick = *storage.gettick.borrow();
 
     for (position, map_data) in &storage.maps {
         // Only Spawn is a player is on or near a the map.
@@ -107,24 +109,29 @@ pub fn update_maps(world: &mut World, storage: &Storage) -> Result<()> {
 
             let mut add_items = Vec::new();
 
-            for data in map_data.borrow().spawnable_item.iter() {
+            for data in map_data.borrow_mut().spawnable_item.iter_mut() {
                 let mut storage_mapitem = storage.map_items.borrow_mut();
-                if !storage_mapitem.contains_key(&data.2) {
-                    let map_item = create_mapitem(data.0, data.1, data.2);
-                    let id = world.spawn((WorldEntityType::MapItem, map_item));
-                    let _ = world.insert_one(id, EntityType::MapItem(Entity(id)));
-                    storage_mapitem.insert(data.2, Entity(id));
-                    let _ = DataTaskToken::ItemLoad(data.2.map).add_task(
-                        storage,
-                        &MapItemPacket::new(
-                            Entity(id),
-                            map_item.pos,
-                            map_item.item,
-                            map_item.ownerid,
-                            true,
-                        ),
-                    );
-                    add_items.push(Entity(id));
+                if !storage_mapitem.contains_key(&data.pos) {
+                    if data.timer <= tick {
+                        let map_item = create_mapitem(data.index, data.amount, data.pos);
+                        let id = world.spawn((WorldEntityType::MapItem, map_item));
+                        let _ = world.insert_one(id, EntityType::MapItem(Entity(id)));
+                        storage_mapitem.insert(data.pos, Entity(id));
+                        let _ = DataTaskToken::ItemLoad(data.pos.map).add_task(
+                            storage,
+                            &MapItemPacket::new(
+                                Entity(id),
+                                map_item.pos,
+                                map_item.item,
+                                map_item.ownerid,
+                                true,
+                            ),
+                        );
+                        add_items.push(Entity(id));
+                    }
+                } else {
+                    data.timer = tick
+                        + Duration::try_milliseconds(data.timer_set as i64).unwrap_or_default();
                 }
             }
 

@@ -9619,10 +9619,16 @@
     "Walkable",
     "Blocked",
     "Walkable",
+    {
+      "ItemSpawn": {
+        "index": 1,
+        "amount": 1,
+        "timer": 5000
+      }
+    },
     "Walkable",
     "Walkable",
     "Walkable",
-    "Walkable",
     "Blocked",
     "Walkable",
     "Walkable",
@@ -9787,10 +9793,16 @@
     "Blocked",
     "Walkable",
     "Walkable",
+    {
+      "ItemSpawn": {
+        "index": 1,
+        "amount": 1,
+        "timer": 5000
+      }
+    },
     "Walkable",
     "Walkable",
     "Walkable",
-    "Walkable",
     "Blocked",
     "Blocked",
     "Blocked",
@@ -10026,12 +10038,18 @@
     "Walkable",
     "Walkable",
     "Blocked",
-    "Walkable",
     "Walkable",
     "Walkable",
     "Walkable",
     "Walkable",
     "Walkable",
+    {
+      "ItemSpawn": {
+        "index": 1,
+        "amount": 1,
+        "timer": 5000
+      }
+    },
     "Walkable",
     "Walkable",
     "Walkable",
@@ -13298,7 +13316,7 @@
   ],
   "zones": [
     [
-      3,
+      1,
       [
         0,
         null,
@@ -13308,7 +13326,7 @@
       ]
     ],
     [
-      3,
+      1,
       [
         0,
         null,
@@ -13318,7 +13336,7 @@
       ]
     ],
     [
-      3,
+      1,
       [
         0,
         null,
@@ -13328,7 +13346,7 @@
       ]
     ],
     [
-      3,
+      1,
       [
         0,
         null,
@@ -13338,7 +13356,7 @@
       ]
     ],
     [
-      3,
+      2,
       [
         0,
         null,

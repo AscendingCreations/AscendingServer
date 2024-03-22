@@ -509,7 +509,7 @@ pub fn handle_pickup(
                 let ids = map.itemids.clone();
 
                 for i in ids {
-                    let mut mapitems = world.cloned_get_or_panic::<MapItem>(p);
+                    let mut mapitems = world.cloned_get_or_panic::<MapItem>(&i);
                     if world
                         .get_or_panic::<Position>(p)
                         .checkdistance(mapitems.pos.map_offset(id.into()))
@@ -565,6 +565,11 @@ pub fn handle_pickup(
 
         if let Some(id) = remid {
             if let Some(map) = storage.maps.get(&id.0) {
+                let pos = world.get_or_panic::<MapItem>(&id.1).pos;
+                let mut storage_mapitems = storage.map_items.borrow_mut();
+                if storage_mapitems.contains_key(&pos) {
+                    storage_mapitems.swap_remove(&pos);
+                }
                 map.borrow_mut().remove_item(id.1);
                 let _ = DataTaskToken::EntityUnload(id.0).add_task(storage, &(id.1));
             }

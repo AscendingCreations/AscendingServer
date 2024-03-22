@@ -746,14 +746,7 @@ pub enum MessageChannel {
     Npc,
 }
 
-#[derive(
-    Clone,
-    Debug,
-    PartialEq,
-    Eq,
-    ByteBufferRead,
-    ByteBufferWrite,
-)]
+#[derive(Clone, Debug, PartialEq, Eq, ByteBufferRead, ByteBufferWrite)]
 pub enum AdminCommand {
     KickPlayer(String),
     WarpTo(Position),
