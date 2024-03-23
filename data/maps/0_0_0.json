@@ -9621,7 +9621,7 @@
     "Walkable",
     {
       "ItemSpawn": {
-        "index": 1,
+        "index": 2,
         "amount": 1,
         "timer": 5000
       }

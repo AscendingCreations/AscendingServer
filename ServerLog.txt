@@ -2126,3 +2126,129 @@ INFO - relation "inventory" already exists, skipping
 INFO - relation "logs" already exists, skipping
 INFO - Initializing PacketRouter
 INFO - Initializing World
+INFO - Starting up
+INFO - Initializing Storage
+INFO - relation "player_uid_seq" already exists, skipping
+INFO - relation "player" already exists, skipping
+INFO - relation "equipment" already exists, skipping
+INFO - relation "inventory" already exists, skipping
+INFO - relation "logs" already exists, skipping
+INFO - Initializing PacketRouter
+INFO - Initializing World
+INFO - Starting up
+INFO - Initializing Storage
+INFO - relation "player_uid_seq" already exists, skipping
+INFO - relation "player" already exists, skipping
+INFO - relation "equipment" already exists, skipping
+INFO - relation "inventory" already exists, skipping
+INFO - relation "logs" already exists, skipping
+INFO - Initializing PacketRouter
+INFO - Initializing World
+INFO - Starting up
+INFO - Initializing Storage
+INFO - relation "player_uid_seq" already exists, skipping
+INFO - relation "player" already exists, skipping
+INFO - relation "equipment" already exists, skipping
+INFO - relation "inventory" already exists, skipping
+INFO - relation "logs" already exists, skipping
+INFO - Initializing PacketRouter
+INFO - Initializing World
+INFO - Starting up
+INFO - Initializing Storage
+INFO - relation "player_uid_seq" already exists, skipping
+INFO - relation "player" already exists, skipping
+INFO - relation "equipment" already exists, skipping
+INFO - relation "inventory" already exists, skipping
+INFO - relation "logs" already exists, skipping
+INFO - Initializing PacketRouter
+INFO - Initializing World
+INFO - Starting up
+INFO - Initializing Storage
+INFO - relation "player_uid_seq" already exists, skipping
+INFO - relation "player" already exists, skipping
+INFO - relation "equipment" already exists, skipping
+INFO - relation "inventory" already exists, skipping
+INFO - relation "logs" already exists, skipping
+INFO - Initializing PacketRouter
+INFO - Initializing World
+INFO - Starting up
+INFO - Initializing Storage
+INFO - relation "player_uid_seq" already exists, skipping
+INFO - relation "player" already exists, skipping
+INFO - relation "equipment" already exists, skipping
+INFO - relation "inventory" already exists, skipping
+INFO - relation "logs" already exists, skipping
+INFO - Initializing PacketRouter
+INFO - Initializing World
+INFO - Starting up
+INFO - Initializing Storage
+INFO - relation "player_uid_seq" already exists, skipping
+INFO - relation "player" already exists, skipping
+INFO - relation "equipment" already exists, skipping
+INFO - relation "inventory" already exists, skipping
+INFO - relation "logs" already exists, skipping
+INFO - Initializing PacketRouter
+INFO - Initializing World
+INFO - Starting up
+INFO - Initializing Storage
+INFO - relation "player_uid_seq" already exists, skipping
+INFO - relation "player" already exists, skipping
+INFO - relation "equipment" already exists, skipping
+INFO - relation "inventory" already exists, skipping
+INFO - relation "logs" already exists, skipping
+INFO - Initializing PacketRouter
+INFO - Initializing World
+INFO - Starting up
+INFO - Initializing Storage
+INFO - relation "player_uid_seq" already exists, skipping
+INFO - relation "player" already exists, skipping
+INFO - relation "equipment" already exists, skipping
+INFO - relation "inventory" already exists, skipping
+INFO - relation "logs" already exists, skipping
+INFO - Initializing PacketRouter
+INFO - Initializing World
+INFO - Starting up
+INFO - Initializing Storage
+INFO - relation "player_uid_seq" already exists, skipping
+INFO - relation "player" already exists, skipping
+INFO - relation "equipment" already exists, skipping
+INFO - relation "inventory" already exists, skipping
+INFO - relation "logs" already exists, skipping
+INFO - Initializing PacketRouter
+INFO - Initializing World
+INFO - Starting up
+INFO - Initializing Storage
+INFO - relation "player_uid_seq" already exists, skipping
+INFO - relation "player" already exists, skipping
+INFO - relation "equipment" already exists, skipping
+INFO - relation "inventory" already exists, skipping
+INFO - relation "logs" already exists, skipping
+INFO - Initializing PacketRouter
+INFO - Initializing World
+INFO - Starting up
+INFO - Initializing Storage
+INFO - relation "player_uid_seq" already exists, skipping
+INFO - relation "player" already exists, skipping
+INFO - relation "equipment" already exists, skipping
+INFO - relation "inventory" already exists, skipping
+INFO - relation "logs" already exists, skipping
+INFO - Initializing PacketRouter
+INFO - Initializing World
+INFO - Starting up
+INFO - Initializing Storage
+INFO - relation "player_uid_seq" already exists, skipping
+INFO - relation "player" already exists, skipping
+INFO - relation "equipment" already exists, skipping
+INFO - relation "inventory" already exists, skipping
+INFO - relation "logs" already exists, skipping
+INFO - Initializing PacketRouter
+INFO - Initializing World
+INFO - Starting up
+INFO - Initializing Storage
+INFO - relation "player_uid_seq" already exists, skipping
+INFO - relation "player" already exists, skipping
+INFO - relation "equipment" already exists, skipping
+INFO - relation "inventory" already exists, skipping
+INFO - relation "logs" already exists, skipping
+INFO - Initializing PacketRouter
+INFO - Initializing World

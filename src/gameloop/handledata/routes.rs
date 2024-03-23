@@ -407,14 +407,6 @@ pub fn handle_switchinvslot(
             return Ok(());
         }
 
-        let base1 =
-            &storage.bases.items[world.get::<&Inventory>(p.0).unwrap().items[oldslot].num as usize];
-        let invtype = get_inv_itemtype(base1);
-
-        if get_inv_type(oldslot) != invtype || get_inv_type(newslot) != invtype {
-            return Ok(());
-        }
-
         let mut itemold = world.get::<&Inventory>(p.0).unwrap().items[oldslot];
 
         if world.get::<&Inventory>(p.0).unwrap().items[newslot].val > 0 {
@@ -621,18 +613,6 @@ pub fn handle_dropitem(
             return Err(AscendingError::Unhandled);
         }
 
-        match get_inv_type(slot) {
-            InvType::Quest | InvType::Key => {
-                return send_fltalert(
-                    storage,
-                    world.get::<&Socket>(p.0).unwrap().id,
-                    "You can not drop key or Quest items.".into(),
-                    FtlType::Error,
-                );
-            }
-            _ => {}
-        }
-
         let mut mapitem = MapItem::new(0);
 
         mapitem.item = world.get::<&Inventory>(p.0).unwrap().items[slot];
@@ -688,17 +668,6 @@ pub fn handle_deleteitem(
             return Ok(());
         }
 
-        match get_inv_type(slot) {
-            InvType::Quest | InvType::Key => {
-                return send_fltalert(
-                    storage,
-                    world.get::<&Socket>(entity.0).unwrap().id,
-                    "You can not delete key or Quest items.".into(),
-                    FtlType::Error,
-                );
-            }
-            _ => {}
-        }
         let val = world.get::<&Inventory>(p.0).unwrap().items[slot].val;
         let _ = take_itemslot(world, storage, entity, slot, val);
 

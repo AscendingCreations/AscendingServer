@@ -147,8 +147,6 @@ pub fn player_combat_damage(world: &mut World, entity: &Entity, target_entity: &
         damage = rng.gen_range(0..=1);
     }
 
-    damage = 5;
-
     damage as i32
 }
 
