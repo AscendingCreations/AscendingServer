@@ -4,7 +4,7 @@ use crate::{
     maps::check_surrounding,
     npcs::{damage_npc, kill_npc, try_target_entity},
     players::*,
-    tasks::{DataTaskToken, VitalsPacket},
+    tasks::{init_data_lists, DataTaskToken, VitalsPacket},
 };
 use hecs::World;
 use rand::*;
@@ -67,11 +67,17 @@ pub fn player_combat(
 
                 let _ = DataTaskToken::PlayerAttack(world.get_or_default::<Position>(entity).map)
                     .add_task(storage, entity);
-                let _ = DataTaskToken::PlayerVitals(world.get_or_default::<Position>(entity).map)
-                    .add_task(storage, {
-                        let vitals = world.get_or_panic::<Vitals>(target_entity);
-                        &VitalsPacket::new(*target_entity, vitals.vital, vitals.vitalmax)
-                    });
+
+                let vitals = world.get_or_panic::<Vitals>(target_entity);
+                if vitals.vital[0] > 0 {
+                    let _ =
+                        DataTaskToken::PlayerVitals(world.get_or_default::<Position>(entity).map)
+                            .add_task(storage, {
+                                &VitalsPacket::new(*target_entity, vitals.vital, vitals.vitalmax)
+                            });
+                } else {
+                    kill_player(world, storage, target_entity);
+                }
             }
             WorldEntityType::Npc => {
                 let damage = player_combat_damage(world, entity, target_entity);
@@ -165,5 +171,6 @@ pub fn kill_player(world: &mut World, storage: &Storage, entity: &Entity) {
         },
     );
     let spawn = world.get_or_panic::<Spawn>(entity);
-    player_warp(world, storage, entity, &spawn.pos, true);
+    player_warp(world, storage, entity, &spawn.pos, false);
+    init_data_lists(world, storage, entity, None);
 }

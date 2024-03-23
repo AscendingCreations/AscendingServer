@@ -223,6 +223,14 @@ impl Storage {
                 storage.bases.npcs[index] = npc_data.clone();
             });
 
+        let item_data_entry = crate::items::get_item();
+        item_data_entry
+            .iter()
+            .enumerate()
+            .for_each(|(index, item_data)| {
+                storage.bases.items[index] = item_data.clone();
+            });
+
         Some(storage)
     }
 
