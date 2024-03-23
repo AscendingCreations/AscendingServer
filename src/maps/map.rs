@@ -36,6 +36,7 @@ pub enum MapAttribute {
     #[default]
     Walkable,
     Blocked,
+    NpcBlocked,
     Warp(WarpData),
     Sign(String),
     ItemSpawn(ItemSpawnData),

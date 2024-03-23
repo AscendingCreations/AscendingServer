@@ -196,6 +196,9 @@ impl Storage {
                     MapAttribute::Blocked => {
                         map.move_grid[id].attr = GridAttribute::Blocked;
                     }
+                    MapAttribute::NpcBlocked => {
+                        map.move_grid[id].attr = GridAttribute::NpcBlock;
+                    }
                     MapAttribute::ItemSpawn(itemdata) => {
                         map.add_spawnable_item(
                             Position::new(id as i32 % 32, id as i32 / 32, map_data.position),

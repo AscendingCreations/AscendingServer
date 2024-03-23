@@ -85,9 +85,9 @@ pub fn try_drop_item(
                             .is_blocked_tile(check_pos, WorldEntityType::MapItem)
                         {
                             got_pos = Some(check_pos);
+                            break 'endcheck;
                         }
                     }
-                    break 'endcheck;
                 }
             }
         }
