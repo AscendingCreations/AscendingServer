@@ -278,7 +278,7 @@ pub enum VitalTypes {
     Count,
 }
 
-#[derive(Copy, Clone, Serialize_repr, Deserialize_repr, ByteBufferRead, ByteBufferWrite)]
+/*#[derive(Copy, Clone, Serialize_repr, Deserialize_repr, ByteBufferRead, ByteBufferWrite)]
 #[repr(u8)]
 pub enum MapAttributes {
     None,
@@ -298,7 +298,7 @@ pub enum MapAttributes {
     Sign,
     Resource,
     Count,
-}
+}*/
 
 #[derive(
     Copy,
@@ -582,6 +582,7 @@ pub enum ServerPackets {
     SyncCheck,
     EntityUnload,
     LoadStatus,
+    OpenStorage,
     ServerPacketCount,
 }
 

@@ -193,7 +193,7 @@ impl Storage {
 
             for id in 0..MAP_MAX_X * MAP_MAX_Y {
                 match map_data.attribute[id].clone() {
-                    MapAttribute::Blocked => {
+                    MapAttribute::Blocked | MapAttribute::Storage => {
                         map.move_grid[id].attr = GridAttribute::Blocked;
                     }
                     MapAttribute::NpcBlocked => {

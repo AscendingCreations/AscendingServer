@@ -57,7 +57,7 @@ pub fn player_combat(
     storage: &Storage,
     entity: &Entity,
     target_entity: &Entity,
-) {
+) -> bool {
     if try_player_cast(world, entity, target_entity) {
         let world_entity_type = world.get_or_default::<WorldEntityType>(target_entity);
         match world_entity_type {
@@ -106,7 +106,9 @@ pub fn player_combat(
             }
             _ => {}
         }
+        return true;
     }
+    false
 }
 
 pub fn player_combat_damage(world: &mut World, entity: &Entity, target_entity: &Entity) -> i32 {

@@ -516,3 +516,15 @@ pub fn send_message(
 
     Ok(())
 }
+
+#[inline]
+pub fn send_openstorage(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
+    let mut buf = ByteBuffer::new_packet_with(8)?;
+
+    buf.write(ServerPackets::OpenStorage)?;
+    buf.write(1_u32)?;
+    buf.finish()?;
+
+    send_to(storage, world.get::<&Socket>(entity.0).unwrap().id, buf);
+    Ok(())
+}

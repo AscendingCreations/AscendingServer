@@ -280,7 +280,9 @@ pub fn handle_attack(
 
         if let Some(target_entity) = target {
             if world.contains(target_entity.0) {
-                player_combat(world, storage, entity, &target_entity);
+                if !player_combat(world, storage, entity, &target_entity) {
+                    player_interact_object(world, storage, p);
+                }
                 {
                     world
                         .get::<&mut AttackTimer>(entity.0)
@@ -289,6 +291,8 @@ pub fn handle_attack(
                         + Duration::try_milliseconds(250).unwrap_or_default();
                 }
             }
+        } else {
+            player_interact_object(world, storage, p);
         }
         return Ok(());
     }
@@ -785,7 +789,7 @@ pub fn handle_deletestorageitem(
 pub fn handle_deposititem(
     world: &mut World,
     storage: &Storage,
-    _data: &mut ByteBuffer,
+    data: &mut ByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
     if let Some(p) = storage.player_ids.borrow().get(entity) {
@@ -797,6 +801,40 @@ pub fn handle_deposititem(
             return Ok(());
         }
 
+        let inv_slot = data.read::<u16>()? as usize;
+        let bank_slot = data.read::<u16>()? as usize;
+        let amount = data.read::<u16>()?;
+
+        if bank_slot >= MAX_STORAGE
+            || inv_slot >= MAX_INV
+            || world.get::<&Inventory>(p.0).unwrap().items[inv_slot].val == 0
+        {
+            return Ok(());
+        }
+
+        let mut item_data = world.cloned_get_or_panic::<Inventory>(p).items[inv_slot];
+        if item_data.val > amount {
+            item_data.val = amount;
+        };
+        let bank_data = world.cloned_get_or_panic::<PlayerStorage>(p);
+
+        if bank_data.items[bank_slot].val == 0 {
+            {
+                world.get::<&mut PlayerStorage>(p.0).unwrap().items[bank_slot] = item_data;
+            }
+            save_storage_item(world, storage, entity, bank_slot);
+            let _ = take_inv_itemslot(world, storage, p, inv_slot, amount);
+        } else {
+            let mut leftover = item_data.val;
+            let mut loop_count = 0;
+            while leftover > 0 && loop_count < MAX_STORAGE {
+                leftover = give_storage_item(world, storage, p, &mut item_data);
+                loop_count += 1;
+            }
+            let take_amount = amount - leftover;
+            let _ = take_inv_itemslot(world, storage, p, inv_slot, take_amount);
+        }
+
         return Ok(());
     }
 
@@ -806,7 +844,7 @@ pub fn handle_deposititem(
 pub fn handle_withdrawitem(
     world: &mut World,
     storage: &Storage,
-    _data: &mut ByteBuffer,
+    data: &mut ByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
     if let Some(p) = storage.player_ids.borrow().get(entity) {
@@ -816,6 +854,40 @@ pub fn handle_withdrawitem(
             || world.get_or_panic::<Stunned>(p).0
         {
             return Ok(());
+        }
+
+        let inv_slot = data.read::<u16>()? as usize;
+        let bank_slot = data.read::<u16>()? as usize;
+        let amount = data.read::<u16>()?;
+
+        if bank_slot >= MAX_STORAGE
+            || world.get::<&PlayerStorage>(p.0).unwrap().items[bank_slot].val == 0
+            || inv_slot >= MAX_INV
+        {
+            return Ok(());
+        }
+
+        let mut item_data = world.cloned_get_or_panic::<PlayerStorage>(p).items[bank_slot];
+        if item_data.val > amount {
+            item_data.val = amount;
+        };
+        let inv_data = world.cloned_get_or_panic::<Inventory>(p);
+
+        if inv_data.items[inv_slot].val == 0 {
+            {
+                world.get::<&mut Inventory>(p.0).unwrap().items[inv_slot] = item_data;
+            }
+            save_inv_item(world, storage, entity, inv_slot);
+            let _ = take_storage_itemslot(world, storage, p, bank_slot, amount);
+        } else {
+            let mut leftover = item_data.val;
+            let mut loop_count = 0;
+            while leftover > 0 && loop_count < MAX_INV {
+                leftover = give_inv_item(world, storage, p, &mut item_data);
+                loop_count += 1;
+            }
+            let take_amount = amount - leftover;
+            let _ = take_storage_itemslot(world, storage, p, bank_slot, take_amount);
         }
 
         return Ok(());

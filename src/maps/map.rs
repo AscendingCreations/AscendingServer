@@ -40,6 +40,7 @@ pub enum MapAttribute {
     Warp(WarpData),
     Sign(String),
     ItemSpawn(ItemSpawnData),
+    Storage,
     Count,
 }
 

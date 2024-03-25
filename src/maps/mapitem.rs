@@ -1,5 +1,6 @@
 use crate::{
     containers::Storage,
+    gameloop::sends::*,
     gametypes::*,
     items::Item,
     tasks::{DataTaskToken, MapItemPacket},
@@ -8,7 +9,7 @@ use crate::{
 use bytey::{ByteBufferRead, ByteBufferWrite};
 use hecs::World;
 
-use super::create_mapitem;
+use super::{create_mapitem, MapAttribute};
 
 #[derive(Copy, Clone, PartialEq, Eq, Default, ByteBufferRead, ByteBufferWrite)]
 pub struct MapItem {
@@ -214,4 +215,57 @@ pub fn try_drop_item(
     }
 
     true
+}
+
+pub fn player_interact_object(world: &mut World, storage: &Storage, entity: &Entity) {
+    if !world.contains(entity.0) {
+        return;
+    }
+
+    let pos = world.get_or_panic::<Position>(entity);
+    let dir = world.get_or_panic::<Dir>(entity).0;
+    let target_pos = match dir {
+        1 => {
+            let mut next_pos = pos;
+            next_pos.x += 1;
+            if next_pos.x >= 32 {
+                next_pos.x = 0;
+                next_pos.map.x += 1;
+            }
+            next_pos
+        }
+        2 => {
+            let mut next_pos = pos;
+            next_pos.y += 1;
+            if next_pos.y >= 32 {
+                next_pos.y = 0;
+                next_pos.map.y += 1;
+            }
+            next_pos
+        }
+        3 => {
+            let mut next_pos = pos;
+            next_pos.x -= 1;
+            if next_pos.x < 0 {
+                next_pos.x = 31;
+                next_pos.map.x -= 1;
+            }
+            next_pos
+        }
+        _ => {
+            let mut next_pos = pos;
+            next_pos.y -= 1;
+            if next_pos.y < 0 {
+                next_pos.y = 31;
+                next_pos.map.y -= 1;
+            }
+            next_pos
+        }
+    };
+
+    if let Some(mapdata) = storage.bases.maps.get(&target_pos.map) {
+        if mapdata.attribute[target_pos.as_tile()] == MapAttribute::Storage {
+            let _ = send_openstorage(world, storage, entity);
+        }
+    }
 }
