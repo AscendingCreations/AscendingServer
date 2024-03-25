@@ -207,16 +207,16 @@ pub fn take_itemslot(
     mut amount: u16,
 ) -> u16 {
     let player_inv = world.cloned_get_or_panic::<Inventory>(entity);
-
     amount = std::cmp::min(amount, player_inv.items[slot].val);
     {
-        world
-            .get::<&mut Inventory>(entity.0)
-            .expect("Could not find Inventory")
-            .items[slot]
-            .val = player_inv.items[slot].val.saturating_sub(amount);
+        if let Ok(mut player_inv) = world.get::<&mut Inventory>(entity.0) {
+            player_inv.items[slot].val = player_inv.items[slot].val.saturating_sub(amount);
+            if player_inv.items[slot].val == 0 {
+                player_inv.items[slot] = Item::default();
+            }
+        }
     }
     save_item(world, storage, entity, slot);
 
-    player_inv.items[slot].val
+    world.cloned_get_or_panic::<Inventory>(entity).items[slot].val
 }

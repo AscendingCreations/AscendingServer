@@ -29,7 +29,7 @@
   "itemtype2": 0,
   "breakable": false,
   "stackable": true,
-  "stacklimit": 999,
+  "stacklimit": 10,
   "baseprice": 0,
   "repairable": false,
   "rgba": {

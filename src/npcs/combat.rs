@@ -199,9 +199,14 @@ pub fn kill_npc(world: &mut World, storage: &Storage, entity: &Entity) {
             if !try_drop_item(
                 world,
                 storage,
-                npcbase.drops[index].0,
-                npcbase.drops[index].1 as u16,
-                npc_pos,
+                DropItem {
+                    index: npcbase.drops[index].0,
+                    amount: npcbase.drops[index].1 as u16,
+                    pos: npc_pos,
+                },
+                None,
+                None,
+                None,
             ) {
                 break;
             }

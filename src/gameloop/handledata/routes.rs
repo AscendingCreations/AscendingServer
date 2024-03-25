@@ -604,6 +604,8 @@ pub fn handle_dropitem(
             return Ok(());
         }
 
+        let item_data = world.get::<&Inventory>(p.0).unwrap().items[slot];
+
         //make sure it exists first.
         if !storage
             .bases
@@ -613,33 +615,26 @@ pub fn handle_dropitem(
             return Err(AscendingError::Unhandled);
         }
 
-        let mut mapitem = MapItem::new(0);
-
-        mapitem.item = world.get::<&Inventory>(p.0).unwrap().items[slot];
-        mapitem.despawn = match world.get_or_panic::<UserAccess>(p) {
-            UserAccess::Admin => None,
-            _ => Some(
-                *storage.gettick.borrow() + Duration::try_milliseconds(600000).unwrap_or_default(),
-            ),
-        };
-        mapitem.ownertimer =
-            Some(*storage.gettick.borrow() + Duration::try_milliseconds(5000).unwrap_or_default());
-        mapitem.ownerid = Some(*p);
-        mapitem.pos = world.get_or_panic::<Position>(p);
-
-        let leftover = take_itemslot(world, storage, entity, slot, amount);
-        mapitem.item.val -= leftover;
-        let mut map = match storage.maps.get(&world.get_or_panic::<Position>(p).map) {
-            Some(map) => map,
-            None => return Err(AscendingError::Unhandled),
-        }
-        .borrow_mut();
-
-        let id = map.add_mapitem(world, mapitem);
-        let _ = DataTaskToken::ItemLoad(world.get_or_panic::<Position>(p).map).add_task(
+        if try_drop_item(
+            world,
             storage,
-            &MapItemPacket::new(id, mapitem.pos, mapitem.item, mapitem.ownerid, true),
-        );
+            DropItem {
+                index: item_data.num,
+                amount,
+                pos: world.get_or_panic::<Position>(p),
+            },
+            match world.get_or_panic::<UserAccess>(p) {
+                UserAccess::Admin => None,
+                _ => Some(
+                    *storage.gettick.borrow()
+                        + Duration::try_milliseconds(600000).unwrap_or_default(),
+                ),
+            },
+            Some(*storage.gettick.borrow() + Duration::try_milliseconds(5000).unwrap_or_default()),
+            Some(*p),
+        ) {
+            let _ = take_itemslot(world, storage, entity, slot, amount);
+        }
 
         return Ok(());
     }
