@@ -354,7 +354,7 @@ pub fn handle_unequip(
         }
 
         let mut item = world.get::<&Equipment>(p.0).unwrap().items[slot];
-        let rem = give_item(world, storage, p, &mut item);
+        let rem = give_inv_item(world, storage, p, &mut item);
 
         if rem > 0 {
             return send_fltalert(
@@ -420,7 +420,7 @@ pub fn handle_switchinvslot(
                         .expect("Could not find Inventory")
                         .items[oldslot] = itemold;
                 }
-                save_item(world, storage, entity, oldslot);
+                save_inv_item(world, storage, entity, oldslot);
             } else if world.get::<&Inventory>(p.0).unwrap().items[oldslot].val == amount {
                 let itemnew = world.get::<&Inventory>(p.0).unwrap().items[newslot];
                 {
@@ -433,8 +433,8 @@ pub fn handle_switchinvslot(
                         .expect("Could not find Inventory")
                         .items[oldslot] = itemnew;
                 }
-                save_item(world, storage, entity, newslot);
-                save_item(world, storage, entity, oldslot);
+                save_inv_item(world, storage, entity, newslot);
+                save_inv_item(world, storage, entity, oldslot);
             } else {
                 return send_fltalert(
                         storage,
@@ -452,7 +452,7 @@ pub fn handle_switchinvslot(
                     .expect("Could not find Inventory")
                     .items[oldslot] = itemold;
             }
-            save_item(world, storage, entity, oldslot);
+            save_inv_item(world, storage, entity, oldslot);
         }
 
         return Ok(());
@@ -518,7 +518,7 @@ pub fn handle_pickup(
                             }
                         } else {
                             let amount = mapitems.item.val;
-                            let rem = give_item(world, storage, entity, &mut mapitems.item);
+                            let rem = give_inv_item(world, storage, entity, &mut mapitems.item);
                             let item = &storage.bases.items[mapitems.item.num as usize];
 
                             if rem == 0 {
@@ -633,7 +633,7 @@ pub fn handle_dropitem(
             Some(*storage.gettick.borrow() + Duration::try_milliseconds(5000).unwrap_or_default()),
             Some(*p),
         ) {
-            let _ = take_itemslot(world, storage, entity, slot, amount);
+            let _ = take_inv_itemslot(world, storage, entity, slot, amount);
         }
 
         return Ok(());
@@ -664,7 +664,159 @@ pub fn handle_deleteitem(
         }
 
         let val = world.get::<&Inventory>(p.0).unwrap().items[slot].val;
-        let _ = take_itemslot(world, storage, entity, slot, val);
+        let _ = take_inv_itemslot(world, storage, entity, slot, val);
+
+        return Ok(());
+    }
+
+    Err(AscendingError::InvalidSocket)
+}
+
+pub fn handle_switchstorageslot(
+    world: &mut World,
+    storage: &Storage,
+    data: &mut ByteBuffer,
+    entity: &Entity,
+) -> Result<()> {
+    if let Some(p) = storage.player_ids.borrow().get(entity) {
+        if !world.get_or_panic::<DeathType>(p).is_alive()
+            || world.get_or_panic::<IsUsingType>(p).inuse()
+            || world.get_or_panic::<Attacking>(p).0
+            || world.get_or_panic::<Stunned>(p).0
+        {
+            return Ok(());
+        }
+
+        let oldslot = data.read::<u16>()? as usize;
+        let newslot = data.read::<u16>()? as usize;
+        let amount = data.read::<u16>()?;
+
+        if oldslot >= MAX_STORAGE
+            || newslot >= MAX_STORAGE
+            || world.get::<&PlayerStorage>(p.0).unwrap().items[oldslot].val == 0
+        {
+            return Ok(());
+        }
+
+        let mut itemold = world.get::<&PlayerStorage>(p.0).unwrap().items[oldslot];
+
+        if world.get::<&PlayerStorage>(p.0).unwrap().items[newslot].val > 0 {
+            if world.get::<&PlayerStorage>(p.0).unwrap().items[newslot].num
+                == world.get::<&PlayerStorage>(p.0).unwrap().items[oldslot].num
+            {
+                set_storage_slot(world, storage, entity, &mut itemold, newslot, amount);
+                {
+                    world
+                        .get::<&mut PlayerStorage>(p.0)
+                        .expect("Could not find PlayerStorage")
+                        .items[oldslot] = itemold;
+                }
+                save_storage_item(world, storage, entity, oldslot);
+            } else if world.get::<&PlayerStorage>(p.0).unwrap().items[oldslot].val == amount {
+                let itemnew = world.get::<&PlayerStorage>(p.0).unwrap().items[newslot];
+                {
+                    world
+                        .get::<&mut PlayerStorage>(p.0)
+                        .expect("Could not find PlayerStorage")
+                        .items[newslot] = itemold;
+                    world
+                        .get::<&mut PlayerStorage>(p.0)
+                        .expect("Could not find PlayerStorage")
+                        .items[oldslot] = itemnew;
+                }
+                save_storage_item(world, storage, entity, newslot);
+                save_storage_item(world, storage, entity, oldslot);
+            } else {
+                return send_fltalert(
+                        storage,
+                        world.get::<&Socket>(p.0).unwrap().id,
+                        "Can not swap slots with a different containing items unless you swap everything."
+                            .into(),
+                        FtlType::Error
+                    );
+            }
+        } else {
+            set_storage_slot(world, storage, entity, &mut itemold, newslot, amount);
+            {
+                world
+                    .get::<&mut PlayerStorage>(p.0)
+                    .expect("Could not find PlayerStorage")
+                    .items[oldslot] = itemold;
+            }
+            save_storage_item(world, storage, entity, oldslot);
+        }
+
+        return Ok(());
+    }
+
+    Err(AscendingError::InvalidSocket)
+}
+
+pub fn handle_deletestorageitem(
+    world: &mut World,
+    storage: &Storage,
+    data: &mut ByteBuffer,
+    entity: &Entity,
+) -> Result<()> {
+    if let Some(p) = storage.player_ids.borrow().get(entity) {
+        if !world.get_or_panic::<DeathType>(p).is_alive()
+            || world.get_or_panic::<IsUsingType>(p).inuse()
+            || world.get_or_panic::<Attacking>(p).0
+            || world.get_or_panic::<Stunned>(p).0
+        {
+            return Ok(());
+        }
+
+        let slot = data.read::<u16>()? as usize;
+
+        if slot >= MAX_STORAGE || world.get::<&PlayerStorage>(p.0).unwrap().items[slot].val == 0 {
+            return Ok(());
+        }
+
+        let val = world.get::<&PlayerStorage>(p.0).unwrap().items[slot].val;
+        let _ = take_storage_itemslot(world, storage, entity, slot, val);
+
+        return Ok(());
+    }
+
+    Err(AscendingError::InvalidSocket)
+}
+
+pub fn handle_deposititem(
+    world: &mut World,
+    storage: &Storage,
+    _data: &mut ByteBuffer,
+    entity: &Entity,
+) -> Result<()> {
+    if let Some(p) = storage.player_ids.borrow().get(entity) {
+        if !world.get_or_panic::<DeathType>(p).is_alive()
+            || world.get_or_panic::<IsUsingType>(p).inuse()
+            || world.get_or_panic::<Attacking>(p).0
+            || world.get_or_panic::<Stunned>(p).0
+        {
+            return Ok(());
+        }
+
+        return Ok(());
+    }
+
+    Err(AscendingError::InvalidSocket)
+}
+
+pub fn handle_withdrawitem(
+    world: &mut World,
+    storage: &Storage,
+    _data: &mut ByteBuffer,
+    entity: &Entity,
+) -> Result<()> {
+    if let Some(p) = storage.player_ids.borrow().get(entity) {
+        if !world.get_or_panic::<DeathType>(p).is_alive()
+            || world.get_or_panic::<IsUsingType>(p).inuse()
+            || world.get_or_panic::<Attacking>(p).0
+            || world.get_or_panic::<Stunned>(p).0
+        {
+            return Ok(());
+        }
 
         return Ok(());
     }

@@ -553,6 +553,8 @@ pub enum ServerPackets {
     PlayerVitals,
     PlayerInv,
     PlayerInvSlot,
+    PlayerStorage,
+    PlayerStorageSlot,
     KeyInput,
     PlayerAttack,
     PlayerEquipment,
@@ -581,14 +583,6 @@ pub enum ServerPackets {
     EntityUnload,
     LoadStatus,
     ServerPacketCount,
-}
-
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub enum InvType {
-    Normal,
-    Key,
-    Quest,
-    Script,
 }
 
 #[derive(

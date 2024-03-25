@@ -27,6 +27,8 @@ pub fn initiate(conn: &PgPool, rt: &mut Runtime, local: &task::LocalSet) -> Resu
         EQUIPMENT_SCHEMA_ALTER,
         INVENTORY_SCHEMA,
         INVENTORY_SCHEMA_ALTER,
+        STORAGE_SCHEMA,
+        STORAGE_SCHEMA_ALTER,
         LOGS_SCHEMA,
         LOGS_SCHEMA_ALTER,
     ];
@@ -156,6 +158,22 @@ pub fn new_player(
         Ok(())
     })?;
 
+    let storage_insert = PGStorageItem::into_insert_all(PGStorageItem::new(
+        &world.cloned_get_or_panic::<PlayerStorage>(entity).items,
+        uid.0,
+    ));
+
+    local.block_on(&rt, async {
+        for script in storage_insert {
+            match sqlx::query(&script).execute(&storage.pgconn).await {
+                Ok(_) => continue,
+                Err(e) => return Err(e),
+            };
+        }
+
+        Ok(())
+    })?;
+
     let equip_insert = PGEquipItem::into_insert_all(PGEquipItem::new(
         &world.cloned_get_or_panic::<Equipment>(entity).items,
         uid.0,
@@ -205,6 +223,23 @@ pub fn load_player(storage: &Storage, world: &mut World, entity: &crate::Entity)
     PGInvItem::array_into_items(
         player_inv,
         &mut world.get::<&mut Inventory>(entity.0)?.items,
+    );
+
+    let player_storage: Vec<PGStorageItem> = local.block_on(
+        &rt,
+        sqlx::query_as(
+            r#"
+        SELECT uid, id, num, val, itemlevel, data
+	    FROM public.storage where uid = $1;
+        "#,
+        )
+        .bind(accountid)
+        .fetch_all(&storage.pgconn),
+    )?;
+
+    PGStorageItem::array_into_items(
+        player_storage,
+        &mut world.get::<&mut PlayerStorage>(entity.0)?.items,
     );
 
     let player_eqpt: Vec<PGEquipItem> = local.block_on(
@@ -265,6 +300,22 @@ pub fn update_inv(
     let inv = world.cloned_get_or_panic::<Inventory>(entity);
     let account = world.cloned_get_or_panic::<Account>(entity);
     let update = PGInvItem::single(&inv.items, account.id, slot).into_update();
+
+    local.block_on(&rt, sqlx::query(&update).execute(&storage.pgconn))?;
+    Ok(())
+}
+
+pub fn update_storage(
+    storage: &Storage,
+    world: &mut World,
+    entity: &crate::Entity,
+    slot: usize,
+) -> Result<()> {
+    let rt = storage.rt.borrow_mut();
+    let local = storage.local.borrow();
+    let player_storage = world.cloned_get_or_panic::<PlayerStorage>(entity);
+    let account = world.cloned_get_or_panic::<Account>(entity);
+    let update = PGStorageItem::single(&player_storage.items, account.id, slot).into_update();
 
     local.block_on(&rt, sqlx::query(&update).execute(&storage.pgconn))?;
     Ok(())

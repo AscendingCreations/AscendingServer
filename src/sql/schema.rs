@@ -105,6 +105,30 @@ ALTER TABLE IF EXISTS public.inventory
 ";
 
 #[rustfmt::skip]
+pub const STORAGE_SCHEMA: &str = "
+CREATE TABLE IF NOT EXISTS public.storage
+(
+    uid bigint NOT NULL,
+    id smallint NOT NULL,
+    num integer NOT NULL,
+    val smallint NOT NULL,
+    itemlevel smallint NOT NULL,
+    data smallint[] NOT NULL
+)
+
+WITH (
+    FILLFACTOR = 70
+)
+TABLESPACE pg_default;
+";
+
+#[rustfmt::skip]
+pub const STORAGE_SCHEMA_ALTER: &str = "
+ALTER TABLE IF EXISTS public.storage
+    OWNER to postgres;
+";
+
+#[rustfmt::skip]
 pub const LOGS_SCHEMA: &str = "
 CREATE TABLE IF NOT EXISTS public.logs
 (

@@ -7,6 +7,7 @@ mod queries;
 mod schema;
 mod schema_enums;
 mod schema_structs;
+mod storagestruct;
 
 pub use equipmentstruct::PGEquipItem;
 pub use invstruct::PGInvItem;
@@ -20,3 +21,4 @@ pub use schema::*;
 pub use schema_enums::*;
 #[allow(unused_imports)]
 pub use schema_structs::*;
+pub use storagestruct::PGStorageItem;

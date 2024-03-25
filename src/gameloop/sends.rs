@@ -272,6 +272,43 @@ pub fn send_invslot(
 }
 
 #[inline]
+pub fn send_storage(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
+    let mut buf = ByteBuffer::new_packet_with(6500)?;
+
+    buf.write(ServerPackets::PlayerStorage)?;
+    buf.write(
+        world
+            .cloned_get_or_panic::<PlayerStorage>(entity)
+            .items
+            .clone(),
+    )?;
+    buf.finish()?;
+
+    send_to(storage, world.get::<&Socket>(entity.0).unwrap().id, buf);
+
+    Ok(())
+}
+
+#[inline]
+pub fn send_storageslot(
+    world: &mut World,
+    storage: &Storage,
+    entity: &Entity,
+    id: usize,
+) -> Result<()> {
+    let mut buf = ByteBuffer::new_packet_with(32)?;
+
+    buf.write(ServerPackets::PlayerStorageSlot)?;
+    buf.write(id)?;
+    buf.write(world.cloned_get_or_panic::<PlayerStorage>(entity).items[id])?;
+    buf.finish()?;
+
+    send_to(storage, world.get::<&Socket>(entity.0).unwrap().id, buf);
+
+    Ok(())
+}
+
+#[inline]
 pub fn send_attack(
     world: &mut World,
     storage: &Storage,

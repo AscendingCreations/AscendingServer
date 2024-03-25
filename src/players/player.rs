@@ -61,6 +61,15 @@ pub struct Inventory {
     PartialEq, Eq, Clone, Debug, Derivative, Deserialize, Serialize, ByteBufferRead, ByteBufferWrite,
 )]
 #[derivative(Default)]
+pub struct PlayerStorage {
+    #[derivative(Default(value = "(0..MAX_STORAGE).map(|_| Item::default()).collect()"))]
+    pub items: Vec<Item>,
+}
+
+#[derive(
+    PartialEq, Eq, Clone, Debug, Derivative, Deserialize, Serialize, ByteBufferRead, ByteBufferWrite,
+)]
+#[derivative(Default)]
 pub struct Equipment {
     #[derivative(Default(value = "(0..MAX_EQPT).map(|_| Item::default()).collect()"))]
     pub items: Vec<Item>,

@@ -2,17 +2,15 @@ use hecs::World;
 
 use crate::{containers::*, gameloop::*, gametypes::*, items::*, players::*, sql::*};
 
-const MAX_INV_SLOT: usize = 30;
-
 #[inline]
-pub fn save_item(world: &mut World, storage: &Storage, entity: &Entity, slot: usize) {
+pub fn save_inv_item(world: &mut World, storage: &Storage, entity: &Entity, slot: usize) {
     let _ = update_inv(storage, world, entity, slot);
     let _ = send_invslot(world, storage, entity, slot);
 }
 
 #[inline]
 pub fn count_inv_item(num: u32, inv: &[Item]) -> u64 {
-    (0..MAX_INV_SLOT)
+    (0..MAX_INV)
         .filter_map(|id| {
             if inv[id].num == num && inv[id].val > 0 {
                 Some(inv[id].val as u64)
@@ -25,20 +23,20 @@ pub fn count_inv_item(num: u32, inv: &[Item]) -> u64 {
 
 #[inline]
 pub fn find_inv_item(num: u32, inv: &[Item]) -> Option<usize> {
-    (0..MAX_INV_SLOT).find(|id| inv[*id].num == num && inv[*id].val > 0)
+    (0..MAX_INV).find(|id| inv[*id].num == num && inv[*id].val > 0)
 }
 
 #[inline]
-pub fn find_slot(item: &Item, inv: &[Item], base: &ItemData) -> Option<usize> {
+pub fn find_inv_slot(item: &Item, inv: &[Item], base: &ItemData) -> Option<usize> {
     if base.stackable {
-        if let Some(id) = (0..MAX_INV_SLOT).find(|id| {
+        if let Some(id) = (0..MAX_INV).find(|id| {
             inv[*id].num == item.num && inv[*id].val < base.stacklimit && inv[*id].val > 0
         }) {
             return Some(id);
         }
     }
 
-    (0..MAX_INV_SLOT).find(|id| inv[*id].val == 0)
+    (0..MAX_INV).find(|id| inv[*id].val == 0)
 }
 
 #[inline]
@@ -56,7 +54,7 @@ pub fn auto_set_inv_item(
         let mut player_inv = world
             .get::<&mut Inventory>(entity.0)
             .expect("Could not find Inventory");
-        while let Some(slot) = find_slot(item, &player_inv.items, base) {
+        while let Some(slot) = find_inv_slot(item, &player_inv.items, base) {
             if player_inv.items[slot].val == 0 {
                 player_inv.items[slot] = *item;
                 item.val = 0;
@@ -78,7 +76,7 @@ pub fn auto_set_inv_item(
     }
 
     save_item_list.iter().for_each(|slot| {
-        save_item(world, storage, entity, *slot);
+        save_inv_item(world, storage, entity, *slot);
     });
 
     rem
@@ -113,7 +111,7 @@ pub fn set_inv_item(
                 .val = item_min;
         }
         item.val = item.val.saturating_sub(item_min);
-        save_item(world, storage, entity, slot);
+        save_inv_item(world, storage, entity, slot);
         return 0;
     }
 
@@ -121,7 +119,7 @@ pub fn set_inv_item(
         let mut playerinv_val = player_inv.items[slot].val;
         item_min = val_add_amount_rem(&mut playerinv_val, &mut item.val, item_min, base.stacklimit);
 
-        save_item(world, storage, entity, slot);
+        save_inv_item(world, storage, entity, slot);
 
         if item_min > 0 {
             let mut itemtemp = *item;
@@ -139,7 +137,7 @@ pub fn set_inv_item(
 }
 
 #[inline]
-pub fn give_item(
+pub fn give_inv_item(
     world: &mut World,
     storage: &Storage,
     entity: &crate::Entity,
@@ -187,7 +185,7 @@ pub fn take_inv_items(
             }
             amount = player_inv.items[slot].val;
 
-            save_item(world, storage, entity, slot);
+            save_inv_item(world, storage, entity, slot);
 
             if amount == 0 {
                 return 0;
@@ -199,7 +197,7 @@ pub fn take_inv_items(
 }
 
 #[inline]
-pub fn take_itemslot(
+pub fn take_inv_itemslot(
     world: &mut World,
     storage: &Storage,
     entity: &crate::Entity,
@@ -216,7 +214,7 @@ pub fn take_itemslot(
             }
         }
     }
-    save_item(world, storage, entity, slot);
+    save_inv_item(world, storage, entity, slot);
 
     world.cloned_get_or_panic::<Inventory>(entity).items[slot].val
 }

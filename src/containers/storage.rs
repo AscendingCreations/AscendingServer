@@ -289,6 +289,7 @@ impl Storage {
                 PlayerTarget::default(),
             ),
         );
+        let _ = world.insert(entity.0, (PlayerStorage::default(),));
         self.player_ids.borrow_mut().insert(*entity);
     }
 

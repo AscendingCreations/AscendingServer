@@ -16,12 +16,9 @@ pub fn handle_data(
 
     let onlinetype = world.get_or_panic::<OnlineType>(entity);
 
-    println!("Receiving Packet ID {:?}", id);
-
     match onlinetype {
         OnlineType::Online => match id {
-            ClientPacket::Login | ClientPacket::Register =>
-                return Err(AscendingError::MultiLogin),
+            ClientPacket::Login | ClientPacket::Register => return Err(AscendingError::MultiLogin),
             _ => {}
         },
         OnlineType::Accepted => match id {

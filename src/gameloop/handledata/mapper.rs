@@ -22,6 +22,10 @@ pub enum ClientPacket {
     PickUp,
     DropItem,
     DeleteItem,
+    SwitchStorageSlot,
+    DeleteStorageItem,
+    DepositItem,
+    WithdrawItem,
     Message,
     AdminCommand,
     SetTarget,
@@ -67,6 +71,22 @@ impl PacketRouter {
             (
                 ClientPacket::DeleteItem,
                 routes::handle_deleteitem as PacketFunction,
+            ),
+            (
+                ClientPacket::SwitchStorageSlot,
+                routes::handle_switchstorageslot as PacketFunction,
+            ),
+            (
+                ClientPacket::DeleteStorageItem,
+                routes::handle_deletestorageitem as PacketFunction,
+            ),
+            (
+                ClientPacket::DepositItem,
+                routes::handle_deposititem as PacketFunction,
+            ),
+            (
+                ClientPacket::WithdrawItem,
+                routes::handle_withdrawitem as PacketFunction,
             ),
             (
                 ClientPacket::Message,
