@@ -528,3 +528,32 @@ pub fn send_openstorage(world: &mut World, storage: &Storage, entity: &Entity) -
     send_to(storage, world.get::<&Socket>(entity.0).unwrap().id, buf);
     Ok(())
 }
+
+#[inline]
+pub fn send_openshop(
+    world: &mut World,
+    storage: &Storage,
+    entity: &Entity,
+    shop_index: u16,
+) -> Result<()> {
+    let mut buf = ByteBuffer::new_packet_with(6)?;
+
+    buf.write(ServerPackets::OpenShop)?;
+    buf.write(shop_index)?;
+    buf.finish()?;
+
+    send_to(storage, world.get::<&Socket>(entity.0).unwrap().id, buf);
+    Ok(())
+}
+
+#[inline]
+pub fn send_clearisusingtype(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
+    let mut buf = ByteBuffer::new_packet_with(6)?;
+
+    buf.write(ServerPackets::ClearIsUsingType)?;
+    buf.write(1_u16)?;
+    buf.finish()?;
+
+    send_to(storage, world.get::<&Socket>(entity.0).unwrap().id, buf);
+    Ok(())
+}

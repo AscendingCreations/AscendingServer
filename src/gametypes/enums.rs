@@ -457,7 +457,7 @@ impl IsUsingType {
     }
 
     pub fn is_bank(self) -> bool {
-        !matches!(self, IsUsingType::Bank)
+        matches!(self, IsUsingType::Bank)
     }
 
     pub fn is_fishing(self) -> bool {
@@ -583,6 +583,8 @@ pub enum ServerPackets {
     EntityUnload,
     LoadStatus,
     OpenStorage,
+    OpenShop,
+    ClearIsUsingType,
     ServerPacketCount,
 }
 

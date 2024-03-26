@@ -2417,7 +2417,7 @@
         136,
         136,
         0,
-        0,
+        67,
         0,
         0,
         0,
@@ -9613,7 +9613,9 @@
     "Walkable",
     "Walkable",
     "Walkable",
-    "Walkable",
+    {
+      "Shop": 1
+    },
     "Walkable",
     "Walkable",
     "Walkable",
@@ -10045,7 +10047,7 @@
     "Walkable",
     {
       "ItemSpawn": {
-        "index": 2,
+        "index": 1,
         "amount": 1,
         "timer": 5000
       }

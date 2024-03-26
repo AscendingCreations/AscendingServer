@@ -1,5 +1,5 @@
 {
-  "name": "",
+  "name": "Fang",
   "levelreq": 0,
   "soundid": 0,
   "sprite": 2,
@@ -30,7 +30,7 @@
   "breakable": false,
   "stackable": false,
   "stacklimit": 1,
-  "baseprice": 0,
+  "baseprice": 10,
   "repairable": false,
   "rgba": {
     "r": 0,

@@ -1,5 +1,5 @@
 {
-  "name": "",
+  "name": "Potion",
   "levelreq": 0,
   "soundid": 0,
   "sprite": 1,
@@ -30,7 +30,7 @@
   "breakable": false,
   "stackable": true,
   "stacklimit": 10,
-  "baseprice": 0,
+  "baseprice": 5,
   "repairable": false,
   "rgba": {
     "r": 0,

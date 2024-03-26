@@ -264,8 +264,20 @@ pub fn player_interact_object(world: &mut World, storage: &Storage, entity: &Ent
     };
 
     if let Some(mapdata) = storage.bases.maps.get(&target_pos.map) {
-        if mapdata.attribute[target_pos.as_tile()] == MapAttribute::Storage {
-            let _ = send_openstorage(world, storage, entity);
+        match mapdata.attribute[target_pos.as_tile()] {
+            MapAttribute::Storage => {
+                *world
+                    .get::<&mut IsUsingType>(entity.0)
+                    .expect("Could not find IsUsingType") = IsUsingType::Bank;
+                let _ = send_openstorage(world, storage, entity);
+            }
+            MapAttribute::Shop(shop_index) => {
+                *world
+                    .get::<&mut IsUsingType>(entity.0)
+                    .expect("Could not find IsUsingType") = IsUsingType::Store(shop_index as i64);
+                let _ = send_openshop(world, storage, entity, shop_index);
+            }
+            _ => {}
         }
     }
 }

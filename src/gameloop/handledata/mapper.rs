@@ -32,6 +32,8 @@ pub enum ClientPacket {
     CloseStorage,
     CloseShop,
     CloseTrade,
+    BuyItem,
+    SellItem,
     Size,
 }
 
@@ -114,6 +116,14 @@ impl PacketRouter {
             (
                 ClientPacket::CloseTrade,
                 routes::handle_closetrade as PacketFunction,
+            ),
+            (
+                ClientPacket::BuyItem,
+                routes::handle_buyitem as PacketFunction,
+            ),
+            (
+                ClientPacket::SellItem,
+                routes::handle_sellitem as PacketFunction,
             ),
         ]))
     }

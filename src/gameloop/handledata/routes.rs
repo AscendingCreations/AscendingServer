@@ -1,5 +1,6 @@
 use crate::{
-    containers::Storage, gameloop::*, gametypes::*, maps::*, players::*, sql::*, tasks::*,
+    containers::Storage, gameloop::*, gametypes::*, items::Item, maps::*, players::*, sql::*,
+    tasks::*,
 };
 use bytey::ByteBuffer;
 use chrono::Duration;
@@ -1065,9 +1066,12 @@ pub fn handle_closestorage(
             return Ok(());
         }
 
-        *world
-            .get::<&mut IsUsingType>(p.0)
-            .expect("Could not find IsUsingType") = IsUsingType::None;
+        {
+            *world
+                .get::<&mut IsUsingType>(p.0)
+                .expect("Could not find IsUsingType") = IsUsingType::None;
+        }
+        let _ = send_clearisusingtype(world, storage, p);
 
         return Ok(());
     }
@@ -1088,6 +1092,13 @@ pub fn handle_closeshop(
             return Ok(());
         }
 
+        {
+            *world
+                .get::<&mut IsUsingType>(p.0)
+                .expect("Could not find IsUsingType") = IsUsingType::None;
+        }
+        let _ = send_clearisusingtype(world, storage, p);
+
         return Ok(());
     }
 
@@ -1106,6 +1117,99 @@ pub fn handle_closetrade(
         {
             return Ok(());
         }
+
+        return Ok(());
+    }
+
+    Err(AscendingError::InvalidSocket)
+}
+
+pub fn handle_buyitem(
+    world: &mut World,
+    storage: &Storage,
+    data: &mut ByteBuffer,
+    entity: &Entity,
+) -> Result<()> {
+    if let Some(p) = storage.player_ids.borrow().get(entity) {
+        if !world.get_or_panic::<DeathType>(p).is_alive()
+            || !world.get_or_panic::<IsUsingType>(p).is_instore()
+        {
+            return Ok(());
+        }
+        let _shop_index = match world.get_or_panic::<IsUsingType>(p).get_id() {
+            Some(data) => data,
+            None => return Ok(()),
+        };
+        let slot = data.read::<u16>()?;
+
+        // TEMP DATA
+        let shop_data = [0, 1, 1, 2, 0, 2, 1];
+        let shop_price = [10, 20, 30, 40, 50, 60, 70];
+        let shop_value = [5, 3, 4, 1, 1, 1, 7];
+
+        let player_money = world.get_or_panic::<Money>(p).vals;
+        if player_money < shop_price[slot as usize] {
+            // ToDo Warning not enough money
+            return Ok(());
+        }
+
+        let mut item = Item {
+            num: shop_data[slot as usize],
+            val: shop_value[slot as usize],
+            ..Default::default()
+        };
+
+        let leftover = give_inv_item(world, storage, p, &mut item);
+        if leftover != shop_value[slot as usize] {
+            player_take_vals(world, storage, p, shop_price[slot as usize]);
+        }
+
+        // ToDo Message that purchase complete
+
+        return Ok(());
+    }
+
+    Err(AscendingError::InvalidSocket)
+}
+
+pub fn handle_sellitem(
+    world: &mut World,
+    storage: &Storage,
+    data: &mut ByteBuffer,
+    entity: &Entity,
+) -> Result<()> {
+    if let Some(p) = storage.player_ids.borrow().get(entity) {
+        if !world.get_or_panic::<DeathType>(p).is_alive()
+            || !world.get_or_panic::<IsUsingType>(p).is_instore()
+        {
+            return Ok(());
+        }
+        let _shop_index = match world.get_or_panic::<IsUsingType>(p).get_id() {
+            Some(data) => data,
+            None => return Ok(()),
+        };
+        let slot = data.read::<u16>()? as usize;
+        let mut amount = data.read::<u16>()?;
+
+        if slot >= MAX_INV || world.get::<&Inventory>(p.0).unwrap().items[slot].val == 0 {
+            return Ok(());
+        }
+
+        let inv_item = world.cloned_get_or_panic::<Inventory>(p).items[slot];
+        if amount > inv_item.val {
+            amount = inv_item.val;
+        };
+
+        let price = if let Some(itemdata) = storage.bases.items.get(inv_item.num as usize) {
+            itemdata.baseprice
+        } else {
+            0
+        };
+
+        let _ = take_inv_itemslot(world, storage, p, slot, amount);
+        player_give_vals(world, storage, p, price * amount as u64);
+
+        println!("Player Money: {:?}", world.get_or_panic::<Money>(p).vals);
 
         return Ok(());
     }
