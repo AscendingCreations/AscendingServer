@@ -684,7 +684,7 @@ pub fn handle_switchstorageslot(
 ) -> Result<()> {
     if let Some(p) = storage.player_ids.borrow().get(entity) {
         if !world.get_or_panic::<DeathType>(p).is_alive()
-            || world.get_or_panic::<IsUsingType>(p).inuse()
+            || !world.get_or_panic::<IsUsingType>(p).is_bank()
             || world.get_or_panic::<Attacking>(p).0
             || world.get_or_panic::<Stunned>(p).0
         {
@@ -764,7 +764,7 @@ pub fn handle_deletestorageitem(
 ) -> Result<()> {
     if let Some(p) = storage.player_ids.borrow().get(entity) {
         if !world.get_or_panic::<DeathType>(p).is_alive()
-            || world.get_or_panic::<IsUsingType>(p).inuse()
+            || !world.get_or_panic::<IsUsingType>(p).is_bank()
             || world.get_or_panic::<Attacking>(p).0
             || world.get_or_panic::<Stunned>(p).0
         {
@@ -794,7 +794,7 @@ pub fn handle_deposititem(
 ) -> Result<()> {
     if let Some(p) = storage.player_ids.borrow().get(entity) {
         if !world.get_or_panic::<DeathType>(p).is_alive()
-            || world.get_or_panic::<IsUsingType>(p).inuse()
+            || !world.get_or_panic::<IsUsingType>(p).is_bank()
             || world.get_or_panic::<Attacking>(p).0
             || world.get_or_panic::<Stunned>(p).0
         {
@@ -849,7 +849,7 @@ pub fn handle_withdrawitem(
 ) -> Result<()> {
     if let Some(p) = storage.player_ids.borrow().get(entity) {
         if !world.get_or_panic::<DeathType>(p).is_alive()
-            || world.get_or_panic::<IsUsingType>(p).inuse()
+            || !world.get_or_panic::<IsUsingType>(p).is_bank()
             || world.get_or_panic::<Attacking>(p).0
             || world.get_or_panic::<Stunned>(p).0
         {
@@ -1045,6 +1045,67 @@ pub fn handle_settarget(
             .get::<&mut PlayerTarget>(entity.0)
             .expect("Could not find PlayerTarget")
             .0 = target;
+
+        return Ok(());
+    }
+
+    Err(AscendingError::InvalidSocket)
+}
+
+pub fn handle_closestorage(
+    world: &mut World,
+    storage: &Storage,
+    _data: &mut ByteBuffer,
+    entity: &Entity,
+) -> Result<()> {
+    if let Some(p) = storage.player_ids.borrow().get(entity) {
+        if !world.get_or_panic::<DeathType>(p).is_alive()
+            || !world.get_or_panic::<IsUsingType>(p).is_bank()
+        {
+            return Ok(());
+        }
+
+        *world
+            .get::<&mut IsUsingType>(p.0)
+            .expect("Could not find IsUsingType") = IsUsingType::None;
+
+        return Ok(());
+    }
+
+    Err(AscendingError::InvalidSocket)
+}
+
+pub fn handle_closeshop(
+    world: &mut World,
+    storage: &Storage,
+    _data: &mut ByteBuffer,
+    entity: &Entity,
+) -> Result<()> {
+    if let Some(p) = storage.player_ids.borrow().get(entity) {
+        if !world.get_or_panic::<DeathType>(p).is_alive()
+            || !world.get_or_panic::<IsUsingType>(p).is_instore()
+        {
+            return Ok(());
+        }
+
+        return Ok(());
+    }
+
+    Err(AscendingError::InvalidSocket)
+}
+
+pub fn handle_closetrade(
+    world: &mut World,
+    storage: &Storage,
+    _data: &mut ByteBuffer,
+    entity: &Entity,
+) -> Result<()> {
+    if let Some(p) = storage.player_ids.borrow().get(entity) {
+        if !world.get_or_panic::<DeathType>(p).is_alive()
+            || !world.get_or_panic::<IsUsingType>(p).is_trading()
+        {
+            return Ok(());
+        }
 
         return Ok(());
     }

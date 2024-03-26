@@ -29,6 +29,9 @@ pub enum ClientPacket {
     Message,
     AdminCommand,
     SetTarget,
+    CloseStorage,
+    CloseShop,
+    CloseTrade,
     Size,
 }
 
@@ -99,6 +102,18 @@ impl PacketRouter {
             (
                 ClientPacket::SetTarget,
                 routes::handle_settarget as PacketFunction,
+            ),
+            (
+                ClientPacket::CloseStorage,
+                routes::handle_closestorage as PacketFunction,
+            ),
+            (
+                ClientPacket::CloseShop,
+                routes::handle_closeshop as PacketFunction,
+            ),
+            (
+                ClientPacket::CloseTrade,
+                routes::handle_closetrade as PacketFunction,
             ),
         ]))
     }
