@@ -85,7 +85,7 @@ impl PGStorageItem {
         let data = self
             .data
             .iter()
-            .format_with(", ", |elt, f| f(&format_args!("\"{}\"", elt)));
+            .format_with(", ", |elt, f| f(&format_args!("{}", elt)));
 
         format!(
             r#"
