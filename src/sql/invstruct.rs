@@ -91,7 +91,7 @@ impl PGInvItem {
             r#"
             UPDATE public.inventory
 	        SET num={0}, val={1}, itemlevel={2}, data='{{{3}}}'
-	        WHERE uid = {4} && id = {5};
+	        WHERE uid = {4} and id = {5};
         "#,
             self.num, self.val, self.itemlevel, data, self.uid, self.id
         )
