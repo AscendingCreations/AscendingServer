@@ -67,6 +67,8 @@ pub enum ServerPackets {
     OpenStorage,
     OpenShop,
     ClearIsUsingType,
+    UpdateTradeItem,
+    UpdateTradeMoney,
     ServerPacketCount,
 }
 
@@ -97,5 +99,9 @@ pub enum ClientPacket {
     CloseTrade,
     BuyItem,
     SellItem,
+    AddTradeItem,
+    RemoveTradeItem,
+    UpdateTradeMoney,
+    SubmitTrade,
     Size,
 }

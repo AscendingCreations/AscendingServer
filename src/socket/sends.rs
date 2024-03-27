@@ -557,3 +557,44 @@ pub fn send_clearisusingtype(world: &mut World, storage: &Storage, entity: &Enti
     send_to(storage, world.get::<&Socket>(entity.0).unwrap().id, buf);
     Ok(())
 }
+
+#[inline]
+pub fn send_updatetradeitem(
+    world: &mut World,
+    storage: &Storage,
+    target_entity: &Entity,
+    send_entity: &Entity,
+    slot: u16,
+    amount: u16,
+) -> Result<()> {
+    let mut buf = ByteBuffer::new_packet_with(6)?;
+
+    buf.write(ServerPackets::UpdateTradeItem)?;
+    buf.write(target_entity == send_entity)?;
+    buf.write(
+        world
+            .cloned_get_or_panic::<PlayerStorage>(target_entity)
+            .items[slot as usize],
+    )?;
+    buf.write(amount)?;
+    buf.finish()?;
+
+    send_to(
+        storage,
+        world.get::<&Socket>(send_entity.0).unwrap().id,
+        buf,
+    );
+    Ok(())
+}
+
+#[inline]
+pub fn send_updatetrademoney(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
+    let mut buf = ByteBuffer::new_packet_with(6)?;
+
+    buf.write(ServerPackets::UpdateTradeMoney)?;
+    buf.write(1_u16)?;
+    buf.finish()?;
+
+    send_to(storage, world.get::<&Socket>(entity.0).unwrap().id, buf);
+    Ok(())
+}

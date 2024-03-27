@@ -435,23 +435,12 @@ pub enum IsUsingType {
     Bank,
     Fishing(i64),
     Crafting(i64),
-    Trading(i64),
+    Trading(Entity),
     Store(i64),
     Other(i64),
 }
 
 impl IsUsingType {
-    pub fn get_id(&self) -> Option<usize> {
-        match self {
-            IsUsingType::Fishing(i)
-            | IsUsingType::Crafting(i)
-            | IsUsingType::Trading(i)
-            | IsUsingType::Store(i)
-            | IsUsingType::Other(i) => Some(*i as usize),
-            _ => None,
-        }
-    }
-
     pub fn inuse(self) -> bool {
         !matches!(self, IsUsingType::None)
     }

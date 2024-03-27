@@ -98,19 +98,24 @@ pub fn handle_register(
             sprite.id = sprite_id as u16;
         }
 
-        let res = new_player(storage, world, entity, username, email, password);
-        if let Err(e) = res {
-            println!("{}", e);
-            return send_infomsg(
+        return match new_player(storage, world, entity, username, email, password) {
+            Ok(uid) => {
+                {
+                    world
+                        .get::<&mut Account>(entity.0)
+                        .expect("Could not find Account")
+                        .id = uid;
+                }
+                joingame(world, storage, entity);
+                Ok(())
+            }
+            Err(_) => send_infomsg(
                 storage,
                 socket_id,
                 "There was an Issue Creating the player account. Please Contact Support.".into(),
                 0,
-            );
-        }
-
-        joingame(world, storage, entity);
-        return Ok(());
+            ),
+        };
         //return send_infomsg(storage, socket_id,
         //     "Account Was Created. Please wait for the Verification code sent to your email before logging in.".into(), 1);
     }
@@ -1122,9 +1127,10 @@ pub fn handle_buyitem(
         {
             return Ok(());
         }
-        let _shop_index = match world.get_or_panic::<IsUsingType>(p).get_id() {
-            Some(data) => data,
-            None => return Ok(()),
+        let _shop_index = if let IsUsingType::Store(shop) = world.get_or_panic::<IsUsingType>(p) {
+            shop
+        } else {
+            return Ok(());
         };
         let slot = data.read::<u16>()?;
 
@@ -1170,9 +1176,10 @@ pub fn handle_sellitem(
         {
             return Ok(());
         }
-        let _shop_index = match world.get_or_panic::<IsUsingType>(p).get_id() {
-            Some(data) => data,
-            None => return Ok(()),
+        let _shop_index = if let IsUsingType::Store(shop) = world.get_or_panic::<IsUsingType>(p) {
+            shop
+        } else {
+            return Ok(());
         };
         let slot = data.read::<u16>()? as usize;
         let mut amount = data.read::<u16>()?;
@@ -1196,6 +1203,125 @@ pub fn handle_sellitem(
         player_give_vals(world, storage, p, price * amount as u64);
 
         println!("Player Money: {:?}", world.get_or_panic::<Money>(p).vals);
+
+        return Ok(());
+    }
+
+    Err(AscendingError::InvalidSocket)
+}
+
+pub fn handle_addtradeitem(
+    world: &mut World,
+    storage: &Storage,
+    data: &mut ByteBuffer,
+    entity: &Entity,
+) -> Result<()> {
+    if let Some(p) = storage.player_ids.borrow().get(entity) {
+        if !world.get_or_panic::<DeathType>(p).is_alive()
+            || !world.get_or_panic::<IsUsingType>(p).is_trading()
+        {
+            return Ok(());
+        }
+
+        let target_entity =
+            if let IsUsingType::Trading(entity) = world.get_or_panic::<IsUsingType>(p) {
+                entity
+            } else {
+                return Ok(());
+            };
+        if !world.contains(target_entity.0) {
+            return Ok(());
+        }
+
+        let slot = data.read::<u16>()? as usize;
+        let mut amount = data.read::<u16>()?;
+
+        if slot >= MAX_INV || world.get::<&Inventory>(p.0).unwrap().items[slot].val == 0 {
+            return Ok(());
+        }
+
+        let inv_item = world.cloned_get_or_panic::<Inventory>(p).items[slot];
+        if amount > inv_item.val {
+            amount = inv_item.val;
+        };
+
+        let _ = send_updatetradeitem(world, storage, entity, entity, slot as u16, amount);
+        let _ = send_updatetradeitem(world, storage, entity, &target_entity, slot as u16, amount);
+
+        return Ok(());
+    }
+
+    Err(AscendingError::InvalidSocket)
+}
+
+pub fn handle_removetradeitem(
+    world: &mut World,
+    storage: &Storage,
+    data: &mut ByteBuffer,
+    entity: &Entity,
+) -> Result<()> {
+    if let Some(p) = storage.player_ids.borrow().get(entity) {
+        if !world.get_or_panic::<DeathType>(p).is_alive()
+            || !world.get_or_panic::<IsUsingType>(p).is_trading()
+        {
+            return Ok(());
+        }
+
+        let _target_entity =
+            if let IsUsingType::Trading(entity) = world.get_or_panic::<IsUsingType>(p) {
+                entity
+            } else {
+                return Ok(());
+            };
+
+        let _slot = data.read::<u16>()?;
+
+        return Ok(());
+    }
+
+    Err(AscendingError::InvalidSocket)
+}
+
+pub fn handle_updatetrademoney(
+    world: &mut World,
+    storage: &Storage,
+    data: &mut ByteBuffer,
+    entity: &Entity,
+) -> Result<()> {
+    if let Some(p) = storage.player_ids.borrow().get(entity) {
+        if !world.get_or_panic::<DeathType>(p).is_alive()
+            || !world.get_or_panic::<IsUsingType>(p).is_trading()
+        {
+            return Ok(());
+        }
+
+        let _target_entity =
+            if let IsUsingType::Trading(entity) = world.get_or_panic::<IsUsingType>(p) {
+                entity
+            } else {
+                return Ok(());
+            };
+
+        let _amount = data.read::<u64>()?;
+
+        return Ok(());
+    }
+
+    Err(AscendingError::InvalidSocket)
+}
+
+pub fn handle_submittrade(
+    world: &mut World,
+    storage: &Storage,
+    _data: &mut ByteBuffer,
+    entity: &Entity,
+) -> Result<()> {
+    if let Some(p) = storage.player_ids.borrow().get(entity) {
+        if !world.get_or_panic::<DeathType>(p).is_alive()
+            || !world.get_or_panic::<IsUsingType>(p).is_trading()
+        {
+            return Ok(());
+        }
 
         return Ok(());
     }
