@@ -1,8 +1,7 @@
 use crate::{
-    containers::Storage, gameloop::*, gametypes::*, items::Item, maps::*, players::*, sql::*,
+    containers::Storage, gametypes::*, items::Item, maps::*, players::*, socket::*, sql::*,
     tasks::*,
 };
-use bytey::ByteBuffer;
 use chrono::Duration;
 use hecs::World;
 use regex::Regex;
@@ -16,7 +15,7 @@ pub fn handle_register(
     let username = data.read::<String>()?;
     let password = data.read::<String>()?;
     let email = data.read::<String>()?;
-    let sprite: u8 = data.read()?;
+    let sprite_id = data.read::<u8>()?;
 
     let socket_id = world.get::<&Socket>(entity.0).unwrap().id;
 
@@ -54,7 +53,7 @@ pub fn handle_register(
             );
         }
 
-        if !email_regex.is_match(&email) || sprite >= 6 {
+        if !email_regex.is_match(&email) || sprite_id >= 6 {
             return send_infomsg(
                 storage,
                 socket_id,
@@ -91,15 +90,12 @@ pub fn handle_register(
         storage.add_player_data(world, entity);
 
         {
-            world
-                .get::<&mut Account>(entity.0)
-                .expect("Could not find Account")
-                .username
-                .clone_from(&username);
-            world
-                .get::<&mut Sprite>(entity.0)
-                .expect("Could not find Sprite")
-                .id = sprite as u16;
+            let (account, sprite) = world
+                .query_one_mut::<(&mut Account, &mut Sprite)>(entity.0)
+                .unwrap();
+
+            account.username.clone_from(&username);
+            sprite.id = sprite_id as u16;
         }
 
         let res = new_player(storage, world, entity, username, email, password);
@@ -165,12 +161,7 @@ pub fn handle_login(
         // we need to Add all the player types creations in a sub function that Creates the Defaults and then adds them to World.
         storage.add_player_data(world, entity);
 
-        world
-            .get::<&mut Account>(entity.0)
-            .expect("Could not find Account")
-            .id = id;
-
-        if let Err(_e) = load_player(storage, world, entity) {
+        if let Err(_e) = load_player(storage, world, entity, id) {
             return send_infomsg(storage, socket_id, "Error Loading User.".into(), 1);
         }
 
@@ -393,7 +384,6 @@ pub fn handle_switchinvslot(
 ) -> Result<()> {
     if let Some(p) = storage.player_ids.borrow().get(entity) {
         if !world.get_or_panic::<DeathType>(p).is_alive()
-            || world.get_or_panic::<IsUsingType>(p).inuse()
             || world.get_or_panic::<Attacking>(p).0
             || world.get_or_panic::<Stunned>(p).0
             || world.get_or_panic::<PlayerItemTimer>(p).itemtimer > *storage.gettick.borrow()
@@ -906,11 +896,7 @@ pub fn handle_message(
     if let Some(p) = storage.player_ids.borrow().get(entity) {
         let mut usersocket: Option<usize> = None;
 
-        if !world.get_or_panic::<DeathType>(p).is_alive()
-            || world.get_or_panic::<IsUsingType>(p).inuse()
-            || world.get_or_panic::<Attacking>(p).0
-            || world.get_or_panic::<Stunned>(p).0
-        {
+        if !world.get_or_panic::<DeathType>(p).is_alive() {
             return Ok(());
         }
 

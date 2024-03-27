@@ -20,7 +20,7 @@ impl PGInvItem {
         for (id, invitem) in inv.iter().enumerate() {
             items.push(PGInvItem {
                 uid,
-                id: i16::unshift_signed(&(id as u16)),
+                id: id as i16,
                 num: i32::unshift_signed(&invitem.num),
                 val: i16::unshift_signed(&invitem.val),
                 itemlevel: i16::unshift_signed(&(invitem.level as u16)),
@@ -34,7 +34,7 @@ impl PGInvItem {
     pub fn single(inv: &[Item], uid: i64, slot: usize) -> PGInvItem {
         PGInvItem {
             uid,
-            id: i16::unshift_signed(&(slot as u16)),
+            id: slot as i16,
             num: i32::unshift_signed(&inv[slot].num),
             val: i16::unshift_signed(&inv[slot].val),
             itemlevel: i16::unshift_signed(&(inv[slot].level as u16)),
@@ -43,7 +43,7 @@ impl PGInvItem {
     }
 
     pub fn into_item(self, inv: &mut [Item]) {
-        let slot = self.id.shift_signed() as usize;
+        let slot = self.id as usize;
 
         inv[slot].num = self.num.shift_signed();
         inv[slot].val = self.val.shift_signed();

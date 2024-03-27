@@ -1,9 +1,9 @@
 use crate::{
     containers::Storage,
-    gameloop::*,
     gametypes::*,
     maps::*,
     players::*,
+    socket::*,
     tasks::{DataTaskToken, MapItemPacket, NpcSpawnPacket, PlayerSpawnPacket},
 };
 use hecs::World;

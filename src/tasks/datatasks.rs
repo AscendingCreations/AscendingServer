@@ -1,6 +1,6 @@
 use crate::{
     containers::Storage,
-    gametypes::{AscendingError, MapPosition, Result, ServerPackets},
+    gametypes::{AscendingError, MapPosition, Result},
     socket::*,
 };
 use hecs::World;

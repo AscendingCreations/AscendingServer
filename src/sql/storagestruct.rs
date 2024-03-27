@@ -20,7 +20,7 @@ impl PGStorageItem {
         for (id, storageitem) in storage_slot.iter().enumerate() {
             items.push(PGStorageItem {
                 uid,
-                id: i16::unshift_signed(&(id as u16)),
+                id: id as i16,
                 num: i32::unshift_signed(&storageitem.num),
                 val: i16::unshift_signed(&storageitem.val),
                 itemlevel: i16::unshift_signed(&(storageitem.level as u16)),
@@ -34,7 +34,7 @@ impl PGStorageItem {
     pub fn single(storage_slot: &[Item], uid: i64, slot: usize) -> PGStorageItem {
         PGStorageItem {
             uid,
-            id: i16::unshift_signed(&(slot as u16)),
+            id: slot as i16,
             num: i32::unshift_signed(&storage_slot[slot].num),
             val: i16::unshift_signed(&storage_slot[slot].val),
             itemlevel: i16::unshift_signed(&(storage_slot[slot].level as u16)),
@@ -43,7 +43,7 @@ impl PGStorageItem {
     }
 
     pub fn into_item(self, storage_slot: &mut [Item]) {
-        let slot = self.id.shift_signed() as usize;
+        let slot = self.id as usize;
 
         storage_slot[slot].num = self.num.shift_signed();
         storage_slot[slot].val = self.val.shift_signed();

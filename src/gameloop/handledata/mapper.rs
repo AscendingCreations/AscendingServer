@@ -1,41 +1,9 @@
 use super::routes;
-use crate::{containers::Storage, gametypes::*};
-use bytey::{ByteBuffer, ByteBufferRead, ByteBufferWrite};
+use crate::{containers::Storage, gametypes::*, socket::*};
 use hecs::World;
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 type PacketFunction = fn(&mut World, &Storage, &mut ByteBuffer, &Entity) -> Result<()>;
-
-#[derive(
-    Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ByteBufferRead, ByteBufferWrite, Hash,
-)]
-pub enum ClientPacket {
-    Register,
-    Login,
-    Move,
-    Dir,
-    Attack,
-    UseItem,
-    Unequip,
-    SwitchInvSlot,
-    PickUp,
-    DropItem,
-    DeleteItem,
-    SwitchStorageSlot,
-    DeleteStorageItem,
-    DepositItem,
-    WithdrawItem,
-    Message,
-    AdminCommand,
-    SetTarget,
-    CloseStorage,
-    CloseShop,
-    CloseTrade,
-    BuyItem,
-    SellItem,
-    Size,
-}
 
 pub struct PacketRouter(pub HashMap<ClientPacket, PacketFunction>);
 

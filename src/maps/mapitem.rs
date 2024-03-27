@@ -1,8 +1,8 @@
 use crate::{
     containers::Storage,
-    gameloop::sends::*,
     gametypes::*,
     items::Item,
+    socket::*,
     tasks::{DataTaskToken, MapItemPacket},
     time_ext::MyInstant,
 };

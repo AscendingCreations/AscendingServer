@@ -1,3 +1,5 @@
+//This trait allows us to Shift an unsigned variable into a Signed variable with no loss of data.
+//it allows us to store unsigned data into a Database that might only support signed types.
 pub trait Shifting {
     type Unsigned;
 
