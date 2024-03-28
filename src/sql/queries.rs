@@ -243,7 +243,7 @@ pub fn load_player(
             .fetch_one(&storage.pgconn),
     )?;
 
-    player_with_id.into_player(world, entity);
+    player_with_id.into_player(world, entity)?;
 
     let player_inv: Vec<PGInvItem> = local.block_on(
         &rt,

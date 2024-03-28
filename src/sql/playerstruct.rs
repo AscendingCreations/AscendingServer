@@ -1,6 +1,6 @@
 use crate::sql::integers::Shifting;
 use crate::{gametypes::*, players::*, time_ext::*};
-use hecs::World;
+use hecs::{NoSuchEntity, World};
 use sqlx::FromRow;
 
 #[derive(Debug, PartialEq, Eq, FromRow)]
@@ -65,9 +65,10 @@ pub struct PGPlayerWithID {
 }
 
 impl PGPlayerWithID {
-    pub fn into_player(self, world: &mut World, entity: &Entity) {
-        let mut query = world.query_one::<PlayerQueryMut>(entity.0).unwrap();
-        let (
+    pub fn into_player(self, world: &mut World, entity: &Entity) -> Result<()> {
+        let mut query = world.query_one::<PlayerQueryMut>(entity.0)?;
+
+        if let Some((
             account,
             socket,
             sprite,
@@ -82,29 +83,33 @@ impl PGPlayerWithID {
             death_type,
             level,
             player,
-        ) = query.get().unwrap();
-
-        account.id = self.uid;
-        account.username.clone_from(&self.username);
-        socket.addr.clone_from(&self.address);
-        sprite.id = self.sprite.shift_signed();
-        spawn.pos = self.spawn;
-        itemtimer.itemtimer = self.itemtimer;
-        money.vals = self.vals.shift_signed();
-        entity_data.0 = self.data[..10].try_into().unwrap_or([0; 10]);
-        *access = self.access;
-        *position = self.pos;
-        vitals.vital = self.vital[..VITALS_MAX]
-            .try_into()
-            .unwrap_or([0; VITALS_MAX]);
-        death_timer.0 = self.deathtimer;
-        *death_type = match self.indeath {
-            true => DeathType::Spirit,
-            false => DeathType::Alive,
-        };
-        level.0 = self.level;
-        player.levelexp = self.levelexp.shift_signed();
-        player.resetcount = self.resetcount;
-        player.pk = self.pk;
+        )) = query.get()
+        {
+            account.id = self.uid;
+            account.username.clone_from(&self.username);
+            socket.addr.clone_from(&self.address);
+            sprite.id = self.sprite.shift_signed();
+            spawn.pos = self.spawn;
+            itemtimer.itemtimer = self.itemtimer;
+            money.vals = self.vals.shift_signed();
+            entity_data.0 = self.data[..10].try_into().unwrap_or([0; 10]);
+            *access = self.access;
+            *position = self.pos;
+            vitals.vital = self.vital[..VITALS_MAX]
+                .try_into()
+                .unwrap_or([0; VITALS_MAX]);
+            death_timer.0 = self.deathtimer;
+            *death_type = match self.indeath {
+                true => DeathType::Spirit,
+                false => DeathType::Alive,
+            };
+            level.0 = self.level;
+            player.levelexp = self.levelexp.shift_signed();
+            player.resetcount = self.resetcount;
+            player.pk = self.pk;
+            Ok(())
+        } else {
+            Err(AscendingError::HecNoEntity(NoSuchEntity))
+        }
     }
 }
