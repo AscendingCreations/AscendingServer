@@ -1,5 +1,6 @@
 use bytey::{ByteBufferError, ByteBufferRead, ByteBufferWrite};
-use hecs::{EntityRef, World};
+use hecs::{EntityRef, MissingComponent, World};
+use log::{error, warn};
 use serde::{Deserialize, Serialize};
 
 use crate::{gametypes::*, time_ext::MyInstant};
@@ -94,8 +95,8 @@ pub struct Level(#[derivative(Default(value = "1"))] pub i32);
 #[derivative(Default)]
 pub struct InCombat(#[derivative(Default(value = "false"))] pub bool);
 
-//the World ID stored in our own Wrapper for Packet sending etc.
-//This will help ensure we dont try to deal with outdated stuff if we use
+// The World ID stored in our own Wrapper for Packet sending etc.
+// This will help ensure we dont try to deal with outdated stuff if we use
 // the entire ID rather than just its internal ID.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Deserialize, Serialize, Hash)]
 pub struct Entity(pub hecs::Entity);
@@ -119,20 +120,6 @@ impl DerefMut for Entity {
         &mut self.0
     }
 }
-
-/*
-pub etype: EntityType,
-    pub mode: NpcMode, //Player is always None
-impl Entity {
-    pub fn get_id(&self) -> usize {
-        self.etype.get_id()
-    }
-
-    pub fn reset_target(&mut self) {
-        self.targettype = EntityType::None;
-        self.targetpos = Position::default();
-    }
-}*/
 
 impl ByteBufferWrite for Entity {
     fn write_to_buffer(&self, buffer: &mut bytey::ByteBuffer) -> bytey::Result<()> {
@@ -203,6 +190,12 @@ pub trait WorldExtras {
     fn cloned_get_or_panic<T>(&self, entity: &Entity) -> T
     where
         T: Send + Sync + Clone + 'static;
+    fn get_or_err<T>(&self, entity: &Entity) -> Result<T>
+    where
+        T: Send + Sync + Copy + 'static;
+    fn cloned_get_or_err<T>(&self, entity: &Entity) -> Result<T>
+    where
+        T: Send + Sync + Clone + 'static;
 }
 
 pub trait WorldEntityExtras {
@@ -218,6 +211,12 @@ pub trait WorldEntityExtras {
     fn cloned_get_or_panic<T>(&self) -> T
     where
         T: Send + Sync + Clone + 'static;
+    fn get_or_err<T>(&self) -> Result<T>
+    where
+        T: Send + Sync + Copy + 'static;
+    fn cloned_get_or_err<T>(&self) -> Result<T>
+    where
+        T: Send + Sync + Clone + 'static;
 }
 
 impl WorldEntityExtras for EntityRef<'_> {
@@ -225,20 +224,14 @@ impl WorldEntityExtras for EntityRef<'_> {
     where
         T: Default + Send + Sync + Copy + 'static,
     {
-        match self.get::<&T>() {
-            Some(t) => *t,
-            None => T::default(),
-        }
+        self.get::<&T>().map(|t| *t).unwrap_or_default()
     }
 
     fn cloned_get_or_default<T>(&self) -> T
     where
         T: Default + Send + Sync + Clone + 'static,
     {
-        match self.get::<&T>() {
-            Some(t) => (*t).clone(),
-            None => T::default(),
-        }
+        self.get::<&T>().map(|t| (*t).clone()).unwrap_or_default()
     }
 
     fn get_or_panic<T>(&self) -> T
@@ -247,7 +240,10 @@ impl WorldEntityExtras for EntityRef<'_> {
     {
         match self.get::<&T>() {
             Some(t) => *t,
-            None => panic!("Component: {} is missing.", type_name::<T>()),
+            None => {
+                error!("Component: {} is missing.", type_name::<T>());
+                panic!("Component: {} is missing.", type_name::<T>());
+            }
         }
     }
 
@@ -257,7 +253,44 @@ impl WorldEntityExtras for EntityRef<'_> {
     {
         match self.get::<&T>() {
             Some(t) => (*t).clone(),
-            None => panic!("Component: {} is missing.", type_name::<T>()),
+            None => {
+                error!("Component: {} is missing.", type_name::<T>());
+                panic!("Component: {} is missing.", type_name::<T>());
+            }
+        }
+    }
+
+    fn get_or_err<T>(&self) -> Result<T>
+    where
+        T: Send + Sync + Copy + 'static,
+    {
+        match self.get::<&T>().map(|t| *t) {
+            Some(t) => Ok(t),
+            None => {
+                let e = AscendingError::HecsComponent(hecs::ComponentError::MissingComponent(
+                    MissingComponent::new::<T>(),
+                ));
+
+                warn!("Component Err: {:?}", e);
+                Err(e)
+            }
+        }
+    }
+
+    fn cloned_get_or_err<T>(&self) -> Result<T>
+    where
+        T: Send + Sync + Clone + 'static,
+    {
+        match self.get::<&T>().map(|t| (*t).clone()) {
+            Some(t) => Ok(t),
+            None => {
+                let e = AscendingError::HecsComponent(hecs::ComponentError::MissingComponent(
+                    MissingComponent::new::<T>(),
+                ));
+
+                warn!("Component Err: {:?}", e);
+                Err(e)
+            }
         }
     }
 }
@@ -267,20 +300,16 @@ impl WorldExtras for World {
     where
         T: Default + Send + Sync + Copy + 'static,
     {
-        match self.get::<&T>(entity.0) {
-            Ok(t) => *t,
-            Err(_) => T::default(),
-        }
+        self.get::<&T>(entity.0).map(|t| *t).unwrap_or_default()
     }
 
     fn cloned_get_or_default<T>(&self, entity: &Entity) -> T
     where
         T: Default + Send + Sync + Clone + 'static,
     {
-        match self.get::<&T>(entity.0) {
-            Ok(t) => (*t).clone(),
-            Err(_) => T::default(),
-        }
+        self.get::<&T>(entity.0)
+            .map(|t| (*t).clone())
+            .unwrap_or_default()
     }
 
     fn get_or_panic<T>(&self, entity: &Entity) -> T
@@ -289,7 +318,10 @@ impl WorldExtras for World {
     {
         match self.get::<&T>(entity.0) {
             Ok(t) => *t,
-            Err(e) => panic!("Component error: {:?}", e),
+            Err(e) => {
+                error!("Component error: {:?}", e);
+                panic!("Component error: {:?}", e);
+            }
         }
     }
 
@@ -299,7 +331,36 @@ impl WorldExtras for World {
     {
         match self.get::<&T>(entity.0) {
             Ok(t) => (*t).clone(),
-            Err(e) => panic!("Component error: {:?}", e),
+            Err(e) => {
+                error!("Component error: {:?}", e);
+                panic!("Component error: {:?}", e);
+            }
+        }
+    }
+
+    fn get_or_err<T>(&self, entity: &Entity) -> Result<T>
+    where
+        T: Send + Sync + Copy + 'static,
+    {
+        match self.get::<&T>(entity.0).map(|t| *t) {
+            Ok(t) => Ok(t),
+            Err(e) => {
+                warn!("Component Err: {:?}", e);
+                Err(AscendingError::HecsComponent(e))
+            }
+        }
+    }
+
+    fn cloned_get_or_err<T>(&self, entity: &Entity) -> Result<T>
+    where
+        T: Send + Sync + Clone + 'static,
+    {
+        match self.get::<&T>(entity.0).map(|t| (*t).clone()) {
+            Ok(t) => Ok(t),
+            Err(e) => {
+                warn!("Component Err: {:?}", e);
+                Err(AscendingError::HecsComponent(e))
+            }
         }
     }
 }
