@@ -93,6 +93,22 @@ impl PacketRouter {
                 ClientPacket::SellItem,
                 routes::handle_sellitem as PacketFunction,
             ),
+            (
+                ClientPacket::AddTradeItem,
+                routes::handle_addtradeitem as PacketFunction,
+            ),
+            (
+                ClientPacket::RemoveTradeItem,
+                routes::handle_removetradeitem as PacketFunction,
+            ),
+            (
+                ClientPacket::UpdateTradeMoney,
+                routes::handle_updatetrademoney as PacketFunction,
+            ),
+            (
+                ClientPacket::SubmitTrade,
+                routes::handle_submittrade as PacketFunction,
+            ),
         ]))
     }
 }

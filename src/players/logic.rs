@@ -338,6 +338,8 @@ pub fn joingame(world: &mut World, storage: &Storage, entity: &Entity) {
         map.add_entity_to_grid(position);
     }
 
+    let _ = send_inv(world, storage, entity);
+
     println!("Login Ok");
     // Finish loading
     let _ = send_loginok(storage, socket_id);
