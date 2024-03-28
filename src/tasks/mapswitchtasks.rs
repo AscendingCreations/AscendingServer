@@ -22,7 +22,7 @@ pub fn init_data_lists(
     storage: &Storage,
     user: &crate::Entity,
     oldmap: Option<MapPosition>,
-) {
+) -> Result<()> {
     let mut map_switch_tasks = storage.map_switch_tasks.borrow_mut();
 
     //Remove old tasks and replace with new ones during map switching.
@@ -34,7 +34,7 @@ pub fn init_data_lists(
         map_switch_tasks.insert(*user, vec![]);
     }
 
-    let socket_id = world.get::<&Socket>(user.0).unwrap().id;
+    let socket_id = world.get::<&Socket>(user.0)?.id;
 
     // Lets remove any lengering Packet Sends if they still Exist.
     {
@@ -85,7 +85,7 @@ pub fn init_data_lists(
 
     //Only get the New id's not in Old for the Vec we use the old data to deturmine what use to exist.
     //the users map is always first in the Vec of get_surrounding so it always gets loaded first.
-    for m in get_surrounding(world.get_or_panic::<Position>(user).map, true) {
+    for m in get_surrounding(world.get_or_err::<Position>(user)?.map, true) {
         if let Some(mapref) = storage.maps.get(&m) {
             let map = mapref.borrow();
             map.players.iter().for_each(|id| {
@@ -136,18 +136,20 @@ pub fn init_data_lists(
             .collect::<Vec<Entity>>(),
     );
 
-    let _ = send_data_remove_list(storage, socket_id, &removals);
+    send_data_remove_list(storage, socket_id, &removals)?;
 
     if let Some(tasks) = map_switch_tasks.get_mut(user) {
         tasks.push(MapSwitchTasks::Player(task_player));
         tasks.push(MapSwitchTasks::Npc(task_npc));
         tasks.push(MapSwitchTasks::Items(task_item));
     }
+
+    Ok(())
 }
 
 const PROCESS_LIMIT: usize = 50;
 
-pub fn process_data_lists(world: &mut World, storage: &Storage) {
+pub fn process_data_lists(world: &mut World, storage: &Storage) -> Result<()> {
     let mut removals = Vec::new();
     let mut maptasks = storage.map_switch_tasks.borrow_mut();
 
@@ -162,8 +164,8 @@ pub fn process_data_lists(world: &mut World, storage: &Storage) {
                 let amount_left = match task {
                     MapSwitchTasks::Npc(entities) => {
                         while let Some(entity) = entities.pop() {
-                            let _ = DataTaskToken::NpcSpawnToEntity(socket_id)
-                                .add_task(storage, &NpcSpawnPacket::new(world, &entity, false));
+                            DataTaskToken::NpcSpawnToEntity(socket_id)
+                                .add_task(storage, &NpcSpawnPacket::new(world, &entity, false)?)?;
 
                             count += 1;
 
@@ -176,8 +178,10 @@ pub fn process_data_lists(world: &mut World, storage: &Storage) {
                     }
                     MapSwitchTasks::Player(entities) => {
                         while let Some(entity) = entities.pop() {
-                            let _ = DataTaskToken::PlayerSpawnToEntity(socket_id)
-                                .add_task(storage, &PlayerSpawnPacket::new(world, &entity, false));
+                            DataTaskToken::PlayerSpawnToEntity(socket_id).add_task(
+                                storage,
+                                &PlayerSpawnPacket::new(world, &entity, false)?,
+                            )?;
 
                             count += 1;
 
@@ -229,4 +233,6 @@ pub fn process_data_lists(world: &mut World, storage: &Storage) {
     for entity in removals {
         maptasks.swap_remove(&entity);
     }
+
+    Ok(())
 }

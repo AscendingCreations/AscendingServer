@@ -3,9 +3,14 @@ use hecs::World;
 use crate::{containers::*, gametypes::*, items::*, players::*, socket::*, sql::*};
 
 #[inline]
-pub fn save_inv_item(world: &mut World, storage: &Storage, entity: &Entity, slot: usize) {
-    let _ = update_inv(storage, world, entity, slot);
-    let _ = send_invslot(world, storage, entity, slot);
+pub fn save_inv_item(
+    world: &mut World,
+    storage: &Storage,
+    entity: &Entity,
+    slot: usize,
+) -> Result<()> {
+    update_inv(storage, world, entity, slot)?;
+    send_invslot(world, storage, entity, slot)
 }
 
 #[inline]
@@ -46,14 +51,12 @@ pub fn auto_set_inv_item(
     entity: &crate::Entity,
     item: &mut Item,
     base: &ItemData,
-) -> u16 {
+) -> Result<u16> {
     let mut rem = 0u16;
     let mut save_item_list = Vec::new();
 
     {
-        let mut player_inv = world
-            .get::<&mut Inventory>(entity.0)
-            .expect("Could not find Inventory");
+        let mut player_inv = world.get::<&mut Inventory>(entity.0)?;
         while let Some(slot) = find_inv_slot(item, &player_inv.items, base) {
             if player_inv.items[slot].val == 0 {
                 player_inv.items[slot] = *item;
@@ -75,11 +78,11 @@ pub fn auto_set_inv_item(
         }
     }
 
-    save_item_list.iter().for_each(|slot| {
-        save_inv_item(world, storage, entity, *slot);
-    });
+    for slot in save_item_list.iter() {
+        save_inv_item(world, storage, entity, *slot)?;
+    }
 
-    rem
+    Ok(rem)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -92,40 +95,33 @@ pub fn set_inv_item(
     base: &ItemData,
     slot: usize,
     amount: u16,
-) -> u16 {
-    let player_inv = world.cloned_get_or_panic::<Inventory>(entity);
+) -> Result<u16> {
+    let player_inv = world.cloned_get_or_err::<Inventory>(entity)?;
 
     let mut rem = 0u16;
     let mut item_min = std::cmp::min(amount, item.val);
 
     if player_inv.items[slot].val == 0 {
         {
-            world
-                .get::<&mut Inventory>(entity.0)
-                .expect("Could not find Inventory")
-                .items[slot] = *item;
-            world
-                .get::<&mut Inventory>(entity.0)
-                .expect("Could not find Inventory")
-                .items[slot]
-                .val = item_min;
+            let mut inv = world.get::<&mut Inventory>(entity.0)?;
+            inv.items[slot] = *item;
+            inv.items[slot].val = item_min;
         }
-        item.val = item.val.saturating_sub(item_min);
-        save_inv_item(world, storage, entity, slot);
-        return 0;
-    }
 
-    if player_inv.items[slot].num == item.num {
+        item.val = item.val.saturating_sub(item_min);
+        save_inv_item(world, storage, entity, slot)?;
+        return Ok(0);
+    } else if player_inv.items[slot].num == item.num {
         let mut playerinv_val = player_inv.items[slot].val;
         item_min = val_add_amount_rem(&mut playerinv_val, &mut item.val, item_min, base.stacklimit);
 
-        save_inv_item(world, storage, entity, slot);
+        save_inv_item(world, storage, entity, slot)?;
 
         if item_min > 0 {
             let mut itemtemp = *item;
             itemtemp.val = item_min;
 
-            rem = auto_set_inv_item(world, storage, entity, &mut itemtemp, base);
+            rem = auto_set_inv_item(world, storage, entity, &mut itemtemp, base)?;
 
             if rem < item_min {
                 item.val = item.val.saturating_sub(item_min.saturating_sub(rem));
@@ -133,7 +129,7 @@ pub fn set_inv_item(
         }
     }
 
-    rem
+    Ok(rem)
 }
 
 #[inline]
@@ -142,7 +138,7 @@ pub fn give_inv_item(
     storage: &Storage,
     entity: &crate::Entity,
     item: &mut Item,
-) -> u16 {
+) -> Result<u16> {
     let base = &storage.bases.items[item.num as usize];
 
     auto_set_inv_item(world, storage, entity, item, base)
@@ -156,12 +152,10 @@ pub fn set_inv_slot(
     item: &mut Item,
     slot: usize,
     amount: u16,
-) -> Option<u16> {
+) -> Result<u16> {
     let base = &storage.bases.items[item.num as usize];
 
-    Some(set_inv_item(
-        world, storage, entity, item, base, slot, amount,
-    ))
+    set_inv_item(world, storage, entity, item, base, slot, amount)
 }
 
 #[inline]
@@ -171,29 +165,26 @@ pub fn take_inv_items(
     entity: &crate::Entity,
     num: u32,
     mut amount: u16,
-) -> u16 {
-    let player_inv = world.cloned_get_or_panic::<Inventory>(entity);
+) -> Result<u16> {
+    let player_inv = world.cloned_get_or_err::<Inventory>(entity)?;
 
     if count_inv_item(num, &player_inv.items) >= amount as u64 {
         while let Some(slot) = find_inv_item(num, &player_inv.items) {
             {
-                world
-                    .get::<&mut Inventory>(entity.0)
-                    .expect("Could not find Inventory")
-                    .items[slot]
-                    .val = player_inv.items[slot].val.saturating_sub(amount);
+                world.get::<&mut Inventory>(entity.0)?.items[slot].val =
+                    player_inv.items[slot].val.saturating_sub(amount);
             }
             amount = player_inv.items[slot].val;
 
-            save_inv_item(world, storage, entity, slot);
+            save_inv_item(world, storage, entity, slot)?;
 
             if amount == 0 {
-                return 0;
+                return Ok(0);
             }
         }
     }
 
-    amount
+    Ok(amount)
 }
 
 #[inline]
@@ -203,8 +194,8 @@ pub fn take_inv_itemslot(
     entity: &crate::Entity,
     slot: usize,
     mut amount: u16,
-) -> u16 {
-    let player_inv = world.cloned_get_or_panic::<Inventory>(entity);
+) -> Result<u16> {
+    let player_inv = world.cloned_get_or_err::<Inventory>(entity)?;
     amount = std::cmp::min(amount, player_inv.items[slot].val);
     {
         if let Ok(mut player_inv) = world.get::<&mut Inventory>(entity.0) {
@@ -214,7 +205,7 @@ pub fn take_inv_itemslot(
             }
         }
     }
-    save_inv_item(world, storage, entity, slot);
+    save_inv_item(world, storage, entity, slot)?;
 
-    world.cloned_get_or_panic::<Inventory>(entity).items[slot].val
+    Ok(world.get::<&Inventory>(entity.0)?.items[slot].val)
 }

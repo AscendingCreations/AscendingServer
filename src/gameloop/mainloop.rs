@@ -25,8 +25,8 @@ pub fn game_loop(world: &mut World, storage: &Storage, router: &PacketRouter) {
         tick = *storage.gettick.borrow();
 
         if tick > tmr100 {
-            update_npcs(world, storage);
-            update_players(world, storage);
+            update_npcs(world, storage).unwrap();
+            update_players(world, storage).unwrap();
             tmr100 = tick + Duration::try_milliseconds(100).unwrap_or_default();
         }
 
@@ -58,37 +58,35 @@ pub fn game_loop(world: &mut World, storage: &Storage, router: &PacketRouter) {
             println!("Poll event error: {:?}", e);
         }
 
-        process_packets(world, storage, router);
-        process_data_lists(world, storage);
+        process_packets(world, storage, router).unwrap();
+        process_data_lists(world, storage).unwrap();
         process_tasks(world, storage).unwrap();
     }
 }
 
-pub fn get_length(storage: &Storage, buffer: &mut ByteBuffer, id: usize) -> Option<u64> {
+pub fn get_length(storage: &Storage, buffer: &mut ByteBuffer, id: usize) -> Result<Option<u64>> {
     if buffer.length() - buffer.cursor() >= 8 {
-        let length = buffer.read::<u64>().ok()?;
+        let length = buffer.read::<u64>()?;
 
         if !(1..=8192).contains(&length) {
             if let Some(client) = storage.server.borrow().clients.get(&mio::Token(id)) {
-                client.borrow_mut().set_to_closing(storage);
+                client.borrow_mut().set_to_closing(storage)?;
+                return Ok(None);
             }
         }
 
-        Some(length)
+        Ok(Some(length))
     } else {
         if let Some(client) = storage.server.borrow().clients.get(&mio::Token(id)) {
             client.borrow_mut().poll_state.add(SocketPollState::Read);
-            client
-                .borrow_mut()
-                .reregister(&storage.poll.borrow_mut())
-                .unwrap();
+            client.borrow_mut().reregister(&storage.poll.borrow_mut())?;
         }
 
-        None
+        Ok(None)
     }
 }
 
-pub fn process_packets(world: &mut World, storage: &Storage, router: &PacketRouter) {
+pub fn process_packets(world: &mut World, storage: &Storage, router: &PacketRouter) -> Result<()> {
     let mut count: usize;
     let mut rem_arr: Vec<Entity> = Vec::with_capacity(32);
     let mut length: u64;
@@ -97,80 +95,74 @@ pub fn process_packets(world: &mut World, storage: &Storage, router: &PacketRout
         count = 0;
 
         let (lock, socket_id) = {
-            let socket = world.get::<&Socket>(entity.0).unwrap();
+            let socket = world.get::<&Socket>(entity.0)?;
 
             (socket.buffer.clone(), socket.id)
         };
 
-        let mut buffer = lock.lock().unwrap();
-
-        loop {
-            length = match get_length(storage, &mut buffer, socket_id) {
-                Some(n) => n,
-                None => {
-                    rem_arr.push(*entity);
-                    continue 'user_loop;
-                }
-            };
-
-            if length > 0 && length <= (buffer.length() - buffer.cursor()) as u64 {
-                let mut buffer = match buffer.read_to_buffer(length as usize) {
-                    Ok(n) => n,
-                    Err(_) => {
-                        if let Some(client) =
-                            storage.server.borrow().clients.get(&mio::Token(socket_id))
-                        {
-                            client.borrow_mut().set_to_closing(storage);
-                        }
-
+        if let Ok(mut buffer) = lock.lock() {
+            loop {
+                length = match get_length(storage, &mut buffer, socket_id)? {
+                    Some(n) => n,
+                    None => {
                         rem_arr.push(*entity);
                         continue 'user_loop;
                     }
                 };
 
-                if handle_data(router, world, storage, &mut buffer, entity).is_err() {
-                    if let Some(client) =
-                        storage.server.borrow().clients.get(&mio::Token(socket_id))
-                    {
-                        client.borrow_mut().set_to_closing(storage);
+                if length > 0 && length <= (buffer.length() - buffer.cursor()) as u64 {
+                    let mut buffer = match buffer.read_to_buffer(length as usize) {
+                        Ok(n) => n,
+                        Err(_) => {
+                            if let Some(client) =
+                                storage.server.borrow().clients.get(&mio::Token(socket_id))
+                            {
+                                client.borrow_mut().set_to_closing(storage)?;
+                            }
+
+                            rem_arr.push(*entity);
+                            continue 'user_loop;
+                        }
+                    };
+
+                    if handle_data(router, world, storage, &mut buffer, entity).is_err() {
+                        if let Some(client) =
+                            storage.server.borrow().clients.get(&mio::Token(socket_id))
+                        {
+                            client.borrow_mut().set_to_closing(storage)?;
+                        }
+
+                        rem_arr.push(*entity);
+                        continue 'user_loop;
                     }
 
+                    count += 1
+                } else {
+                    let cursor = buffer.cursor() - 8;
+                    buffer.move_cursor(cursor)?;
+
                     rem_arr.push(*entity);
-                    continue 'user_loop;
+                    break;
                 }
 
-                count += 1
-            } else {
-                let cursor = buffer.cursor() - 8;
-                let _ = buffer.move_cursor(cursor);
-
-                rem_arr.push(*entity);
-                break;
+                if count == 25 {
+                    break;
+                }
             }
 
-            if count == 25 {
-                break;
+            if buffer.cursor() == buffer.length() {
+                buffer.truncate(0)?;
             }
-        }
 
-        if buffer.cursor() == buffer.length() {
-            let _ = buffer.truncate(0);
-        }
-
-        if buffer.capacity() > 25000 {
-            let _ = buffer.resize(4096);
-        }
+            if buffer.capacity() > 25000 {
+                buffer.resize(4096)?;
+            }
+        };
     }
 
     for i in rem_arr {
-        /*if let Some(client) = storage.server.borrow().clients.get(&mio::Token(socket_id)) {
-            client.borrow_mut().poll_state.add(SocketPollState::Read);
-            client
-                .borrow_mut()
-                .reregister(&storage.poll.borrow_mut())
-                .unwrap();
-        }*/
-
         storage.recv_ids.borrow_mut().swap_remove(&i);
     }
+
+    Ok(())
 }

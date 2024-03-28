@@ -144,7 +144,7 @@ impl DataTaskToken {
             | NpcSpawn(mappos) | PlayerSpawn(mappos) | MapChat(mappos) | ItemLoad(mappos)
             | PlayerVitals(mappos) | PlayerLevel(mappos) | PlayerDamage(mappos)
             | NpcDamage(mappos) | NpcVitals(mappos) => {
-                send_to_maps(world, storage, *mappos, buf, None)
+                send_to_maps(world, storage, *mappos, buf, None)?
             }
             PlayerSpawnToEntity(socket_id)
             | NpcSpawnToEntity(socket_id)

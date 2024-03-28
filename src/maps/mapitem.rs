@@ -134,7 +134,7 @@ pub fn find_drop_pos(
                 }
 
                 if let Some(entity) = storage_mapitem.get(&check_pos) {
-                    let mapitem = world.cloned_get_or_panic::<MapItem>(entity);
+                    let mapitem = world.get_or_panic::<MapItem>(entity);
                     if mapitem.item.num == drop_item.index
                         && mapitem.item.val < item_base.stacklimit
                     {
@@ -217,13 +217,13 @@ pub fn try_drop_item(
     true
 }
 
-pub fn player_interact_object(world: &mut World, storage: &Storage, entity: &Entity) {
+pub fn player_interact_object(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
     if !world.contains(entity.0) {
-        return;
+        return Ok(());
     }
 
-    let pos = world.get_or_panic::<Position>(entity);
-    let dir = world.get_or_panic::<Dir>(entity).0;
+    let pos = world.get_or_err::<Position>(entity)?;
+    let dir = world.get_or_err::<Dir>(entity)?.0;
     let target_pos = match dir {
         1 => {
             let mut next_pos = pos;
@@ -266,18 +266,16 @@ pub fn player_interact_object(world: &mut World, storage: &Storage, entity: &Ent
     if let Some(mapdata) = storage.bases.maps.get(&target_pos.map) {
         match mapdata.attribute[target_pos.as_tile()] {
             MapAttribute::Storage => {
-                *world
-                    .get::<&mut IsUsingType>(entity.0)
-                    .expect("Could not find IsUsingType") = IsUsingType::Bank;
-                let _ = send_openstorage(world, storage, entity);
+                *world.get::<&mut IsUsingType>(entity.0)? = IsUsingType::Bank;
+                send_openstorage(world, storage, entity)
             }
             MapAttribute::Shop(shop_index) => {
-                *world
-                    .get::<&mut IsUsingType>(entity.0)
-                    .expect("Could not find IsUsingType") = IsUsingType::Store(shop_index as i64);
-                let _ = send_openshop(world, storage, entity, shop_index);
+                *world.get::<&mut IsUsingType>(entity.0)? = IsUsingType::Store(shop_index as i64);
+                send_openshop(world, storage, entity, shop_index)
             }
-            _ => {}
+            _ => Ok(()),
         }
+    } else {
+        Ok(())
     }
 }

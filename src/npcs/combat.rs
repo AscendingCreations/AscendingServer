@@ -5,12 +5,10 @@ use hecs::World;
 use rand::{thread_rng, Rng};
 
 #[inline(always)]
-pub fn damage_npc(world: &mut World, entity: &crate::Entity, damage: i32) {
-    world
-        .get::<&mut Vitals>(entity.0)
-        .expect("Could not find Position")
-        .vital[VitalTypes::Hp as usize] =
-        world.get_or_panic::<Vitals>(entity).vital[VitalTypes::Hp as usize].saturating_sub(damage);
+pub fn damage_npc(world: &mut World, entity: &crate::Entity, damage: i32) -> Result<()> {
+    world.get::<&mut Vitals>(entity.0)?.vital[VitalTypes::Hp as usize] =
+        world.get_or_err::<Vitals>(entity)?.vital[VitalTypes::Hp as usize].saturating_sub(damage);
+    Ok(())
 }
 
 fn entity_cast_check(
@@ -32,9 +30,9 @@ pub fn try_cast(
     target: EntityType,
     range: i32,
     casttype: NpcCastType,
-) -> bool {
+) -> Result<bool> {
     if !world.contains(caster.0) {
-        return false;
+        return Ok(false);
     }
 
     let caster_pos = world.get_or_default::<Position>(caster);
@@ -47,7 +45,7 @@ pub fn try_cast(
             {
                 let target_pos = world.get_or_default::<Position>(&i);
                 let life = world.get_or_default::<DeathType>(&i);
-                return entity_cast_check(caster_pos, target_pos, life, range);
+                return Ok(entity_cast_check(caster_pos, target_pos, life, range));
             }
         }
         EntityType::Npc(i) => {
@@ -56,20 +54,20 @@ pub fn try_cast(
                 && base
                     .enemies
                     .iter()
-                    .any(|e| *e == world.get_or_panic::<NpcIndex>(&i).0)
+                    .any(|e| *e == world.get_or_default::<NpcIndex>(&i).0)
             {
                 let target_pos = world.get_or_default::<Position>(&i);
                 let life = world.get_or_default::<DeathType>(&i);
-                return entity_cast_check(caster_pos, target_pos, life, range);
+                return Ok(entity_cast_check(caster_pos, target_pos, life, range));
             }
         }
         EntityType::Map(_) | EntityType::None | EntityType::MapItem(_) => {}
     }
 
-    false
+    Ok(false)
 }
 
-pub fn npc_cast(world: &mut World, npc: &Entity, base: &NpcData) -> Option<EntityType> {
+pub fn npc_cast(world: &mut World, npc: &Entity, base: &NpcData) -> Result<EntityType> {
     match base.behaviour {
         AIBehavior::Agressive
         | AIBehavior::AgressiveHealer
@@ -77,62 +75,67 @@ pub fn npc_cast(world: &mut World, npc: &Entity, base: &NpcData) -> Option<Entit
         | AIBehavior::HelpReactive
         | AIBehavior::Reactive => {
             if let Ok(targettype) = world.get::<&Target>(npc.0).map(|t| t.targettype) {
-                if try_cast(world, npc, base, targettype, base.range, NpcCastType::Enemy) {
-                    return Some(targettype);
+                if try_cast(world, npc, base, targettype, base.range, NpcCastType::Enemy)? {
+                    return Ok(targettype);
                 }
             }
 
-            None
+            Ok(EntityType::None)
         }
-        AIBehavior::Healer | AIBehavior::Friendly => None,
+        AIBehavior::Healer | AIBehavior::Friendly => Ok(EntityType::None),
     }
 }
 
-pub fn npc_combat(world: &mut World, storage: &Storage, entity: &Entity, base: &NpcData) {
-    if let Some(entitytype) = npc_cast(world, entity, base) {
-        match entitytype {
-            EntityType::Player(i, _accid) => {
-                if world.contains(i.0) {
-                    let damage = npc_combat_damage(world, entity, &i, base);
-                    damage_player(world, &i, damage);
+pub fn npc_combat(
+    world: &mut World,
+    storage: &Storage,
+    entity: &Entity,
+    base: &NpcData,
+) -> Result<()> {
+    match npc_cast(world, entity, base)? {
+        EntityType::Player(i, _accid) => {
+            if world.contains(i.0) {
+                let damage = npc_combat_damage(world, entity, &i, base)?;
+                damage_player(world, &i, damage)?;
 
-                    let _ = DataTaskToken::NpcAttack(world.get_or_default::<Position>(entity).map)
-                        .add_task(storage, entity);
-                    let vitals = world.get_or_panic::<Vitals>(&i);
-                    if vitals.vital[0] > 0 {
-                        let _ = DataTaskToken::PlayerVitals(
-                            world.get_or_default::<Position>(entity).map,
-                        )
+                DataTaskToken::NpcAttack(world.get_or_default::<Position>(entity).map)
+                    .add_task(storage, entity)?;
+                let vitals = world.get_or_err::<Vitals>(&i)?;
+                if vitals.vital[0] > 0 {
+                    DataTaskToken::PlayerVitals(world.get_or_default::<Position>(entity).map)
                         .add_task(storage, {
-                            let vitals = world.get_or_panic::<Vitals>(&i);
+                            let vitals = world.get_or_err::<Vitals>(&i)?;
 
                             &VitalsPacket::new(i, vitals.vital, vitals.vitalmax)
-                        });
-                    } else {
-                        remove_all_npc_target(world, &i);
-                        kill_player(world, storage, &i);
-                    }
-                    //TODO Send Attack Msg/Damage
+                        })?;
+                } else {
+                    remove_all_npc_target(world, &i);
+                    kill_player(world, storage, &i)?;
                 }
+                //TODO Send Attack Msg/Damage
             }
-            EntityType::Npc(i) => {
-                if world.contains(i.0) {
-                    let damage = npc_combat_damage(world, entity, &i, base);
-                    damage_npc(world, &i, damage);
-
-                    let _ = DataTaskToken::NpcAttack(world.get_or_default::<Position>(entity).map)
-                        .add_task(storage, entity);
-                    let _ = DataTaskToken::NpcVitals(world.get_or_default::<Position>(entity).map)
-                        .add_task(storage, {
-                            let vitals = world.get_or_panic::<Vitals>(&i);
-
-                            &VitalsPacket::new(i, vitals.vital, vitals.vitalmax)
-                        });
-                }
-            }
-            EntityType::Map(_) | EntityType::None | EntityType::MapItem(_) => {}
         }
+        EntityType::Npc(i) => {
+            if world.contains(i.0) {
+                let damage = npc_combat_damage(world, entity, &i, base)?;
+                damage_npc(world, &i, damage)?;
+
+                DataTaskToken::NpcAttack(world.get_or_default::<Position>(entity).map)
+                    .add_task(storage, entity)?;
+                DataTaskToken::NpcVitals(world.get_or_default::<Position>(entity).map).add_task(
+                    storage,
+                    {
+                        let vitals = world.get_or_err::<Vitals>(&i)?;
+
+                        &VitalsPacket::new(i, vitals.vital, vitals.vitalmax)
+                    },
+                )?;
+            }
+        }
+        EntityType::Map(_) | EntityType::None | EntityType::MapItem(_) => {}
     }
+
+    Ok(())
 }
 
 pub fn npc_combat_damage(
@@ -140,25 +143,25 @@ pub fn npc_combat_damage(
     entity: &Entity,
     enemy_entity: &Entity,
     base: &NpcData,
-) -> i32 {
-    let data = world.entity(entity.0).expect("Could not get Entity");
-    let edata = world.entity(enemy_entity.0).expect("Could not get Entity");
+) -> Result<i32> {
+    let data = world.entity(entity.0)?;
+    let edata = world.entity(enemy_entity.0)?;
 
-    let def = if edata.get_or_panic::<WorldEntityType>() == WorldEntityType::Player {
-        edata.get_or_panic::<Physical>().defense
-            + edata.get_or_panic::<Level>().0.saturating_div(5) as u32
+    let def = if edata.get_or_err::<WorldEntityType>()? == WorldEntityType::Player {
+        edata.get_or_err::<Physical>()?.defense
+            + edata.get_or_err::<Level>()?.0.saturating_div(5) as u32
     } else {
-        edata.get_or_panic::<Physical>().defense
+        edata.get_or_err::<Physical>()?.defense
     };
 
-    let offset = if edata.get_or_panic::<WorldEntityType>() == WorldEntityType::Player {
+    let offset = if edata.get_or_err::<WorldEntityType>()? == WorldEntityType::Player {
         4
     } else {
         2
     };
 
     let mut damage = data
-        .get_or_panic::<Physical>()
+        .get_or_err::<Physical>()?
         .damage
         .saturating_sub(def / offset)
         .max(base.mindamage);
@@ -183,12 +186,12 @@ pub fn npc_combat_damage(
         damage = rng.gen_range(0..=1);
     }
 
-    damage as i32
+    Ok(damage as i32)
 }
 
-pub fn kill_npc(world: &mut World, storage: &Storage, entity: &Entity) {
-    let npc_index = world.get_or_panic::<NpcIndex>(entity).0;
-    let npc_pos = world.get_or_panic::<Position>(entity);
+pub fn kill_npc(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
+    let npc_index = world.get_or_err::<NpcIndex>(entity)?.0;
+    let npc_pos = world.get_or_err::<Position>(entity)?;
     let npcbase = storage.bases.npcs[npc_index as usize].borrow();
 
     let mut rng = thread_rng();
@@ -218,7 +221,6 @@ pub fn kill_npc(world: &mut World, storage: &Storage, entity: &Entity) {
         }
     }
 
-    *world
-        .get::<&mut DeathType>(entity.0)
-        .expect("Could not find DeathType") = DeathType::Dead;
+    *world.get::<&mut DeathType>(entity.0)? = DeathType::Dead;
+    Ok(())
 }

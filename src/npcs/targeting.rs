@@ -2,60 +2,63 @@ use crate::{containers::Storage, gametypes::*, maps::*, npcs::*, players::*};
 use chrono::Duration;
 use hecs::World;
 
-pub fn targeting(world: &mut World, storage: &Storage, entity: &Entity, base: &NpcData) {
+pub fn targeting(
+    world: &mut World,
+    storage: &Storage,
+    entity: &Entity,
+    base: &NpcData,
+) -> Result<()> {
     // Check if we have a current Target and that they are Alive.
     // This way we dont need to change the target if we have one.
-    (|| match world.get_or_panic::<Target>(entity).targettype {
-        EntityType::Player(i, accid) => {
-            if world.contains(i.0)
-                && world.get_or_panic::<DeathType>(&i).is_alive()
-                && world.get::<&Account>(i.0).unwrap().id == accid
-            {
-                return;
-            }
+    (|| -> Result<()> {
+        match world.get_or_err::<Target>(entity)?.targettype {
+            EntityType::Player(i, accid) => {
+                if world.contains(i.0)
+                    && world.get_or_err::<DeathType>(&i)?.is_alive()
+                    && world.get::<&Account>(i.0)?.id == accid
+                {
+                    return Ok(());
+                }
 
-            *world
-                .get::<&mut Target>(entity.0)
-                .expect("Could not find Target") = Target::default();
+                *world.get::<&mut Target>(entity.0)? = Target::default();
+                Ok(())
+            }
+            EntityType::Npc(i) => {
+                if is_npc_same(entity, &i) {
+                    return Ok(()); //targeting ourselve maybe for healing lets continue.
+                }
+
+                if world.contains(i.0) && world.get_or_err::<DeathType>(&i)?.is_alive() {
+                    return Ok(());
+                }
+
+                *world.get::<&mut Target>(entity.0)? = Target::default();
+                Ok(())
+            }
+            _ => Ok(()),
         }
-        EntityType::Npc(i) => {
-            if is_npc_same(entity, &i) {
-                return; //targeting ourselve maybe for healing lets continue.
-            }
+    })()?;
 
-            if world.contains(i.0) && world.get_or_panic::<DeathType>(&i).is_alive() {
-                return;
-            }
-
-            *world
-                .get::<&mut Target>(entity.0)
-                .expect("Could not find Target") = Target::default();
-        }
-        _ => {}
-    })();
-
-    if world.get_or_panic::<Target>(entity).targettype != EntityType::None {
+    if world.get_or_err::<Target>(entity)?.targettype != EntityType::None {
         if (base.target_auto_switch
-            && world.get_or_panic::<Target>(entity).targettimer < *storage.gettick.borrow())
+            && world.get_or_err::<Target>(entity)?.targettimer < *storage.gettick.borrow())
             || (base.target_range_dropout
                 && world
-                    .get_or_panic::<Position>(entity)
-                    .checkdistance(world.get_or_panic::<Target>(entity).targetpos)
+                    .get_or_err::<Position>(entity)?
+                    .checkdistance(world.get_or_err::<Target>(entity)?.targetpos)
                     > base.sight)
         {
-            *world
-                .get::<&mut Target>(entity.0)
-                .expect("Could not find Target") = Target::default();
+            *world.get::<&mut Target>(entity.0)? = Target::default();
         } else {
-            return;
+            return Ok(());
         }
     }
 
     if !base.is_agressive() {
-        return;
+        return Ok(());
     }
 
-    let map_range = get_maps_in_range(storage, &world.get_or_panic::<Position>(entity), base.sight);
+    let map_range = get_maps_in_range(storage, &world.get_or_err::<Position>(entity)?, base.sight);
     let valid_map_data = map_range
         .iter()
         .filter_map(|map_pos| map_pos.get())
@@ -66,13 +69,13 @@ pub fn targeting(world: &mut World, storage: &Storage, entity: &Entity, base: &N
 
         for x in &map_data.players {
             let accid = if world.contains(x.0) {
-                world.get::<&Account>(x.0).unwrap().id
+                world.get::<&Account>(x.0)?.id
             } else {
                 continue;
             };
 
-            if npc_targeting(world, storage, entity, base, EntityType::Player(*x, accid)) {
-                return;
+            if npc_targeting(world, storage, entity, base, EntityType::Player(*x, accid))? {
+                return Ok(());
             }
         }
 
@@ -82,12 +85,14 @@ pub fn targeting(world: &mut World, storage: &Storage, entity: &Entity, base: &N
                     continue;
                 }
 
-                if npc_targeting(world, storage, entity, base, EntityType::Npc(*x)) {
-                    return;
+                if npc_targeting(world, storage, entity, base, EntityType::Npc(*x))? {
+                    return Ok(());
                 }
             }
         }
     }
+
+    Ok(())
 }
 
 pub fn can_target(
@@ -107,15 +112,15 @@ pub fn try_target_entity(
     storage: &Storage,
     entity: &Entity,
     entitytype: EntityType,
-) {
-    let target = world.get_or_panic::<Target>(entity);
-    let pos = world.get_or_panic::<Position>(entity);
+) -> Result<()> {
+    let target = world.get_or_err::<Target>(entity)?;
+    let pos = world.get_or_err::<Position>(entity)?;
 
     let cantarget = match target.targettype {
         EntityType::Npc(id) | EntityType::Player(id, _) => {
             if world.contains(id.0) {
-                let target_pos = world.get_or_panic::<Position>(&id);
-                let deathtype = world.get_or_panic::<DeathType>(&id);
+                let target_pos = world.get_or_err::<Position>(&id)?;
+                let deathtype = world.get_or_err::<DeathType>(&id)?;
                 !can_target(pos, target_pos, deathtype, 1)
             } else {
                 true
@@ -134,21 +139,12 @@ pub fn try_target_entity(
         match entitytype {
             EntityType::Npc(id) | EntityType::Player(id, _) => {
                 if world.contains(id.0) {
-                    let target_pos = world.get_or_panic::<Position>(&id);
-                    let deathtype = world.get_or_panic::<DeathType>(&id);
+                    let target_pos = world.get_or_err::<Position>(&id)?;
+                    let deathtype = world.get_or_err::<DeathType>(&id)?;
                     if can_target(pos, target_pos, deathtype, 1) {
-                        world
-                            .get::<&mut Target>(entity.0)
-                            .expect("Could not find Target")
-                            .targetpos = target_pos;
-                        world
-                            .get::<&mut Target>(entity.0)
-                            .expect("Could not find Target")
-                            .targettype = entity_copy;
-                        world
-                            .get::<&mut Target>(entity.0)
-                            .expect("Could not find Target")
-                            .targettimer = *storage.gettick.borrow()
+                        world.get::<&mut Target>(entity.0)?.targetpos = target_pos;
+                        world.get::<&mut Target>(entity.0)?.targettype = entity_copy;
+                        world.get::<&mut Target>(entity.0)?.targettimer = *storage.gettick.borrow()
                             + Duration::try_milliseconds(base.target_auto_switch_chance)
                                 .unwrap_or_default();
                     }
@@ -157,37 +153,36 @@ pub fn try_target_entity(
             _ => {}
         }
     }
+
+    Ok(())
 }
 
-pub fn update_target_pos(world: &mut World, entity: &Entity) {
+pub fn update_target_pos(world: &mut World, entity: &Entity) -> Result<()> {
     if !world.contains(entity.0) {
-        return;
+        return Ok(());
     }
 
-    let pos = world.get_or_panic::<Position>(entity);
+    let pos = world.get_or_err::<Position>(entity)?;
 
-    match world.get_or_panic::<Target>(entity).targettype {
+    match world.get_or_err::<Target>(entity)?.targettype {
         EntityType::Npc(id) | EntityType::Player(id, _) => {
             if world.contains(id.0) {
-                let target_pos = world.get_or_panic::<Position>(&id);
-                let deathtype = world.get_or_panic::<DeathType>(&id);
+                let target_pos = world.get_or_err::<Position>(&id)?;
+                let deathtype = world.get_or_err::<DeathType>(&id)?;
 
                 if check_surrounding(pos.map, target_pos.map, true) == MapPos::None
                     || !deathtype.is_alive()
                 {
-                    *world
-                        .get::<&mut Target>(entity.0)
-                        .expect("Could not find Target") = Target::default();
+                    *world.get::<&mut Target>(entity.0)? = Target::default();
                 } else {
-                    world
-                        .get::<&mut Target>(entity.0)
-                        .expect("Could not find Target")
-                        .targetpos = target_pos;
+                    world.get::<&mut Target>(entity.0)?.targetpos = target_pos;
                 }
             }
         }
         _ => {}
     }
+
+    Ok(())
 }
 
 pub fn npc_targeting(
@@ -196,80 +191,69 @@ pub fn npc_targeting(
     entity: &Entity,
     base: &NpcData,
     entitytype: EntityType,
-) -> bool {
+) -> Result<bool> {
     let (pos, _) = match entitytype {
         EntityType::Player(i, accid) => {
             if world.contains(i.0) {
-                if world.get_or_panic::<DeathType>(&i).is_alive()
-                    && world.get::<&Account>(entity.0).unwrap().id == accid
+                if world.get_or_err::<DeathType>(&i)?.is_alive()
+                    && world.get::<&Account>(entity.0)?.id == accid
                 {
                     let check = check_surrounding(
-                        world.get_or_panic::<Position>(entity).map,
-                        world.get_or_panic::<Position>(&i).map,
+                        world.get_or_err::<Position>(entity)?.map,
+                        world.get_or_err::<Position>(&i)?.map,
                         true,
                     );
-                    let pos = world.get_or_panic::<Position>(&i).map_offset(check.into());
-                    let dir = world.get_or_panic::<Dir>(&i).0;
+                    let pos = world.get_or_err::<Position>(&i)?.map_offset(check.into());
+                    let dir = world.get_or_err::<Dir>(&i)?.0;
                     (pos, dir)
                 } else {
-                    return false;
+                    return Ok(false);
                 }
             } else {
-                return false;
+                return Ok(false);
             }
         }
         EntityType::Npc(i) => {
             if world.contains(i.0) {
-                let newbase = &storage.bases.npcs[world.get_or_panic::<NpcIndex>(&i).0 as usize];
+                let newbase = &storage.bases.npcs[world.get_or_err::<NpcIndex>(&i)?.0 as usize];
                 let mut is_enemy = false;
 
                 if newbase.has_enemies {
                     is_enemy = newbase
                         .enemies
                         .iter()
-                        .any(|&x| world.get_or_panic::<NpcIndex>(&i).0 == x);
+                        .any(|&x| world.get_or_default::<NpcIndex>(&i).0 == x);
                 }
 
-                if world.get_or_panic::<DeathType>(&i).is_alive() || !is_enemy {
+                if world.get_or_err::<DeathType>(&i)?.is_alive() || !is_enemy {
                     let check = check_surrounding(
-                        world.get_or_panic::<Position>(entity).map,
-                        world.get_or_panic::<Position>(&i).map,
+                        world.get_or_err::<Position>(entity)?.map,
+                        world.get_or_err::<Position>(&i)?.map,
                         true,
                     );
-                    let pos = world.get_or_panic::<Position>(&i).map_offset(check.into());
-                    let dir = world.get_or_panic::<Dir>(&i).0;
+                    let pos = world.get_or_err::<Position>(&i)?.map_offset(check.into());
+                    let dir = world.get_or_err::<Dir>(&i)?.0;
                     (pos, dir)
                 } else {
-                    return false;
+                    return Ok(false);
                 }
             } else {
-                return false;
+                return Ok(false);
             }
         }
-        EntityType::Map(_) | EntityType::None | EntityType::MapItem(_) => return false,
+        EntityType::Map(_) | EntityType::None | EntityType::MapItem(_) => return Ok(false),
     };
 
-    if world.get_or_panic::<Position>(entity).checkdistance(pos) <= base.sight {
-        return false;
+    if world.get_or_err::<Position>(entity)?.checkdistance(pos) <= base.sight {
+        return Ok(false);
     }
 
-    world
-        .get::<&mut Target>(entity.0)
-        .expect("Could not find Target")
-        .targetpos = pos;
-    world
-        .get::<&mut Target>(entity.0)
-        .expect("Could not find Target")
-        .targettype = entitytype;
-    world
-        .get::<&mut Target>(entity.0)
-        .expect("Could not find Target")
-        .targettimer = *storage.gettick.borrow()
+    world.get::<&mut Target>(entity.0)?.targetpos = pos;
+    world.get::<&mut Target>(entity.0)?.targettype = entitytype;
+    world.get::<&mut Target>(entity.0)?.targettimer = *storage.gettick.borrow()
         + Duration::try_milliseconds(base.target_auto_switch_chance).unwrap_or_default();
-    world
-        .get::<&mut AttackTimer>(entity.0)
-        .expect("Could not find Target")
-        .0 = *storage.gettick.borrow()
+    world.get::<&mut AttackTimer>(entity.0)?.0 = *storage.gettick.borrow()
         + Duration::try_milliseconds(base.attack_wait).unwrap_or_default();
-    true
+
+    Ok(true)
 }

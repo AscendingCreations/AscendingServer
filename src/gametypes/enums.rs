@@ -171,9 +171,12 @@ impl EntityType {
     pub fn get_pos(&self, world: &mut World, _storage: &Storage) -> Option<Position> {
         match self {
             EntityType::Map(position) => Some(*position),
-            EntityType::Player(i, _) => Some(world.get_or_panic::<Position>(i)),
-            EntityType::Npc(i) => Some(world.get_or_panic::<Position>(i)),
-            EntityType::MapItem(i) => Some(world.get_or_panic::<MapItem>(i).pos),
+            EntityType::Player(i, _) => world.get_or_err::<Position>(i).ok(),
+            EntityType::Npc(i) => world.get_or_err::<Position>(i).ok(),
+            EntityType::MapItem(i) => world
+                .get_or_err::<MapItem>(i)
+                .map(|mapitem| mapitem.pos)
+                .ok(),
             EntityType::None => None,
         }
     }

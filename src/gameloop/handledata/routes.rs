@@ -4,6 +4,7 @@ use crate::{
 };
 use chrono::Duration;
 use hecs::World;
+use log::debug;
 use regex::Regex;
 
 pub fn handle_register(
@@ -16,8 +17,7 @@ pub fn handle_register(
     let password = data.read::<String>()?;
     let email = data.read::<String>()?;
     let sprite_id = data.read::<u8>()?;
-
-    let socket_id = world.get::<&Socket>(entity.0).unwrap().id;
+    let socket_id = world.get::<&Socket>(entity.0)?.id;
 
     if !storage.player_ids.borrow().contains(entity) {
         let email_regex = Regex::new(
@@ -90,9 +90,7 @@ pub fn handle_register(
         storage.add_player_data(world, entity);
 
         {
-            let (account, sprite) = world
-                .query_one_mut::<(&mut Account, &mut Sprite)>(entity.0)
-                .unwrap();
+            let (account, sprite) = world.query_one_mut::<(&mut Account, &mut Sprite)>(entity.0)?;
 
             account.username.clone_from(&username);
             sprite.id = sprite_id as u16;
@@ -101,12 +99,9 @@ pub fn handle_register(
         return match new_player(storage, world, entity, username, email, password) {
             Ok(uid) => {
                 {
-                    world
-                        .get::<&mut Account>(entity.0)
-                        .expect("Could not find Account")
-                        .id = uid;
+                    world.get::<&mut Account>(entity.0)?.id = uid;
                 }
-                joingame(world, storage, entity);
+                joingame(world, storage, entity)?;
                 Ok(())
             }
             Err(_) => send_infomsg(
@@ -135,7 +130,7 @@ pub fn handle_login(
     let appminior = data.read::<u16>()? as usize;
     let apprevision = data.read::<u16>()? as usize;
 
-    let socket_id = world.get::<&Socket>(entity.0).unwrap().id;
+    let socket_id = world.get::<&Socket>(entity.0)?.id;
 
     if !storage.player_ids.borrow().contains(entity) {
         if username.len() >= 64 || password.len() >= 128 {
@@ -170,7 +165,7 @@ pub fn handle_login(
             return send_infomsg(storage, socket_id, "Error Loading User.".into(), 1);
         }
 
-        joingame(world, storage, entity);
+        joingame(world, storage, entity)?;
         return Ok(());
     }
 
@@ -183,10 +178,10 @@ pub fn handle_move(
     data: &mut ByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
-    if let Some(p) = storage.player_ids.borrow().get(entity) {
-        if !world.get_or_panic::<DeathType>(p).is_alive()
-            || world.get_or_panic::<IsUsingType>(p).inuse()
-            || world.get_or_panic::<Stunned>(p).0
+    if let Some(entity) = storage.player_ids.borrow().get(entity) {
+        if !world.get_or_err::<DeathType>(entity)?.is_alive()
+            || world.get_or_err::<IsUsingType>(entity)?.inuse()
+            || world.get_or_err::<Stunned>(entity)?.0
         {
             return Ok(());
         }
@@ -198,14 +193,14 @@ pub fn handle_move(
             return Err(AscendingError::InvalidPacket);
         }
 
-        let pos = world.get_or_panic::<Position>(p);
+        let pos = world.get_or_err::<Position>(entity)?;
 
         if data_pos != pos {
-            player_warp(world, storage, entity, &data_pos, false);
+            player_warp(world, storage, entity, &data_pos, false)?;
             return Ok(());
         }
 
-        player_movement(world, storage, entity, dir);
+        player_movement(world, storage, entity, dir)?;
         return Ok(());
     }
 
@@ -218,9 +213,9 @@ pub fn handle_dir(
     data: &mut ByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
-    if let Some(p) = storage.player_ids.borrow().get(entity) {
-        if !world.get_or_panic::<DeathType>(p).is_alive()
-            || world.get_or_panic::<IsUsingType>(p).inuse()
+    if let Some(entity) = storage.player_ids.borrow().get(entity) {
+        if !world.get_or_err::<DeathType>(entity)?.is_alive()
+            || world.get_or_err::<IsUsingType>(entity)?.inuse()
         {
             return Ok(());
         }
@@ -232,7 +227,7 @@ pub fn handle_dir(
         }
 
         {
-            world.get::<&mut Dir>(p.0).expect("Could not find Dir").0 = dir;
+            world.get::<&mut Dir>(entity.0)?.0 = dir;
         }
 
         send_dir(world, storage, entity, true)?;
@@ -249,11 +244,11 @@ pub fn handle_attack(
     data: &mut ByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
-    if let Some(p) = storage.player_ids.borrow().get(entity) {
-        if !world.get_or_panic::<DeathType>(p).is_alive()
-            || world.get_or_panic::<IsUsingType>(p).inuse()
-            || world.get_or_panic::<Attacking>(p).0
-            || world.get_or_panic::<AttackTimer>(p).0 > *storage.gettick.borrow()
+    if let Some(entity) = storage.player_ids.borrow().get(entity) {
+        if !world.get_or_err::<DeathType>(entity)?.is_alive()
+            || world.get_or_err::<IsUsingType>(entity)?.inuse()
+            || world.get_or_err::<Attacking>(entity)?.0
+            || world.get_or_err::<AttackTimer>(entity)?.0 > *storage.gettick.borrow()
         {
             return Ok(());
         }
@@ -265,31 +260,25 @@ pub fn handle_attack(
             return Err(AscendingError::InvalidPacket);
         }
 
-        if world.get_or_panic::<Dir>(p).0 != dir {
+        if world.get_or_err::<Dir>(entity)?.0 != dir {
             {
-                world
-                    .get::<&mut Dir>(entity.0)
-                    .expect("Could not find Dir")
-                    .0 = dir;
+                world.get::<&mut Dir>(entity.0)?.0 = dir;
             }
             send_dir(world, storage, entity, true)?;
         };
 
         if let Some(target_entity) = target {
             if world.contains(target_entity.0) {
-                if !player_combat(world, storage, entity, &target_entity) {
-                    player_interact_object(world, storage, p);
+                if !player_combat(world, storage, entity, &target_entity)? {
+                    player_interact_object(world, storage, entity)?;
                 }
                 {
-                    world
-                        .get::<&mut AttackTimer>(entity.0)
-                        .expect("Could not find AttackTimer")
-                        .0 = *storage.gettick.borrow()
+                    world.get::<&mut AttackTimer>(entity.0)?.0 = *storage.gettick.borrow()
                         + Duration::try_milliseconds(250).unwrap_or_default();
                 }
             }
         } else {
-            player_interact_object(world, storage, p);
+            player_interact_object(world, storage, entity)?;
         }
         return Ok(());
     }
@@ -303,12 +292,12 @@ pub fn handle_useitem(
     data: &mut ByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
-    if let Some(p) = storage.player_ids.borrow().get(entity) {
-        if !world.get_or_panic::<DeathType>(p).is_alive()
-            || world.get_or_panic::<IsUsingType>(p).inuse()
-            || world.get_or_panic::<Attacking>(p).0
-            || world.get_or_panic::<Stunned>(p).0
-            || world.get_or_panic::<PlayerItemTimer>(p).itemtimer > *storage.gettick.borrow()
+    if let Some(entity) = storage.player_ids.borrow().get(entity) {
+        if !world.get_or_err::<DeathType>(entity)?.is_alive()
+            || world.get_or_err::<IsUsingType>(entity)?.inuse()
+            || world.get_or_err::<Attacking>(entity)?.0
+            || world.get_or_err::<Stunned>(entity)?.0
+            || world.get_or_err::<PlayerItemTimer>(entity)?.itemtimer > *storage.gettick.borrow()
         {
             return Ok(());
         }
@@ -317,10 +306,7 @@ pub fn handle_useitem(
         let _targettype = data.read::<u8>()?;
 
         {
-            world
-                .get::<&mut PlayerItemTimer>(entity.0)
-                .expect("Could not find PlayerItemTimer")
-                .itemtimer =
+            world.get::<&mut PlayerItemTimer>(entity.0)?.itemtimer =
                 *storage.gettick.borrow() + Duration::try_milliseconds(250).unwrap_or_default();
         }
 
@@ -337,45 +323,41 @@ pub fn handle_unequip(
     data: &mut ByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
-    if let Some(p) = storage.player_ids.borrow().get(entity) {
-        if !world.get_or_panic::<DeathType>(p).is_alive()
-            || world.get_or_panic::<IsUsingType>(p).inuse()
-            || world.get_or_panic::<Attacking>(p).0
-            || world.get_or_panic::<Stunned>(p).0
-            || world.get_or_panic::<PlayerItemTimer>(p).itemtimer > *storage.gettick.borrow()
+    if let Some(entity) = storage.player_ids.borrow().get(entity) {
+        if !world.get_or_err::<DeathType>(entity)?.is_alive()
+            || world.get_or_err::<IsUsingType>(entity)?.inuse()
+            || world.get_or_err::<Attacking>(entity)?.0
+            || world.get_or_err::<Stunned>(entity)?.0
+            || world.get_or_err::<PlayerItemTimer>(entity)?.itemtimer > *storage.gettick.borrow()
         {
             return Ok(());
         }
 
         let slot = data.read::<u16>()? as usize;
 
-        if slot >= EQUIPMENT_TYPE_MAX || world.get::<&Equipment>(p.0).unwrap().items[slot].val == 0
-        {
+        if slot >= EQUIPMENT_TYPE_MAX || world.get::<&Equipment>(entity.0)?.items[slot].val == 0 {
             return Ok(());
         }
 
-        let mut item = world.get::<&Equipment>(p.0).unwrap().items[slot];
-        let rem = give_inv_item(world, storage, p, &mut item);
+        let mut item = world.get::<&Equipment>(entity.0)?.items[slot];
+        let rem = give_inv_item(world, storage, entity, &mut item)?;
 
         if rem > 0 {
             return send_fltalert(
                 storage,
-                world.get::<&Socket>(p.0).unwrap().id,
+                world.get::<&Socket>(entity.0)?.id,
                 "Could not unequiped. No inventory space.".into(),
                 FtlType::Error,
             );
         }
 
         {
-            world
-                .get::<&mut Equipment>(p.0)
-                .expect("Could not find Equipment")
-                .items[slot] = item;
+            world.get::<&mut Equipment>(entity.0)?.items[slot] = item;
         }
 
-        let _ = update_equipment(storage, world, p, slot);
+        update_equipment(storage, world, entity, slot)?;
         //TODO calculatestats();
-        return send_equipment(world, storage, p);
+        return send_equipment(world, storage, entity);
     }
 
     Err(AscendingError::InvalidSocket)
@@ -387,11 +369,11 @@ pub fn handle_switchinvslot(
     data: &mut ByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
-    if let Some(p) = storage.player_ids.borrow().get(entity) {
-        if !world.get_or_panic::<DeathType>(p).is_alive()
-            || world.get_or_panic::<Attacking>(p).0
-            || world.get_or_panic::<Stunned>(p).0
-            || world.get_or_panic::<PlayerItemTimer>(p).itemtimer > *storage.gettick.borrow()
+    if let Some(entity) = storage.player_ids.borrow().get(entity) {
+        if !world.get_or_err::<DeathType>(entity)?.is_alive()
+            || world.get_or_err::<Attacking>(entity)?.0
+            || world.get_or_err::<Stunned>(entity)?.0
+            || world.get_or_err::<PlayerItemTimer>(entity)?.itemtimer > *storage.gettick.borrow()
         {
             return Ok(());
         }
@@ -402,57 +384,45 @@ pub fn handle_switchinvslot(
 
         if oldslot >= MAX_INV
             || newslot >= MAX_INV
-            || world.get::<&Inventory>(p.0).unwrap().items[oldslot].val == 0
+            || world.get::<&Inventory>(entity.0)?.items[oldslot].val == 0
         {
             return Ok(());
         }
 
-        let mut itemold = world.get::<&Inventory>(p.0).unwrap().items[oldslot];
+        let mut itemold = world.get::<&Inventory>(entity.0)?.items[oldslot];
 
-        if world.get::<&Inventory>(p.0).unwrap().items[newslot].val > 0 {
-            if world.get::<&Inventory>(p.0).unwrap().items[newslot].num
-                == world.get::<&Inventory>(p.0).unwrap().items[oldslot].num
+        if world.get::<&Inventory>(entity.0)?.items[newslot].val > 0 {
+            if world.get::<&Inventory>(entity.0)?.items[newslot].num
+                == world.get::<&Inventory>(entity.0)?.items[oldslot].num
             {
-                set_inv_slot(world, storage, entity, &mut itemold, newslot, amount);
+                set_inv_slot(world, storage, entity, &mut itemold, newslot, amount)?;
                 {
-                    world
-                        .get::<&mut Inventory>(p.0)
-                        .expect("Could not find Inventory")
-                        .items[oldslot] = itemold;
+                    world.get::<&mut Inventory>(entity.0)?.items[oldslot] = itemold;
                 }
-                save_inv_item(world, storage, entity, oldslot);
-            } else if world.get::<&Inventory>(p.0).unwrap().items[oldslot].val == amount {
-                let itemnew = world.get::<&Inventory>(p.0).unwrap().items[newslot];
+                save_inv_item(world, storage, entity, oldslot)?;
+            } else if world.get::<&Inventory>(entity.0)?.items[oldslot].val == amount {
+                let itemnew = world.get::<&Inventory>(entity.0)?.items[newslot];
                 {
-                    world
-                        .get::<&mut Inventory>(p.0)
-                        .expect("Could not find Inventory")
-                        .items[newslot] = itemold;
-                    world
-                        .get::<&mut Inventory>(p.0)
-                        .expect("Could not find Inventory")
-                        .items[oldslot] = itemnew;
+                    world.get::<&mut Inventory>(entity.0)?.items[newslot] = itemold;
+                    world.get::<&mut Inventory>(entity.0)?.items[oldslot] = itemnew;
                 }
-                save_inv_item(world, storage, entity, newslot);
-                save_inv_item(world, storage, entity, oldslot);
+                save_inv_item(world, storage, entity, newslot)?;
+                save_inv_item(world, storage, entity, oldslot)?;
             } else {
                 return send_fltalert(
                         storage,
-                        world.get::<&Socket>(p.0).unwrap().id,
+                        world.get::<&Socket>(entity.0)?.id,
                         "Can not swap slots with a different containing items unless you swap everything."
                             .into(),
                         FtlType::Error
                     );
             }
         } else {
-            set_inv_slot(world, storage, entity, &mut itemold, newslot, amount);
+            set_inv_slot(world, storage, entity, &mut itemold, newslot, amount)?;
             {
-                world
-                    .get::<&mut Inventory>(p.0)
-                    .expect("Could not find Inventory")
-                    .items[oldslot] = itemold;
+                world.get::<&mut Inventory>(entity.0)?.items[oldslot] = itemold;
             }
-            save_inv_item(world, storage, entity, oldslot);
+            save_inv_item(world, storage, entity, oldslot)?;
         }
 
         return Ok(());
@@ -467,19 +437,19 @@ pub fn handle_pickup(
     _data: &mut ByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
-    if let Some(p) = storage.player_ids.borrow().get(entity) {
+    if let Some(entity) = storage.player_ids.borrow().get(entity) {
         let mut remid: Option<(MapPosition, Entity)> = None;
 
-        if !world.get_or_panic::<DeathType>(p).is_alive()
-            || world.get_or_panic::<IsUsingType>(p).inuse()
-            || world.get_or_panic::<Attacking>(p).0
-            || world.get_or_panic::<Stunned>(p).0
-            || world.get_or_panic::<PlayerMapTimer>(p).mapitemtimer > *storage.gettick.borrow()
+        if !world.get_or_err::<DeathType>(entity)?.is_alive()
+            || world.get_or_err::<IsUsingType>(entity)?.inuse()
+            || world.get_or_err::<Attacking>(entity)?.0
+            || world.get_or_err::<Stunned>(entity)?.0
+            || world.get_or_err::<PlayerMapTimer>(entity)?.mapitemtimer > *storage.gettick.borrow()
         {
             return Ok(());
         }
 
-        let mapids = get_maps_in_range(storage, &world.get_or_panic::<Position>(p), 1);
+        let mapids = get_maps_in_range(storage, &world.get_or_err::<Position>(entity)?, 1);
 
         'remremove: for id in mapids {
             if let Some(x) = id.get() {
@@ -493,7 +463,7 @@ pub fn handle_pickup(
                 if storage
                     .bases
                     .maps
-                    .get(&world.get_or_panic::<Position>(p).map)
+                    .get(&world.get_or_err::<Position>(entity)?.map)
                     .is_none()
                 {
                     continue;
@@ -501,15 +471,15 @@ pub fn handle_pickup(
                 let ids = map.itemids.clone();
 
                 for i in ids {
-                    let mut mapitems = world.cloned_get_or_panic::<MapItem>(&i);
+                    let mut mapitems = world.get_or_err::<MapItem>(&i)?;
                     if world
-                        .get_or_panic::<Position>(p)
+                        .get_or_err::<Position>(entity)?
                         .checkdistance(mapitems.pos.map_offset(id.into()))
                         <= 1
                     {
                         if mapitems.item.num == 0 {
                             let rem =
-                                player_give_vals(world, storage, entity, mapitems.item.val as u64);
+                                player_give_vals(world, storage, entity, mapitems.item.val as u64)?;
                             mapitems.item.val = rem as u16;
 
                             if rem == 0 {
@@ -518,7 +488,7 @@ pub fn handle_pickup(
                             }
                         } else {
                             let amount = mapitems.item.val;
-                            let rem = give_inv_item(world, storage, entity, &mut mapitems.item);
+                            let rem = give_inv_item(world, storage, entity, &mut mapitems.item)?;
                             let item = &storage.bases.items[mapitems.item.num as usize];
 
                             if rem == 0 {
@@ -527,12 +497,12 @@ pub fn handle_pickup(
                                     _ => "'s",
                                 };
 
-                                let _ = send_fltalert(
+                                send_fltalert(
                                     storage,
-                                    world.get::<&Socket>(p.0).unwrap().id,
+                                    world.get::<&Socket>(entity.0)?.id,
                                     format!("You picked up {} {}{}.", amount, item.name, st),
                                     FtlType::Item,
-                                );
+                                )?;
                                 remid = Some((x, i));
                             } else if rem < amount {
                                 let st = match amount - rem {
@@ -540,12 +510,12 @@ pub fn handle_pickup(
                                     _ => "'s",
                                 };
 
-                                let _ = send_fltalert(
+                                send_fltalert(
                                         storage,
-                                        world.get::<&Socket>(p.0).unwrap().id,
+                                        world.get::<&Socket>(entity.0)?.id,
                                         format!("You picked up {} {}{}. Your inventory is Full so some items remain.", amount, item.name, st),
                                         FtlType::Item,
-                                    );
+                                    )?;
                             }
 
                             break 'remremove;
@@ -557,20 +527,17 @@ pub fn handle_pickup(
 
         if let Some(id) = remid {
             if let Some(map) = storage.maps.get(&id.0) {
-                let pos = world.get_or_panic::<MapItem>(&id.1).pos;
+                let pos = world.get_or_err::<MapItem>(&id.1)?.pos;
                 let mut storage_mapitems = storage.map_items.borrow_mut();
                 if storage_mapitems.contains_key(&pos) {
                     storage_mapitems.swap_remove(&pos);
                 }
                 map.borrow_mut().remove_item(id.1);
-                let _ = DataTaskToken::EntityUnload(id.0).add_task(storage, &(id.1));
+                DataTaskToken::EntityUnload(id.0).add_task(storage, &(id.1))?;
             }
         }
         {
-            world
-                .get::<&mut PlayerMapTimer>(p.0)
-                .expect("Could not find PlayerMapTimer")
-                .mapitemtimer =
+            world.get::<&mut PlayerMapTimer>(entity.0)?.mapitemtimer =
                 *storage.gettick.borrow() + Duration::try_milliseconds(100).unwrap_or_default();
         }
         return Ok(());
@@ -585,11 +552,11 @@ pub fn handle_dropitem(
     data: &mut ByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
-    if let Some(p) = storage.player_ids.borrow().get(entity) {
-        if !world.get_or_panic::<DeathType>(p).is_alive()
-            || world.get_or_panic::<IsUsingType>(p).inuse()
-            || world.get_or_panic::<Attacking>(p).0
-            || world.get_or_panic::<Stunned>(p).0
+    if let Some(entity) = storage.player_ids.borrow().get(entity) {
+        if !world.get_or_err::<DeathType>(entity)?.is_alive()
+            || world.get_or_err::<IsUsingType>(entity)?.inuse()
+            || world.get_or_err::<Attacking>(entity)?.0
+            || world.get_or_err::<Stunned>(entity)?.0
         {
             return Ok(());
         }
@@ -597,20 +564,18 @@ pub fn handle_dropitem(
         let slot = data.read::<u16>()? as usize;
         let amount = data.read::<u16>()?;
 
-        if slot >= MAX_INV
-            || world.get::<&Inventory>(p.0).unwrap().items[slot].val == 0
-            || amount == 0
+        if slot >= MAX_INV || world.get::<&Inventory>(entity.0)?.items[slot].val == 0 || amount == 0
         {
             return Ok(());
         }
 
-        let item_data = world.get::<&Inventory>(p.0).unwrap().items[slot];
+        let item_data = world.get::<&Inventory>(entity.0)?.items[slot];
 
         //make sure it exists first.
         if !storage
             .bases
             .maps
-            .contains_key(&world.get_or_panic::<Position>(p).map)
+            .contains_key(&world.get_or_err::<Position>(entity)?.map)
         {
             return Err(AscendingError::Unhandled);
         }
@@ -621,9 +586,9 @@ pub fn handle_dropitem(
             DropItem {
                 index: item_data.num,
                 amount,
-                pos: world.get_or_panic::<Position>(p),
+                pos: world.get_or_err::<Position>(entity)?,
             },
-            match world.get_or_panic::<UserAccess>(p) {
+            match world.get_or_err::<UserAccess>(entity)? {
                 UserAccess::Admin => None,
                 _ => Some(
                     *storage.gettick.borrow()
@@ -631,9 +596,9 @@ pub fn handle_dropitem(
                 ),
             },
             Some(*storage.gettick.borrow() + Duration::try_milliseconds(5000).unwrap_or_default()),
-            Some(*p),
+            Some(*entity),
         ) {
-            let _ = take_inv_itemslot(world, storage, entity, slot, amount);
+            take_inv_itemslot(world, storage, entity, slot, amount)?;
         }
 
         return Ok(());
@@ -648,23 +613,23 @@ pub fn handle_deleteitem(
     data: &mut ByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
-    if let Some(p) = storage.player_ids.borrow().get(entity) {
-        if !world.get_or_panic::<DeathType>(p).is_alive()
-            || world.get_or_panic::<IsUsingType>(p).inuse()
-            || world.get_or_panic::<Attacking>(p).0
-            || world.get_or_panic::<Stunned>(p).0
+    if let Some(entity) = storage.player_ids.borrow().get(entity) {
+        if !world.get_or_err::<DeathType>(entity)?.is_alive()
+            || world.get_or_err::<IsUsingType>(entity)?.inuse()
+            || world.get_or_err::<Attacking>(entity)?.0
+            || world.get_or_err::<Stunned>(entity)?.0
         {
             return Ok(());
         }
 
         let slot = data.read::<u16>()? as usize;
 
-        if slot >= MAX_INV || world.get::<&Inventory>(p.0).unwrap().items[slot].val == 0 {
+        if slot >= MAX_INV || world.get::<&Inventory>(entity.0)?.items[slot].val == 0 {
             return Ok(());
         }
 
-        let val = world.get::<&Inventory>(p.0).unwrap().items[slot].val;
-        let _ = take_inv_itemslot(world, storage, entity, slot, val);
+        let val = world.get::<&Inventory>(entity.0)?.items[slot].val;
+        take_inv_itemslot(world, storage, entity, slot, val)?;
 
         return Ok(());
     }
@@ -678,11 +643,11 @@ pub fn handle_switchstorageslot(
     data: &mut ByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
-    if let Some(p) = storage.player_ids.borrow().get(entity) {
-        if !world.get_or_panic::<DeathType>(p).is_alive()
-            || !world.get_or_panic::<IsUsingType>(p).is_bank()
-            || world.get_or_panic::<Attacking>(p).0
-            || world.get_or_panic::<Stunned>(p).0
+    if let Some(entity) = storage.player_ids.borrow().get(entity) {
+        if !world.get_or_err::<DeathType>(entity)?.is_alive()
+            || !world.get_or_err::<IsUsingType>(entity)?.is_bank()
+            || world.get_or_err::<Attacking>(entity)?.0
+            || world.get_or_err::<Stunned>(entity)?.0
         {
             return Ok(());
         }
@@ -693,57 +658,45 @@ pub fn handle_switchstorageslot(
 
         if oldslot >= MAX_STORAGE
             || newslot >= MAX_STORAGE
-            || world.get::<&PlayerStorage>(p.0).unwrap().items[oldslot].val == 0
+            || world.get::<&PlayerStorage>(entity.0)?.items[oldslot].val == 0
         {
             return Ok(());
         }
 
-        let mut itemold = world.get::<&PlayerStorage>(p.0).unwrap().items[oldslot];
+        let mut itemold = world.get::<&PlayerStorage>(entity.0)?.items[oldslot];
 
-        if world.get::<&PlayerStorage>(p.0).unwrap().items[newslot].val > 0 {
-            if world.get::<&PlayerStorage>(p.0).unwrap().items[newslot].num
-                == world.get::<&PlayerStorage>(p.0).unwrap().items[oldslot].num
+        if world.get::<&PlayerStorage>(entity.0)?.items[newslot].val > 0 {
+            if world.get::<&PlayerStorage>(entity.0)?.items[newslot].num
+                == world.get::<&PlayerStorage>(entity.0)?.items[oldslot].num
             {
-                set_storage_slot(world, storage, entity, &mut itemold, newslot, amount);
+                set_storage_slot(world, storage, entity, &mut itemold, newslot, amount)?;
                 {
-                    world
-                        .get::<&mut PlayerStorage>(p.0)
-                        .expect("Could not find PlayerStorage")
-                        .items[oldslot] = itemold;
+                    world.get::<&mut PlayerStorage>(entity.0)?.items[oldslot] = itemold;
                 }
-                save_storage_item(world, storage, entity, oldslot);
-            } else if world.get::<&PlayerStorage>(p.0).unwrap().items[oldslot].val == amount {
-                let itemnew = world.get::<&PlayerStorage>(p.0).unwrap().items[newslot];
+                save_storage_item(world, storage, entity, oldslot)?;
+            } else if world.get::<&PlayerStorage>(entity.0)?.items[oldslot].val == amount {
+                let itemnew = world.get::<&PlayerStorage>(entity.0)?.items[newslot];
                 {
-                    world
-                        .get::<&mut PlayerStorage>(p.0)
-                        .expect("Could not find PlayerStorage")
-                        .items[newslot] = itemold;
-                    world
-                        .get::<&mut PlayerStorage>(p.0)
-                        .expect("Could not find PlayerStorage")
-                        .items[oldslot] = itemnew;
+                    world.get::<&mut PlayerStorage>(entity.0)?.items[newslot] = itemold;
+                    world.get::<&mut PlayerStorage>(entity.0)?.items[oldslot] = itemnew;
                 }
-                save_storage_item(world, storage, entity, newslot);
-                save_storage_item(world, storage, entity, oldslot);
+                save_storage_item(world, storage, entity, newslot)?;
+                save_storage_item(world, storage, entity, oldslot)?;
             } else {
                 return send_fltalert(
                         storage,
-                        world.get::<&Socket>(p.0).unwrap().id,
+                        world.get::<&Socket>(entity.0)?.id,
                         "Can not swap slots with a different containing items unless you swap everything."
                             .into(),
                         FtlType::Error
                     );
             }
         } else {
-            set_storage_slot(world, storage, entity, &mut itemold, newslot, amount);
+            set_storage_slot(world, storage, entity, &mut itemold, newslot, amount)?;
             {
-                world
-                    .get::<&mut PlayerStorage>(p.0)
-                    .expect("Could not find PlayerStorage")
-                    .items[oldslot] = itemold;
+                world.get::<&mut PlayerStorage>(entity.0)?.items[oldslot] = itemold;
             }
-            save_storage_item(world, storage, entity, oldslot);
+            save_storage_item(world, storage, entity, oldslot)?;
         }
 
         return Ok(());
@@ -758,23 +711,23 @@ pub fn handle_deletestorageitem(
     data: &mut ByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
-    if let Some(p) = storage.player_ids.borrow().get(entity) {
-        if !world.get_or_panic::<DeathType>(p).is_alive()
-            || !world.get_or_panic::<IsUsingType>(p).is_bank()
-            || world.get_or_panic::<Attacking>(p).0
-            || world.get_or_panic::<Stunned>(p).0
+    if let Some(entity) = storage.player_ids.borrow().get(entity) {
+        if !world.get_or_err::<DeathType>(entity)?.is_alive()
+            || !world.get_or_err::<IsUsingType>(entity)?.is_bank()
+            || world.get_or_err::<Attacking>(entity)?.0
+            || world.get_or_err::<Stunned>(entity)?.0
         {
             return Ok(());
         }
 
         let slot = data.read::<u16>()? as usize;
 
-        if slot >= MAX_STORAGE || world.get::<&PlayerStorage>(p.0).unwrap().items[slot].val == 0 {
+        if slot >= MAX_STORAGE || world.get::<&PlayerStorage>(entity.0)?.items[slot].val == 0 {
             return Ok(());
         }
 
-        let val = world.get::<&PlayerStorage>(p.0).unwrap().items[slot].val;
-        let _ = take_storage_itemslot(world, storage, entity, slot, val);
+        let val = world.get::<&PlayerStorage>(entity.0)?.items[slot].val;
+        take_storage_itemslot(world, storage, entity, slot, val)?;
 
         return Ok(());
     }
@@ -788,11 +741,11 @@ pub fn handle_deposititem(
     data: &mut ByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
-    if let Some(p) = storage.player_ids.borrow().get(entity) {
-        if !world.get_or_panic::<DeathType>(p).is_alive()
-            || !world.get_or_panic::<IsUsingType>(p).is_bank()
-            || world.get_or_panic::<Attacking>(p).0
-            || world.get_or_panic::<Stunned>(p).0
+    if let Some(entity) = storage.player_ids.borrow().get(entity) {
+        if !world.get_or_err::<DeathType>(entity)?.is_alive()
+            || !world.get_or_err::<IsUsingType>(entity)?.is_bank()
+            || world.get_or_err::<Attacking>(entity)?.0
+            || world.get_or_err::<Stunned>(entity)?.0
         {
             return Ok(());
         }
@@ -803,32 +756,32 @@ pub fn handle_deposititem(
 
         if bank_slot >= MAX_STORAGE
             || inv_slot >= MAX_INV
-            || world.get::<&Inventory>(p.0).unwrap().items[inv_slot].val == 0
+            || world.get::<&Inventory>(entity.0)?.items[inv_slot].val == 0
         {
             return Ok(());
         }
 
-        let mut item_data = world.cloned_get_or_panic::<Inventory>(p).items[inv_slot];
+        let mut item_data = world.cloned_get_or_err::<Inventory>(entity)?.items[inv_slot];
         if item_data.val > amount {
             item_data.val = amount;
         };
-        let bank_data = world.cloned_get_or_panic::<PlayerStorage>(p);
+        let bank_data = world.cloned_get_or_err::<PlayerStorage>(entity)?;
 
         if bank_data.items[bank_slot].val == 0 {
             {
-                world.get::<&mut PlayerStorage>(p.0).unwrap().items[bank_slot] = item_data;
+                world.get::<&mut PlayerStorage>(entity.0)?.items[bank_slot] = item_data;
             }
-            save_storage_item(world, storage, entity, bank_slot);
-            let _ = take_inv_itemslot(world, storage, p, inv_slot, amount);
+            save_storage_item(world, storage, entity, bank_slot)?;
+            take_inv_itemslot(world, storage, entity, inv_slot, amount)?;
         } else {
             let mut leftover = item_data.val;
             let mut loop_count = 0;
             while leftover > 0 && loop_count < MAX_STORAGE {
-                leftover = give_storage_item(world, storage, p, &mut item_data);
+                leftover = give_storage_item(world, storage, entity, &mut item_data)?;
                 loop_count += 1;
             }
             let take_amount = amount - leftover;
-            let _ = take_inv_itemslot(world, storage, p, inv_slot, take_amount);
+            take_inv_itemslot(world, storage, entity, inv_slot, take_amount)?;
         }
 
         return Ok(());
@@ -843,11 +796,11 @@ pub fn handle_withdrawitem(
     data: &mut ByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
-    if let Some(p) = storage.player_ids.borrow().get(entity) {
-        if !world.get_or_panic::<DeathType>(p).is_alive()
-            || !world.get_or_panic::<IsUsingType>(p).is_bank()
-            || world.get_or_panic::<Attacking>(p).0
-            || world.get_or_panic::<Stunned>(p).0
+    if let Some(entity) = storage.player_ids.borrow().get(entity) {
+        if !world.get_or_err::<DeathType>(entity)?.is_alive()
+            || !world.get_or_err::<IsUsingType>(entity)?.is_bank()
+            || world.get_or_err::<Attacking>(entity)?.0
+            || world.get_or_err::<Stunned>(entity)?.0
         {
             return Ok(());
         }
@@ -857,33 +810,33 @@ pub fn handle_withdrawitem(
         let amount = data.read::<u16>()?;
 
         if bank_slot >= MAX_STORAGE
-            || world.get::<&PlayerStorage>(p.0).unwrap().items[bank_slot].val == 0
+            || world.get::<&PlayerStorage>(entity.0)?.items[bank_slot].val == 0
             || inv_slot >= MAX_INV
         {
             return Ok(());
         }
 
-        let mut item_data = world.cloned_get_or_panic::<PlayerStorage>(p).items[bank_slot];
+        let mut item_data = world.cloned_get_or_err::<PlayerStorage>(entity)?.items[bank_slot];
         if item_data.val > amount {
             item_data.val = amount;
         };
-        let inv_data = world.cloned_get_or_panic::<Inventory>(p);
+        let inv_data = world.cloned_get_or_err::<Inventory>(entity)?;
 
         if inv_data.items[inv_slot].val == 0 {
             {
-                world.get::<&mut Inventory>(p.0).unwrap().items[inv_slot] = item_data;
+                world.get::<&mut Inventory>(entity.0)?.items[inv_slot] = item_data;
             }
-            save_inv_item(world, storage, entity, inv_slot);
-            let _ = take_storage_itemslot(world, storage, p, bank_slot, amount);
+            save_inv_item(world, storage, entity, inv_slot)?;
+            take_storage_itemslot(world, storage, entity, bank_slot, amount)?;
         } else {
             let mut leftover = item_data.val;
             let mut loop_count = 0;
             while leftover > 0 && loop_count < MAX_INV {
-                leftover = give_inv_item(world, storage, p, &mut item_data);
+                leftover = give_inv_item(world, storage, entity, &mut item_data)?;
                 loop_count += 1;
             }
             let take_amount = amount - leftover;
-            let _ = take_storage_itemslot(world, storage, p, bank_slot, take_amount);
+            take_storage_itemslot(world, storage, entity, bank_slot, take_amount)?;
         }
 
         return Ok(());
@@ -898,10 +851,10 @@ pub fn handle_message(
     data: &mut ByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
-    if let Some(p) = storage.player_ids.borrow().get(entity) {
+    if let Some(entity) = storage.player_ids.borrow().get(entity) {
         let mut usersocket: Option<usize> = None;
 
-        if !world.get_or_panic::<DeathType>(p).is_alive() {
+        if !world.get_or_err::<DeathType>(entity)?.is_alive() {
             return Ok(());
         }
 
@@ -913,7 +866,7 @@ pub fn handle_message(
         if msg.len() >= 256 {
             return send_fltalert(
                 storage,
-                world.get::<&Socket>(entity.0).unwrap().id,
+                world.get::<&Socket>(entity.0)?.id,
                 "Your message is too long. (256 character limit)".into(),
                 FtlType::Error,
             );
@@ -921,26 +874,26 @@ pub fn handle_message(
 
         let head = match channel {
             MessageChannel::Map => {
-                format!("[Map] {}:", world.get::<&Account>(p.0).unwrap().username)
+                format!("[Map] {}:", world.get::<&Account>(entity.0)?.username)
             }
             MessageChannel::Global => {
-                format!("[Global] {}:", world.get::<&Account>(p.0).unwrap().username)
+                format!("[Global] {}:", world.get::<&Account>(entity.0)?.username)
             }
             MessageChannel::Trade => {
-                format!("[Trade] {}:", world.get::<&Account>(p.0).unwrap().username)
+                format!("[Trade] {}:", world.get::<&Account>(entity.0)?.username)
             }
             MessageChannel::Party => {
-                format!("[Party] {}:", world.get::<&Account>(p.0).unwrap().username)
+                format!("[Party] {}:", world.get::<&Account>(entity.0)?.username)
             }
             MessageChannel::Private => {
                 if name.is_empty() {
                     return Ok(());
                 }
 
-                if name == world.get::<&Account>(p.0).unwrap().username {
+                if name == world.get::<&Account>(entity.0)?.username {
                     return send_fltalert(
                         storage,
-                        world.get::<&Socket>(entity.0).unwrap().id,
+                        world.get::<&Socket>(entity.0)?.id,
                         "You cannot send messages to yourself".into(),
                         FtlType::Error,
                     );
@@ -957,23 +910,20 @@ pub fn handle_message(
                     None => {
                         return send_fltalert(
                             storage,
-                            world.get::<&Socket>(entity.0).unwrap().id,
+                            world.get::<&Socket>(entity.0)?.id,
                             "Player is offline or does not exist".into(),
                             FtlType::Error,
                         );
                     }
                 };
 
-                format!(
-                    "[Private] {}:",
-                    world.get::<&Account>(p.0).unwrap().username
-                )
+                format!("[Private] {}:", world.get::<&Account>(entity.0)?.username)
             }
             MessageChannel::Guild => {
-                format!("[Guild] {}:", world.get::<&Account>(p.0).unwrap().username)
+                format!("[Guild] {}:", world.get::<&Account>(entity.0)?.username)
             }
             MessageChannel::Help => {
-                format!("[Help] {}:", world.get::<&Account>(p.0).unwrap().username)
+                format!("[Help] {}:", world.get::<&Account>(entity.0)?.username)
             }
             MessageChannel::Quest => "".into(),
             MessageChannel::Npc => "".into(),
@@ -996,18 +946,18 @@ pub fn handle_admincommand(
 
         match command {
             AdminCommand::KickPlayer(name) => {
-                println!("Kicking Player {:?}", name);
+                debug!("Kicking Player {:?}", name);
             }
             AdminCommand::WarpTo(pos) => {
-                println!("Warping to {:?}", pos);
+                debug!("Warping to {:?}", pos);
             }
             AdminCommand::SpawnNpc(index, pos) => {
-                println!("Spawning NPC {index} on {:?}", pos);
+                debug!("Spawning NPC {index} on {:?}", pos);
                 if let Some(mapdata) = storage.maps.get(&pos.map) {
                     let mut data = mapdata.borrow_mut();
                     if let Ok(id) = storage.add_npc(world, index as u64) {
                         data.add_npc(id);
-                        spawn_npc(world, pos, None, id);
+                        spawn_npc(world, pos, None, id)?;
                     }
                 }
             }
@@ -1033,10 +983,7 @@ pub fn handle_settarget(
                 return Ok(());
             }
         }
-        world
-            .get::<&mut PlayerTarget>(entity.0)
-            .expect("Could not find PlayerTarget")
-            .0 = target;
+        world.get::<&mut PlayerTarget>(entity.0)?.0 = target;
 
         return Ok(());
     }
@@ -1050,19 +997,17 @@ pub fn handle_closestorage(
     _data: &mut ByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
-    if let Some(p) = storage.player_ids.borrow().get(entity) {
-        if !world.get_or_panic::<DeathType>(p).is_alive()
-            || !world.get_or_panic::<IsUsingType>(p).is_bank()
+    if let Some(entity) = storage.player_ids.borrow().get(entity) {
+        if !world.get_or_err::<DeathType>(entity)?.is_alive()
+            || !world.get_or_err::<IsUsingType>(entity)?.is_bank()
         {
             return Ok(());
         }
 
         {
-            *world
-                .get::<&mut IsUsingType>(p.0)
-                .expect("Could not find IsUsingType") = IsUsingType::None;
+            *world.get::<&mut IsUsingType>(entity.0)? = IsUsingType::None;
         }
-        let _ = send_clearisusingtype(world, storage, p);
+        send_clearisusingtype(world, storage, entity)?;
 
         return Ok(());
     }
@@ -1076,19 +1021,17 @@ pub fn handle_closeshop(
     _data: &mut ByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
-    if let Some(p) = storage.player_ids.borrow().get(entity) {
-        if !world.get_or_panic::<DeathType>(p).is_alive()
-            || !world.get_or_panic::<IsUsingType>(p).is_instore()
+    if let Some(entity) = storage.player_ids.borrow().get(entity) {
+        if !world.get_or_err::<DeathType>(entity)?.is_alive()
+            || !world.get_or_err::<IsUsingType>(entity)?.is_instore()
         {
             return Ok(());
         }
 
         {
-            *world
-                .get::<&mut IsUsingType>(p.0)
-                .expect("Could not find IsUsingType") = IsUsingType::None;
+            *world.get::<&mut IsUsingType>(entity.0)? = IsUsingType::None;
         }
-        let _ = send_clearisusingtype(world, storage, p);
+        send_clearisusingtype(world, storage, entity)?;
 
         return Ok(());
     }
@@ -1102,9 +1045,9 @@ pub fn handle_closetrade(
     _data: &mut ByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
-    if let Some(p) = storage.player_ids.borrow().get(entity) {
-        if !world.get_or_panic::<DeathType>(p).is_alive()
-            || !world.get_or_panic::<IsUsingType>(p).is_trading()
+    if let Some(entity) = storage.player_ids.borrow().get(entity) {
+        if !world.get_or_err::<DeathType>(entity)?.is_alive()
+            || !world.get_or_err::<IsUsingType>(entity)?.is_trading()
         {
             return Ok(());
         }
@@ -1121,17 +1064,18 @@ pub fn handle_buyitem(
     data: &mut ByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
-    if let Some(p) = storage.player_ids.borrow().get(entity) {
-        if !world.get_or_panic::<DeathType>(p).is_alive()
-            || !world.get_or_panic::<IsUsingType>(p).is_instore()
+    if let Some(entity) = storage.player_ids.borrow().get(entity) {
+        if !world.get_or_err::<DeathType>(entity)?.is_alive()
+            || !world.get_or_err::<IsUsingType>(entity)?.is_instore()
         {
             return Ok(());
         }
-        let _shop_index = if let IsUsingType::Store(shop) = world.get_or_panic::<IsUsingType>(p) {
-            shop
-        } else {
-            return Ok(());
-        };
+        let _shop_index =
+            if let IsUsingType::Store(shop) = world.get_or_err::<IsUsingType>(entity)? {
+                shop
+            } else {
+                return Ok(());
+            };
         let slot = data.read::<u16>()?;
 
         // TEMP DATA
@@ -1139,7 +1083,7 @@ pub fn handle_buyitem(
         let shop_price = [10, 20, 30, 40, 50, 60, 70];
         let shop_value = [5, 3, 4, 1, 1, 1, 7];
 
-        let player_money = world.get_or_panic::<Money>(p).vals;
+        let player_money = world.get_or_err::<Money>(entity)?.vals;
         if player_money < shop_price[slot as usize] {
             // ToDo Warning not enough money
             return Ok(());
@@ -1151,9 +1095,9 @@ pub fn handle_buyitem(
             ..Default::default()
         };
 
-        let leftover = give_inv_item(world, storage, p, &mut item);
+        let leftover = give_inv_item(world, storage, entity, &mut item)?;
         if leftover != shop_value[slot as usize] {
-            player_take_vals(world, storage, p, shop_price[slot as usize]);
+            player_take_vals(world, storage, entity, shop_price[slot as usize])?;
         }
 
         // ToDo Message that purchase complete
@@ -1170,25 +1114,26 @@ pub fn handle_sellitem(
     data: &mut ByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
-    if let Some(p) = storage.player_ids.borrow().get(entity) {
-        if !world.get_or_panic::<DeathType>(p).is_alive()
-            || !world.get_or_panic::<IsUsingType>(p).is_instore()
+    if let Some(entity) = storage.player_ids.borrow().get(entity) {
+        if !world.get_or_err::<DeathType>(entity)?.is_alive()
+            || !world.get_or_err::<IsUsingType>(entity)?.is_instore()
         {
             return Ok(());
         }
-        let _shop_index = if let IsUsingType::Store(shop) = world.get_or_panic::<IsUsingType>(p) {
-            shop
-        } else {
-            return Ok(());
-        };
+        let _shop_index =
+            if let IsUsingType::Store(shop) = world.get_or_err::<IsUsingType>(entity)? {
+                shop
+            } else {
+                return Ok(());
+            };
         let slot = data.read::<u16>()? as usize;
         let mut amount = data.read::<u16>()?;
 
-        if slot >= MAX_INV || world.get::<&Inventory>(p.0).unwrap().items[slot].val == 0 {
+        if slot >= MAX_INV || world.get::<&Inventory>(entity.0)?.items[slot].val == 0 {
             return Ok(());
         }
 
-        let inv_item = world.cloned_get_or_panic::<Inventory>(p).items[slot];
+        let inv_item = world.cloned_get_or_err::<Inventory>(entity)?.items[slot];
         if amount > inv_item.val {
             amount = inv_item.val;
         };
@@ -1199,10 +1144,13 @@ pub fn handle_sellitem(
             0
         };
 
-        let _ = take_inv_itemslot(world, storage, p, slot, amount);
-        player_give_vals(world, storage, p, price * amount as u64);
+        take_inv_itemslot(world, storage, entity, slot, amount)?;
+        player_give_vals(world, storage, entity, price * amount as u64)?;
 
-        println!("Player Money: {:?}", world.get_or_panic::<Money>(p).vals);
+        println!(
+            "Player Money: {:?}",
+            world.get_or_err::<Money>(entity)?.vals
+        );
 
         return Ok(());
     }
@@ -1216,15 +1164,15 @@ pub fn handle_addtradeitem(
     data: &mut ByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
-    if let Some(p) = storage.player_ids.borrow().get(entity) {
-        if !world.get_or_panic::<DeathType>(p).is_alive()
-            || !world.get_or_panic::<IsUsingType>(p).is_trading()
+    if let Some(entity) = storage.player_ids.borrow().get(entity) {
+        if !world.get_or_err::<DeathType>(entity)?.is_alive()
+            || !world.get_or_err::<IsUsingType>(entity)?.is_trading()
         {
             return Ok(());
         }
 
         let target_entity =
-            if let IsUsingType::Trading(entity) = world.get_or_panic::<IsUsingType>(p) {
+            if let IsUsingType::Trading(entity) = world.get_or_err::<IsUsingType>(entity)? {
                 entity
             } else {
                 return Ok(());
@@ -1236,17 +1184,17 @@ pub fn handle_addtradeitem(
         let slot = data.read::<u16>()? as usize;
         let mut amount = data.read::<u16>()?;
 
-        if slot >= MAX_INV || world.get::<&Inventory>(p.0).unwrap().items[slot].val == 0 {
+        if slot >= MAX_INV || world.get::<&Inventory>(entity.0)?.items[slot].val == 0 {
             return Ok(());
         }
 
-        let inv_item = world.cloned_get_or_panic::<Inventory>(p).items[slot];
+        let inv_item = world.cloned_get_or_err::<Inventory>(entity)?.items[slot];
         if amount > inv_item.val {
             amount = inv_item.val;
         };
 
-        let _ = send_updatetradeitem(world, storage, entity, entity, slot as u16, amount);
-        let _ = send_updatetradeitem(world, storage, entity, &target_entity, slot as u16, amount);
+        send_updatetradeitem(world, storage, entity, entity, slot as u16, amount)?;
+        send_updatetradeitem(world, storage, entity, &target_entity, slot as u16, amount)?;
 
         return Ok(());
     }
@@ -1260,15 +1208,15 @@ pub fn handle_removetradeitem(
     data: &mut ByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
-    if let Some(p) = storage.player_ids.borrow().get(entity) {
-        if !world.get_or_panic::<DeathType>(p).is_alive()
-            || !world.get_or_panic::<IsUsingType>(p).is_trading()
+    if let Some(entity) = storage.player_ids.borrow().get(entity) {
+        if !world.get_or_err::<DeathType>(entity)?.is_alive()
+            || !world.get_or_err::<IsUsingType>(entity)?.is_trading()
         {
             return Ok(());
         }
 
         let _target_entity =
-            if let IsUsingType::Trading(entity) = world.get_or_panic::<IsUsingType>(p) {
+            if let IsUsingType::Trading(entity) = world.get_or_err::<IsUsingType>(entity)? {
                 entity
             } else {
                 return Ok(());
@@ -1288,15 +1236,15 @@ pub fn handle_updatetrademoney(
     data: &mut ByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
-    if let Some(p) = storage.player_ids.borrow().get(entity) {
-        if !world.get_or_panic::<DeathType>(p).is_alive()
-            || !world.get_or_panic::<IsUsingType>(p).is_trading()
+    if let Some(entity) = storage.player_ids.borrow().get(entity) {
+        if !world.get_or_err::<DeathType>(entity)?.is_alive()
+            || !world.get_or_err::<IsUsingType>(entity)?.is_trading()
         {
             return Ok(());
         }
 
         let _target_entity =
-            if let IsUsingType::Trading(entity) = world.get_or_panic::<IsUsingType>(p) {
+            if let IsUsingType::Trading(entity) = world.get_or_err::<IsUsingType>(entity)? {
                 entity
             } else {
                 return Ok(());
@@ -1316,9 +1264,9 @@ pub fn handle_submittrade(
     _data: &mut ByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
-    if let Some(p) = storage.player_ids.borrow().get(entity) {
-        if !world.get_or_panic::<DeathType>(p).is_alive()
-            || !world.get_or_panic::<IsUsingType>(p).is_trading()
+    if let Some(entity) = storage.player_ids.borrow().get(entity) {
+        if !world.get_or_err::<DeathType>(entity)?.is_alive()
+            || !world.get_or_err::<IsUsingType>(entity)?.is_trading()
         {
             return Ok(());
         }

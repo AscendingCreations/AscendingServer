@@ -52,6 +52,8 @@ pub enum AscendingError {
     #[error(transparent)]
     HecsComponent(#[from] hecs::ComponentError),
     #[error(transparent)]
+    HecsQueryOne(#[from] hecs::QueryOneError),
+    #[error(transparent)]
     Rustls(#[from] rustls::Error),
     #[error(transparent)]
     TomlDe(#[from] toml::de::Error),

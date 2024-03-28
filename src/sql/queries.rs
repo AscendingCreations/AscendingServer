@@ -1,6 +1,7 @@
 use crate::{containers::*, gametypes::*, players::*, sql::integers::Shifting, sql::*};
 use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
-use hecs::World;
+use hecs::{NoSuchEntity, World};
+use log::error;
 use password_hash::SaltString;
 use sqlx::{FromRow, PgPool};
 use tokio::{runtime::Runtime, task};
@@ -125,8 +126,8 @@ pub fn new_player(
         String::from("FailedPasswordHash")
     };
 
-    let mut query = world.query_one::<PlayerQuery>(entity.0).unwrap();
-    let (
+    let mut query = world.query_one::<PlayerQuery>(entity.0)?;
+    let uid: (i64,) = if let Some((
         _account,
         socket,
         sprite,
@@ -141,9 +142,9 @@ pub fn new_player(
         death_type,
         level,
         player,
-    ) = query.get().unwrap();
-
-    let uid: (i64, ) = local.block_on(&rt,
+    )) = query.get()
+    {
+        local.block_on(&rt,
         sqlx::query_as(r#"
         INSERT INTO public.player(
             username, address, password, itemtimer, deathtimer, vals, spawn, pos, email, sprite, indeath, level, levelexp, resetcount, pk, data, vital, access)
@@ -168,10 +169,14 @@ pub fn new_player(
             .bind(vitals.vital)
             .bind(access)
             .fetch_one(&storage.pgconn),
-    )?;
+    )?
+    } else {
+        error!("missing components in new player");
+        return Err(AscendingError::HecNoEntity(NoSuchEntity));
+    };
 
     let inv_insert = PGInvItem::into_insert_all(PGInvItem::new(
-        &world.cloned_get_or_panic::<Inventory>(entity).items,
+        &world.get::<&Inventory>(entity.0)?.items,
         uid.0,
     ));
 
@@ -187,7 +192,7 @@ pub fn new_player(
     })?;
 
     let storage_insert = PGStorageItem::into_insert_all(PGStorageItem::new(
-        &world.cloned_get_or_panic::<PlayerStorage>(entity).items,
+        &world.get::<&PlayerStorage>(entity.0)?.items,
         uid.0,
     ));
 
@@ -203,7 +208,7 @@ pub fn new_player(
     })?;
 
     let equip_insert = PGEquipItem::into_insert_all(PGEquipItem::new(
-        &world.cloned_get_or_panic::<Equipment>(entity).items,
+        &world.get::<&Equipment>(entity.0)?.items,
         uid.0,
     ));
 
@@ -297,38 +302,37 @@ pub fn load_player(
 pub fn update_player(storage: &Storage, world: &mut World, entity: &crate::Entity) -> Result<()> {
     let rt = storage.rt.borrow_mut();
     let local = storage.local.borrow();
-    let mut query = world
-        .query_one::<(
-            &Account,
-            &PlayerItemTimer,
-            &Position,
-            &Vitals,
-            &DeathTimer,
-            &DeathType,
-            &Player,
-        )>(entity.0)
-        .unwrap();
-    let (account, itemtimer, position, vitals, death_timer, death_type, player) =
-        query.get().unwrap();
-
-    local.block_on(
-        &rt,
-        sqlx::query(
-            r#"
+    let mut query = world.query_one::<(
+        &Account,
+        &PlayerItemTimer,
+        &Position,
+        &Vitals,
+        &DeathTimer,
+        &DeathType,
+        &Player,
+    )>(entity.0)?;
+    if let Some((account, itemtimer, position, vitals, death_timer, death_type, player)) =
+        query.get()
+    {
+        local.block_on(
+            &rt,
+            sqlx::query(
+                r#"
         UPDATE public.player
         SET itemtimer=$2, deathtimer=$3, pos=$4, vital=$5, indeath=$6, pk=$7
         WHERE uid = $1;
     "#,
-        )
-        .bind(account.id)
-        .bind(itemtimer.itemtimer)
-        .bind(death_timer.0)
-        .bind(position)
-        .bind(vitals.vital)
-        .bind(death_type.is_spirit())
-        .bind(player.pk)
-        .execute(&storage.pgconn),
-    )?;
+            )
+            .bind(account.id)
+            .bind(itemtimer.itemtimer)
+            .bind(death_timer.0)
+            .bind(position)
+            .bind(vitals.vital)
+            .bind(death_type.is_spirit())
+            .bind(player.pk)
+            .execute(&storage.pgconn),
+        )?;
+    }
 
     Ok(())
 }
@@ -341,11 +345,13 @@ pub fn update_inv(
 ) -> Result<()> {
     let rt = storage.rt.borrow_mut();
     let local = storage.local.borrow();
-    let mut query = world.query_one::<(&Inventory, &Account)>(entity.0).unwrap();
-    let (inv, account) = query.get().unwrap();
-    let update = PGInvItem::single(&inv.items, account.id, slot).into_update();
+    let mut query = world.query_one::<(&Inventory, &Account)>(entity.0)?;
+    if let Some((inv, account)) = query.get() {
+        let update = PGInvItem::single(&inv.items, account.id, slot).into_update();
 
-    local.block_on(&rt, sqlx::query(&update).execute(&storage.pgconn))?;
+        local.block_on(&rt, sqlx::query(&update).execute(&storage.pgconn))?;
+    }
+
     Ok(())
 }
 
@@ -357,13 +363,13 @@ pub fn update_storage(
 ) -> Result<()> {
     let rt = storage.rt.borrow_mut();
     let local = storage.local.borrow();
-    let mut query = world
-        .query_one::<(&PlayerStorage, &Account)>(entity.0)
-        .unwrap();
-    let (player_storage, account) = query.get().unwrap();
-    let update = PGStorageItem::single(&player_storage.items, account.id, slot).into_update();
+    let mut query = world.query_one::<(&PlayerStorage, &Account)>(entity.0)?;
+    if let Some((player_storage, account)) = query.get() {
+        let update = PGStorageItem::single(&player_storage.items, account.id, slot).into_update();
 
-    local.block_on(&rt, sqlx::query(&update).execute(&storage.pgconn))?;
+        local.block_on(&rt, sqlx::query(&update).execute(&storage.pgconn))?;
+    }
+
     Ok(())
 }
 
@@ -375,11 +381,12 @@ pub fn update_equipment(
 ) -> Result<()> {
     let rt = storage.rt.borrow_mut();
     let local = storage.local.borrow();
-    let mut query = world.query_one::<(&Equipment, &Account)>(entity.0).unwrap();
-    let (equip, account) = query.get().unwrap();
-    let update = PGEquipItem::single(&equip.items, account.id, slot).into_update();
+    let mut query = world.query_one::<(&Equipment, &Account)>(entity.0)?;
+    if let Some((equip, account)) = query.get() {
+        let update = PGEquipItem::single(&equip.items, account.id, slot).into_update();
 
-    local.block_on(&rt, sqlx::query(&update).execute(&storage.pgconn))?;
+        local.block_on(&rt, sqlx::query(&update).execute(&storage.pgconn))?;
+    }
 
     Ok(())
 }
@@ -387,22 +394,22 @@ pub fn update_equipment(
 pub fn update_address(storage: &Storage, world: &mut World, entity: &crate::Entity) -> Result<()> {
     let rt = storage.rt.borrow_mut();
     let local = storage.local.borrow();
-    let mut query = world.query_one::<(&Account, &Socket)>(entity.0).unwrap();
-    let (account, socket) = query.get().unwrap();
-
-    local.block_on(
-        &rt,
-        sqlx::query(
-            r#"
+    let mut query = world.query_one::<(&Account, &Socket)>(entity.0)?;
+    if let Some((account, socket)) = query.get() {
+        local.block_on(
+            &rt,
+            sqlx::query(
+                r#"
                 UPDATE public.player
                 SET address=$2
                 WHERE uid = $1;
             "#,
-        )
-        .bind(account.id)
-        .bind(&socket.addr)
-        .execute(&storage.pgconn),
-    )?;
+            )
+            .bind(account.id)
+            .bind(&socket.addr)
+            .execute(&storage.pgconn),
+        )?;
+    }
 
     Ok(())
 }
@@ -414,24 +421,22 @@ pub fn update_playerdata(
 ) -> Result<()> {
     let rt = storage.rt.borrow_mut();
     let local = storage.local.borrow();
-    let mut query = world
-        .query_one::<(&Account, &EntityData)>(entity.0)
-        .unwrap();
-    let (account, entity_data) = query.get().unwrap();
-
-    local.block_on(
-        &rt,
-        sqlx::query(
-            r#"
+    let mut query = world.query_one::<(&Account, &EntityData)>(entity.0)?;
+    if let Some((account, entity_data)) = query.get() {
+        local.block_on(
+            &rt,
+            sqlx::query(
+                r#"
                 UPDATE public.player
                 SET data=$2
                 WHERE uid = $1;
             "#,
-        )
-        .bind(account.id)
-        .bind(entity_data.0)
-        .execute(&storage.pgconn),
-    )?;
+            )
+            .bind(account.id)
+            .bind(entity_data.0)
+            .execute(&storage.pgconn),
+        )?;
+    }
 
     Ok(())
 }
@@ -454,7 +459,7 @@ pub fn update_passreset(
                 WHERE uid = $1;
             "#,
         )
-        .bind(world.get::<&Account>(entity.0).unwrap().id)
+        .bind(world.get::<&Account>(entity.0)?.id)
         .bind(resetpassword)
         .execute(&storage.pgconn),
     )?;
@@ -465,22 +470,22 @@ pub fn update_passreset(
 pub fn update_spawn(storage: &Storage, world: &mut World, entity: &crate::Entity) -> Result<()> {
     let rt = storage.rt.borrow_mut();
     let local = storage.local.borrow();
-    let mut query = world.query_one::<(&Account, &Spawn)>(entity.0).unwrap();
-    let (account, spawn) = query.get().unwrap();
-
-    local.block_on(
-        &rt,
-        sqlx::query(
-            r#"
+    let mut query = world.query_one::<(&Account, &Spawn)>(entity.0)?;
+    if let Some((account, spawn)) = query.get() {
+        local.block_on(
+            &rt,
+            sqlx::query(
+                r#"
                 UPDATE public.player
                 SET spawn=$2
                 WHERE uid = $1;
             "#,
-        )
-        .bind(account.id)
-        .bind(spawn.pos)
-        .execute(&storage.pgconn),
-    )?;
+            )
+            .bind(account.id)
+            .bind(spawn.pos)
+            .execute(&storage.pgconn),
+        )?;
+    }
 
     Ok(())
 }
@@ -488,22 +493,22 @@ pub fn update_spawn(storage: &Storage, world: &mut World, entity: &crate::Entity
 pub fn update_pos(storage: &Storage, world: &mut World, entity: &crate::Entity) -> Result<()> {
     let rt = storage.rt.borrow_mut();
     let local = storage.local.borrow();
-    let mut query = world.query_one::<(&Account, &Position)>(entity.0).unwrap();
-    let (account, position) = query.get().unwrap();
-
-    local.block_on(
-        &rt,
-        sqlx::query(
-            r#"
+    let mut query = world.query_one::<(&Account, &Position)>(entity.0)?;
+    if let Some((account, position)) = query.get() {
+        local.block_on(
+            &rt,
+            sqlx::query(
+                r#"
                 UPDATE public.player
                 SET pos=$2
                 WHERE uid = $1;
             "#,
-        )
-        .bind(account.id)
-        .bind(position)
-        .execute(&storage.pgconn),
-    )?;
+            )
+            .bind(account.id)
+            .bind(position)
+            .execute(&storage.pgconn),
+        )?;
+    }
 
     Ok(())
 }
@@ -511,22 +516,22 @@ pub fn update_pos(storage: &Storage, world: &mut World, entity: &crate::Entity) 
 pub fn update_currency(storage: &Storage, world: &mut World, entity: &crate::Entity) -> Result<()> {
     let rt = storage.rt.borrow_mut();
     let local = storage.local.borrow();
-    let mut query = world.query_one::<(&Account, &Money)>(entity.0).unwrap();
-    let (account, money) = query.get().unwrap();
-
-    local.block_on(
-        &rt,
-        sqlx::query(
-            r#"
+    let mut query = world.query_one::<(&Account, &Money)>(entity.0)?;
+    if let Some((account, money)) = query.get() {
+        local.block_on(
+            &rt,
+            sqlx::query(
+                r#"
                 UPDATE public.player
                 SET vals=$2
                 WHERE uid = $1;
             "#,
-        )
-        .bind(account.id)
-        .bind(i64::unshift_signed(&money.vals))
-        .execute(&storage.pgconn),
-    )?;
+            )
+            .bind(account.id)
+            .bind(i64::unshift_signed(&money.vals))
+            .execute(&storage.pgconn),
+        )?;
+    }
 
     Ok(())
 }
@@ -534,26 +539,24 @@ pub fn update_currency(storage: &Storage, world: &mut World, entity: &crate::Ent
 pub fn update_level(storage: &Storage, world: &mut World, entity: &crate::Entity) -> Result<()> {
     let rt = storage.rt.borrow_mut();
     let local = storage.local.borrow();
-    let mut query = world
-        .query_one::<(&Account, &Level, &Player, &Vitals)>(entity.0)
-        .unwrap();
-    let (account, level, player, vitals) = query.get().unwrap();
-
-    local.block_on(
-        &rt,
-        sqlx::query(
-            r#"
+    let mut query = world.query_one::<(&Account, &Level, &Player, &Vitals)>(entity.0)?;
+    if let Some((account, level, player, vitals)) = query.get() {
+        local.block_on(
+            &rt,
+            sqlx::query(
+                r#"
                 UPDATE public.player
                 SET level=$2, levelexp=$3, vital=$4
                 WHERE uid = $1;
             "#,
-        )
-        .bind(account.id)
-        .bind(level.0)
-        .bind(i64::unshift_signed(&player.levelexp))
-        .bind(vitals.vital)
-        .execute(&storage.pgconn),
-    )?;
+            )
+            .bind(account.id)
+            .bind(level.0)
+            .bind(i64::unshift_signed(&player.levelexp))
+            .bind(vitals.vital)
+            .execute(&storage.pgconn),
+        )?;
+    }
 
     Ok(())
 }
@@ -565,22 +568,22 @@ pub fn update_resetcount(
 ) -> Result<()> {
     let rt = storage.rt.borrow_mut();
     let local = storage.local.borrow();
-    let mut query = world.query_one::<(&Account, &Player)>(entity.0).unwrap();
-    let (account, player) = query.get().unwrap();
-
-    local.block_on(
-        &rt,
-        sqlx::query(
-            r#"
+    let mut query = world.query_one::<(&Account, &Player)>(entity.0)?;
+    if let Some((account, player)) = query.get() {
+        local.block_on(
+            &rt,
+            sqlx::query(
+                r#"
                 UPDATE public.player
                 SET resetcount=$2
                 WHERE uid = $1;
             "#,
-        )
-        .bind(account.id)
-        .bind(player.resetcount)
-        .execute(&storage.pgconn),
-    )?;
+            )
+            .bind(account.id)
+            .bind(player.resetcount)
+            .execute(&storage.pgconn),
+        )?;
+    }
 
     Ok(())
 }

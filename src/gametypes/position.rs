@@ -53,7 +53,6 @@ impl<'q> sqlx::Encode<'q, Postgres> for Position {
             .encode(self.map)
             .finish();
 
-
         sqlx::encode::IsNull::No
     }
 }
@@ -84,7 +83,7 @@ impl Position {
 
     pub fn map_offset(&self, dir: MapPosDir) -> Position {
         match dir {
-            MapPosDir::UpLeft => Position::new( 
+            MapPosDir::UpLeft => Position::new(
                 self.x - MAP_MAX_X as i32,
                 self.y + MAP_MAX_Y as i32,
                 self.map,

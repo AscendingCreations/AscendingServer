@@ -133,11 +133,9 @@ fn build_tls_config(certs_path: &str, key_path: &str) -> Result<Arc<rustls::Serv
         }
         .into(),
     )
-    .with_protocol_versions(rustls::ALL_VERSIONS)
-    .expect("inconsistent cipher-suites/versions specified")
+    .with_protocol_versions(rustls::ALL_VERSIONS)?
     .with_client_cert_verifier(client_auth)
-    .with_single_cert(certs, private_key)
-    .expect("bad certificates/private key");
+    .with_single_cert(certs, private_key)?;
 
     Ok(Arc::new(config))
 }
@@ -346,21 +344,19 @@ impl Storage {
         )?;
 
         if !npcdata.behaviour.is_friendly() {
-            world
-                .insert(
-                    identity,
-                    (
-                        NpcHitBy::default(),
-                        Target::default(),
-                        AttackTimer::default(),
-                        DeathTimer::default(),
-                        Combat::default(),
-                        Stunned::default(),
-                        Attacking::default(),
-                        InCombat::default(),
-                    ),
-                )
-                .expect("Failed to add additional NPC Data");
+            world.insert(
+                identity,
+                (
+                    NpcHitBy::default(),
+                    Target::default(),
+                    AttackTimer::default(),
+                    DeathTimer::default(),
+                    Combat::default(),
+                    Stunned::default(),
+                    Attacking::default(),
+                    InCombat::default(),
+                ),
+            )?;
         }
         world.insert_one(identity, EntityType::Npc(Entity(identity)))?;
 
@@ -370,7 +366,7 @@ impl Storage {
     }
 
     pub fn remove_npc(&self, world: &mut World, id: Entity) -> Option<Position> {
-        let ret: Position = world.cloned_get_or_panic::<Position>(&id);
+        let ret: Position = world.get_or_err::<Position>(&id).ok()?;
         //Removes Everything related to the Entity.
         let _ = world.despawn(id.0);
         self.npc_ids.borrow_mut().swap_remove(&id);

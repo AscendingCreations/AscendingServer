@@ -57,7 +57,11 @@ pub fn is_npc_same(from_entity: &crate::Entity, to_entity: &crate::Entity) -> bo
 }
 
 #[inline(always)]
-pub fn npc_set_move_path(world: &mut World, entity: &crate::Entity, path: VecDeque<(Position, u8)>) {
+pub fn npc_set_move_path(
+    world: &mut World,
+    entity: &crate::Entity,
+    path: VecDeque<(Position, u8)>,
+) {
     world
         .get::<&mut NpcMoves>(entity.0)
         .expect("Could not find NpcMoves")
@@ -82,16 +86,23 @@ pub fn npc_clear_move_path(world: &mut World, entity: &crate::Entity) {
 }
 
 #[inline(always)]
-pub fn set_npc_dir(world: &mut World, storage: &Storage, entity: &crate::Entity, dir: u8) {
-    if world.get_or_panic::<Dir>(entity).0 != dir {
+pub fn set_npc_dir(
+    world: &mut World,
+    storage: &Storage,
+    entity: &crate::Entity,
+    dir: u8,
+) -> Result<()> {
+    if world.get_or_err::<Dir>(entity)?.0 != dir {
         world
             .get::<&mut Dir>(entity.0)
             .expect("Could not find Dir")
             .0 = dir;
 
-        let _ = DataTaskToken::NpcDir(world.get_or_panic::<Position>(entity).map)
+        let _ = DataTaskToken::NpcDir(world.get_or_err::<Position>(entity)?.map)
             .add_task(storage, &DirPacket::new(*entity, dir));
     }
+
+    Ok(())
 }
 
 #[inline(always)]
@@ -100,8 +111,8 @@ pub fn npc_switch_maps(
     storage: &Storage,
     entity: &crate::Entity,
     new_pos: Position,
-) -> Position {
-    let npc_position = world.get_or_panic::<Position>(entity);
+) -> Result<Position> {
+    let npc_position = world.get_or_err::<Position>(entity)?;
 
     let old_position = npc_position;
 
@@ -110,7 +121,7 @@ pub fn npc_switch_maps(
         map.remove_npc(*entity);
         map.remove_entity_from_grid(npc_position);
     } else {
-        return old_position;
+        return Ok(old_position);
     }
 
     if let Some(mapref) = storage.maps.get(&new_pos.map) {
@@ -118,14 +129,14 @@ pub fn npc_switch_maps(
         map.add_npc(*entity);
         map.add_entity_to_grid(new_pos);
     } else {
-        return old_position;
+        return Ok(old_position);
     }
 
     *world
         .get::<&mut Position>(entity.0)
         .expect("Could not find Position") = new_pos;
 
-    old_position
+    Ok(old_position)
 }
 
 #[inline(always)]
@@ -134,8 +145,8 @@ pub fn npc_swap_pos(
     storage: &Storage,
     entity: &crate::Entity,
     pos: Position,
-) -> Position {
-    let oldpos = world.get_or_panic::<Position>(entity);
+) -> Result<Position> {
+    let oldpos = world.get_or_err::<Position>(entity)?;
     if oldpos != pos {
         *world
             .get::<&mut Position>(entity.0)
@@ -143,29 +154,30 @@ pub fn npc_swap_pos(
 
         let mut map = match storage.maps.get(&oldpos.map) {
             Some(map) => map,
-            None => return oldpos,
+            None => return Ok(oldpos),
         }
         .borrow_mut();
         map.remove_entity_from_grid(oldpos);
         map.add_entity_to_grid(pos);
     }
-    oldpos
+
+    Ok(oldpos)
 }
 
-pub fn npc_getx(world: &mut World, entity: &crate::Entity) -> i32 {
-    world.get_or_panic::<Position>(entity).x
+pub fn npc_getx(world: &mut World, entity: &crate::Entity) -> Result<i32> {
+    Ok(world.get_or_err::<Position>(entity)?.x)
 }
 
-pub fn npc_gety(world: &mut World, entity: &crate::Entity) -> i32 {
-    world.get_or_panic::<Position>(entity).y
+pub fn npc_gety(world: &mut World, entity: &crate::Entity) -> Result<i32> {
+    Ok(world.get_or_err::<Position>(entity)?.y)
 }
 
-pub fn npc_getmap(world: &mut World, entity: &crate::Entity) -> MapPosition {
-    world.get_or_panic::<Position>(entity).map
+pub fn npc_getmap(world: &mut World, entity: &crate::Entity) -> Result<MapPosition> {
+    Ok(world.get_or_err::<Position>(entity)?.map)
 }
 
-pub fn npc_gethp(world: &mut World, entity: &crate::Entity) -> i32 {
-    world.get_or_panic::<Vitals>(entity).vital[VitalTypes::Hp as usize]
+pub fn npc_gethp(world: &mut World, entity: &crate::Entity) -> Result<i32> {
+    Ok(world.get_or_err::<Vitals>(entity)?.vital[VitalTypes::Hp as usize])
 }
 
 pub fn npc_setx(world: &mut World, entity: &crate::Entity, x: i32) {

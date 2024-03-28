@@ -1,4 +1,6 @@
-use crate::{containers::Storage, gametypes::*, maps::*, players::*, socket::*, tasks::DataTaskToken};
+use crate::{
+    containers::Storage, gametypes::*, maps::*, players::*, socket::*, tasks::DataTaskToken,
+};
 use hecs::World;
 use mio::{net::TcpStream, Interest};
 use std::io::{self, Read, Write};
@@ -113,10 +115,10 @@ impl Client {
     }
 
     #[inline]
-    pub fn set_to_closing(&mut self, storage: &Storage) {
+    pub fn set_to_closing(&mut self, storage: &Storage) -> Result<()> {
         self.state = ClientState::Closing;
         self.poll_state.add(SocketPollState::Write);
-        self.reregister(&storage.poll.borrow_mut()).unwrap();
+        self.reregister(&storage.poll.borrow_mut())
     }
 
     #[inline]
@@ -313,7 +315,7 @@ pub fn send_to_maps(
     position: MapPosition,
     buf: ByteBuffer,
     avoidindex: Option<Entity>,
-) {
+) -> Result<()> {
     for m in get_surrounding(position, true) {
         let map = match storage.maps.get(&m) {
             Some(map) => map,
@@ -326,9 +328,7 @@ pub fn send_to_maps(
                 continue;
             }
 
-            let (status, socket) = world
-                .query_one_mut::<(&OnlineType, &Socket)>(entity.0)
-                .unwrap();
+            let (status, socket) = world.query_one_mut::<(&OnlineType, &Socket)>(entity.0)?;
 
             if *status == OnlineType::Online {
                 if let Some(client) = storage.server.borrow().clients.get(&mio::Token(socket.id)) {
@@ -339,6 +339,8 @@ pub fn send_to_maps(
             }
         }
     }
+
+    Ok(())
 }
 
 //Example code for querying.

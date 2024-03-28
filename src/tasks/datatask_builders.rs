@@ -137,23 +137,23 @@ pub struct NpcSpawnPacket {
 }
 
 impl NpcSpawnPacket {
-    pub fn new(world: &mut World, entity: &Entity, did_spawn: bool) -> Self {
-        Self {
-            dir: world.get_or_panic::<Dir>(entity).0,
-            hidden: world.get_or_panic::<Hidden>(entity).0,
+    pub fn new(world: &mut World, entity: &Entity, did_spawn: bool) -> Result<Self> {
+        Ok(Self {
+            dir: world.get_or_err::<Dir>(entity)?.0,
+            hidden: world.get_or_err::<Hidden>(entity)?.0,
             entity: *entity,
-            level: world.get_or_panic::<Level>(entity).0,
-            life: world.cloned_get_or_panic::<DeathType>(entity),
-            mode: world.cloned_get_or_panic::<NpcMode>(entity),
-            num: world.get_or_panic::<NpcIndex>(entity).0,
-            pdamage: world.get_or_panic::<Physical>(entity).damage,
-            pdefense: world.get_or_panic::<Physical>(entity).defense,
-            position: world.cloned_get_or_panic::<Position>(entity),
-            sprite: world.get_or_panic::<Sprite>(entity).id,
-            vital: world.get_or_panic::<Vitals>(entity).vital,
-            vitalmax: world.get_or_panic::<Vitals>(entity).vitalmax,
+            level: world.get_or_err::<Level>(entity)?.0,
+            life: world.get_or_err::<DeathType>(entity)?,
+            mode: world.get_or_err::<NpcMode>(entity)?,
+            num: world.get_or_err::<NpcIndex>(entity)?.0,
+            pdamage: world.get_or_err::<Physical>(entity)?.damage,
+            pdefense: world.get_or_err::<Physical>(entity)?.defense,
+            position: world.get_or_err::<Position>(entity)?,
+            sprite: world.get_or_err::<Sprite>(entity)?.id,
+            vital: world.get_or_err::<Vitals>(entity)?.vital,
+            vitalmax: world.get_or_err::<Vitals>(entity)?.vitalmax,
             did_spawn,
-        }
+        })
     }
 }
 
@@ -180,28 +180,28 @@ pub struct PlayerSpawnPacket {
 }
 
 impl PlayerSpawnPacket {
-    pub fn new(world: &mut World, entity: &Entity, did_spawn: bool) -> Self {
-        Self {
-            username: world.get::<&Account>(entity.0).unwrap().username.clone(),
-            dir: world.get_or_panic::<Dir>(entity).0,
-            hidden: world.get_or_panic::<Hidden>(entity).0,
+    pub fn new(world: &mut World, entity: &Entity, did_spawn: bool) -> Result<Self> {
+        Ok(Self {
+            username: world.get::<&Account>(entity.0)?.username.clone(),
+            dir: world.get_or_err::<Dir>(entity)?.0,
+            hidden: world.get_or_err::<Hidden>(entity)?.0,
             entity: *entity,
-            level: world.get_or_panic::<Level>(entity).0,
-            life: world.cloned_get_or_panic::<DeathType>(entity),
-            pdamage: world.get_or_panic::<Physical>(entity).damage,
-            pdefense: world.get_or_panic::<Physical>(entity).defense,
-            position: world.cloned_get_or_panic::<Position>(entity),
-            sprite: world.get_or_panic::<Sprite>(entity).id as u8,
-            vital: world.get_or_panic::<Vitals>(entity).vital,
-            vitalmax: world.get_or_panic::<Vitals>(entity).vitalmax,
-            access: world.cloned_get_or_panic::<UserAccess>(entity),
+            level: world.get_or_err::<Level>(entity)?.0,
+            life: world.get_or_err::<DeathType>(entity)?,
+            pdamage: world.get_or_err::<Physical>(entity)?.damage,
+            pdefense: world.get_or_err::<Physical>(entity)?.defense,
+            position: world.get_or_err::<Position>(entity)?,
+            sprite: world.get_or_err::<Sprite>(entity)?.id as u8,
+            vital: world.get_or_err::<Vitals>(entity)?.vital,
+            vitalmax: world.get_or_err::<Vitals>(entity)?.vitalmax,
+            access: world.get_or_err::<UserAccess>(entity)?,
             equip: Equipment {
-                items: world.get::<&Equipment>(entity.0).unwrap().items.clone(),
+                items: world.get::<&Equipment>(entity.0)?.items.clone(),
             },
-            pk: world.get_or_panic::<Player>(entity).pk,
-            pvpon: world.get_or_panic::<Player>(entity).pvpon,
+            pk: world.get_or_err::<Player>(entity)?.pk,
+            pvpon: world.get_or_err::<Player>(entity)?.pvpon,
             did_spawn,
-        }
+        })
     }
 }
 

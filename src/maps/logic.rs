@@ -102,7 +102,7 @@ pub fn update_maps(world: &mut World, storage: &Storage) -> Result<()> {
                     if let Ok(id) = storage.add_npc(world, npc_id) {
                         data.add_npc(id);
                         data.zones[zone] = data.zones[zone].saturating_add(1);
-                        spawn_npc(world, spawn, Some(zone), id);
+                        spawn_npc(world, spawn, Some(zone), id)?;
                     }
                 }
             }
@@ -158,21 +158,16 @@ pub fn create_mapitem(index: u32, value: u16, pos: Position) -> MapItem {
     }
 }
 
-pub fn spawn_npc(world: &mut World, pos: Position, zone: Option<usize>, entity: Entity) {
-    {
-        *world
-            .get::<&mut Position>(entity.0)
-            .expect("Could not find Position") = pos;
-        world
-            .get::<&mut Spawn>(entity.0)
-            .expect("Could not find Spawn")
-            .pos = pos;
-        world
-            .get::<&mut NpcSpawnedZone>(entity.0)
-            .expect("Could not find NpcSpawnedZone")
-            .0 = zone;
-        *world
-            .get::<&mut DeathType>(entity.0)
-            .expect("Could not find DeathType") = DeathType::Spawning;
-    }
+pub fn spawn_npc(
+    world: &mut World,
+    pos: Position,
+    zone: Option<usize>,
+    entity: Entity,
+) -> Result<()> {
+    *world.get::<&mut Position>(entity.0)? = pos;
+    world.get::<&mut Spawn>(entity.0)?.pos = pos;
+    world.get::<&mut NpcSpawnedZone>(entity.0)?.0 = zone;
+    *world.get::<&mut DeathType>(entity.0)? = DeathType::Spawning;
+
+    Ok(())
 }

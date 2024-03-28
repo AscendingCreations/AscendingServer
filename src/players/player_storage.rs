@@ -3,9 +3,14 @@ use hecs::World;
 use crate::{containers::*, gametypes::*, items::*, players::*, socket::*, sql::*};
 
 #[inline]
-pub fn save_storage_item(world: &mut World, storage: &Storage, entity: &Entity, slot: usize) {
-    let _ = update_storage(storage, world, entity, slot);
-    let _ = send_storageslot(world, storage, entity, slot);
+pub fn save_storage_item(
+    world: &mut World,
+    storage: &Storage,
+    entity: &Entity,
+    slot: usize,
+) -> Result<()> {
+    update_storage(storage, world, entity, slot)?;
+    send_storageslot(world, storage, entity, slot)
 }
 
 #[inline]
@@ -48,14 +53,12 @@ pub fn auto_set_storage_item(
     entity: &crate::Entity,
     item: &mut Item,
     base: &ItemData,
-) -> u16 {
+) -> Result<u16> {
     let mut rem = 0u16;
     let mut save_item_list = Vec::new();
 
     {
-        let mut player_storage = world
-            .get::<&mut PlayerStorage>(entity.0)
-            .expect("Could not find PlayerStorage");
+        let mut player_storage = world.get::<&mut PlayerStorage>(entity.0)?;
         while let Some(slot) = find_storage_slot(item, &player_storage.items, base) {
             if player_storage.items[slot].val == 0 {
                 player_storage.items[slot] = *item;
@@ -77,11 +80,11 @@ pub fn auto_set_storage_item(
         }
     }
 
-    save_item_list.iter().for_each(|slot| {
-        save_storage_item(world, storage, entity, *slot);
-    });
+    for slot in save_item_list.iter() {
+        save_storage_item(world, storage, entity, *slot)?;
+    }
 
-    rem
+    Ok(rem)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -94,30 +97,23 @@ pub fn set_storage_item(
     base: &ItemData,
     slot: usize,
     amount: u16,
-) -> u16 {
-    let player_storage = world.cloned_get_or_panic::<PlayerStorage>(entity);
+) -> Result<u16> {
+    let player_storage = world.cloned_get_or_err::<PlayerStorage>(entity)?;
 
     let mut rem = 0u16;
     let mut item_min = std::cmp::min(amount, item.val);
 
     if player_storage.items[slot].val == 0 {
         {
-            world
-                .get::<&mut PlayerStorage>(entity.0)
-                .expect("Could not find PlayerStorage")
-                .items[slot] = *item;
-            world
-                .get::<&mut PlayerStorage>(entity.0)
-                .expect("Could not find PlayerStorage")
-                .items[slot]
-                .val = item_min;
+            let mut storage = world.get::<&mut PlayerStorage>(entity.0)?;
+
+            storage.items[slot] = *item;
+            storage.items[slot].val = item_min;
         }
         item.val = item.val.saturating_sub(item_min);
-        save_storage_item(world, storage, entity, slot);
-        return 0;
-    }
-
-    if player_storage.items[slot].num == item.num {
+        save_storage_item(world, storage, entity, slot)?;
+        return Ok(0);
+    } else if player_storage.items[slot].num == item.num {
         let mut playerstorage_val = player_storage.items[slot].val;
         item_min = val_add_amount_rem(
             &mut playerstorage_val,
@@ -126,13 +122,13 @@ pub fn set_storage_item(
             base.stacklimit,
         );
 
-        save_storage_item(world, storage, entity, slot);
+        save_storage_item(world, storage, entity, slot)?;
 
         if item_min > 0 {
             let mut itemtemp = *item;
             itemtemp.val = item_min;
 
-            rem = auto_set_storage_item(world, storage, entity, &mut itemtemp, base);
+            rem = auto_set_storage_item(world, storage, entity, &mut itemtemp, base)?;
 
             if rem < item_min {
                 item.val = item.val.saturating_sub(item_min.saturating_sub(rem));
@@ -140,7 +136,7 @@ pub fn set_storage_item(
         }
     }
 
-    rem
+    Ok(rem)
 }
 
 #[inline]
@@ -149,7 +145,7 @@ pub fn give_storage_item(
     storage: &Storage,
     entity: &crate::Entity,
     item: &mut Item,
-) -> u16 {
+) -> Result<u16> {
     let base = &storage.bases.items[item.num as usize];
 
     auto_set_storage_item(world, storage, entity, item, base)
@@ -163,12 +159,10 @@ pub fn set_storage_slot(
     item: &mut Item,
     slot: usize,
     amount: u16,
-) -> Option<u16> {
+) -> Result<u16> {
     let base = &storage.bases.items[item.num as usize];
 
-    Some(set_storage_item(
-        world, storage, entity, item, base, slot, amount,
-    ))
+    set_storage_item(world, storage, entity, item, base, slot, amount)
 }
 
 #[inline]
@@ -178,29 +172,26 @@ pub fn take_storage_items(
     entity: &crate::Entity,
     num: u32,
     mut amount: u16,
-) -> u16 {
-    let player_storage = world.cloned_get_or_panic::<PlayerStorage>(entity);
+) -> Result<u16> {
+    let player_storage = world.cloned_get_or_err::<PlayerStorage>(entity)?;
 
     if count_storage_item(num, &player_storage.items) >= amount as u64 {
         while let Some(slot) = find_storage_item(num, &player_storage.items) {
             {
-                world
-                    .get::<&mut PlayerStorage>(entity.0)
-                    .expect("Could not find PlayerStorage")
-                    .items[slot]
-                    .val = player_storage.items[slot].val.saturating_sub(amount);
+                world.get::<&mut PlayerStorage>(entity.0)?.items[slot].val =
+                    player_storage.items[slot].val.saturating_sub(amount);
             }
             amount = player_storage.items[slot].val;
 
-            save_storage_item(world, storage, entity, slot);
+            save_storage_item(world, storage, entity, slot)?;
 
             if amount == 0 {
-                return 0;
+                return Ok(0);
             }
         }
     }
 
-    amount
+    Ok(amount)
 }
 
 #[inline]
@@ -210,8 +201,8 @@ pub fn take_storage_itemslot(
     entity: &crate::Entity,
     slot: usize,
     mut amount: u16,
-) -> u16 {
-    let player_storage = world.cloned_get_or_panic::<PlayerStorage>(entity);
+) -> Result<u16> {
+    let player_storage = world.cloned_get_or_err::<PlayerStorage>(entity)?;
     amount = std::cmp::min(amount, player_storage.items[slot].val);
     {
         if let Ok(mut player_storage) = world.get::<&mut PlayerStorage>(entity.0) {
@@ -221,7 +212,7 @@ pub fn take_storage_itemslot(
             }
         }
     }
-    save_storage_item(world, storage, entity, slot);
+    save_storage_item(world, storage, entity, slot)?;
 
-    world.cloned_get_or_panic::<PlayerStorage>(entity).items[slot].val
+    Ok(world.get::<&PlayerStorage>(entity.0)?.items[slot].val)
 }

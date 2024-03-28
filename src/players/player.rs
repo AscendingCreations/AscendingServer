@@ -92,15 +92,11 @@ pub struct Player {
     pub movesavecount: u16,
 }
 
-pub fn is_player_online(world: &mut World, entity: &crate::Entity) -> bool {
-    *world
-        .get::<&WorldEntityType>(entity.0)
-        .expect("Could not find WorldEntityType")
-        == WorldEntityType::Player
-        && *world
-            .get::<&OnlineType>(entity.0)
-            .expect("Could not find WorldEntityType")
-            == OnlineType::Online
+pub fn is_player_online(world: &mut World, entity: &crate::Entity) -> Result<bool> {
+    Ok(
+        *world.get::<&WorldEntityType>(entity.0)? == WorldEntityType::Player
+            && *world.get::<&OnlineType>(entity.0)? == OnlineType::Online,
+    )
 }
 
 #[inline(always)]
@@ -109,8 +105,8 @@ pub fn player_switch_maps(
     storage: &Storage,
     entity: &crate::Entity,
     new_pos: Position,
-) -> Position {
-    let player_position = world.get_or_panic::<Position>(entity);
+) -> Result<Position> {
+    let player_position = world.get_or_err::<Position>(entity)?;
 
     let old_position = player_position;
 
@@ -119,7 +115,7 @@ pub fn player_switch_maps(
         map.remove_player(storage, *entity);
         map.remove_entity_from_grid(player_position);
     } else {
-        return old_position;
+        return Ok(old_position);
     }
 
     if let Some(mapref) = storage.maps.get(&new_pos.map) {
@@ -127,14 +123,12 @@ pub fn player_switch_maps(
         map.add_player(storage, *entity);
         map.add_entity_to_grid(new_pos);
     } else {
-        return old_position;
+        return Ok(old_position);
     }
 
-    *world
-        .get::<&mut Position>(entity.0)
-        .expect("Could not find Position") = new_pos;
+    *world.get::<&mut Position>(entity.0)? = new_pos;
 
-    old_position
+    Ok(old_position)
 }
 
 #[inline(always)]
@@ -143,12 +137,10 @@ pub fn player_swap_pos(
     storage: &Storage,
     entity: &crate::Entity,
     pos: Position,
-) -> Position {
-    let mut query = world
-        .query_one::<&mut Position>(entity.0)
-        .expect("player_swap_pos could not find query");
+) -> Result<Position> {
+    let mut query = world.query_one::<&mut Position>(entity.0)?;
 
-    if let Some(player_position) = query.get() {
+    Ok(if let Some(player_position) = query.get() {
         let old_position = *player_position;
 
         if old_position != pos {
@@ -156,7 +148,7 @@ pub fn player_swap_pos(
 
             let mut map = match storage.maps.get(&old_position.map) {
                 Some(map) => map,
-                None => return old_position,
+                None => return Ok(old_position),
             }
             .borrow_mut();
             map.remove_entity_from_grid(old_position);
@@ -166,15 +158,13 @@ pub fn player_swap_pos(
         old_position
     } else {
         Position::default()
-    }
+    })
 }
 
-pub fn player_add_up_vital(world: &mut World, entity: &crate::Entity, vital: usize) -> i32 {
-    let mut query = world
-        .query_one::<&mut Vitals>(entity.0)
-        .expect("player_add_up_vital could not find query");
+pub fn player_add_up_vital(world: &mut World, entity: &crate::Entity, vital: usize) -> Result<i32> {
+    let mut query = world.query_one::<&mut Vitals>(entity.0)?;
 
-    if let Some(player_vital) = query.get() {
+    Ok(if let Some(player_vital) = query.get() {
         let hp = player_vital.vitalmax[vital].saturating_add(player_vital.vitalbuffs[vital]);
 
         if hp.is_negative() || hp == 0 {
@@ -184,111 +174,108 @@ pub fn player_add_up_vital(world: &mut World, entity: &crate::Entity, vital: usi
         }
     } else {
         1
-    }
+    })
 }
 
 #[inline(always)]
-pub fn player_set_dir(world: &mut World, storage: &Storage, entity: &crate::Entity, dir: u8) {
-    let mut query = world
-        .query_one::<(&mut Dir, &Position)>(entity.0)
-        .expect("player_set_dir could not find query");
+pub fn player_set_dir(
+    world: &mut World,
+    storage: &Storage,
+    entity: &crate::Entity,
+    dir: u8,
+) -> Result<()> {
+    let mut query = world.query_one::<(&mut Dir, &Position)>(entity.0)?;
 
     if let Some((player_dir, player_position)) = query.get() {
         if player_dir.0 != dir {
             player_dir.0 = dir;
 
-            let _ = DataTaskToken::PlayerDir(player_position.map)
-                .add_task(storage, &DirPacket::new(*entity, dir));
+            DataTaskToken::PlayerDir(player_position.map)
+                .add_task(storage, &DirPacket::new(*entity, dir))?;
         }
     }
+
+    Ok(())
 }
 
-pub fn player_getx(world: &mut World, entity: &crate::Entity) -> i32 {
-    let mut query = world
-        .query_one::<&Position>(entity.0)
-        .expect("player_getx could not find query");
+pub fn player_getx(world: &mut World, entity: &crate::Entity) -> Result<i32> {
+    let mut query = world.query_one::<&Position>(entity.0)?;
 
-    if let Some(player_position) = query.get() {
+    Ok(if let Some(player_position) = query.get() {
         player_position.x
     } else {
         0
-    }
+    })
 }
 
-pub fn player_gety(world: &mut World, entity: &crate::Entity) -> i32 {
-    let mut query = world
-        .query_one::<&Position>(entity.0)
-        .expect("player_gety could not find query");
+pub fn player_gety(world: &mut World, entity: &crate::Entity) -> Result<i32> {
+    let mut query = world.query_one::<&Position>(entity.0)?;
 
-    if let Some(player_position) = query.get() {
+    Ok(if let Some(player_position) = query.get() {
         player_position.y
     } else {
         0
-    }
+    })
 }
 
-pub fn player_getmap(world: &mut World, entity: &crate::Entity) -> MapPosition {
-    let mut query = world
-        .query_one::<&Position>(entity.0)
-        .expect("player_getmap could not find query");
+pub fn player_getmap(world: &mut World, entity: &crate::Entity) -> Result<MapPosition> {
+    let mut query = world.query_one::<&Position>(entity.0)?;
 
-    if let Some(player_position) = query.get() {
+    Ok(if let Some(player_position) = query.get() {
         player_position.map
     } else {
         MapPosition::new(0, 0, 0)
-    }
+    })
 }
 
-pub fn player_gethp(world: &mut World, entity: &crate::Entity) -> i32 {
-    let mut query = world
-        .query_one::<&Vitals>(entity.0)
-        .expect("player_gethp could not find query");
+pub fn player_gethp(world: &mut World, entity: &crate::Entity) -> Result<i32> {
+    let mut query = world.query_one::<&Vitals>(entity.0)?;
 
-    if let Some(player_vital) = query.get() {
+    Ok(if let Some(player_vital) = query.get() {
         player_vital.vital[VitalTypes::Hp as usize]
     } else {
         0
-    }
+    })
 }
 
-pub fn player_setx(world: &mut World, entity: &crate::Entity, x: i32) {
-    let mut query = world
-        .query_one::<&mut Position>(entity.0)
-        .expect("player_setx could not find query");
+pub fn player_setx(world: &mut World, entity: &crate::Entity, x: i32) -> Result<()> {
+    let mut query = world.query_one::<&mut Position>(entity.0)?;
 
     if let Some(player_position) = query.get() {
         player_position.x = x;
     }
+
+    Ok(())
 }
 
-pub fn player_sety(world: &mut World, entity: &crate::Entity, y: i32) {
-    let mut query = world
-        .query_one::<&mut Position>(entity.0)
-        .expect("player_sety could not find query");
+pub fn player_sety(world: &mut World, entity: &crate::Entity, y: i32) -> Result<()> {
+    let mut query = world.query_one::<&mut Position>(entity.0)?;
 
     if let Some(player_position) = query.get() {
         player_position.y = y;
     }
+
+    Ok(())
 }
 
-pub fn player_setmap(world: &mut World, entity: &crate::Entity, map: MapPosition) {
-    let mut query = world
-        .query_one::<&mut Position>(entity.0)
-        .expect("player_setmap could not find query");
+pub fn player_setmap(world: &mut World, entity: &crate::Entity, map: MapPosition) -> Result<()> {
+    let mut query = world.query_one::<&mut Position>(entity.0)?;
 
     if let Some(player_position) = query.get() {
         player_position.map = map;
     }
+
+    Ok(())
 }
 
-pub fn player_sethp(world: &mut World, entity: &crate::Entity, hp: i32) {
-    let mut query = world
-        .query_one::<&mut Vitals>(entity.0)
-        .expect("player_sethp could not find query");
+pub fn player_sethp(world: &mut World, entity: &crate::Entity, hp: i32) -> Result<()> {
+    let mut query = world.query_one::<&mut Vitals>(entity.0)?;
 
     if let Some(player_vital) = query.get() {
         player_vital.vital[VitalTypes::Hp as usize] = hp;
     }
+
+    Ok(())
 }
 
 #[inline]
@@ -297,72 +284,67 @@ pub fn player_give_vals(
     storage: &Storage,
     entity: &crate::Entity,
     amount: u64,
-) -> u64 {
-    let player_money = world.get_or_panic::<Money>(entity);
+) -> Result<u64> {
+    let player_money = world.get_or_err::<Money>(entity)?;
     let rem = u64::MAX.saturating_sub(player_money.vals);
 
     if rem > 0 {
         let mut cur = amount;
         if rem >= cur {
             {
-                world
-                    .get::<&mut Money>(entity.0)
-                    .expect("Could not find Money")
-                    .vals = world.get_or_panic::<Money>(entity).vals.saturating_add(cur);
+                world.get::<&mut Money>(entity.0)?.vals =
+                    world.get_or_err::<Money>(entity)?.vals.saturating_add(cur);
             }
             cur = 0;
         } else {
             {
-                world
-                    .get::<&mut Money>(entity.0)
-                    .expect("Could not find Money")
-                    .vals = u64::MAX;
+                world.get::<&mut Money>(entity.0)?.vals = u64::MAX;
             }
             cur = cur.saturating_sub(rem);
         }
 
-        let _ = send_money(world, storage, entity);
-        let _ = update_currency(storage, world, entity);
-        let _ = send_fltalert(
+        send_money(world, storage, entity)?;
+        update_currency(storage, world, entity)?;
+        send_fltalert(
             storage,
-            world.get::<&Socket>(entity.0).unwrap().id,
+            world.get::<&Socket>(entity.0)?.id,
             format!("You Have Received {} Vals.", amount - cur),
             FtlType::Money,
-        );
-        return cur;
+        )?;
+        return Ok(cur);
     }
 
-    amount
+    Ok(amount)
 }
 
 #[inline]
-pub fn player_take_vals(world: &mut World, storage: &Storage, entity: &crate::Entity, amount: u64) {
+pub fn player_take_vals(
+    world: &mut World,
+    storage: &Storage,
+    entity: &crate::Entity,
+    amount: u64,
+) -> Result<()> {
     let mut cur = amount;
 
-    let player_money = world.get_or_panic::<Money>(entity);
+    let player_money = world.get_or_err::<Money>(entity)?;
     if player_money.vals >= cur {
         {
-            world
-                .get::<&mut Money>(entity.0)
-                .expect("Could not find Money")
-                .vals = world.get_or_panic::<Money>(entity).vals.saturating_sub(cur);
+            world.get::<&mut Money>(entity.0)?.vals =
+                world.get_or_err::<Money>(entity)?.vals.saturating_sub(cur);
         }
     } else {
         cur = player_money.vals;
         {
-            world
-                .get::<&mut Money>(entity.0)
-                .expect("Could not find Money")
-                .vals = 0;
+            world.get::<&mut Money>(entity.0)?.vals = 0;
         }
     }
 
-    let _ = send_money(world, storage, entity);
-    let _ = update_currency(storage, world, entity);
-    let _ = send_fltalert(
+    send_money(world, storage, entity)?;
+    update_currency(storage, world, entity)?;
+    send_fltalert(
         storage,
-        world.get::<&Socket>(entity.0).unwrap().id,
+        world.get::<&Socket>(entity.0)?.id,
         format!("You Lost {} Vals.", cur),
         FtlType::Money,
-    );
+    )
 }

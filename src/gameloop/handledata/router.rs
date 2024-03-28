@@ -13,7 +13,7 @@ pub fn handle_data(
 ) -> Result<()> {
     let id: ClientPacket = data.read()?;
 
-    let onlinetype = world.get_or_panic::<OnlineType>(entity);
+    let onlinetype = world.get_or_err::<OnlineType>(entity)?;
 
     match onlinetype {
         OnlineType::Online => match id {
@@ -32,11 +32,5 @@ pub fn handle_data(
         None => return Err(AscendingError::InvalidPacket),
     };
 
-    match fun(world, storage, data, entity) {
-        Ok(_) => Ok(()),
-        Err(e) => {
-            println!("Error {}", e);
-            Err(e)
-        }
-    }
+    fun(world, storage, data, entity)
 }
