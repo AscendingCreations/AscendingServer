@@ -4,3 +4,4 @@ target/
 *.lib
 out/
 *.txt
+./ServerLog.txt
