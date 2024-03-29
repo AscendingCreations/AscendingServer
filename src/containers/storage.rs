@@ -241,13 +241,13 @@ impl Storage {
             OnlineType::Accepted,
             Position::default(),
         ));
-        let _ = world.insert_one(identity, EntityType::Player(Entity(identity), 0));
+        world.insert_one(identity, EntityType::Player(Entity(identity), 0))?;
 
         Ok(Entity(identity))
     }
 
-    pub fn add_player_data(&self, world: &mut World, entity: &Entity) {
-        let _ = world.insert(
+    pub fn add_player_data(&self, world: &mut World, entity: &Entity) -> Result<()> {
+        world.insert(
             entity.0,
             (
                 Account::default(),
@@ -266,8 +266,8 @@ impl Storage {
                 AttackTimer::default(),
                 WorldEntityType::Player,
             ),
-        );
-        let _ = world.insert(
+        )?;
+        world.insert(
             entity.0,
             (
                 DeathTimer::default(),
@@ -286,98 +286,99 @@ impl Storage {
                 IsUsingType::default(),
                 PlayerTarget::default(),
             ),
-        );
-        let _ = world.insert(entity.0, (PlayerStorage::default(),));
+        )?;
+        world.insert(entity.0, (PlayerStorage::default(),))?;
         self.player_ids.borrow_mut().insert(*entity);
+        Ok(())
     }
 
-    pub fn remove_player(&self, world: &mut World, id: Entity) -> Option<(Socket, Position)> {
+    pub fn remove_player(&self, world: &mut World, id: Entity) -> Result<(Socket, Position)> {
         // only removes the Components in the Fisbone ::<>
-        let ret = world.remove::<(Socket, Position)>(id.0).ok();
-        let account = world.remove::<(Account,)>(id.0).ok();
-        //Removes Everything related to the Entity.
-        let _ = world.despawn(id.0);
+        let ret = world.remove::<(Socket, Position)>(id.0)?;
 
-        if let Some((account,)) = account {
+        if let Ok((account,)) = world.remove::<(Account,)>(id.0) {
             self.player_names.borrow_mut().remove(&account.username);
         }
+        //Removes Everything related to the Entity.
+        world.despawn(id.0)?;
 
         self.player_ids.borrow_mut().swap_remove(&id);
-        ret
+        Ok(ret)
     }
 
-    pub fn add_npc(&self, world: &mut World, npc_id: u64) -> Result<Entity> {
-        let npcdata = NpcData::load_npc(self, npc_id).expect("Cannot find NPC");
-
-        let identity = world.spawn((
-            WorldEntityType::Npc,
-            Position::default(),
-            NpcIndex::default(),
-            NpcTimer::default(),
-            NpcAITimer::default(),
-            NpcDespawns::default(),
-            NpcMoving::default(),
-            NpcRetreating::default(),
-            NpcWalkToSpawn::default(),
-            NpcMoves::default(),
-            NpcSpawnedZone::default(),
-            Dir::default(),
-            MoveTimer::default(),
-            EntityData::default(),
-            Sprite::default(),
-        ));
-        world.insert(
-            identity,
-            (
-                Spawn::default(),
-                NpcMode::Normal,
-                Hidden::default(),
-                Level::default(),
-                Vitals::default(),
-                Physical::default(),
-                DeathType::default(),
-                NpcMovePos::default(),
-                Target::default(),
-                InCombat::default(),
-                AttackTimer::default(),
-            ),
-        )?;
-
-        if !npcdata.behaviour.is_friendly() {
+    pub fn add_npc(&self, world: &mut World, npc_id: u64) -> Result<Option<Entity>> {
+        if let Some(npcdata) = NpcData::load_npc(self, npc_id) {
+            let identity = world.spawn((
+                WorldEntityType::Npc,
+                Position::default(),
+                NpcIndex::default(),
+                NpcTimer::default(),
+                NpcAITimer::default(),
+                NpcDespawns::default(),
+                NpcMoving::default(),
+                NpcRetreating::default(),
+                NpcWalkToSpawn::default(),
+                NpcMoves::default(),
+                NpcSpawnedZone::default(),
+                Dir::default(),
+                MoveTimer::default(),
+                EntityData::default(),
+                Sprite::default(),
+            ));
             world.insert(
                 identity,
                 (
-                    NpcHitBy::default(),
+                    Spawn::default(),
+                    NpcMode::Normal,
+                    Hidden::default(),
+                    Level::default(),
+                    Vitals::default(),
+                    Physical::default(),
+                    DeathType::default(),
+                    NpcMovePos::default(),
                     Target::default(),
-                    AttackTimer::default(),
-                    DeathTimer::default(),
-                    Combat::default(),
-                    Stunned::default(),
-                    Attacking::default(),
                     InCombat::default(),
+                    AttackTimer::default(),
                 ),
             )?;
+
+            if !npcdata.behaviour.is_friendly() {
+                world.insert(
+                    identity,
+                    (
+                        NpcHitBy::default(),
+                        Target::default(),
+                        AttackTimer::default(),
+                        DeathTimer::default(),
+                        Combat::default(),
+                        Stunned::default(),
+                        Attacking::default(),
+                        InCombat::default(),
+                    ),
+                )?;
+            }
+            world.insert_one(identity, EntityType::Npc(Entity(identity)))?;
+
+            self.npc_ids.borrow_mut().insert(Entity(identity));
+
+            Ok(Some(Entity(identity)))
+        } else {
+            Ok(None)
         }
-        world.insert_one(identity, EntityType::Npc(Entity(identity)))?;
-
-        self.npc_ids.borrow_mut().insert(Entity(identity));
-
-        Ok(Entity(identity))
     }
 
-    pub fn remove_npc(&self, world: &mut World, id: Entity) -> Option<Position> {
-        let ret: Position = world.get_or_err::<Position>(&id).ok()?;
+    pub fn remove_npc(&self, world: &mut World, id: Entity) -> Result<Position> {
+        let ret: Position = world.get_or_err::<Position>(&id)?;
         //Removes Everything related to the Entity.
-        let _ = world.despawn(id.0);
+        world.despawn(id.0)?;
         self.npc_ids.borrow_mut().swap_remove(&id);
 
         //Removes the NPC from the block map.
         //TODO expand this to support larger npc's liek bosses basedon their Block size.
-        self.maps
-            .get(&ret.map)?
-            .borrow_mut()
-            .remove_entity_from_grid(ret);
+        if let Some(map) = self.maps.get(&ret.map) {
+            map.borrow_mut().remove_entity_from_grid(ret);
+        }
 
-        Some(ret)
+        Ok(ret)
     }
 }

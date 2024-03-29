@@ -43,8 +43,8 @@ impl ByteBufferExt for ByteBuffer {
 
     #[inline]
     fn finish(&mut self) -> bytey::Result<&mut ByteBuffer> {
-        let _ = self.move_cursor(0)?;
-        let _ = self.write((self.length() - 8) as u64)?;
+        self.move_cursor(0)?;
+        self.write((self.length() - 8) as u64)?;
         self.move_cursor(0)
     }
 }

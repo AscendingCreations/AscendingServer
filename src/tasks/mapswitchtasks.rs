@@ -195,7 +195,7 @@ pub fn process_data_lists(world: &mut World, storage: &Storage) -> Result<()> {
                     MapSwitchTasks::Items(entities) => {
                         while let Some(entity) = entities.pop() {
                             if let Ok(map_item) = world.get::<&MapItem>(entity.0) {
-                                let _ = DataTaskToken::ItemLoadToEntity(socket_id).add_task(
+                                DataTaskToken::ItemLoadToEntity(socket_id).add_task(
                                     storage,
                                     &MapItemPacket::new(
                                         entity,
@@ -204,7 +204,7 @@ pub fn process_data_lists(world: &mut World, storage: &Storage) -> Result<()> {
                                         map_item.ownerid,
                                         false,
                                     ),
-                                );
+                                )?;
 
                                 count += 1;
 

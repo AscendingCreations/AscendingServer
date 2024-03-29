@@ -99,18 +99,17 @@ pub fn update_npcs(world: &mut World, storage: &Storage) -> Result<()> {
 
     for i in unloadnpcs {
         let zone_data = world.get_or_err::<NpcSpawnedZone>(&i)?.0;
+        let pos = storage.remove_npc(world, i)?;
 
-        if let Some(pos) = storage.remove_npc(world, i) {
-            if let Some(mapdata) = storage.maps.get(&pos.map) {
-                let mut data = mapdata.borrow_mut();
+        if let Some(mapdata) = storage.maps.get(&pos.map) {
+            let mut data = mapdata.borrow_mut();
 
-                data.remove_npc(i);
-                if let Some(zone) = zone_data {
-                    data.zones[zone] = data.zones[zone].saturating_sub(1);
-                }
+            data.remove_npc(i);
+            if let Some(zone) = zone_data {
+                data.zones[zone] = data.zones[zone].saturating_sub(1);
             }
-            DataTaskToken::EntityUnload(pos.map).add_task(storage, &(i))?;
         }
+        DataTaskToken::EntityUnload(pos.map).add_task(storage, &(i))?;
     }
 
     Ok(())

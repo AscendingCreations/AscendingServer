@@ -210,7 +210,7 @@ pub fn kill_npc(world: &mut World, storage: &Storage, entity: &Entity) -> Result
                 None,
                 None,
                 None,
-            ) {
+            )? {
                 break;
             }
 

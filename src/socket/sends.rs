@@ -15,7 +15,7 @@ pub fn send_infomsg(
     buf.write(close_socket)?;
     buf.finish()?;
 
-    send_to(storage, socket_id, buf);
+    send_to(storage, socket_id, buf)?;
     Ok(())
 }
 
@@ -33,8 +33,7 @@ pub fn send_fltalert(
     buf.write(message)?;
     buf.finish()?;
 
-    send_to(storage, socket_id, buf);
-    Ok(())
+    send_to(storage, socket_id, buf)
 }
 
 #[inline]
@@ -46,8 +45,7 @@ pub fn send_loginok(storage: &Storage, socket_id: usize) -> Result<()> {
     buf.write(storage.time.borrow().min)?;
     buf.finish()?;
 
-    send_to(storage, socket_id, buf);
-    Ok(())
+    send_to(storage, socket_id, buf)
 }
 
 #[inline]
@@ -58,8 +56,7 @@ pub fn send_myindex(storage: &Storage, socket_id: usize, entity: &Entity) -> Res
     buf.write(*entity)?;
     buf.finish()?;
 
-    send_to(storage, socket_id, buf);
-    Ok(())
+    send_to(storage, socket_id, buf)
 }
 
 #[inline]
@@ -90,8 +87,7 @@ pub fn send_playerdata(
     buf.write(world.get_or_err::<Vitals>(entity)?.vitalmax)?;
     buf.finish()?;
 
-    send_to(storage, socket_id, buf);
-    Ok(())
+    send_to(storage, socket_id, buf)
 }
 
 #[inline]
@@ -103,8 +99,7 @@ pub fn send_updatemap(world: &mut World, storage: &Storage, entity: &Entity) -> 
 
     let id: usize = world.get::<&Socket>(entity.0)?.id;
 
-    send_to(storage, id, buf);
-    Ok(())
+    send_to(storage, id, buf)
 }
 
 #[inline]
@@ -130,12 +125,13 @@ pub fn send_mapitem(
         buf.write(itemdata)?;
         buf.finish()?;
 
-        if let Some(socket_id) = sendto {
-            send_to(storage, socket_id, buf);
+        return if let Some(socket_id) = sendto {
+            send_to(storage, socket_id, buf)
         } else {
-            send_to_maps(world, storage, position, buf, None)?;
-        }
+            send_to_maps(world, storage, position, buf, None)
+        };
     }
+
     Ok(())
 }
 
@@ -206,9 +202,7 @@ pub fn send_data_remove_list(storage: &Storage, socket_id: usize, remove: &[Enti
     buf.write(remove.to_vec())?;
     buf.finish()?;
 
-    send_to(storage, socket_id, buf);
-
-    Ok(())
+    send_to(storage, socket_id, buf)
 }
 
 #[inline]
@@ -239,9 +233,7 @@ pub fn send_inv(world: &mut World, storage: &Storage, entity: &Entity) -> Result
     buf.write(&world.get::<&Inventory>(entity.0)?.items)?;
     buf.finish()?;
 
-    send_to(storage, world.get::<&Socket>(entity.0)?.id, buf);
-
-    Ok(())
+    send_to(storage, world.get::<&Socket>(entity.0)?.id, buf)
 }
 
 #[inline]
@@ -258,9 +250,7 @@ pub fn send_invslot(
     buf.write(world.get::<&Inventory>(entity.0)?.items[id])?;
     buf.finish()?;
 
-    send_to(storage, world.get::<&Socket>(entity.0)?.id, buf);
-
-    Ok(())
+    send_to(storage, world.get::<&Socket>(entity.0)?.id, buf)
 }
 
 #[inline]
@@ -271,9 +261,7 @@ pub fn send_storage(world: &mut World, storage: &Storage, entity: &Entity) -> Re
     buf.write(&world.get::<&PlayerStorage>(entity.0)?.items)?;
     buf.finish()?;
 
-    send_to(storage, world.get::<&Socket>(entity.0)?.id, buf);
-
-    Ok(())
+    send_to(storage, world.get::<&Socket>(entity.0)?.id, buf)
 }
 
 #[inline]
@@ -290,9 +278,7 @@ pub fn send_storageslot(
     buf.write(world.get::<&PlayerStorage>(entity.0)?.items[id])?;
     buf.finish()?;
 
-    send_to(storage, world.get::<&Socket>(entity.0)?.id, buf);
-
-    Ok(())
+    send_to(storage, world.get::<&Socket>(entity.0)?.id, buf)
 }
 
 #[inline]
@@ -344,8 +330,7 @@ pub fn send_level(world: &mut World, storage: &Storage, entity: &Entity) -> Resu
     buf.write(world.get_or_err::<Player>(entity)?.levelexp)?;
     buf.finish()?;
 
-    send_to(storage, world.get::<&Socket>(entity.0)?.id, buf);
-    Ok(())
+    send_to(storage, world.get::<&Socket>(entity.0)?.id, buf)
 }
 
 #[inline]
@@ -356,8 +341,7 @@ pub fn send_money(world: &mut World, storage: &Storage, entity: &Entity) -> Resu
     buf.write(world.get_or_err::<Money>(entity)?.vals)?;
     buf.finish()?;
 
-    send_to(storage, world.get::<&Socket>(entity.0)?.id, buf);
-    Ok(())
+    send_to(storage, world.get::<&Socket>(entity.0)?.id, buf)
 }
 
 #[inline]
@@ -473,7 +457,7 @@ pub fn send_message(
             buf.finish()?;
 
             if let Some(i) = id {
-                send_to(storage, i, buf);
+                send_to(storage, i, buf)?;
             }
         }
         MessageChannel::Guild => {}
@@ -487,7 +471,7 @@ pub fn send_message(
             buf.write(msg)?;
             buf.write(Some(access))?;
             buf.finish()?;
-            send_to(storage, world.get::<&Socket>(entity.0)?.id, buf);
+            send_to(storage, world.get::<&Socket>(entity.0)?.id, buf)?;
         }
     }
 
@@ -502,8 +486,7 @@ pub fn send_openstorage(world: &mut World, storage: &Storage, entity: &Entity) -
     buf.write(1_u32)?;
     buf.finish()?;
 
-    send_to(storage, world.get::<&Socket>(entity.0)?.id, buf);
-    Ok(())
+    send_to(storage, world.get::<&Socket>(entity.0)?.id, buf)
 }
 
 #[inline]
@@ -519,8 +502,7 @@ pub fn send_openshop(
     buf.write(shop_index)?;
     buf.finish()?;
 
-    send_to(storage, world.get::<&Socket>(entity.0)?.id, buf);
-    Ok(())
+    send_to(storage, world.get::<&Socket>(entity.0)?.id, buf)
 }
 
 #[inline]
@@ -531,8 +513,7 @@ pub fn send_clearisusingtype(world: &mut World, storage: &Storage, entity: &Enti
     buf.write(1_u16)?;
     buf.finish()?;
 
-    send_to(storage, world.get::<&Socket>(entity.0)?.id, buf);
-    Ok(())
+    send_to(storage, world.get::<&Socket>(entity.0)?.id, buf)
 }
 
 #[inline]
@@ -552,8 +533,7 @@ pub fn send_updatetradeitem(
     buf.write(amount)?;
     buf.finish()?;
 
-    send_to(storage, world.get::<&Socket>(send_entity.0)?.id, buf);
-    Ok(())
+    send_to(storage, world.get::<&Socket>(send_entity.0)?.id, buf)
 }
 
 #[inline]
@@ -564,6 +544,5 @@ pub fn send_updatetrademoney(world: &mut World, storage: &Storage, entity: &Enti
     buf.write(1_u16)?;
     buf.finish()?;
 
-    send_to(storage, world.get::<&Socket>(entity.0)?.id, buf);
-    Ok(())
+    send_to(storage, world.get::<&Socket>(entity.0)?.id, buf)
 }

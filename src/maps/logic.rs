@@ -99,7 +99,7 @@ pub fn update_maps(world: &mut World, storage: &Storage) -> Result<()> {
                 let mut data = map_data.borrow_mut();
                 //Lets Spawn the npcs here;
                 for (spawn, zone, npc_id) in spawnable.drain(..) {
-                    if let Ok(id) = storage.add_npc(world, npc_id) {
+                    if let Ok(Some(id)) = storage.add_npc(world, npc_id) {
                         data.add_npc(id);
                         data.zones[zone] = data.zones[zone].saturating_add(1);
                         spawn_npc(world, spawn, Some(zone), id)?;
@@ -115,9 +115,9 @@ pub fn update_maps(world: &mut World, storage: &Storage) -> Result<()> {
                     if data.timer <= tick {
                         let map_item = create_mapitem(data.index, data.amount, data.pos);
                         let id = world.spawn((WorldEntityType::MapItem, map_item));
-                        let _ = world.insert_one(id, EntityType::MapItem(Entity(id)));
+                        world.insert_one(id, EntityType::MapItem(Entity(id)))?;
                         storage_mapitem.insert(data.pos, Entity(id));
-                        let _ = DataTaskToken::ItemLoad(data.pos.map).add_task(
+                        DataTaskToken::ItemLoad(data.pos.map).add_task(
                             storage,
                             &MapItemPacket::new(
                                 Entity(id),
@@ -126,7 +126,7 @@ pub fn update_maps(world: &mut World, storage: &Storage) -> Result<()> {
                                 map_item.ownerid,
                                 true,
                             ),
-                        );
+                        )?;
                         add_items.push(Entity(id));
                     }
                 } else {

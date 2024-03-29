@@ -70,11 +70,10 @@ pub fn player_combat(
 
                 let vitals = world.get_or_err::<Vitals>(target_entity)?;
                 if vitals.vital[0] > 0 {
-                    let _ =
-                        DataTaskToken::PlayerVitals(world.get_or_default::<Position>(entity).map)
-                            .add_task(storage, {
-                                &VitalsPacket::new(*target_entity, vitals.vital, vitals.vitalmax)
-                            });
+                    DataTaskToken::PlayerVitals(world.get_or_default::<Position>(entity).map)
+                        .add_task(storage, {
+                            &VitalsPacket::new(*target_entity, vitals.vital, vitals.vitalmax)
+                        })?;
                 } else {
                     kill_player(world, storage, target_entity)?;
                 }

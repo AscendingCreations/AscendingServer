@@ -87,7 +87,7 @@ pub fn handle_register(
         }
 
         // we need to Add all the player types creations in a sub function that Creates the Defaults and then adds them to World.
-        storage.add_player_data(world, entity);
+        storage.add_player_data(world, entity)?;
 
         {
             let (account, sprite) = world.query_one_mut::<(&mut Account, &mut Sprite)>(entity.0)?;
@@ -159,7 +159,7 @@ pub fn handle_login(
         }
 
         // we need to Add all the player types creations in a sub function that Creates the Defaults and then adds them to World.
-        storage.add_player_data(world, entity);
+        storage.add_player_data(world, entity)?;
 
         if let Err(_e) = load_player(storage, world, entity, id) {
             return send_infomsg(storage, socket_id, "Error Loading User.".into(), 1);
@@ -597,7 +597,7 @@ pub fn handle_dropitem(
             },
             Some(*storage.gettick.borrow() + Duration::try_milliseconds(5000).unwrap_or_default()),
             Some(*entity),
-        ) {
+        )? {
             take_inv_itemslot(world, storage, entity, slot, amount)?;
         }
 
@@ -955,7 +955,7 @@ pub fn handle_admincommand(
                 debug!("Spawning NPC {index} on {:?}", pos);
                 if let Some(mapdata) = storage.maps.get(&pos.map) {
                     let mut data = mapdata.borrow_mut();
-                    if let Ok(id) = storage.add_npc(world, index as u64) {
+                    if let Ok(Some(id)) = storage.add_npc(world, index as u64) {
                         data.add_npc(id);
                         spawn_npc(world, pos, None, id)?;
                     }

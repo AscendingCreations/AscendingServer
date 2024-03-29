@@ -181,11 +181,11 @@ impl MapData {
         });
     }
 
-    pub fn add_mapitem(&mut self, world: &mut World, mapitem: MapItem) -> Entity {
+    pub fn add_mapitem(&mut self, world: &mut World, mapitem: MapItem) -> Result<Entity> {
         let id = world.spawn((WorldEntityType::MapItem, mapitem));
-        let _ = world.insert_one(id, EntityType::MapItem(Entity(id)));
+        world.insert_one(id, EntityType::MapItem(Entity(id)))?;
         self.itemids.insert(Entity(id));
-        Entity(id)
+        Ok(Entity(id))
     }
 
     pub fn is_blocked_tile(&self, pos: Position, entity_type: WorldEntityType) -> bool {
@@ -309,7 +309,7 @@ pub fn get_dir_mapid(
     dir: MapPosDir,
 ) -> Option<MapPosition> {
     let offset = position.map_offset(dir);
-    let _ = storage.bases.maps.get(&offset)?;
+    storage.bases.maps.get(&offset)?;
     Some(offset)
 }
 

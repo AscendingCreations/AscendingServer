@@ -576,21 +576,6 @@ impl MapPos {
             MapPos::None => None,
         }
     }
-
-    pub fn unwrap(self) -> MapPosition {
-        match self {
-            MapPos::UpLeft(x)
-            | MapPos::Up(x)
-            | MapPos::UpRight(x)
-            | MapPos::Left(x)
-            | MapPos::Center(x)
-            | MapPos::Right(x)
-            | MapPos::DownLeft(x)
-            | MapPos::Down(x)
-            | MapPos::DownRight(x) => x,
-            MapPos::None => panic!("MapPos Can not be None for unwrap"),
-        }
-    }
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]

@@ -1,7 +1,6 @@
 #![allow(dead_code)]
 #![recursion_limit = "256"]
-#![feature(test, let_chains)]
-extern crate test;
+#![feature(let_chains)]
 #[macro_use]
 extern crate derivative;
 
@@ -17,24 +16,14 @@ mod sql;
 mod tasks;
 mod time_ext;
 
-use std::{fs::File, io::Write};
-
 #[allow(unused_imports)]
 use backtrace::Backtrace;
+use containers::Storage;
 use gameloop::*;
 use gametypes::*;
-use log::{info, Level, LevelFilter, Metadata, Record};
-//use npcs::*;
-//use player::Player;
-//use serde::{Deserialize, Serialize};
-//use socket::*;
-//use sql::*;
-use containers::Storage;
-//use test::Bencher;
-//use bytey::ByteBuffer;
-//use bytey::{ByteBufferRead, ByteBufferWrite};
-//use time_ext::{MyDuration, MyInstant};
 use hecs::World;
+use log::{error, info, Level, LevelFilter, Metadata, Record};
+use std::{fs::File, io::Write, panic};
 
 fn read_line() -> String {
     let mut rv = String::new();
@@ -79,6 +68,19 @@ fn main() {
     log::set_logger(&MY_LOGGER).unwrap();
     // Set the Max level we accept logging to the file for.
     log::set_max_level(LevelFilter::Info);
+    panic::set_hook(Box::new(|panic_info| {
+        let bt = Backtrace::new();
+
+        error!(
+            "::::::::PANIC::::::::\n 
+            {}\n
+            :::::::::::::::::::::\n
+            ::::::BACKTRACE::::::\n
+            {:?}\n
+            :::::::::::::::::::::\n",
+            panic_info, bt
+        );
+    }));
 
     info!("Starting up");
     info!("Initializing Storage");
@@ -91,6 +93,7 @@ fn main() {
     info!("Initializing World");
     let mut world = World::new();
 
+    info!("Game Server is Running.");
     game_loop(&mut world, &storage, &router);
     // So we get a log and it displays in the command line.
     info!("Server ShutDown Completed. Press Enter to Exit Program.");

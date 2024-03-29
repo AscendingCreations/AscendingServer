@@ -1,5 +1,6 @@
 use bytey::{ByteBufferRead, ByteBufferWrite};
 use chrono::NaiveTime;
+use log::error;
 use serde::{Deserialize, Serialize};
 
 #[derive(
@@ -47,8 +48,13 @@ impl GameTime {
     }
 
     pub fn get_time(&self) -> NaiveTime {
-        NaiveTime::from_hms_opt(self.hour, self.min, self.sec)
-            .expect("Hour, Min or second is not being set correctly.")
+        NaiveTime::from_hms_opt(self.hour, self.min, self.sec).unwrap_or_else(|| {
+            error!(
+                "gametime Hour:{}, Min:{} or second:{} is not being set correctly.",
+                self.hour, self.min, self.sec
+            );
+            NaiveTime::default()
+        })
     }
 }
 

@@ -43,13 +43,13 @@ pub fn find_drop_pos(
     world: &mut World,
     storage: &Storage,
     drop_item: DropItem,
-) -> Vec<(Position, Option<Entity>)> {
+) -> Result<Vec<(Position, Option<Entity>)>> {
     let mut result = Vec::new();
 
     let storage_mapitem = storage.map_items.borrow_mut();
     let item_base = match storage.bases.items.get(drop_item.index as usize) {
         Some(data) => data,
-        None => return result,
+        None => return Ok(result),
     };
 
     let mut got_slot = false;
@@ -134,7 +134,7 @@ pub fn find_drop_pos(
                 }
 
                 if let Some(entity) = storage_mapitem.get(&check_pos) {
-                    let mapitem = world.get_or_panic::<MapItem>(entity);
+                    let mapitem = world.get_or_err::<MapItem>(entity)?;
                     if mapitem.item.num == drop_item.index
                         && mapitem.item.val < item_base.stacklimit
                     {
@@ -151,7 +151,7 @@ pub fn find_drop_pos(
         }
     }
 
-    result
+    Ok(result)
 }
 
 pub fn try_drop_item(
@@ -161,16 +161,16 @@ pub fn try_drop_item(
     despawn: Option<MyInstant>,
     ownertimer: Option<MyInstant>,
     ownerid: Option<Entity>,
-) -> bool {
+) -> Result<bool> {
     let item_base = match storage.bases.items.get(drop_item.index as usize) {
         Some(data) => data,
-        None => return false,
+        None => return Ok(false),
     };
 
     // Find open position
-    let set_pos = find_drop_pos(world, storage, drop_item);
+    let set_pos = find_drop_pos(world, storage, drop_item)?;
     if set_pos.is_empty() {
-        return false;
+        return Ok(false);
     }
 
     let mut leftover = drop_item.amount;
@@ -196,10 +196,10 @@ pub fn try_drop_item(
                 map_item.ownertimer = ownertimer;
                 map_item.ownerid = ownerid;
                 let id = world.spawn((WorldEntityType::MapItem, map_item));
-                let _ = world.insert_one(id, EntityType::MapItem(Entity(id)));
+                world.insert_one(id, EntityType::MapItem(Entity(id)))?;
                 map_data.borrow_mut().itemids.insert(Entity(id));
                 storage_mapitem.insert(found_pos.0, Entity(id));
-                let _ = DataTaskToken::ItemLoad(found_pos.0.map).add_task(
+                DataTaskToken::ItemLoad(found_pos.0.map).add_task(
                     storage,
                     &MapItemPacket::new(
                         Entity(id),
@@ -208,13 +208,13 @@ pub fn try_drop_item(
                         map_item.ownerid,
                         true,
                     ),
-                );
+                )?;
             }
             break;
         }
     }
 
-    true
+    Ok(true)
 }
 
 pub fn player_interact_object(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {

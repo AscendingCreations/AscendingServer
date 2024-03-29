@@ -57,7 +57,7 @@ pub fn npc_movement(
             } else if let Some(path) =
                 a_star_path(storage, pos, world.get_or_err::<Dir>(entity)?.0, target_pos)
             {
-                npc_set_move_path(world, entity, path);
+                npc_set_move_path(world, entity, path)?;
             }
         }
     }
@@ -71,7 +71,7 @@ pub fn npc_movement(
                 world.get_or_err::<Dir>(entity)?.0,
                 movepos,
             ) {
-                npc_set_move_path(world, entity, path);
+                npc_set_move_path(world, entity, path)?;
             }
         } else if world.get_or_err::<Target>(entity)?.targettype != EntityType::None
             && storage
@@ -92,7 +92,7 @@ pub fn npc_movement(
             } else if let Some(path) =
                 a_star_path(storage, pos, world.get_or_err::<Dir>(entity)?.0, target_pos)
             {
-                npc_set_move_path(world, entity, path);
+                npc_set_move_path(world, entity, path)?;
             }
         //no special movement lets give them some if we can;
         } else if world.get_or_err::<NpcAITimer>(entity)?.0 < *storage.gettick.borrow()
@@ -106,7 +106,7 @@ pub fn npc_movement(
             //get a count of moves to increase the AI wait timer.
             let count = moves.len();
 
-            npc_set_move_path(world, entity, moves);
+            npc_set_move_path(world, entity, moves)?;
 
             world.get::<&mut NpcAITimer>(entity.0)?.0 = *storage.gettick.borrow()
                 + Duration::try_milliseconds(count as i64 * 1000).unwrap_or_default();
@@ -134,7 +134,7 @@ pub fn npc_movement(
             {
                 world.get::<&mut NpcMoves>(entity.0)?.0.push_front(next);
             } else {
-                npc_clear_move_path(world, entity);
+                npc_clear_move_path(world, entity)?;
             }
 
             return Ok(());
@@ -151,7 +151,7 @@ pub fn npc_movement(
                     .map(|map| map.borrow().players_on_map())
                     .unwrap_or(false)
                 {
-                    npc_clear_move_path(world, entity);
+                    npc_clear_move_path(world, entity)?;
                     return Ok(());
                 }
 
@@ -162,30 +162,30 @@ pub fn npc_movement(
                                 && world.get::<&Account>(i.0)?.id == accid
                             {
                                 if world.get_or_err::<Position>(&i)? == next.0 {
-                                    npc_clear_move_path(world, entity);
+                                    npc_clear_move_path(world, entity)?;
                                     set_npc_dir(world, storage, entity, next.1)?;
                                     return Ok(());
                                 }
                             } else {
-                                npc_clear_move_path(world, entity);
+                                npc_clear_move_path(world, entity)?;
                             }
                         } else {
-                            npc_clear_move_path(world, entity);
+                            npc_clear_move_path(world, entity)?;
                         }
                     }
                     EntityType::Npc(i) => {
                         if world.contains(i.0) {
                             if world.get_or_err::<DeathType>(&i)?.is_alive() {
                                 if world.get_or_err::<Position>(&i)? == next.0 {
-                                    npc_clear_move_path(world, entity);
+                                    npc_clear_move_path(world, entity)?;
                                     set_npc_dir(world, storage, entity, next.1)?;
                                     return Ok(());
                                 }
                             } else {
-                                npc_clear_move_path(world, entity);
+                                npc_clear_move_path(world, entity)?;
                             }
                         } else {
-                            npc_clear_move_path(world, entity);
+                            npc_clear_move_path(world, entity)?;
                         }
                     }
                     _ => {}
@@ -193,7 +193,7 @@ pub fn npc_movement(
             } else if Some(next.0) == world.get_or_err::<NpcMovePos>(entity)?.0 {
                 world.get::<&mut NpcMovePos>(entity.0)?.0 = None;
 
-                npc_clear_move_path(world, entity);
+                npc_clear_move_path(world, entity)?;
             }
 
             world.get::<&mut Dir>(entity.0)?.0 = next.1;

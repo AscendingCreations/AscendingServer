@@ -96,7 +96,7 @@ impl Client {
 
         // Check if the Event has some readable Data from the Poll State.
         if event.is_readable() {
-            self.read(world, storage);
+            self.read(world, storage)?;
         }
 
         // Check if the Event has some writable Data from the Poll State.
@@ -128,25 +128,24 @@ impl Client {
             _ => {
                 self.stream.shutdown(std::net::Shutdown::Both)?;
                 self.state = ClientState::Closed;
-                disconnect(self.entity, world, storage);
-                Ok(())
+                disconnect(self.entity, world, storage)
             }
         }
     }
 
-    pub fn read(&mut self, world: &mut World, storage: &Storage) {
+    pub fn read(&mut self, world: &mut World, storage: &Storage) -> Result<()> {
         let socket = match world.get::<&mut Socket>(self.entity.0) {
             Ok(v) => v,
             Err(_) => {
                 self.state = ClientState::Closing;
-                return;
+                return Ok(());
             }
         };
 
         // get the current pos so we can reset it back for reading.
         let mut buffer = socket.buffer.lock().unwrap();
         let pos = buffer.cursor();
-        let _ = buffer.move_cursor_to_end();
+        buffer.move_cursor_to_end();
 
         loop {
             let mut buf: [u8; 2048] = [0; 2048];
@@ -155,19 +154,19 @@ impl Client {
                 Err(ref err) if err.kind() == io::ErrorKind::Interrupted => continue,
                 Ok(0) | Err(_) => {
                     self.state = ClientState::Closing;
-                    return;
+                    return Ok(());
                 }
                 Ok(n) => {
                     if buffer.write_slice(&buf[0..n]).is_err() {
                         self.state = ClientState::Closing;
-                        return;
+                        return Ok(());
                     }
                 }
             }
         }
 
         // reset it back to the original pos so we can Read from it again.
-        let _ = buffer.move_cursor(pos);
+        buffer.move_cursor(pos)?;
 
         if !buffer.is_empty() {
             storage.recv_ids.borrow_mut().insert(self.entity);
@@ -176,6 +175,8 @@ impl Client {
             //continue to get packets.
             self.poll_state.add(SocketPollState::Read);
         }
+
+        Ok(())
     }
 
     pub fn write(&mut self, world: &mut World) {
@@ -245,28 +246,26 @@ impl Client {
     }
 
     #[inline]
-    pub fn send(&mut self, poll: &mio::Poll, buf: ByteBuffer) {
+    pub fn send(&mut self, poll: &mio::Poll, buf: ByteBuffer) -> Result<()> {
         self.sends.insert(0, buf);
-
         self.poll_state.add(SocketPollState::Write);
-        match self.reregister(poll) {
-            Ok(_) => {}
-            Err(_) => panic!("Socket did not reregister on Send write update."),
-        }
+        self.reregister(poll)
     }
 }
 
 #[inline]
-pub fn disconnect(playerid: Entity, world: &mut World, storage: &Storage) {
-    if let Some((_socket, position)) = storage.remove_player(world, playerid) {
-        if let Some(map) = storage.maps.get(&position.map) {
-            map.borrow_mut().remove_player(storage, playerid);
-            //todo Add save for player world here.
-            //todo Add Update Players on map here.
-            map.borrow_mut().remove_entity_from_grid(position);
-            let _ = DataTaskToken::EntityUnload(position.map).add_task(storage, &(playerid));
-        }
+pub fn disconnect(playerid: Entity, world: &mut World, storage: &Storage) -> Result<()> {
+    let (_socket, position) = storage.remove_player(world, playerid)?;
+
+    if let Some(map) = storage.maps.get(&position.map) {
+        map.borrow_mut().remove_player(storage, playerid);
+        //todo Add save for player world here.
+        //todo Add Update Players on map here.
+        map.borrow_mut().remove_entity_from_grid(position);
+        DataTaskToken::EntityUnload(position.map).add_task(storage, &(playerid))?;
     }
+
+    Ok(())
 }
 
 #[inline]
@@ -285,14 +284,16 @@ pub fn accept_connection(
 }
 
 #[inline]
-pub fn send_to(storage: &Storage, socket_id: usize, buf: ByteBuffer) {
+pub fn send_to(storage: &Storage, socket_id: usize, buf: ByteBuffer) -> Result<()> {
     if let Some(client) = storage.server.borrow().clients.get(&mio::Token(socket_id)) {
-        client.borrow_mut().send(&storage.poll.borrow(), buf);
+        client.borrow_mut().send(&storage.poll.borrow(), buf)
+    } else {
+        Ok(())
     }
 }
 
 #[inline]
-pub fn send_to_all(world: &mut World, storage: &Storage, buf: ByteBuffer) {
+pub fn send_to_all(world: &mut World, storage: &Storage, buf: ByteBuffer) -> Result<()> {
     for (_entity, (_, socket)) in world
         .query::<((&WorldEntityType, &OnlineType), &Socket)>()
         .iter()
@@ -303,9 +304,11 @@ pub fn send_to_all(world: &mut World, storage: &Storage, buf: ByteBuffer) {
         if let Some(client) = storage.server.borrow().clients.get(&mio::Token(socket.id)) {
             client
                 .borrow_mut()
-                .send(&storage.poll.borrow(), buf.clone());
+                .send(&storage.poll.borrow(), buf.clone())?;
         }
     }
+
+    Ok(())
 }
 
 #[inline]
@@ -334,7 +337,7 @@ pub fn send_to_maps(
                 if let Some(client) = storage.server.borrow().clients.get(&mio::Token(socket.id)) {
                     client
                         .borrow_mut()
-                        .send(&storage.poll.borrow(), buf.clone());
+                        .send(&storage.poll.borrow(), buf.clone())?;
                 }
             }
         }

@@ -31,9 +31,7 @@ pub fn game_loop(world: &mut World, storage: &Storage, router: &PacketRouter) {
         }
 
         if tick > tmr500 {
-            if let Err(e) = update_maps(world, storage) {
-                println!("Error: {:?}", e);
-            }
+            update_maps(world, storage).unwrap();
             tmr500 = tick + Duration::try_milliseconds(500).unwrap_or_default();
         }
 
@@ -54,10 +52,7 @@ pub fn game_loop(world: &mut World, storage: &Storage, router: &PacketRouter) {
             tmr60000 = tick + Duration::try_milliseconds(60000).unwrap_or_default();
         }
 
-        if let Err(e) = poll_events(world, storage) {
-            println!("Poll event error: {:?}", e);
-        }
-
+        poll_events(world, storage).unwrap();
         process_packets(world, storage, router).unwrap();
         process_data_lists(world, storage).unwrap();
         process_tasks(world, storage).unwrap();

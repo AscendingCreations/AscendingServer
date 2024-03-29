@@ -61,28 +61,17 @@ pub fn npc_set_move_path(
     world: &mut World,
     entity: &crate::Entity,
     path: VecDeque<(Position, u8)>,
-) {
-    world
-        .get::<&mut NpcMoves>(entity.0)
-        .expect("Could not find NpcMoves")
-        .0 = path;
-    world
-        .get::<&mut NpcMoving>(entity.0)
-        .expect("Could not find NpcMoving")
-        .0 = true;
+) -> Result<()> {
+    world.get::<&mut NpcMoves>(entity.0)?.0 = path;
+    world.get::<&mut NpcMoving>(entity.0)?.0 = true;
+    Ok(())
 }
 
 #[inline(always)]
-pub fn npc_clear_move_path(world: &mut World, entity: &crate::Entity) {
-    world
-        .get::<&mut NpcMoves>(entity.0)
-        .expect("Could not find NpcMoves")
-        .0
-        .clear();
-    world
-        .get::<&mut NpcMoving>(entity.0)
-        .expect("Could not find NpcMoving")
-        .0 = false;
+pub fn npc_clear_move_path(world: &mut World, entity: &crate::Entity) -> Result<()> {
+    world.get::<&mut NpcMoves>(entity.0)?.0.clear();
+    world.get::<&mut NpcMoving>(entity.0)?.0 = false;
+    Ok(())
 }
 
 #[inline(always)]
@@ -93,13 +82,10 @@ pub fn set_npc_dir(
     dir: u8,
 ) -> Result<()> {
     if world.get_or_err::<Dir>(entity)?.0 != dir {
-        world
-            .get::<&mut Dir>(entity.0)
-            .expect("Could not find Dir")
-            .0 = dir;
+        world.get::<&mut Dir>(entity.0)?.0 = dir;
 
-        let _ = DataTaskToken::NpcDir(world.get_or_err::<Position>(entity)?.map)
-            .add_task(storage, &DirPacket::new(*entity, dir));
+        DataTaskToken::NpcDir(world.get_or_err::<Position>(entity)?.map)
+            .add_task(storage, &DirPacket::new(*entity, dir))?;
     }
 
     Ok(())
@@ -132,9 +118,7 @@ pub fn npc_switch_maps(
         return Ok(old_position);
     }
 
-    *world
-        .get::<&mut Position>(entity.0)
-        .expect("Could not find Position") = new_pos;
+    *world.get::<&mut Position>(entity.0)? = new_pos;
 
     Ok(old_position)
 }
@@ -148,9 +132,7 @@ pub fn npc_swap_pos(
 ) -> Result<Position> {
     let oldpos = world.get_or_err::<Position>(entity)?;
     if oldpos != pos {
-        *world
-            .get::<&mut Position>(entity.0)
-            .expect("Could not find Position") = pos;
+        *world.get::<&mut Position>(entity.0)? = pos;
 
         let mut map = match storage.maps.get(&oldpos.map) {
             Some(map) => map,
@@ -180,30 +162,22 @@ pub fn npc_gethp(world: &mut World, entity: &crate::Entity) -> Result<i32> {
     Ok(world.get_or_err::<Vitals>(entity)?.vital[VitalTypes::Hp as usize])
 }
 
-pub fn npc_setx(world: &mut World, entity: &crate::Entity, x: i32) {
-    world
-        .get::<&mut Position>(entity.0)
-        .expect("Could not find Position")
-        .x = x;
+pub fn npc_setx(world: &mut World, entity: &crate::Entity, x: i32) -> Result<()> {
+    world.get::<&mut Position>(entity.0)?.x = x;
+    Ok(())
 }
 
-pub fn npc_sety(world: &mut World, entity: &crate::Entity, y: i32) {
-    world
-        .get::<&mut Position>(entity.0)
-        .expect("Could not find Position")
-        .y = y;
+pub fn npc_sety(world: &mut World, entity: &crate::Entity, y: i32) -> Result<()> {
+    world.get::<&mut Position>(entity.0)?.y = y;
+    Ok(())
 }
 
-pub fn npc_setmap(world: &mut World, entity: &crate::Entity, map: MapPosition) {
-    world
-        .get::<&mut Position>(entity.0)
-        .expect("Could not find Position")
-        .map = map;
+pub fn npc_setmap(world: &mut World, entity: &crate::Entity, map: MapPosition) -> Result<()> {
+    world.get::<&mut Position>(entity.0)?.map = map;
+    Ok(())
 }
 
-pub fn npc_sethp(world: &mut World, entity: &crate::Entity, hp: i32) {
-    world
-        .get::<&mut Vitals>(entity.0)
-        .expect("Could not find Position")
-        .vital[VitalTypes::Hp as usize] = hp;
+pub fn npc_sethp(world: &mut World, entity: &crate::Entity, hp: i32) -> Result<()> {
+    world.get::<&mut Vitals>(entity.0)?.vital[VitalTypes::Hp as usize] = hp;
+    Ok(())
 }
