@@ -27,8 +27,6 @@ use tokio::runtime::Runtime;
 use tokio::task;
 
 pub struct Storage {
-    //pub players: RefCell<slab::Slab<RefCell<Player>>>,
-    //pub npcs: RefCell<slab::Slab<RefCell<Npc>>>,
     pub player_ids: RefCell<IndexSet<Entity>>,
     pub recv_ids: RefCell<IndexSet<Entity>>,
     pub npc_ids: RefCell<IndexSet<Entity>>,
@@ -154,9 +152,6 @@ impl Storage {
         crate::sql::initiate(&pgconn, &mut rt, &local).unwrap();
 
         let mut storage = Self {
-            //we will just comment it out for now as we go along and remove later.
-            //players: RefCell::new(slab::Slab::new()),
-            //npcs: RefCell::new(slab::Slab::new()),
             player_ids: RefCell::new(IndexSet::default()),
             recv_ids: RefCell::new(IndexSet::default()),
             npc_ids: RefCell::new(IndexSet::default()),

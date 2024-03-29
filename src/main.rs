@@ -1,8 +1,6 @@
 #![allow(dead_code)]
 #![recursion_limit = "256"]
 #![feature(let_chains)]
-#[macro_use]
-extern crate derivative;
 
 mod containers;
 mod gameloop;

@@ -1,12 +1,12 @@
 use crate::containers::Storage;
 use crate::gametypes::*;
-//use rand::{thread_rng, Rng};
+use educe::Educe;
 use serde::{Deserialize, Serialize};
 use std::fs::OpenOptions;
 use std::io::BufReader;
 
-#[derive(Derivative, Clone, Debug, Default, Serialize, Deserialize)]
-#[derivative(PartialEq)]
+#[derive(Educe, Clone, Debug, Default, Serialize, Deserialize)]
+#[educe(PartialEq)]
 pub struct NpcData {
     pub name: String,
     pub level: i32,

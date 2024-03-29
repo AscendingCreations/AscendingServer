@@ -1,73 +1,73 @@
+use crate::{gametypes::*, time_ext::MyInstant};
 use bytey::{ByteBufferError, ByteBufferRead, ByteBufferWrite};
+use core::any::type_name;
+use educe::Educe;
 use hecs::{EntityRef, MissingComponent, World};
 use log::{error, warn};
 use serde::{Deserialize, Serialize};
-
-use crate::{gametypes::*, time_ext::MyInstant};
-use core::any::type_name;
 use std::ops::{Deref, DerefMut};
 
-#[derive(Derivative, Debug, Copy, Clone, PartialEq, Eq)]
-#[derivative(Default)]
+#[derive(Educe, Debug, Copy, Clone, PartialEq, Eq)]
+#[educe(Default)]
 pub struct Spawn {
-    #[derivative(Default(value = "Position::new(10, 10, MapPosition::new(0,0,0))"))]
+    #[educe(Default = Position::new(10, 10, MapPosition::new(0,0,0)))]
     pub pos: Position,
-    #[derivative(Default(value = "MyInstant::now()"))]
+    #[educe(Default  = MyInstant::now())]
     pub just_spawned: MyInstant,
 }
 
-#[derive(Derivative, Debug, Copy, Clone, PartialEq, Eq)]
-#[derivative(Default)]
+#[derive(Educe, Debug, Copy, Clone, PartialEq, Eq)]
+#[educe(Default)]
 pub struct Target {
     pub targettype: EntityType,
     pub targetpos: Position,
-    #[derivative(Default(value = "MyInstant::now()"))]
+    #[educe(Default = MyInstant::now())]
     pub targettimer: MyInstant,
 }
 
-#[derive(Derivative, Debug, Copy, Clone, PartialEq, Eq)]
-#[derivative(Default)]
+#[derive(Educe, Debug, Copy, Clone, PartialEq, Eq)]
+#[educe(Default)]
 pub struct PlayerTarget(pub Option<Entity>);
 
-#[derive(Derivative, Debug, Copy, Clone, PartialEq, Eq)]
-#[derivative(Default)]
+#[derive(Educe, Debug, Copy, Clone, PartialEq, Eq)]
+#[educe(Default)]
 pub struct KillCount {
     pub count: u32,
-    #[derivative(Default(value = "MyInstant::now()"))]
+    #[educe(Default = MyInstant::now())]
     pub killcounttimer: MyInstant,
 }
 
-#[derive(Derivative, Debug, Copy, Clone, PartialEq, Eq, ByteBufferRead, ByteBufferWrite)]
-#[derivative(Default)]
+#[derive(Educe, Debug, Copy, Clone, PartialEq, Eq, ByteBufferRead, ByteBufferWrite)]
+#[educe(Default)]
 pub struct Vitals {
-    #[derivative(Default(value = "[25, 2, 100]"))]
+    #[educe(Default = [25, 2, 100])]
     pub vital: [i32; VITALS_MAX],
-    #[derivative(Default(value = "[25, 2, 100]"))]
+    #[educe(Default = [25, 2, 100])]
     pub vitalmax: [i32; VITALS_MAX],
-    #[derivative(Default(value = "[0; VITALS_MAX]"))]
+    #[educe(Default = [0; VITALS_MAX])]
     pub vitalbuffs: [i32; VITALS_MAX],
-    #[derivative(Default(value = "[0; VITALS_MAX]"))]
+    #[educe(Default = [0; VITALS_MAX])]
     pub regens: [u32; VITALS_MAX],
 }
 
 #[derive(Default, Debug, Copy, Clone, PartialEq, Eq)]
 pub struct Dir(pub u8);
 
-#[derive(Derivative, Debug, Copy, Clone, PartialEq, Eq)]
-#[derivative(Default)]
-pub struct AttackTimer(#[derivative(Default(value = "MyInstant::now()"))] pub MyInstant);
+#[derive(Educe, Debug, Copy, Clone, PartialEq, Eq)]
+#[educe(Default)]
+pub struct AttackTimer(#[educe(Default = MyInstant::now())] pub MyInstant);
 
-#[derive(Derivative, Debug, Copy, Clone, PartialEq, Eq)]
-#[derivative(Default)]
-pub struct DeathTimer(#[derivative(Default(value = "MyInstant::now()"))] pub MyInstant);
+#[derive(Educe, Debug, Copy, Clone, PartialEq, Eq)]
+#[educe(Default)]
+pub struct DeathTimer(#[educe(Default = MyInstant::now())] pub MyInstant);
 
-#[derive(Derivative, Debug, Copy, Clone, PartialEq, Eq)]
-#[derivative(Default)]
-pub struct MoveTimer(#[derivative(Default(value = "MyInstant::now()"))] pub MyInstant);
+#[derive(Educe, Debug, Copy, Clone, PartialEq, Eq)]
+#[educe(Default)]
+pub struct MoveTimer(#[educe(Default = MyInstant::now())] pub MyInstant);
 
-#[derive(Derivative, Debug, Copy, Clone, PartialEq, Eq)]
-#[derivative(Default)]
-pub struct Combat(#[derivative(Default(value = "MyInstant::now()"))] pub MyInstant);
+#[derive(Educe, Debug, Copy, Clone, PartialEq, Eq)]
+#[educe(Default)]
+pub struct Combat(#[educe(Default = MyInstant::now())] pub MyInstant);
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Default)]
 pub struct Physical {
@@ -87,13 +87,13 @@ pub struct Stunned(pub bool);
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Default)]
 pub struct Attacking(pub bool);
 
-#[derive(Derivative, Debug, Copy, Clone, PartialEq, Eq)]
-#[derivative(Default)]
-pub struct Level(#[derivative(Default(value = "1"))] pub i32);
+#[derive(Educe, Debug, Copy, Clone, PartialEq, Eq)]
+#[educe(Default)]
+pub struct Level(#[educe(Default = 1)] pub i32);
 
-#[derive(Derivative, Copy, Debug, Clone, PartialEq, Eq)]
-#[derivative(Default)]
-pub struct InCombat(#[derivative(Default(value = "false"))] pub bool);
+#[derive(Educe, Copy, Debug, Clone, PartialEq, Eq)]
+#[educe(Default)]
+pub struct InCombat(#[educe(Default = false)] pub bool);
 
 // The World ID stored in our own Wrapper for Packet sending etc.
 // This will help ensure we dont try to deal with outdated stuff if we use

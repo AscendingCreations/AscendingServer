@@ -1,17 +1,8 @@
 use bytey::{ByteBufferRead, ByteBufferWrite};
 use serde::{Deserialize, Serialize};
-use serde_repr::*;
 
 #[derive(
-    Copy,
-    Clone,
-    Debug,
-    PartialEq,
-    Eq,
-    Serialize_repr,
-    Deserialize_repr,
-    ByteBufferRead,
-    ByteBufferWrite,
+    Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ByteBufferRead, ByteBufferWrite,
 )]
 #[repr(u32)]
 pub enum ServerPackets {

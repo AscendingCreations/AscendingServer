@@ -1,4 +1,5 @@
 use crate::{containers::*, gametypes::*, items::*, socket::*, sql::*, tasks::*, time_ext::*};
+use educe::Educe;
 use hecs::*;
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
@@ -31,44 +32,44 @@ pub struct Account {
     pub id: i64,
 }
 
-#[derive(Copy, Clone, Debug, Derivative)]
-#[derivative(Default)]
+#[derive(Copy, Clone, Debug, Educe)]
+#[educe(Default)]
 pub struct PlayerItemTimer {
-    #[derivative(Default(value = "MyInstant::now()"))]
+    #[educe(Default = MyInstant::now())]
     pub itemtimer: MyInstant,
 }
 
-#[derive(Copy, Clone, Debug, Derivative)]
-#[derivative(Default)]
+#[derive(Copy, Clone, Debug, Educe)]
+#[educe(Default)]
 pub struct PlayerMapTimer {
-    #[derivative(Default(value = "MyInstant::now()"))]
+    #[educe(Default = MyInstant::now())]
     pub mapitemtimer: MyInstant,
 }
 
 #[derive(
-    PartialEq, Eq, Clone, Debug, Derivative, Deserialize, Serialize, ByteBufferRead, ByteBufferWrite,
+    PartialEq, Eq, Clone, Debug, Educe, Deserialize, Serialize, ByteBufferRead, ByteBufferWrite,
 )]
-#[derivative(Default)]
+#[educe(Default)]
 pub struct Inventory {
-    #[derivative(Default(value = "(0..MAX_INV).map(|_| Item::default()).collect()"))]
+    #[educe(Default = (0..MAX_INV).map(|_| Item::default()).collect())]
     pub items: Vec<Item>,
 }
 
 #[derive(
-    PartialEq, Eq, Clone, Debug, Derivative, Deserialize, Serialize, ByteBufferRead, ByteBufferWrite,
+    PartialEq, Eq, Clone, Debug, Educe, Deserialize, Serialize, ByteBufferRead, ByteBufferWrite,
 )]
-#[derivative(Default)]
+#[educe(Default)]
 pub struct PlayerStorage {
-    #[derivative(Default(value = "(0..MAX_STORAGE).map(|_| Item::default()).collect()"))]
+    #[educe(Default = (0..MAX_STORAGE).map(|_| Item::default()).collect())]
     pub items: Vec<Item>,
 }
 
 #[derive(
-    PartialEq, Eq, Clone, Debug, Derivative, Deserialize, Serialize, ByteBufferRead, ByteBufferWrite,
+    PartialEq, Eq, Clone, Debug, Educe, Deserialize, Serialize, ByteBufferRead, ByteBufferWrite,
 )]
-#[derivative(Default)]
+#[educe(Default)]
 pub struct Equipment {
-    #[derivative(Default(value = "(0..MAX_EQPT).map(|_| Item::default()).collect()"))]
+    #[educe(Default = (0..MAX_EQPT).map(|_| Item::default()).collect())]
     pub items: Vec<Item>,
 }
 

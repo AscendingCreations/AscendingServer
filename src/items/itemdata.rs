@@ -1,10 +1,11 @@
 use crate::gametypes::{ItemTypes, Rgba};
+use educe::Educe;
 use serde::{Deserialize, Serialize};
 use std::fs::OpenOptions;
 use std::io::BufReader;
 
-#[derive(Clone, Debug, Deserialize, Serialize, Derivative)]
-#[derivative(Default(new = "true"))]
+#[derive(Clone, Debug, Deserialize, Serialize, Educe)]
+#[educe(Default(new))]
 pub struct ItemData {
     pub name: String,
     pub levelreq: u16,
@@ -16,7 +17,7 @@ pub struct ItemData {
     pub itemtype2: u8,
     pub breakable: bool,
     pub stackable: bool,
-    #[derivative(Default(value = "1"))]
+    #[educe(Default = 1)]
     pub stacklimit: u16,
     pub baseprice: u64,
     pub repairable: bool,

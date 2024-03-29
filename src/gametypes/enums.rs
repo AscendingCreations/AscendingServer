@@ -2,7 +2,6 @@ use crate::{containers::*, gametypes::*, maps::MapItem};
 use bytey::{ByteBufferRead, ByteBufferWrite};
 use hecs::World;
 use serde::{Deserialize, Serialize};
-use serde_repr::*;
 
 #[derive(
     Copy,
@@ -31,13 +30,12 @@ pub enum UserAccess {
     Debug,
     PartialEq,
     Eq,
-    Serialize_repr,
-    Deserialize_repr,
+    Serialize,
+    Deserialize,
     ByteBufferRead,
     ByteBufferWrite,
     Default,
 )]
-#[repr(u8)]
 pub enum ChatChannel {
     #[default]
     Map,
@@ -54,13 +52,12 @@ pub enum ChatChannel {
     Debug,
     PartialEq,
     Eq,
-    Serialize_repr,
-    Deserialize_repr,
+    Serialize,
+    Deserialize,
     Default,
     ByteBufferRead,
     ByteBufferWrite,
 )]
-#[repr(u8)]
 pub enum AIBehavior {
     #[default]
     Friendly, //Never Attack or be attacked
@@ -78,13 +75,12 @@ pub enum AIBehavior {
     Debug,
     PartialEq,
     Eq,
-    Serialize_repr,
-    Deserialize_repr,
+    Serialize,
+    Deserialize,
     Default,
     ByteBufferRead,
     ByteBufferWrite,
 )]
-#[repr(u8)]
 pub enum NpcCastType {
     #[default]
     SelfOnly,
@@ -208,13 +204,12 @@ impl EntityType {
     Debug,
     PartialEq,
     Eq,
-    Serialize_repr,
-    Deserialize_repr,
+    Serialize,
+    Deserialize,
     Default,
     ByteBufferRead,
     ByteBufferWrite,
 )]
-#[repr(u8)]
 pub enum ItemTypes {
     #[default]
     None,
@@ -237,17 +232,8 @@ pub enum ItemTypes {
 }
 
 #[derive(
-    Copy,
-    Clone,
-    Debug,
-    PartialEq,
-    Eq,
-    Serialize_repr,
-    Deserialize_repr,
-    ByteBufferRead,
-    ByteBufferWrite,
+    Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ByteBufferRead, ByteBufferWrite,
 )]
-#[repr(u8)]
 pub enum EquipmentType {
     Weapon,
     Helmet,
@@ -266,13 +252,12 @@ pub enum EquipmentType {
     Debug,
     PartialEq,
     Eq,
-    Serialize_repr,
-    Deserialize_repr,
+    Serialize,
+    Deserialize,
     Default,
     ByteBufferRead,
     ByteBufferWrite,
 )]
-#[repr(u8)]
 pub enum VitalTypes {
     Hp,
     Mp,
@@ -281,40 +266,9 @@ pub enum VitalTypes {
     Count,
 }
 
-/*#[derive(Copy, Clone, Serialize_repr, Deserialize_repr, ByteBufferRead, ByteBufferWrite)]
-#[repr(u8)]
-pub enum MapAttributes {
-    None,
-    Blocked,
-    DirBlocked,
-    NpcBlocked,
-    PlayerBlocked,
-    Bank,
-    Shop,
-    Door,
-    Craft,
-    Slide,
-    Warp,
-    Item,
-    Portal,
-    CheckPoint,
-    Sign,
-    Resource,
-    Count,
-}*/
-
 #[derive(
-    Copy,
-    Clone,
-    Serialize_repr,
-    Deserialize_repr,
-    PartialEq,
-    Eq,
-    Default,
-    ByteBufferRead,
-    ByteBufferWrite,
+    Copy, Clone, Serialize, Deserialize, PartialEq, Eq, Default, ByteBufferRead, ByteBufferWrite,
 )]
-#[repr(u8)]
 pub enum Weather {
     #[default]
     None,
@@ -350,13 +304,12 @@ pub enum MapLayers {
     Debug,
     PartialEq,
     Eq,
-    Serialize_repr,
-    Deserialize_repr,
+    Serialize,
+    Deserialize,
     Default,
     ByteBufferRead,
     ByteBufferWrite,
 )]
-#[repr(u8)]
 pub enum ToolType {
     #[default]
     None,
@@ -380,15 +333,14 @@ pub enum OnlineType {
     Copy,
     Clone,
     Debug,
-    Serialize_repr,
-    Deserialize_repr,
+    Serialize,
+    Deserialize,
     PartialEq,
     Eq,
     Default,
     ByteBufferRead,
     ByteBufferWrite,
 )]
-#[repr(u8)]
 pub enum NpcMode {
     None,
     #[default]
@@ -404,14 +356,13 @@ pub enum NpcMode {
     Debug,
     PartialEq,
     Eq,
-    Serialize_repr,
-    Deserialize_repr,
+    Serialize,
+    Deserialize,
     ByteBufferRead,
     ByteBufferWrite,
     sqlx::Type,
 )]
 #[sqlx(type_name = "log_type")]
-#[repr(u8)]
 pub enum LogType {
     Login,
     Logout,
@@ -480,12 +431,11 @@ impl IsUsingType {
     PartialEq,
     Eq,
     Default,
-    Serialize_repr,
-    Deserialize_repr,
+    Serialize,
+    Deserialize,
     ByteBufferRead,
     ByteBufferWrite,
 )]
-#[repr(u8)]
 pub enum DeathType {
     #[default]
     Alive,
@@ -513,17 +463,8 @@ impl DeathType {
 }
 
 #[derive(
-    Copy,
-    Clone,
-    Debug,
-    PartialEq,
-    Eq,
-    Serialize_repr,
-    Deserialize_repr,
-    ByteBufferRead,
-    ByteBufferWrite,
+    Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ByteBufferRead, ByteBufferWrite,
 )]
-#[repr(u8)]
 pub enum FtlType {
     Message,
     Error,
@@ -633,12 +574,11 @@ impl From<&MapPos> for MapPosDir {
     Default,
     PartialEq,
     Eq,
-    Serialize_repr,
-    Deserialize_repr,
+    Serialize,
+    Deserialize,
     ByteBufferRead,
     ByteBufferWrite,
 )]
-#[repr(u8)]
 pub enum MessageChannel {
     #[default]
     Map,

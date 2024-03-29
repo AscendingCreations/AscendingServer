@@ -1,49 +1,48 @@
-use std::collections::VecDeque;
-
-use hecs::World;
-
 use crate::{containers::*, gametypes::*, tasks::*, time_ext::MyInstant};
+use educe::Educe;
+use hecs::World;
+use std::collections::VecDeque;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Default)]
 pub struct NpcIndex(pub u64);
 
-#[derive(Derivative, Debug, Copy, Clone, PartialEq, Eq)]
-#[derivative(Default)]
+#[derive(Educe, Debug, Copy, Clone, PartialEq, Eq)]
+#[educe(Default)]
 pub struct NpcTimer {
-    #[derivative(Default(value = "MyInstant::now()"))]
+    #[educe(Default = MyInstant::now())]
     pub despawntimer: MyInstant,
-    #[derivative(Default(value = "MyInstant::now()"))]
+    #[educe(Default = MyInstant::now())]
     pub spawntimer: MyInstant,
 }
 
-#[derive(Derivative, Debug, Copy, Clone, PartialEq, Eq)]
-#[derivative(Default)]
-pub struct NpcAITimer(#[derivative(Default(value = "MyInstant::now()"))] pub MyInstant); //for rebuilding the a* paths
+#[derive(Educe, Debug, Copy, Clone, PartialEq, Eq)]
+#[educe(Default)]
+pub struct NpcAITimer(#[educe(Default = MyInstant::now())] pub MyInstant); //for rebuilding the a* paths
 
-#[derive(Derivative, Debug, Copy, Clone, PartialEq, Eq)]
-#[derivative(Default)]
-pub struct NpcDespawns(#[derivative(Default(value = "false"))] pub bool);
+#[derive(Educe, Debug, Copy, Clone, PartialEq, Eq)]
+#[educe(Default)]
+pub struct NpcDespawns(#[educe(Default = false)] pub bool);
 
-#[derive(Derivative, Debug, Copy, Clone, PartialEq, Eq)]
-#[derivative(Default)]
-pub struct NpcMoving(#[derivative(Default(value = "false"))] pub bool);
+#[derive(Educe, Debug, Copy, Clone, PartialEq, Eq)]
+#[educe(Default)]
+pub struct NpcMoving(#[educe(Default = false)] pub bool);
 
-#[derive(Derivative, Debug, Copy, Clone, PartialEq, Eq)]
-#[derivative(Default)]
-pub struct NpcRetreating(#[derivative(Default(value = "false"))] pub bool);
+#[derive(Educe, Debug, Copy, Clone, PartialEq, Eq)]
+#[educe(Default)]
+pub struct NpcRetreating(#[educe(Default = false)] pub bool);
 
-#[derive(Derivative, Debug, Copy, Clone, PartialEq, Eq)]
-#[derivative(Default)]
-pub struct NpcWalkToSpawn(#[derivative(Default(value = "false"))] pub bool);
+#[derive(Educe, Debug, Copy, Clone, PartialEq, Eq)]
+#[educe(Default)]
+pub struct NpcWalkToSpawn(#[educe(Default = false)] pub bool);
 
-#[derive(Derivative, Debug, Clone, PartialEq, Eq)]
-#[derivative(Default)]
+#[derive(Educe, Debug, Clone, PartialEq, Eq)]
+#[educe(Default)]
 //offset for special things so the npc wont to events based on this spawn time.
-pub struct NpcHitBy(#[derivative(Default(value = "Vec::new()"))] pub Vec<(u32, u64, u64)>);
+pub struct NpcHitBy(#[educe(Default = Vec::new())] pub Vec<(u32, u64, u64)>);
 
-#[derive(Derivative, Debug, Clone, PartialEq, Eq)]
-#[derivative(Default)]
-pub struct NpcMoves(#[derivative(Default(value = "VecDeque::new()"))] pub VecDeque<(Position, u8)>);
+#[derive(Educe, Debug, Clone, PartialEq, Eq)]
+#[educe(Default)]
+pub struct NpcMoves(#[educe(Default = VecDeque::new())] pub VecDeque<(Position, u8)>);
 
 #[derive(Default, Debug, Copy, Clone, PartialEq, Eq)]
 pub struct NpcSpawnedZone(pub Option<usize>);

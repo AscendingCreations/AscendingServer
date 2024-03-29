@@ -5,10 +5,9 @@ use crate::{
     time_ext::MyInstant,
 };
 use bit_op::{bit_u8::*, BitOp};
+use educe::Educe;
 use hecs::World;
 use serde::{Deserialize, Serialize};
-//use serde_big_array::BigArray;
-
 use std::fs::{self, OpenOptions};
 use std::io::BufReader;
 use std::path::Path;
@@ -66,13 +65,10 @@ pub struct GridTile {
 }
 
 //TODO: Update to use MAP (x,y,group) for map locations and Remove map links?
-#[derive(Clone, Derivative, Serialize, Deserialize)]
-#[derivative(Default(new = "true"))]
+#[derive(Clone, Educe, Serialize, Deserialize)]
+#[educe(Default(new))]
 pub struct Map {
     pub position: MapPosition,
-    //#[derivative(Default(value = "[Tile::default(); MAP_MAX_X * MAP_MAX_Y]"))]
-    //#[serde(with = "BigArray")]
-    //pub tiles: [Tile; MAP_MAX_X * MAP_MAX_Y],
     pub attribute: Vec<MapAttribute>,
     // Tiles for zone spawning. (x, y) using u8 to cut down the size and since maps should never Exceed 64x64
     // As super large maps are stupid within a Seamless Structure.
@@ -132,31 +128,29 @@ fn load_map(filename: String) -> Option<Map> {
     }
 }
 
-#[derive(Derivative, Debug, Copy, Clone, PartialEq, Eq)]
-#[derivative(Default)]
+#[derive(Educe, Debug, Copy, Clone, PartialEq, Eq)]
+#[educe(Default)]
 pub struct SpawnItemData {
     pub index: u32,
     pub amount: u16,
     pub pos: Position,
     pub timer_set: u64,
     // Editable
-    #[derivative(Default(value = "MyInstant::now()"))]
+    #[educe(Default = MyInstant::now())]
     pub timer: MyInstant,
 }
 
-#[derive(Clone, Derivative)]
-#[derivative(Default(new = "true"))]
+#[derive(Clone, Educe)]
+#[educe(Default(new))]
 pub struct MapData {
     pub position: MapPosition,
     //updated data for map seperate from Map itself as base should be Readonly / clone.
     pub itemids: IndexSet<Entity>,
     pub npcs: IndexSet<Entity>,
     pub players: IndexSet<Entity>,
-    //#[derivative(Default(value = "slab::Slab::with_capacity(16)"))]
-    //pub items: slab::Slab<MapItem>,
     pub zones: [u64; 5], //contains the NPC spawn Count of each Zone.
-    #[derivative(Default(value = "[GridTile::default(); MAP_MAX_X * MAP_MAX_Y]"))]
-    pub move_grid: [GridTile; MAP_MAX_X * MAP_MAX_Y], // (count, False=tile|True=Npc or player, Dir Blocking)
+    #[educe(Default = [GridTile::default(); MAP_MAX_X * MAP_MAX_Y])]
+    pub move_grid: [GridTile; MAP_MAX_X * MAP_MAX_Y],
     pub players_on_map: u64,
     pub spawnable_item: Vec<SpawnItemData>,
 }

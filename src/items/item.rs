@@ -1,4 +1,5 @@
 use bytey::{ByteBufferRead, ByteBufferWrite};
+use educe::Educe;
 use serde::{Deserialize, Serialize};
 
 #[derive(
@@ -9,16 +10,16 @@ use serde::{Deserialize, Serialize};
     Deserialize,
     PartialEq,
     Eq,
-    Derivative,
+    Educe,
     ByteBufferWrite,
     ByteBufferRead,
 )]
-#[derivative(Default)]
+#[educe(Default)]
 pub struct Item {
     //17 bytes
     pub num: u32,
     pub val: u16,
-    #[derivative(Default(value = "1"))]
+    #[educe(Default = 1)]
     pub level: u8,
     pub data: [i16; 5],
 }
