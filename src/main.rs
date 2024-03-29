@@ -59,6 +59,9 @@ impl log::Log for MyLogger {
             };
 
             let _ = file.write(msg.as_bytes());
+        } else if self.0 == Level::Info {
+            let msg = format!("{} - {}\n", record.level(), record.args());
+            println!("{}", &msg);
         }
     }
     fn flush(&self) {}
@@ -84,10 +87,7 @@ fn main() {
 
     info!("Starting up");
     info!("Initializing Storage");
-    let storage = match Storage::new() {
-        Some(n) => n,
-        None => return,
-    };
+    let storage = Storage::new().unwrap();
     info!("Initializing PacketRouter");
     let router = PacketRouter::init();
     info!("Initializing World");
@@ -97,7 +97,5 @@ fn main() {
     game_loop(&mut world, &storage, &router);
     // So we get a log and it displays in the command line.
     info!("Server ShutDown Completed. Press Enter to Exit Program.");
-    println!("Server ShutDown Completed. Press Enter to Exit Program.");
-
     let _ret = read_line();
 }
