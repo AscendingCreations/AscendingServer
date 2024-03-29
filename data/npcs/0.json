@@ -22,7 +22,7 @@
     "width": 1,
     "height": 1
   },
-  "behaviour": 2,
+  "behaviour": "Reactive",
   "maxdamage": 1,
   "mindamage": 1,
   "target_auto_switch": false,
