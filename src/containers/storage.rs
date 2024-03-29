@@ -9,7 +9,6 @@ use crate::{
     time_ext::MyInstant,
 };
 use hecs::World;
-//use futures::executor::block_on;
 use mio::Poll;
 use rustls::{
     crypto::{ring as provider, CryptoProvider},
