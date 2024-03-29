@@ -25,6 +25,8 @@ use hecs::World;
 use log::{error, info, Level, LevelFilter, Metadata, Record};
 use std::{fs::File, io::Write, panic};
 
+// used to get string input when we add a command console to control the game.
+// until then we will just not use this.
 fn read_line() -> String {
     let mut rv = String::new();
     std::io::stdin().read_line(&mut rv).unwrap();
@@ -95,7 +97,4 @@ fn main() {
 
     info!("Game Server is Running.");
     game_loop(&mut world, &storage, &router);
-    // So we get a log and it displays in the command line.
-    info!("Server ShutDown Completed. Press Enter to Exit Program.");
-    let _ret = read_line();
 }
