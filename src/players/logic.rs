@@ -1,4 +1,6 @@
-use crate::{containers::Storage, gametypes::*, players::*, socket::*, sql::*, tasks::*};
+use crate::{
+    containers::Storage, gametypes::*, maps::can_target, players::*, socket::*, sql::*, tasks::*,
+};
 use chrono::Duration;
 use log::debug;
 use std::cmp;
@@ -340,4 +342,39 @@ pub fn remove_all_npc_target(world: &mut World, entity: &Entity) {
     {
         *target = Target::default();
     }
+}
+
+pub fn init_trade(
+    world: &mut World,
+    storage: &Storage,
+    entity: &Entity,
+    target_entity: &Entity,
+) -> Result<()> {
+    if can_target(
+        world.get_or_err::<Position>(entity)?,
+        world.get_or_err::<Position>(target_entity)?,
+        world.get_or_err::<DeathType>(target_entity)?,
+        1,
+    ) {
+        if world.get_or_err::<IsUsingType>(target_entity)?.inuse()
+            || world.get_or_err::<IsUsingType>(entity)?.inuse()
+        {
+            // ToDo Warning that other player is in trade
+            return Ok(());
+        }
+
+        {
+            *world.get::<&mut IsUsingType>(entity.0)? = IsUsingType::Trading(*target_entity);
+            *world.get::<&mut IsUsingType>(target_entity.0)? = IsUsingType::Trading(*entity);
+
+            *world.get::<&mut TradeItem>(entity.0)? = TradeItem::default();
+            *world.get::<&mut TradeItem>(target_entity.0)? = TradeItem::default();
+        }
+
+        send_inittrade(world, storage, entity, target_entity)?;
+        send_inittrade(world, storage, target_entity, entity)?;
+    } else {
+        // ToDo Warning not in range
+    }
+    Ok(())
 }

@@ -95,18 +95,6 @@ pub fn targeting(
     Ok(())
 }
 
-pub fn can_target(
-    caster_pos: Position,
-    target_pos: Position,
-    target_death: DeathType,
-    range: i32,
-) -> bool {
-    let check = check_surrounding(caster_pos.map, target_pos.map, true);
-    let pos = target_pos.map_offset(check.into());
-
-    range >= caster_pos.checkdistance(pos) && target_death.is_alive()
-}
-
 pub fn try_target_entity(
     world: &mut World,
     storage: &Storage,

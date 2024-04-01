@@ -10,7 +10,7 @@ use hecs::World;
 use rand::{thread_rng, Rng};
 use std::cmp::min;
 
-use super::MapItem;
+use super::{check_surrounding, MapItem};
 
 pub fn update_maps(world: &mut World, storage: &Storage) -> Result<()> {
     let mut rng = thread_rng();
@@ -170,4 +170,16 @@ pub fn spawn_npc(
     *world.get::<&mut DeathType>(entity.0)? = DeathType::Spawning;
 
     Ok(())
+}
+
+pub fn can_target(
+    caster_pos: Position,
+    target_pos: Position,
+    target_death: DeathType,
+    range: i32,
+) -> bool {
+    let check = check_surrounding(caster_pos.map, target_pos.map, true);
+    let pos = target_pos.map_offset(check.into());
+
+    range >= caster_pos.checkdistance(pos) && target_death.is_alive()
 }

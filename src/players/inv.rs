@@ -203,3 +203,78 @@ pub fn take_inv_itemslot(
 
     Ok(world.get::<&Inventory>(entity.0)?.items[slot].val)
 }
+
+#[inline]
+pub fn count_trade_item(num: u32, trade_slot: &[Item]) -> u64 {
+    (0..MAX_TRADE_SLOT)
+        .filter_map(|id| {
+            if trade_slot[id].num == num && trade_slot[id].val > 0 {
+                Some(trade_slot[id].val as u64)
+            } else {
+                None
+            }
+        })
+        .fold(0u64, u64::saturating_add)
+}
+
+#[inline]
+pub fn find_trade_slot(item: &Item, trade_slot: &[Item], base: &ItemData) -> Option<usize> {
+    if base.stackable {
+        if let Some(id) = (0..MAX_INV).find(|id| {
+            trade_slot[*id].num == item.num
+                && trade_slot[*id].val < base.stacklimit
+                && trade_slot[*id].val > 0
+        }) {
+            return Some(id);
+        }
+    }
+
+    (0..MAX_INV).find(|id| trade_slot[*id].val == 0)
+}
+
+#[inline]
+pub fn auto_set_trade_item(
+    world: &mut World,
+    entity: &crate::Entity,
+    item: &mut Item,
+    base: &ItemData,
+) -> Result<Vec<usize>> {
+    let mut save_slot_list = Vec::new();
+
+    {
+        let mut player_trade = world.get::<&mut TradeItem>(entity.0)?;
+        while let Some(slot) = find_trade_slot(item, &player_trade.items, base) {
+            if player_trade.items[slot].val == 0 {
+                player_trade.items[slot] = *item;
+                item.val = 0;
+                save_slot_list.push(slot);
+                break;
+            }
+
+            let rem = val_add_rem(
+                &mut player_trade.items[slot].val,
+                &mut item.val,
+                base.stacklimit,
+            );
+            save_slot_list.push(slot);
+
+            if rem == 0 {
+                break;
+            }
+        }
+    }
+
+    Ok(save_slot_list)
+}
+
+#[inline]
+pub fn give_trade_item(
+    world: &mut World,
+    storage: &Storage,
+    entity: &crate::Entity,
+    item: &mut Item,
+) -> Result<Vec<usize>> {
+    let base = &storage.bases.items[item.num as usize];
+
+    auto_set_trade_item(world, entity, item, base)
+}

@@ -525,16 +525,13 @@ pub fn send_updatetradeitem(
     target_entity: &Entity,
     send_entity: &Entity,
     trade_slot: u16,
-    inv_slot: u16,
-    amount: u16,
 ) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(8)?;
 
     buf.write(ServerPackets::UpdateTradeItem)?;
     buf.write(target_entity == send_entity)?;
     buf.write(trade_slot)?;
-    buf.write(world.get::<&Inventory>(target_entity.0)?.items[inv_slot as usize])?;
-    buf.write(amount)?;
+    buf.write(world.get::<&TradeItem>(target_entity.0)?.items[trade_slot as usize])?;
     buf.finish()?;
 
     send_to(storage, world.get::<&Socket>(send_entity.0)?.id, buf)
@@ -546,6 +543,22 @@ pub fn send_updatetrademoney(world: &mut World, storage: &Storage, entity: &Enti
 
     buf.write(ServerPackets::UpdateTradeMoney)?;
     buf.write(1_u16)?;
+    buf.finish()?;
+
+    send_to(storage, world.get::<&Socket>(entity.0)?.id, buf)
+}
+
+#[inline]
+pub fn send_inittrade(
+    world: &mut World,
+    storage: &Storage,
+    entity: &Entity,
+    target_entity: &Entity,
+) -> Result<()> {
+    let mut buf = ByteBuffer::new_packet_with(12)?;
+
+    buf.write(ServerPackets::InitTrade)?;
+    buf.write(*target_entity)?;
     buf.finish()?;
 
     send_to(storage, world.get::<&Socket>(entity.0)?.id, buf)

@@ -5,8 +5,6 @@ use std::{
     collections::{BinaryHeap, VecDeque},
 };
 
-use super::can_target;
-
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct PathNode {
     pub g: i32,

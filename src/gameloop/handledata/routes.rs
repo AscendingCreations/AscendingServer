@@ -937,23 +937,24 @@ pub fn handle_message(
     Err(AscendingError::InvalidSocket)
 }
 
-pub fn handle_admincommand(
+pub fn handle_command(
     world: &mut World,
     storage: &Storage,
     data: &mut ByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
     if let Some(_p) = storage.player_ids.borrow().get(entity) {
-        let command = data.read::<AdminCommand>()?;
+        let command = data.read::<Command>()?;
 
         match command {
-            AdminCommand::KickPlayer(name) => {
+            Command::KickPlayer => {}
+            Command::KickPlayerByName(name) => {
                 debug!("Kicking Player {:?}", name);
             }
-            AdminCommand::WarpTo(pos) => {
+            Command::WarpTo(pos) => {
                 debug!("Warping to {:?}", pos);
             }
-            AdminCommand::SpawnNpc(index, pos) => {
+            Command::SpawnNpc(index, pos) => {
                 debug!("Spawning NPC {index} on {:?}", pos);
                 if let Some(mapdata) = storage.maps.get(&pos.map) {
                     let mut data = mapdata.borrow_mut();
@@ -961,6 +962,14 @@ pub fn handle_admincommand(
                         data.add_npc(id);
                         spawn_npc(world, pos, None, id)?;
                     }
+                }
+            }
+            Command::Trade => {
+                let target = world.get_or_err::<PlayerTarget>(entity)?.0;
+                if let Some(target_entity) = target
+                    && world.contains(target_entity.0)
+                {
+                    init_trade(world, storage, entity, &target_entity)?;
                 }
             }
         }
@@ -1053,6 +1062,28 @@ pub fn handle_closetrade(
         {
             return Ok(());
         }
+
+        let target_entity =
+            if let IsUsingType::Trading(entity) = world.get_or_err::<IsUsingType>(entity)? {
+                entity
+            } else {
+                return Ok(());
+            };
+        if !world.contains(target_entity.0) {
+            return Ok(());
+        }
+
+        {
+            *world.get::<&mut TradeItem>(entity.0)? = TradeItem::default();
+            *world.get::<&mut IsUsingType>(entity.0)? = IsUsingType::default();
+            *world.get::<&mut TradeItem>(target_entity.0)? = TradeItem::default();
+            *world.get::<&mut IsUsingType>(target_entity.0)? = IsUsingType::default();
+        }
+
+        send_clearisusingtype(world, storage, entity)?;
+        send_clearisusingtype(world, storage, &target_entity)?;
+
+        // ToDo Warning, trade closed
 
         return Ok(());
     }
@@ -1167,8 +1198,6 @@ pub fn handle_addtradeitem(
     entity: &Entity,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
-        *world.get::<&mut IsUsingType>(entity.0)? = IsUsingType::Trading(*entity);
-
         if !world.get_or_err::<DeathType>(entity)?.is_alive()
             || !world.get_or_err::<IsUsingType>(entity)?.is_trading()
         {
@@ -1186,19 +1215,43 @@ pub fn handle_addtradeitem(
         }
 
         let slot = data.read::<u16>()? as usize;
-        let mut amount = data.read::<u16>()?;
+        let mut amount = data.read::<u16>()? as u64;
 
         if slot >= MAX_INV || world.get::<&Inventory>(entity.0)?.items[slot].val == 0 {
             return Ok(());
         }
 
-        let inv_item = world.cloned_get_or_err::<Inventory>(entity)?.items[slot];
-        if amount > inv_item.val {
-            amount = inv_item.val;
-        };
+        let mut inv_item = world.cloned_get_or_err::<Inventory>(entity)?.items[slot];
 
-        send_updatetradeitem(world, storage, entity, entity, 0, slot as u16, amount)?;
-        //send_updatetradeitem(world, storage, entity, &target_entity, slot as u16, amount)?;
+        let base = &storage.bases.items[inv_item.num as usize];
+        if base.stackable && amount > base.stacklimit as u64 {
+            amount = base.stacklimit as u64
+        }
+
+        // Make sure it does not exceed the amount player have
+        let inv_count = count_inv_item(
+            inv_item.num,
+            &world.cloned_get_or_err::<Inventory>(entity)?.items,
+        );
+        let trade_count = count_trade_item(
+            inv_item.num,
+            &world.cloned_get_or_err::<TradeItem>(entity)?.items,
+        );
+        if trade_count + amount > inv_count {
+            amount = inv_count.saturating_sub(trade_count);
+        }
+        if amount == 0 {
+            return Ok(());
+        }
+        inv_item.val = amount as u16;
+
+        // Add the item on trade list
+        let trade_slot_list = give_trade_item(world, storage, entity, &mut inv_item)?;
+
+        for slot in trade_slot_list.iter() {
+            send_updatetradeitem(world, storage, entity, entity, *slot as u16)?;
+            send_updatetradeitem(world, storage, entity, &target_entity, *slot as u16)?;
+        }
 
         return Ok(());
     }

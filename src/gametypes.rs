@@ -42,6 +42,7 @@ pub const NPCS_SPAWNCAP: usize = 10;
 
 pub const MAX_LVL: usize = 200;
 pub const MAX_INV: usize = 30;
+pub const MAX_TRADE_SLOT: usize = 30;
 pub const MAX_STORAGE: usize = 70;
 pub const MAX_EQPT: usize = 5;
 pub const MAX_ITEM_VAL: usize = 999;

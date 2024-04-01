@@ -60,6 +60,7 @@ pub enum ServerPackets {
     ClearIsUsingType,
     UpdateTradeItem,
     UpdateTradeMoney,
+    InitTrade,
     ServerPacketCount,
 }
 
@@ -83,7 +84,7 @@ pub enum ClientPacket {
     DepositItem,
     WithdrawItem,
     Message,
-    AdminCommand,
+    Command,
     SetTarget,
     CloseStorage,
     CloseShop,

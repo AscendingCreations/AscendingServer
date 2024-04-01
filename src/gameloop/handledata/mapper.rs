@@ -66,8 +66,8 @@ impl PacketRouter {
                 routes::handle_message as PacketFunction,
             ),
             (
-                ClientPacket::AdminCommand,
-                routes::handle_admincommand as PacketFunction,
+                ClientPacket::Command,
+                routes::handle_command as PacketFunction,
             ),
             (
                 ClientPacket::SetTarget,

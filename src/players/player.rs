@@ -59,6 +59,15 @@ pub struct Inventory {
     PartialEq, Eq, Clone, Debug, Educe, Deserialize, Serialize, ByteBufferRead, ByteBufferWrite,
 )]
 #[educe(Default)]
+pub struct TradeItem {
+    #[educe(Default = (0..MAX_TRADE_SLOT).map(|_| Item::default()).collect())]
+    pub items: Vec<Item>,
+}
+
+#[derive(
+    PartialEq, Eq, Clone, Debug, Educe, Deserialize, Serialize, ByteBufferRead, ByteBufferWrite,
+)]
+#[educe(Default)]
 pub struct PlayerStorage {
     #[educe(Default = (0..MAX_STORAGE).map(|_| Item::default()).collect())]
     pub items: Vec<Item>,

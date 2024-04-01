@@ -1,7 +1,7 @@
 use crate::{
     containers::Storage,
     gametypes::*,
-    maps::check_surrounding,
+    maps::can_target,
     npcs::{damage_npc, kill_npc, try_target_entity},
     players::*,
     tasks::{init_data_lists, DataTaskToken, VitalsPacket},
@@ -28,18 +28,6 @@ pub fn get_damage_percentage(damage: u32, hp: (u32, u32)) -> f64 {
     abs_damage / curhp as f64
 }
 
-fn entity_cast_check(
-    caster_pos: Position,
-    target_pos: Position,
-    target_death: DeathType,
-    range: i32,
-) -> bool {
-    let check = check_surrounding(caster_pos.map, target_pos.map, true);
-    let pos = target_pos.map_offset(check.into());
-
-    range >= caster_pos.checkdistance(pos) && target_death.is_alive()
-}
-
 pub fn try_player_cast(world: &mut World, caster: &Entity, target: &Entity) -> bool {
     if !world.contains(caster.0) || !world.contains(target.0) {
         return false;
@@ -49,7 +37,7 @@ pub fn try_player_cast(world: &mut World, caster: &Entity, target: &Entity) -> b
     let target_pos = world.get_or_default::<Position>(target);
     let life = world.get_or_default::<DeathType>(target);
 
-    entity_cast_check(caster_pos, target_pos, life, 1)
+    can_target(caster_pos, target_pos, life, 1)
 }
 
 pub fn player_combat(

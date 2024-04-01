@@ -593,8 +593,10 @@ pub enum MessageChannel {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, ByteBufferRead, ByteBufferWrite)]
-pub enum AdminCommand {
-    KickPlayer(String),
+pub enum Command {
+    KickPlayer,
+    KickPlayerByName(String),
     WarpTo(Position),
     SpawnNpc(i32, Position),
+    Trade,
 }
