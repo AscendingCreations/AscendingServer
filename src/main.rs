@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 #![recursion_limit = "256"]
-#![feature(let_chains)]
+#![feature(let_chains, error_generic_member_access)]
 
 mod containers;
 mod gameloop;

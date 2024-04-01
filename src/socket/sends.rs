@@ -1,3 +1,5 @@
+use std::backtrace::Backtrace;
+
 use crate::{containers::Storage, gametypes::*, maps::*, players::*, socket::*, tasks::*};
 use hecs::World;
 
@@ -112,7 +114,7 @@ pub fn send_mapitem(
 ) -> Result<()> {
     let map = match storage.maps.get(&position) {
         Some(map) => map,
-        None => return Err(AscendingError::Unhandled),
+        None => return Err(AscendingError::Unhandled(Box::new(Backtrace::capture()))),
     }
     .borrow();
     if let Some(item) = map.itemids.get(&id) {

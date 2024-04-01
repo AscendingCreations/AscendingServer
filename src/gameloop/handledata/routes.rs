@@ -1,3 +1,5 @@
+use std::backtrace::Backtrace;
+
 use crate::{
     containers::Storage, gametypes::*, items::Item, maps::*, players::*, socket::*, sql::*,
     tasks::*,
@@ -577,7 +579,7 @@ pub fn handle_dropitem(
             .maps
             .contains_key(&world.get_or_err::<Position>(entity)?.map)
         {
-            return Err(AscendingError::Unhandled);
+            return Err(AscendingError::Unhandled(Box::new(Backtrace::capture())));
         }
 
         if try_drop_item(

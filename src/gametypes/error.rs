@@ -1,12 +1,13 @@
 use crate::{gametypes::MapPosition, tasks::DataTaskToken};
+use std::backtrace::Backtrace;
 use thiserror::Error;
 
 pub type Result<T> = std::result::Result<T, AscendingError>;
 
 #[derive(Error, Debug)]
 pub enum AscendingError {
-    #[error("Currently Unhandled data error")]
-    Unhandled,
+    #[error("Unknown Error Occured. Backtrace: {0}")]
+    Unhandled(Box<Backtrace>),
     #[error("Multiple Logins Detected")]
     MultiLogin,
     #[error("Failed to register account")]
@@ -33,28 +34,88 @@ pub enum AscendingError {
     NpcNotFound(u64),
     #[error("Packet buffer {0:?} not found")]
     PacketCacheNotFound(DataTaskToken),
-    #[error(transparent)]
-    AddrParseError(#[from] std::net::AddrParseError),
-    #[error(transparent)]
-    Io(#[from] std::io::Error),
-    #[error(transparent)]
-    UnicodeError(#[from] std::str::Utf8Error),
-    #[error(transparent)]
-    ByteyError(#[from] bytey::ByteBufferError),
-    #[error(transparent)]
-    RegexError(#[from] regex::Error),
-    #[error(transparent)]
-    ParseError(#[from] std::string::ParseError),
-    #[error(transparent)]
-    HecNoEntity(#[from] hecs::NoSuchEntity),
-    #[error(transparent)]
-    Sqlx(#[from] sqlx::Error),
-    #[error(transparent)]
-    HecsComponent(#[from] hecs::ComponentError),
-    #[error(transparent)]
-    HecsQueryOne(#[from] hecs::QueryOneError),
-    #[error(transparent)]
-    Rustls(#[from] rustls::Error),
-    #[error(transparent)]
-    TomlDe(#[from] toml::de::Error),
+    #[error("Error: {error}, BackTrace: {backtrace}")]
+    AddrParseError {
+        #[from]
+        error: std::net::AddrParseError,
+        #[backtrace]
+        backtrace: Box<Backtrace>,
+    },
+    #[error("Error: {error}, BackTrace: {backtrace}")]
+    Io {
+        #[from]
+        error: std::io::Error,
+        #[backtrace]
+        backtrace: Box<Backtrace>,
+    },
+    #[error("Error: {error}, BackTrace: {backtrace}")]
+    UnicodeError {
+        #[from]
+        error: std::str::Utf8Error,
+        #[backtrace]
+        backtrace: Box<Backtrace>,
+    },
+    #[error("Error: {error}, BackTrace: {backtrace}")]
+    ByteyError {
+        #[from]
+        error: bytey::ByteBufferError,
+        #[backtrace]
+        backtrace: Box<Backtrace>,
+    },
+    #[error("Error: {error}, BackTrace: {backtrace}")]
+    RegexError {
+        #[from]
+        error: regex::Error,
+        #[backtrace]
+        backtrace: Box<Backtrace>,
+    },
+    #[error("Error: {error}, BackTrace: {backtrace}")]
+    ParseError {
+        #[from]
+        error: std::string::ParseError,
+        #[backtrace]
+        backtrace: Box<Backtrace>,
+    },
+    #[error("Error: {error}, BackTrace: {backtrace}")]
+    HecNoEntity {
+        #[from]
+        error: hecs::NoSuchEntity,
+        #[backtrace]
+        backtrace: Box<Backtrace>,
+    },
+    #[error("Error: {error}, BackTrace: {backtrace}")]
+    Sqlx {
+        #[from]
+        error: sqlx::Error,
+        #[backtrace]
+        backtrace: Box<Backtrace>,
+    },
+    #[error("Error: {error}, BackTrace: {backtrace}")]
+    HecsComponent {
+        #[from]
+        error: hecs::ComponentError,
+        #[backtrace]
+        backtrace: Box<Backtrace>,
+    },
+    #[error("Error: {error}, BackTrace: {backtrace}")]
+    HecsQueryOne {
+        #[from]
+        error: hecs::QueryOneError,
+        #[backtrace]
+        backtrace: Box<Backtrace>,
+    },
+    #[error("Error: {error}, BackTrace: {backtrace}")]
+    Rustls {
+        #[from]
+        error: rustls::Error,
+        #[backtrace]
+        backtrace: Box<Backtrace>,
+    },
+    #[error("Error: {error}, BackTrace: {backtrace}")]
+    TomlDe {
+        #[from]
+        error: toml::de::Error,
+        #[backtrace]
+        backtrace: Box<Backtrace>,
+    },
 }

@@ -1,3 +1,5 @@
+use std::backtrace::Backtrace;
+
 use crate::sql::integers::Shifting;
 use crate::{gametypes::*, players::*, time_ext::*};
 use hecs::{NoSuchEntity, World};
@@ -109,7 +111,10 @@ impl PGPlayerWithID {
             player.pk = self.pk;
             Ok(())
         } else {
-            Err(AscendingError::HecNoEntity(NoSuchEntity))
+            Err(AscendingError::HecNoEntity {
+                error: NoSuchEntity,
+                backtrace: Box::new(Backtrace::capture()),
+            })
         }
     }
 }

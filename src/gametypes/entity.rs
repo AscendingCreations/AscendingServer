@@ -5,7 +5,10 @@ use educe::Educe;
 use hecs::{EntityRef, MissingComponent, World};
 use log::{error, warn};
 use serde::{Deserialize, Serialize};
-use std::ops::{Deref, DerefMut};
+use std::{
+    backtrace::Backtrace,
+    ops::{Deref, DerefMut},
+};
 
 #[derive(Educe, Debug, Copy, Clone, PartialEq, Eq)]
 #[educe(Default)]
@@ -267,9 +270,10 @@ impl WorldEntityExtras for EntityRef<'_> {
         match self.get::<&T>().map(|t| *t) {
             Some(t) => Ok(t),
             None => {
-                let e = AscendingError::HecsComponent(hecs::ComponentError::MissingComponent(
-                    MissingComponent::new::<T>(),
-                ));
+                let e = AscendingError::HecsComponent {
+                    error: hecs::ComponentError::MissingComponent(MissingComponent::new::<T>()),
+                    backtrace: Box::new(Backtrace::capture()),
+                };
 
                 warn!("Component Err: {:?}", e);
                 Err(e)
@@ -284,9 +288,10 @@ impl WorldEntityExtras for EntityRef<'_> {
         match self.get::<&T>().map(|t| (*t).clone()) {
             Some(t) => Ok(t),
             None => {
-                let e = AscendingError::HecsComponent(hecs::ComponentError::MissingComponent(
-                    MissingComponent::new::<T>(),
-                ));
+                let e = AscendingError::HecsComponent {
+                    error: hecs::ComponentError::MissingComponent(MissingComponent::new::<T>()),
+                    backtrace: Box::new(Backtrace::capture()),
+                };
 
                 warn!("Component Err: {:?}", e);
                 Err(e)
@@ -346,7 +351,10 @@ impl WorldExtras for World {
             Ok(t) => Ok(t),
             Err(e) => {
                 warn!("Component Err: {:?}", e);
-                Err(AscendingError::HecsComponent(e))
+                Err(AscendingError::HecsComponent {
+                    error: e,
+                    backtrace: Box::new(Backtrace::capture()),
+                })
             }
         }
     }
@@ -359,7 +367,10 @@ impl WorldExtras for World {
             Ok(t) => Ok(t),
             Err(e) => {
                 warn!("Component Err: {:?}", e);
-                Err(AscendingError::HecsComponent(e))
+                Err(AscendingError::HecsComponent {
+                    error: e,
+                    backtrace: Box::new(Backtrace::capture()),
+                })
             }
         }
     }

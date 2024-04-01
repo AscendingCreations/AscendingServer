@@ -1,3 +1,5 @@
+use std::backtrace::Backtrace;
+
 use crate::{containers::*, gametypes::*, players::*, sql::integers::Shifting, sql::*};
 use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
 use hecs::{NoSuchEntity, World};
@@ -172,7 +174,10 @@ pub fn new_player(
     )?
     } else {
         error!("missing components in new player");
-        return Err(AscendingError::HecNoEntity(NoSuchEntity));
+        return Err(AscendingError::HecNoEntity {
+            error: NoSuchEntity,
+            backtrace: Box::new(Backtrace::capture()),
+        });
     };
 
     let inv_insert = PGInvItem::into_insert_all(PGInvItem::new(
