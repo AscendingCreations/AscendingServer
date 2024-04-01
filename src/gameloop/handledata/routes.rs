@@ -397,11 +397,11 @@ pub fn handle_switchinvslot(
             if world.get::<&Inventory>(entity.0)?.items[newslot].num
                 == world.get::<&Inventory>(entity.0)?.items[oldslot].num
             {
-                set_inv_slot(world, storage, entity, &mut itemold, newslot, amount)?;
-                {
-                    world.get::<&mut Inventory>(entity.0)?.items[oldslot] = itemold;
+                let take_amount =
+                    amount - set_inv_slot(world, storage, entity, &mut itemold, newslot, amount)?;
+                if take_amount > 0 {
+                    take_inv_itemslot(world, storage, entity, oldslot, take_amount)?;
                 }
-                save_inv_item(world, storage, entity, oldslot)?;
             } else if world.get::<&Inventory>(entity.0)?.items[oldslot].val == amount {
                 let itemnew = world.get::<&Inventory>(entity.0)?.items[newslot];
                 {
@@ -671,11 +671,11 @@ pub fn handle_switchstorageslot(
             if world.get::<&PlayerStorage>(entity.0)?.items[newslot].num
                 == world.get::<&PlayerStorage>(entity.0)?.items[oldslot].num
             {
-                set_storage_slot(world, storage, entity, &mut itemold, newslot, amount)?;
-                {
-                    world.get::<&mut PlayerStorage>(entity.0)?.items[oldslot] = itemold;
+                let take_amount = amount
+                    - set_storage_slot(world, storage, entity, &mut itemold, newslot, amount)?;
+                if take_amount > 0 {
+                    take_storage_itemslot(world, storage, entity, oldslot, take_amount)?;
                 }
-                save_storage_item(world, storage, entity, oldslot)?;
             } else if world.get::<&PlayerStorage>(entity.0)?.items[oldslot].val == amount {
                 let itemnew = world.get::<&PlayerStorage>(entity.0)?.items[newslot];
                 {
@@ -1167,6 +1167,8 @@ pub fn handle_addtradeitem(
     entity: &Entity,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
+        *world.get::<&mut IsUsingType>(entity.0)? = IsUsingType::Trading(*entity);
+
         if !world.get_or_err::<DeathType>(entity)?.is_alive()
             || !world.get_or_err::<IsUsingType>(entity)?.is_trading()
         {
@@ -1195,8 +1197,8 @@ pub fn handle_addtradeitem(
             amount = inv_item.val;
         };
 
-        send_updatetradeitem(world, storage, entity, entity, slot as u16, amount)?;
-        send_updatetradeitem(world, storage, entity, &target_entity, slot as u16, amount)?;
+        send_updatetradeitem(world, storage, entity, entity, 0, slot as u16, amount)?;
+        //send_updatetradeitem(world, storage, entity, &target_entity, slot as u16, amount)?;
 
         return Ok(());
     }

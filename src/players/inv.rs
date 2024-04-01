@@ -99,7 +99,7 @@ pub fn set_inv_item(
     let player_inv = world.cloned_get_or_err::<Inventory>(entity)?;
 
     let mut rem = 0u16;
-    let mut item_min = std::cmp::min(amount, item.val);
+    let item_min = std::cmp::min(amount, item.val);
 
     if player_inv.items[slot].val == 0 {
         {
@@ -108,25 +108,19 @@ pub fn set_inv_item(
             inv.items[slot].val = item_min;
         }
 
-        item.val = item.val.saturating_sub(item_min);
         save_inv_item(world, storage, entity, slot)?;
         return Ok(0);
     } else if player_inv.items[slot].num == item.num {
-        let mut playerinv_val = player_inv.items[slot].val;
-        item_min = val_add_amount_rem(&mut playerinv_val, &mut item.val, item_min, base.stacklimit);
+        {
+            rem = val_add_amount_rem(
+                &mut world.get::<&mut Inventory>(entity.0)?.items[slot].val,
+                &mut item.val,
+                item_min,
+                base.stacklimit,
+            );
+        }
 
         save_inv_item(world, storage, entity, slot)?;
-
-        if item_min > 0 {
-            let mut itemtemp = *item;
-            itemtemp.val = item_min;
-
-            rem = auto_set_inv_item(world, storage, entity, &mut itemtemp, base)?;
-
-            if rem < item_min {
-                item.val = item.val.saturating_sub(item_min.saturating_sub(rem));
-            }
-        }
     }
 
     Ok(rem)

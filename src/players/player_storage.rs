@@ -101,7 +101,7 @@ pub fn set_storage_item(
     let player_storage = world.cloned_get_or_err::<PlayerStorage>(entity)?;
 
     let mut rem = 0u16;
-    let mut item_min = std::cmp::min(amount, item.val);
+    let item_min = std::cmp::min(amount, item.val);
 
     if player_storage.items[slot].val == 0 {
         {
@@ -114,26 +114,16 @@ pub fn set_storage_item(
         save_storage_item(world, storage, entity, slot)?;
         return Ok(0);
     } else if player_storage.items[slot].num == item.num {
-        let mut playerstorage_val = player_storage.items[slot].val;
-        item_min = val_add_amount_rem(
-            &mut playerstorage_val,
-            &mut item.val,
-            item_min,
-            base.stacklimit,
-        );
+        {
+            rem = val_add_amount_rem(
+                &mut world.get::<&mut PlayerStorage>(entity.0)?.items[slot].val,
+                &mut item.val,
+                item_min,
+                base.stacklimit,
+            );
+        }
 
         save_storage_item(world, storage, entity, slot)?;
-
-        if item_min > 0 {
-            let mut itemtemp = *item;
-            itemtemp.val = item_min;
-
-            rem = auto_set_storage_item(world, storage, entity, &mut itemtemp, base)?;
-
-            if rem < item_min {
-                item.val = item.val.saturating_sub(item_min.saturating_sub(rem));
-            }
-        }
     }
 
     Ok(rem)

@@ -524,14 +524,16 @@ pub fn send_updatetradeitem(
     storage: &Storage,
     target_entity: &Entity,
     send_entity: &Entity,
-    slot: u16,
+    trade_slot: u16,
+    inv_slot: u16,
     amount: u16,
 ) -> Result<()> {
-    let mut buf = ByteBuffer::new_packet_with(6)?;
+    let mut buf = ByteBuffer::new_packet_with(8)?;
 
     buf.write(ServerPackets::UpdateTradeItem)?;
     buf.write(target_entity == send_entity)?;
-    buf.write(world.get::<&PlayerStorage>(target_entity.0)?.items[slot as usize])?;
+    buf.write(trade_slot)?;
+    buf.write(world.get::<&Inventory>(target_entity.0)?.items[inv_slot as usize])?;
     buf.write(amount)?;
     buf.finish()?;
 
