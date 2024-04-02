@@ -1405,15 +1405,16 @@ pub fn handle_submittrade(
         match entity_status {
             TradeStatus::None => {
                 *world.get::<&mut TradeStatus>(entity.0)? = TradeStatus::Accepted;
-                send_tradestatus(world, storage, entity)?;
             }
             TradeStatus::Accepted => {
                 if target_status == TradeStatus::Accepted {
-                    *world.get::<&mut TradeStatus>(entity.0)? = TradeStatus::Submitted;
-                    send_tradestatus(world, storage, entity)?;
+                    {
+                        *world.get::<&mut TradeStatus>(entity.0)? = TradeStatus::Submitted;
+                    }
                 } else if target_status == TradeStatus::Submitted {
-                    *world.get::<&mut TradeStatus>(entity.0)? = TradeStatus::Submitted;
-                    send_tradestatus(world, storage, entity)?;
+                    {
+                        *world.get::<&mut TradeStatus>(entity.0)? = TradeStatus::Submitted;
+                    }
                     if !process_player_trade(world, storage, entity, &target_entity)? {
                         // ToDo Warning not enough slot
                     }
@@ -1423,6 +1424,20 @@ pub fn handle_submittrade(
             }
             _ => {}
         }
+        send_tradestatus(
+            world,
+            storage,
+            entity,
+            &world.get_or_err::<TradeStatus>(entity)?,
+            &target_status,
+        )?;
+        send_tradestatus(
+            world,
+            storage,
+            &target_entity,
+            &target_status,
+            &world.get_or_err::<TradeStatus>(entity)?,
+        )?;
 
         return Ok(());
     }

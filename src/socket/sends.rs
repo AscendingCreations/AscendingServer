@@ -570,11 +570,18 @@ pub fn send_inittrade(
 }
 
 #[inline]
-pub fn send_tradestatus(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
+pub fn send_tradestatus(
+    world: &mut World,
+    storage: &Storage,
+    entity: &Entity,
+    my_status: &TradeStatus,
+    their_status: &TradeStatus,
+) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(12)?;
 
     buf.write(ServerPackets::TradeStatus)?;
-    buf.write(world.get_or_err::<TradeStatus>(entity)?)?;
+    buf.write(*my_status)?;
+    buf.write(*their_status)?;
     buf.finish()?;
 
     send_to(storage, world.get::<&Socket>(entity.0)?.id, buf)
