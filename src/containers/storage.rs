@@ -281,7 +281,16 @@ impl Storage {
                 PlayerTarget::default(),
             ),
         )?;
-        world.insert(entity.0, (PlayerStorage::default(), TradeItem::default()))?;
+        world.insert(
+            entity.0,
+            (
+                PlayerStorage::default(),
+                TradeItem::default(),
+                TradeMoney::default(),
+                TradeStatus::default(),
+                TradeRequestEntity::default(),
+            ),
+        )?;
         self.player_ids.borrow_mut().insert(*entity);
         Ok(())
     }

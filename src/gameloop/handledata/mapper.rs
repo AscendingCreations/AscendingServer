@@ -109,6 +109,14 @@ impl PacketRouter {
                 ClientPacket::SubmitTrade,
                 routes::handle_submittrade as PacketFunction,
             ),
+            (
+                ClientPacket::AcceptTrade,
+                routes::handle_accepttrade as PacketFunction,
+            ),
+            (
+                ClientPacket::DeclineTrade,
+                routes::handle_declinetrade as PacketFunction,
+            ),
         ]))
     }
 }

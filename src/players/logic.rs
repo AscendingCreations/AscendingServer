@@ -369,6 +369,12 @@ pub fn init_trade(
 
             *world.get::<&mut TradeItem>(entity.0)? = TradeItem::default();
             *world.get::<&mut TradeItem>(target_entity.0)? = TradeItem::default();
+
+            *world.get::<&mut TradeMoney>(entity.0)? = TradeMoney::default();
+            *world.get::<&mut TradeMoney>(target_entity.0)? = TradeMoney::default();
+
+            *world.get::<&mut TradeStatus>(entity.0)? = TradeStatus::default();
+            *world.get::<&mut TradeStatus>(target_entity.0)? = TradeStatus::default();
         }
 
         send_inittrade(world, storage, entity, target_entity)?;
@@ -377,4 +383,80 @@ pub fn init_trade(
         // ToDo Warning not in range
     }
     Ok(())
+}
+
+pub fn process_player_trade(
+    world: &mut World,
+    storage: &Storage,
+    entity: &Entity,
+    target_entity: &Entity,
+) -> Result<bool> {
+    let entity_item = world.cloned_get_or_err::<TradeItem>(entity)?;
+    let target_item = world.cloned_get_or_err::<TradeItem>(target_entity)?;
+    let entity_money = world.get_or_err::<TradeMoney>(entity)?.vals;
+    let target_money = world.get_or_err::<TradeMoney>(target_entity)?.vals;
+
+    let mut entity_clone_inv = world.cloned_get_or_err::<Inventory>(entity)?;
+    let mut target_clone_inv = world.cloned_get_or_err::<Inventory>(target_entity)?;
+    for item in entity_item.items.clone().iter_mut() {
+        if item.val > 0 {
+            let rem = give_temp_inv_item(storage, item, &mut target_clone_inv)?;
+            if rem > 0 {
+                return Ok(false);
+            }
+        }
+    }
+    for item in target_item.items.clone().iter_mut() {
+        if item.val > 0 {
+            let rem = give_temp_inv_item(storage, item, &mut entity_clone_inv)?;
+            if rem > 0 {
+                return Ok(false);
+            }
+        }
+    }
+
+    for item in entity_item.items.iter() {
+        if item.val > 0 {
+            take_inv_items(world, storage, entity, item.num, item.val)?;
+        }
+    }
+    player_take_vals(world, storage, entity, entity_money)?;
+    for item in target_item.items.iter() {
+        if item.val > 0 {
+            take_inv_items(world, storage, target_entity, item.num, item.val)?;
+        }
+    }
+    player_take_vals(world, storage, target_entity, target_money)?;
+
+    for item in entity_item.items.clone().iter_mut() {
+        if item.val > 0 {
+            give_inv_item(world, storage, target_entity, item)?;
+        }
+    }
+    player_give_vals(world, storage, target_entity, entity_money)?;
+    for item in target_item.items.clone().iter_mut() {
+        if item.val > 0 {
+            give_inv_item(world, storage, entity, item)?;
+        }
+    }
+    player_give_vals(world, storage, entity, target_money)?;
+
+    Ok(true)
+}
+
+pub fn close_trade(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
+    {
+        *world.get::<&mut IsUsingType>(entity.0)? = IsUsingType::None;
+        *world.get::<&mut TradeItem>(entity.0)? = TradeItem::default();
+        *world.get::<&mut IsUsingType>(entity.0)? = IsUsingType::default();
+        *world.get::<&mut TradeMoney>(entity.0)? = TradeMoney::default();
+        *world.get::<&mut TradeStatus>(entity.0)? = TradeStatus::default();
+    }
+    send_clearisusingtype(world, storage, entity)
+}
+
+pub fn can_trade(world: &mut World, storage: &Storage, entity: &Entity) -> Result<bool> {
+    Ok(!world.get_or_err::<IsUsingType>(entity)?.inuse()
+        && world.get_or_err::<TradeRequestEntity>(entity)?.requesttimer
+            <= *storage.gettick.borrow())
 }
