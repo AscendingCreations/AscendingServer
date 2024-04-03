@@ -383,7 +383,31 @@ pub fn player_use_item(
     let base = &storage.bases.items[item.num as usize];
 
     match base.itemtype {
-        ItemTypes::Consume => println!("Consume Item was used!"),
+        ItemTypes::Consume => {
+            if base.data[0] > 0 {
+                let player_vital = world.get_or_err::<Vitals>(entity)?;
+                let set_vital = player_vital.vital[VitalTypes::Hp as usize]
+                    .saturating_add(base.data[0] as i32)
+                    .min(player_vital.vitalmax[VitalTypes::Hp as usize]);
+                player_set_vital(world, storage, entity, VitalTypes::Hp, set_vital)?;
+            }
+
+            if base.data[1] > 0 {
+                let player_vital = world.get_or_err::<Vitals>(entity)?;
+                let set_vital = player_vital.vital[VitalTypes::Mp as usize]
+                    .saturating_add(base.data[1] as i32)
+                    .min(player_vital.vitalmax[VitalTypes::Mp as usize]);
+                player_set_vital(world, storage, entity, VitalTypes::Mp, set_vital)?;
+            }
+
+            if base.data[2] > 0 {
+                let player_vital = world.get_or_err::<Vitals>(entity)?;
+                let set_vital = player_vital.vital[VitalTypes::Sp as usize]
+                    .saturating_add(base.data[2] as i32)
+                    .min(player_vital.vitalmax[VitalTypes::Sp as usize]);
+                player_set_vital(world, storage, entity, VitalTypes::Sp, set_vital)?;
+            }
+        }
         ItemTypes::Weapon
         | ItemTypes::Helmet
         | ItemTypes::Armor
