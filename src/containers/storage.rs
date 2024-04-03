@@ -9,13 +9,11 @@ use crate::{
     time_ext::MyInstant,
 };
 use hecs::World;
-use log::{info, warn};
 use mio::Poll;
 use rustls::{
     crypto::{ring as provider, CryptoProvider},
     pki_types::{CertificateDer, PrivateKeyDer},
-    server::WebPkiClientVerifier,
-    RootCertStore, ServerConfig,
+    ServerConfig,
 };
 use serde::Deserialize;
 use sqlx::{
@@ -122,24 +120,10 @@ fn load_private_key(filename: &str) -> PrivateKeyDer<'static> {
 fn build_tls_config(
     server_certs_path: &str,
     server_key_path: &str,
-    ca_root_path: &str,
+    _ca_root_path: &str,
 ) -> Result<Arc<rustls::ServerConfig>> {
     let certs = load_certs(server_certs_path);
     let private_key = load_private_key(server_key_path);
-    let roots = load_certs(ca_root_path);
-    let mut client_auth_roots = RootCertStore::empty();
-    let (allowed, ignored) = client_auth_roots.add_parsable_certificates(roots);
-
-    if ignored > 0 {
-        warn!("Some certs failed to load");
-    }
-
-    if allowed > 0 {
-        info!("Some certs got loaded");
-    }
-    let client_ver = WebPkiClientVerifier::builder(client_auth_roots.into())
-        .build()
-        .unwrap();
 
     let config = ServerConfig::builder_with_provider(
         CryptoProvider {
@@ -150,7 +134,7 @@ fn build_tls_config(
     )
     .with_protocol_versions(rustls::ALL_VERSIONS)
     .unwrap()
-    .with_client_cert_verifier(client_ver)
+    .with_no_client_auth()
     .with_single_cert(certs, private_key)?;
 
     Ok(Arc::new(config))
