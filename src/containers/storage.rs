@@ -9,7 +9,7 @@ use crate::{
     time_ext::MyInstant,
 };
 use hecs::World;
-use log::info;
+use log::{info, warn};
 use mio::Poll;
 use rustls::{
     crypto::{ring as provider, CryptoProvider},
@@ -131,11 +131,11 @@ fn build_tls_config(
     let (allowed, ignored) = client_auth_roots.add_parsable_certificates(roots);
 
     if ignored > 0 {
-        info!("your fucked ducky");
+        warn!("Some certs failed to load");
     }
 
     if allowed > 0 {
-        info!("your good ducky");
+        info!("Some certs got loaded");
     }
     let client_ver = WebPkiClientVerifier::builder(client_auth_roots.into())
         .build()
