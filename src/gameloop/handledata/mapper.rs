@@ -113,6 +113,14 @@ impl PacketRouter {
                 ClientPacket::HandShake,
                 routes::handle_handshake as PacketFunction,
             ),
+            (
+                ClientPacket::AcceptTrade,
+                routes::handle_accepttrade as PacketFunction,
+            ),
+            (
+                ClientPacket::DeclineTrade,
+                routes::handle_declinetrade as PacketFunction,
+            ),
         ]))
     }
 }

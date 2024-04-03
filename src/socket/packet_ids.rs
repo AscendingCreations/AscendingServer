@@ -62,6 +62,8 @@ pub enum ServerPackets {
     UpdateTradeItem,
     UpdateTradeMoney,
     InitTrade,
+    TradeStatus,
+    TradeRequest,
     ServerPacketCount,
 }
 
@@ -97,5 +99,7 @@ pub enum ClientPacket {
     RemoveTradeItem,
     UpdateTradeMoney,
     SubmitTrade,
+    AcceptTrade,
+    DeclineTrade,
     Size,
 }

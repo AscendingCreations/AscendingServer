@@ -160,15 +160,18 @@ pub fn take_inv_items(
     num: u32,
     mut amount: u16,
 ) -> Result<u16> {
-    let player_inv = world.cloned_get_or_err::<Inventory>(entity)?;
-
-    if count_inv_item(num, &player_inv.items) >= amount as u64 {
-        while let Some(slot) = find_inv_item(num, &player_inv.items) {
+    if count_inv_item(num, &world.cloned_get_or_err::<Inventory>(entity)?.items) >= amount as u64 {
+        while let Some(slot) =
+            find_inv_item(num, &world.cloned_get_or_err::<Inventory>(entity)?.items)
+        {
+            let mut take_amount = 0;
             {
-                world.get::<&mut Inventory>(entity.0)?.items[slot].val =
-                    player_inv.items[slot].val.saturating_sub(amount);
+                if let Ok(mut invitem) = world.get::<&mut Inventory>(entity.0) {
+                    take_amount = invitem.items[slot].val;
+                    invitem.items[slot].val = invitem.items[slot].val.saturating_sub(amount);
+                }
             }
-            amount = player_inv.items[slot].val;
+            amount = amount.saturating_sub(take_amount);
 
             save_inv_item(world, storage, entity, slot)?;
 
@@ -277,4 +280,80 @@ pub fn give_trade_item(
     let base = &storage.bases.items[item.num as usize];
 
     auto_set_trade_item(world, entity, item, base)
+}
+
+#[inline]
+pub fn auto_set_temp_inv_item(
+    item: &mut Item,
+    base: &ItemData,
+    temp_inv: &mut Inventory,
+) -> Result<u16> {
+    let mut rem = 0u16;
+
+    while let Some(slot) = find_inv_slot(item, &temp_inv.items, base) {
+        if temp_inv.items[slot].val == 0 {
+            temp_inv.items[slot] = *item;
+            item.val = 0;
+            break;
+        }
+
+        rem = val_add_rem(
+            &mut temp_inv.items[slot].val,
+            &mut item.val,
+            base.stacklimit,
+        );
+
+        if rem == 0 {
+            break;
+        }
+    }
+
+    Ok(rem)
+}
+
+#[inline]
+pub fn give_temp_inv_item(
+    storage: &Storage,
+    item: &mut Item,
+    temp_inv: &mut Inventory,
+) -> Result<u16> {
+    let base = &storage.bases.items[item.num as usize];
+
+    auto_set_temp_inv_item(item, base, temp_inv)
+}
+
+pub fn player_use_item(
+    world: &mut World,
+    storage: &Storage,
+    entity: &crate::Entity,
+    slot: u16,
+) -> Result<()> {
+    if slot as usize >= MAX_INV {
+        return Ok(());
+    }
+    let item = world.cloned_get_or_err::<Inventory>(entity)?.items[slot as usize];
+    if item.val == 0 {
+        return Ok(());
+    }
+
+    let base = &storage.bases.items[item.num as usize];
+
+    match base.itemtype {
+        ItemTypes::Consume => println!("Consume Item was used!"),
+        ItemTypes::Weapon => {
+            if world.cloned_get_or_err::<Equipment>(entity)?.items[EquipmentType::Weapon as usize]
+                .val
+                > 0
+            {}
+        }
+        ItemTypes::Helmet => {}
+        ItemTypes::Armor => {}
+        ItemTypes::Trouser => {}
+        ItemTypes::Accessory => {}
+        _ => return Ok(()),
+    }
+
+    take_inv_itemslot(world, storage, entity, slot as usize, 1)?;
+
+    Ok(())
 }

@@ -9342,15 +9342,45 @@
     "Walkable",
     "Walkable",
     "Walkable",
+    {
+      "ItemSpawn": {
+        "index": 3,
+        "amount": 1,
+        "timer": 5000
+      }
+    },
     "Walkable",
+    {
+      "ItemSpawn": {
+        "index": 4,
+        "amount": 1,
+        "timer": 5000
+      }
+    },
     "Walkable",
+    {
+      "ItemSpawn": {
+        "index": 5,
+        "amount": 1,
+        "timer": 5000
+      }
+    },
     "Walkable",
+    {
+      "ItemSpawn": {
+        "index": 6,
+        "amount": 1,
+        "timer": 5000
+      }
+    },
     "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
+    {
+      "ItemSpawn": {
+        "index": 7,
+        "amount": 1,
+        "timer": 5000
+      }
+    },
     "Walkable",
     "Walkable",
     "Walkable",

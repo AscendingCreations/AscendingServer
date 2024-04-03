@@ -64,6 +64,39 @@ pub struct TradeItem {
     pub items: Vec<Item>,
 }
 
+#[derive(Copy, Clone, Debug, Default)]
+pub struct TradeMoney {
+    pub vals: u64,
+}
+
+#[derive(
+    PartialEq,
+    Eq,
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    Deserialize,
+    Serialize,
+    ByteBufferRead,
+    ByteBufferWrite,
+)]
+pub enum TradeStatus {
+    #[default]
+    None,
+    Accepted,
+    Submitted,
+}
+
+#[derive(Copy, Clone, Debug, Educe)]
+#[educe(Default)]
+pub struct TradeRequestEntity {
+    #[educe(Default = None)]
+    pub entity: Option<crate::Entity>,
+    #[educe(Default = MyInstant::now())]
+    pub requesttimer: MyInstant,
+}
+
 #[derive(
     PartialEq, Eq, Clone, Debug, Educe, Deserialize, Serialize, ByteBufferRead, ByteBufferWrite,
 )]

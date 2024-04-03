@@ -329,16 +329,14 @@ pub fn handle_useitem(
             return Ok(());
         }
 
-        let _slot = data.read::<u16>()?;
-        let _targettype = data.read::<u8>()?;
+        let slot = data.read::<u16>()?;
 
         {
             world.get::<&mut PlayerItemTimer>(entity.0)?.itemtimer =
                 *storage.gettick.borrow() + Duration::try_milliseconds(250).unwrap_or_default();
         }
 
-        //TODO useitem();
-        return Ok(());
+        return player_use_item(world, storage, entity, slot);
     }
 
     Err(AscendingError::InvalidSocket)
@@ -445,10 +443,12 @@ pub fn handle_switchinvslot(
                     );
             }
         } else {
-            set_inv_slot(world, storage, entity, &mut itemold, newslot, amount)?;
+            let itemnew = world.get::<&Inventory>(entity.0)?.items[newslot];
             {
-                world.get::<&mut Inventory>(entity.0)?.items[oldslot] = itemold;
+                world.get::<&mut Inventory>(entity.0)?.items[newslot] = itemold;
+                world.get::<&mut Inventory>(entity.0)?.items[oldslot] = itemnew;
             }
+            save_inv_item(world, storage, entity, newslot)?;
             save_inv_item(world, storage, entity, oldslot)?;
         }
 
@@ -994,7 +994,37 @@ pub fn handle_command(
                 if let Some(target_entity) = target
                     && world.contains(target_entity.0)
                 {
-                    init_trade(world, storage, entity, &target_entity)?;
+                    //init_trade(world, storage, entity, &target_entity)?;
+                    if world.get_or_err::<TradeRequestEntity>(entity)?.requesttimer
+                        <= *storage.gettick.borrow()
+                        && can_target(
+                            world.get_or_err::<Position>(entity)?,
+                            world.get_or_err::<Position>(&target_entity)?,
+                            world.get_or_err::<DeathType>(&target_entity)?,
+                            1,
+                        )
+                        && can_trade(world, storage, &target_entity)?
+                    {
+                        send_traderequest(world, storage, entity, &target_entity)?;
+                        {
+                            if let Ok(mut traderequest) =
+                                world.get::<&mut TradeRequestEntity>(entity.0)
+                            {
+                                traderequest.entity = Some(target_entity);
+                                traderequest.requesttimer = *storage.gettick.borrow()
+                                    + Duration::try_milliseconds(60000).unwrap_or_default();
+                                // 1 Minute
+                            }
+                            if let Ok(mut traderequest) =
+                                world.get::<&mut TradeRequestEntity>(target_entity.0)
+                            {
+                                traderequest.entity = Some(*entity);
+                                traderequest.requesttimer = *storage.gettick.borrow()
+                                    + Duration::try_milliseconds(60000).unwrap_or_default();
+                                // 1 Minute
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -1098,15 +1128,8 @@ pub fn handle_closetrade(
             return Ok(());
         }
 
-        {
-            *world.get::<&mut TradeItem>(entity.0)? = TradeItem::default();
-            *world.get::<&mut IsUsingType>(entity.0)? = IsUsingType::default();
-            *world.get::<&mut TradeItem>(target_entity.0)? = TradeItem::default();
-            *world.get::<&mut IsUsingType>(target_entity.0)? = IsUsingType::default();
-        }
-
-        send_clearisusingtype(world, storage, entity)?;
-        send_clearisusingtype(world, storage, &target_entity)?;
+        close_trade(world, storage, entity)?;
+        close_trade(world, storage, &target_entity)?;
 
         // ToDo Warning, trade closed
 
@@ -1205,10 +1228,7 @@ pub fn handle_sellitem(
         take_inv_itemslot(world, storage, entity, slot, amount)?;
         player_give_vals(world, storage, entity, price * amount as u64)?;
 
-        println!(
-            "Player Money: {:?}",
-            world.get_or_err::<Money>(entity)?.vals
-        );
+        // ToDo Info Msg
 
         return Ok(());
     }
@@ -1226,6 +1246,9 @@ pub fn handle_addtradeitem(
         if !world.get_or_err::<DeathType>(entity)?.is_alive()
             || !world.get_or_err::<IsUsingType>(entity)?.is_trading()
         {
+            return Ok(());
+        }
+        if world.get_or_err::<TradeStatus>(entity)? != TradeStatus::None {
             return Ok(());
         }
 
@@ -1296,15 +1319,41 @@ pub fn handle_removetradeitem(
         {
             return Ok(());
         }
+        if world.get_or_err::<TradeStatus>(entity)? != TradeStatus::None {
+            return Ok(());
+        }
 
-        let _target_entity =
+        let target_entity =
             if let IsUsingType::Trading(entity) = world.get_or_err::<IsUsingType>(entity)? {
                 entity
             } else {
                 return Ok(());
             };
+        if !world.contains(target_entity.0) {
+            return Ok(());
+        }
 
-        let _slot = data.read::<u16>()?;
+        let slot = data.read::<u16>()? as usize;
+        let mut amount = data.read::<u64>()?;
+
+        let trade_item = world.cloned_get_or_err::<TradeItem>(entity)?.items[slot];
+
+        if slot >= MAX_TRADE_SLOT || trade_item.val == 0 {
+            return Ok(());
+        }
+        amount = amount.min(trade_item.val as u64);
+
+        {
+            if let Ok(mut tradeitem) = world.get::<&mut TradeItem>(entity.0) {
+                tradeitem.items[slot].val = tradeitem.items[slot].val.saturating_sub(amount as u16);
+                if tradeitem.items[slot].val == 0 {
+                    tradeitem.items[slot] = Item::default();
+                }
+            }
+        }
+
+        send_updatetradeitem(world, storage, entity, entity, slot as u16)?;
+        send_updatetradeitem(world, storage, entity, &target_entity, slot as u16)?;
 
         return Ok(());
     }
@@ -1324,15 +1373,27 @@ pub fn handle_updatetrademoney(
         {
             return Ok(());
         }
+        if world.get_or_err::<TradeStatus>(entity)? != TradeStatus::None {
+            return Ok(());
+        }
 
-        let _target_entity =
+        let target_entity =
             if let IsUsingType::Trading(entity) = world.get_or_err::<IsUsingType>(entity)? {
                 entity
             } else {
                 return Ok(());
             };
+        if !world.contains(target_entity.0) {
+            return Ok(());
+        }
 
-        let _amount = data.read::<u64>()?;
+        let money = world.get_or_err::<Money>(entity)?.vals;
+        let amount = data.read::<u64>()?.min(money);
+
+        {
+            world.get::<&mut TradeMoney>(entity.0)?.vals = amount;
+        }
+        send_updatetrademoney(world, storage, entity, &target_entity)?;
 
         return Ok(());
     }
@@ -1352,6 +1413,144 @@ pub fn handle_submittrade(
         {
             return Ok(());
         }
+
+        let target_entity =
+            if let IsUsingType::Trading(entity) = world.get_or_err::<IsUsingType>(entity)? {
+                entity
+            } else {
+                return Ok(());
+            };
+        if !world.contains(target_entity.0) {
+            return Ok(());
+        }
+
+        let entity_status = world.get_or_err::<TradeStatus>(entity)?;
+        let target_status = world.get_or_err::<TradeStatus>(&target_entity)?;
+
+        match entity_status {
+            TradeStatus::None => {
+                *world.get::<&mut TradeStatus>(entity.0)? = TradeStatus::Accepted;
+            }
+            TradeStatus::Accepted => {
+                if target_status == TradeStatus::Accepted {
+                    {
+                        *world.get::<&mut TradeStatus>(entity.0)? = TradeStatus::Submitted;
+                    }
+                } else if target_status == TradeStatus::Submitted {
+                    {
+                        *world.get::<&mut TradeStatus>(entity.0)? = TradeStatus::Submitted;
+                    }
+                    if !process_player_trade(world, storage, entity, &target_entity)? {
+                        // ToDo Warning not enough slot
+                    }
+                    close_trade(world, storage, entity)?;
+                    close_trade(world, storage, &target_entity)?;
+                }
+            }
+            _ => {}
+        }
+        send_tradestatus(
+            world,
+            storage,
+            entity,
+            &world.get_or_err::<TradeStatus>(entity)?,
+            &target_status,
+        )?;
+        send_tradestatus(
+            world,
+            storage,
+            &target_entity,
+            &target_status,
+            &world.get_or_err::<TradeStatus>(entity)?,
+        )?;
+
+        return Ok(());
+    }
+
+    Err(AscendingError::InvalidSocket)
+}
+
+pub fn handle_accepttrade(
+    world: &mut World,
+    storage: &Storage,
+    _data: &mut ByteBuffer,
+    entity: &Entity,
+) -> Result<()> {
+    if let Some(entity) = storage.player_ids.borrow().get(entity) {
+        if !world.get_or_err::<DeathType>(entity)?.is_alive()
+            || world.get_or_err::<IsUsingType>(entity)?.inuse()
+        {
+            return Ok(());
+        }
+
+        let target_entity = match world.get_or_err::<TradeRequestEntity>(entity)?.entity {
+            Some(entity) => entity,
+            None => return Ok(()),
+        };
+        {
+            *world.get::<&mut TradeRequestEntity>(entity.0)? = TradeRequestEntity::default();
+        }
+
+        if !world.contains(target_entity.0) {
+            return Ok(());
+        }
+
+        let trade_entity = match world
+            .get_or_err::<TradeRequestEntity>(&target_entity)?
+            .entity
+        {
+            Some(entity) => entity,
+            None => return Ok(()),
+        };
+        if trade_entity != *entity || world.get_or_err::<IsUsingType>(&trade_entity)?.inuse() {
+            return Ok(());
+        }
+
+        init_trade(world, storage, entity, &target_entity)?;
+
+        return Ok(());
+    }
+
+    Err(AscendingError::InvalidSocket)
+}
+
+pub fn handle_declinetrade(
+    world: &mut World,
+    storage: &Storage,
+    _data: &mut ByteBuffer,
+    entity: &Entity,
+) -> Result<()> {
+    if let Some(entity) = storage.player_ids.borrow().get(entity) {
+        if !world.get_or_err::<DeathType>(entity)?.is_alive()
+            || world.get_or_err::<IsUsingType>(entity)?.inuse()
+        {
+            return Ok(());
+        }
+
+        let target_entity = match world.get_or_err::<TradeRequestEntity>(entity)?.entity {
+            Some(entity) => entity,
+            None => return Ok(()),
+        };
+        {
+            *world.get::<&mut TradeRequestEntity>(entity.0)? = TradeRequestEntity::default();
+        }
+
+        if world.contains(target_entity.0) {
+            let trade_entity = match world
+                .get_or_err::<TradeRequestEntity>(&target_entity)?
+                .entity
+            {
+                Some(entity) => entity,
+                None => return Ok(()),
+            };
+            if trade_entity == *entity {
+                *world.get::<&mut TradeRequestEntity>(target_entity.0)? =
+                    TradeRequestEntity::default();
+            }
+        }
+
+        // ToDo Inform that trade was declined
+        println!("Trade Declined");
 
         return Ok(());
     }
