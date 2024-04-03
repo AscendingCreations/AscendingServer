@@ -239,12 +239,9 @@ pub enum EquipmentType {
     Helmet,
     Chest,
     Pants,
-    Belt,
-    Boot,
-    Accessory1,
-    Accessory2,
+    Accessory,
     Count,
-} //8
+} //5
 
 #[derive(
     Copy,

@@ -321,3 +321,39 @@ pub fn give_temp_inv_item(
 
     auto_set_temp_inv_item(item, base, temp_inv)
 }
+
+pub fn player_use_item(
+    world: &mut World,
+    storage: &Storage,
+    entity: &crate::Entity,
+    slot: u16,
+) -> Result<()> {
+    if slot as usize >= MAX_INV {
+        return Ok(());
+    }
+    let item = world.cloned_get_or_err::<Inventory>(entity)?.items[slot as usize];
+    if item.val == 0 {
+        return Ok(());
+    }
+
+    let base = &storage.bases.items[item.num as usize];
+
+    match base.itemtype {
+        ItemTypes::Consume => println!("Consume Item was used!"),
+        ItemTypes::Weapon => {
+            if world.cloned_get_or_err::<Equipment>(entity)?.items[EquipmentType::Weapon as usize]
+                .val
+                > 0
+            {}
+        }
+        ItemTypes::Helmet => {}
+        ItemTypes::Armor => {}
+        ItemTypes::Trouser => {}
+        ItemTypes::Accessory => {}
+        _ => return Ok(()),
+    }
+
+    take_inv_itemslot(world, storage, entity, slot as usize, 1)?;
+
+    Ok(())
+}

@@ -211,7 +211,7 @@ pub fn player_get_armor_defense(
     Ok(if let Some(player_equipment) = query.get() {
         let mut defense = (0i16, 0i16);
 
-        for i in EquipmentType::Helmet as usize..=EquipmentType::Accessory2 as usize {
+        for i in EquipmentType::Helmet as usize..=EquipmentType::Accessory as usize {
             if let Some(item) = storage
                 .bases
                 .items

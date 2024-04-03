@@ -304,16 +304,14 @@ pub fn handle_useitem(
             return Ok(());
         }
 
-        let _slot = data.read::<u16>()?;
-        let _targettype = data.read::<u8>()?;
+        let slot = data.read::<u16>()?;
 
         {
             world.get::<&mut PlayerItemTimer>(entity.0)?.itemtimer =
                 *storage.gettick.borrow() + Duration::try_milliseconds(250).unwrap_or_default();
         }
 
-        //TODO useitem();
-        return Ok(());
+        return player_use_item(world, storage, entity, slot);
     }
 
     Err(AscendingError::InvalidSocket)
@@ -420,10 +418,12 @@ pub fn handle_switchinvslot(
                     );
             }
         } else {
-            set_inv_slot(world, storage, entity, &mut itemold, newslot, amount)?;
+            let itemnew = world.get::<&Inventory>(entity.0)?.items[newslot];
             {
-                world.get::<&mut Inventory>(entity.0)?.items[oldslot] = itemold;
+                world.get::<&mut Inventory>(entity.0)?.items[newslot] = itemold;
+                world.get::<&mut Inventory>(entity.0)?.items[oldslot] = itemnew;
             }
+            save_inv_item(world, storage, entity, newslot)?;
             save_inv_item(world, storage, entity, oldslot)?;
         }
 
