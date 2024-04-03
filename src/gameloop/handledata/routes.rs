@@ -364,25 +364,15 @@ pub fn handle_unequip(
             return Ok(());
         }
 
-        let mut item = world.get::<&Equipment>(entity.0)?.items[slot];
-        let rem = give_inv_item(world, storage, entity, &mut item)?;
-
-        if rem > 0 {
-            return send_fltalert(
+        if !player_unequip(world, storage, entity, slot)? {
+            send_fltalert(
                 storage,
                 world.get::<&Socket>(entity.0)?.id,
                 "Could not unequiped. No inventory space.".into(),
                 FtlType::Error,
-            );
+            )?;
         }
-
-        {
-            world.get::<&mut Equipment>(entity.0)?.items[slot] = item;
-        }
-
-        update_equipment(storage, world, entity, slot)?;
-        //TODO calculatestats();
-        return send_equipment(world, storage, entity);
+        return Ok(());
     }
 
     Err(AscendingError::InvalidSocket)

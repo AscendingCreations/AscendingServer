@@ -322,6 +322,50 @@ pub fn give_temp_inv_item(
     auto_set_temp_inv_item(item, base, temp_inv)
 }
 
+pub fn player_unequip(
+    world: &mut World,
+    storage: &Storage,
+    entity: &crate::Entity,
+    slot: usize,
+) -> Result<bool> {
+    if world.cloned_get_or_err::<Equipment>(entity)?.items[slot].val == 0 {
+        return Ok(true);
+    }
+
+    let mut item = world.get::<&Equipment>(entity.0)?.items[slot];
+    let rem = give_inv_item(world, storage, entity, &mut item)?;
+    if rem > 0 {
+        return Ok(false);
+    }
+
+    {
+        world.get::<&mut Equipment>(entity.0)?.items[slot] = Item::default();
+    }
+
+    update_equipment(storage, world, entity, slot)?;
+    //TODO calculatestats();
+    send_equipment(world, storage, entity)?;
+
+    Ok(true)
+}
+
+pub fn player_equip(
+    world: &mut World,
+    storage: &Storage,
+    entity: &crate::Entity,
+    item: Item,
+    slot: usize,
+) -> Result<()> {
+    {
+        world.get::<&mut Equipment>(entity.0)?.items[slot] = item;
+    }
+    update_equipment(storage, world, entity, slot)?;
+    //TODO calculatestats();
+    send_equipment(world, storage, entity)?;
+
+    Ok(())
+}
+
 pub fn player_use_item(
     world: &mut World,
     storage: &Storage,
@@ -340,16 +384,25 @@ pub fn player_use_item(
 
     match base.itemtype {
         ItemTypes::Consume => println!("Consume Item was used!"),
-        ItemTypes::Weapon => {
-            if world.cloned_get_or_err::<Equipment>(entity)?.items[EquipmentType::Weapon as usize]
-                .val
-                > 0
-            {}
+        ItemTypes::Weapon
+        | ItemTypes::Helmet
+        | ItemTypes::Armor
+        | ItemTypes::Trouser
+        | ItemTypes::Accessory => {
+            let eqslot = match base.itemtype {
+                ItemTypes::Helmet => EquipmentType::Helmet,
+                ItemTypes::Armor => EquipmentType::Chest,
+                ItemTypes::Trouser => EquipmentType::Pants,
+                ItemTypes::Accessory => EquipmentType::Accessory,
+                _ => EquipmentType::Weapon,
+            } as usize;
+
+            if !player_unequip(world, storage, entity, eqslot)? {
+                // ToDo Warning cannot unequip
+                return Ok(());
+            }
+            player_equip(world, storage, entity, item, eqslot)?;
         }
-        ItemTypes::Helmet => {}
-        ItemTypes::Armor => {}
-        ItemTypes::Trouser => {}
-        ItemTypes::Accessory => {}
         _ => return Ok(()),
     }
 

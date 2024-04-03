@@ -333,7 +333,8 @@ pub fn send_equipment(world: &mut World, storage: &Storage, entity: &Entity) -> 
     let mut buf = ByteBuffer::new_packet_with(16)?;
 
     buf.write(ServerPackets::PlayerEquipment)?;
-    buf.write(&world.get::<&Equipment>(entity.0)?.items)?;
+    buf.write(*entity)?;
+    buf.write(world.cloned_get_or_err::<Equipment>(entity)?)?;
     buf.finish()?;
 
     send_to_maps(
