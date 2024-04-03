@@ -293,7 +293,7 @@ pub fn joingame(world: &mut World, storage: &Storage, entity: &Entity) -> Result
     }
 
     // Send player index and data
-    send_myindex(storage, socket_id, entity)?;
+    //send_myindex(storage, socket_id, entity)?;
     send_playerdata(world, storage, socket_id, entity)?;
 
     // Set player position based on the loaded data

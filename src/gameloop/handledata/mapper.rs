@@ -109,6 +109,10 @@ impl PacketRouter {
                 ClientPacket::SubmitTrade,
                 routes::handle_submittrade as PacketFunction,
             ),
+            (
+                ClientPacket::HandShake,
+                routes::handle_handshake as PacketFunction,
+            ),
         ]))
     }
 }

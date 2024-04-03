@@ -17,11 +17,13 @@ pub fn handle_data(
 
     match onlinetype {
         OnlineType::Online => match id {
-            ClientPacket::Login | ClientPacket::Register => return Err(AscendingError::MultiLogin),
+            ClientPacket::Login | ClientPacket::Register | ClientPacket::HandShake => {
+                return Err(AscendingError::MultiLogin)
+            }
             _ => {}
         },
         OnlineType::Accepted => match id {
-            ClientPacket::Login | ClientPacket::Register => {}
+            ClientPacket::Login | ClientPacket::Register | ClientPacket::HandShake => {}
             _ => return Err(AscendingError::PacketManipulation { name: "".into() }),
         },
         OnlineType::None => return Err(AscendingError::PacketManipulation { name: "".into() }),

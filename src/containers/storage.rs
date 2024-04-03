@@ -9,12 +9,13 @@ use crate::{
     time_ext::MyInstant,
 };
 use hecs::World;
+use log::info;
 use mio::Poll;
 use rustls::{
     crypto::{ring as provider, CryptoProvider},
     pki_types::{CertificateDer, PrivateKeyDer},
-    server::WebPkiClientVerifier,
-    ServerConfig,
+    server::{danger::ClientCertVerifier, WebPkiClientVerifier},
+    RootCertStore, ServerConfig,
 };
 use serde::Deserialize;
 use sqlx::{
@@ -74,9 +75,9 @@ fn establish_connection(
 #[derive(Deserialize)]
 struct Config {
     listen: String,
-    certs: String,
+    server_cert: String,
     server_key: String,
-    client_key: String,
+    ca_root: String,
     maxconnections: usize,
     database: String,
     username: String,
@@ -118,10 +119,27 @@ fn load_private_key(filename: &str) -> PrivateKeyDer<'static> {
     );
 }
 
-fn build_tls_config(certs_path: &str, key_path: &str) -> Result<Arc<rustls::ServerConfig>> {
-    let client_auth = WebPkiClientVerifier::no_client_auth();
-    let certs = load_certs(certs_path);
-    let private_key = load_private_key(key_path);
+fn build_tls_config(
+    server_certs_path: &str,
+    server_key_path: &str,
+    ca_root_path: &str,
+) -> Result<Arc<rustls::ServerConfig>> {
+    let certs = load_certs(server_certs_path);
+    let private_key = load_private_key(server_key_path);
+    let roots = load_certs(ca_root_path);
+    let mut client_auth_roots = RootCertStore::empty();
+    let (allowed, ignored) = client_auth_roots.add_parsable_certificates(roots);
+
+    if ignored > 0 {
+        info!("your fucked ducky");
+    }
+
+    if allowed > 0 {
+        info!("your good ducky");
+    }
+    let client_ver = WebPkiClientVerifier::builder(client_auth_roots.into())
+        .build()
+        .unwrap();
 
     let config = ServerConfig::builder_with_provider(
         CryptoProvider {
@@ -130,8 +148,9 @@ fn build_tls_config(certs_path: &str, key_path: &str) -> Result<Arc<rustls::Serv
         }
         .into(),
     )
-    .with_protocol_versions(rustls::ALL_VERSIONS)?
-    .with_client_cert_verifier(client_auth)
+    .with_protocol_versions(rustls::ALL_VERSIONS)
+    .unwrap()
+    .with_client_cert_verifier(client_ver)
     .with_single_cert(certs, private_key)?;
 
     Ok(Arc::new(config))
@@ -141,7 +160,8 @@ impl Storage {
     pub fn new() -> Option<Self> {
         let mut poll = Poll::new().ok()?;
         let config = read_config("settings.toml");
-        let tls_config = build_tls_config(&config.certs, &config.server_key).unwrap();
+        let tls_config =
+            build_tls_config(&config.server_cert, &config.server_key, &config.ca_root).unwrap();
         let server =
             Server::new(&mut poll, &config.listen, config.maxconnections, tls_config).ok()?;
 
@@ -240,7 +260,13 @@ impl Storage {
         Ok(Entity(identity))
     }
 
-    pub fn add_player_data(&self, world: &mut World, entity: &Entity) -> Result<()> {
+    pub fn add_player_data(
+        &self,
+        world: &mut World,
+        entity: &Entity,
+        code: String,
+        handshake: String,
+    ) -> Result<()> {
         world.insert(
             entity.0,
             (
@@ -281,7 +307,15 @@ impl Storage {
                 PlayerTarget::default(),
             ),
         )?;
-        world.insert(entity.0, (PlayerStorage::default(), TradeItem::default()))?;
+        world.insert(
+            entity.0,
+            (
+                PlayerStorage::default(),
+                TradeItem::default(),
+                ReloginCode { code },
+                LoginHandShake { handshake },
+            ),
+        )?;
         self.player_ids.borrow_mut().insert(*entity);
         Ok(())
     }

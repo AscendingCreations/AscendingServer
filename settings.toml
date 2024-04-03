@@ -1,7 +1,7 @@
 listen = '0.0.0.0:7010'
-certs = 'keys/client.cer'
-server_key = 'keys/client.key'
-client_key = 'keys/ca.pem'
+server_cert = 'keys/server.crt'
+server_key = 'keys/server-key.pem'
+ca_root = 'keys/ca-crt.pem'
 maxconnections = 500
 database = 'ascending'
 host = '127.0.0.1'

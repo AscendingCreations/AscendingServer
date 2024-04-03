@@ -7,6 +7,7 @@ use crate::{
 use chrono::Duration;
 use hecs::World;
 use log::debug;
+use rand::distributions::{Alphanumeric, DistString};
 use regex::Regex;
 
 pub fn handle_register(
@@ -88,8 +89,11 @@ pub fn handle_register(
             Err(_) => return Err(AscendingError::UserNotFound),
         }
 
+        let code = Alphanumeric.sample_string(&mut rand::thread_rng(), 32);
+        let handshake = Alphanumeric.sample_string(&mut rand::thread_rng(), 32);
+
         // we need to Add all the player types creations in a sub function that Creates the Defaults and then adds them to World.
-        storage.add_player_data(world, entity)?;
+        storage.add_player_data(world, entity, code.clone(), handshake.clone())?;
 
         {
             let (account, sprite) = world.query_one_mut::<(&mut Account, &mut Sprite)>(entity.0)?;
@@ -103,8 +107,9 @@ pub fn handle_register(
                 {
                     world.get::<&mut Account>(entity.0)?.id = uid;
                 }
-                joingame(world, storage, entity)?;
-                Ok(())
+                //joingame(world, storage, entity)?;
+                send_myindex(storage, socket_id, entity)?;
+                send_codes(world, storage, entity, code, handshake)
             }
             Err(_) => send_infomsg(
                 storage,
@@ -115,6 +120,22 @@ pub fn handle_register(
         };
         //return send_infomsg(storage, socket_id,
         //     "Account Was Created. Please wait for the Verification code sent to your email before logging in.".into(), 1);
+    }
+
+    Err(AscendingError::InvalidSocket)
+}
+
+pub fn handle_handshake(
+    world: &mut World,
+    storage: &Storage,
+    data: &mut ByteBuffer,
+    entity: &Entity,
+) -> Result<()> {
+    let handshake = data.read::<String>()?;
+
+    if world.get::<&LoginHandShake>(entity.0)?.handshake == handshake {
+        world.remove_one::<LoginHandShake>(entity.0)?;
+        return joingame(world, storage, entity);
     }
 
     Err(AscendingError::InvalidSocket)
@@ -161,14 +182,18 @@ pub fn handle_login(
         }
 
         // we need to Add all the player types creations in a sub function that Creates the Defaults and then adds them to World.
-        storage.add_player_data(world, entity)?;
+        let code = Alphanumeric.sample_string(&mut rand::thread_rng(), 32);
+        let handshake = Alphanumeric.sample_string(&mut rand::thread_rng(), 32);
+
+        storage.add_player_data(world, entity, code.clone(), handshake.clone())?;
 
         if let Err(_e) = load_player(storage, world, entity, id) {
             return send_infomsg(storage, socket_id, "Error Loading User.".into(), 1);
         }
 
-        joingame(world, storage, entity)?;
-        return Ok(());
+        //joingame(world, storage, entity)?;
+        send_myindex(storage, socket_id, entity)?;
+        return send_codes(world, storage, entity, code, handshake);
     }
 
     Err(AscendingError::InvalidSocket)

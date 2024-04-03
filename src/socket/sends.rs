@@ -56,6 +56,7 @@ pub fn send_myindex(storage: &Storage, socket_id: usize, entity: &Entity) -> Res
 
     buf.write(ServerPackets::MyIndex)?;
     buf.write(*entity)?;
+    buf.write(*entity)?;
     buf.finish()?;
 
     send_to(storage, socket_id, buf)
@@ -153,6 +154,27 @@ pub fn send_dir(world: &mut World, storage: &Storage, entity: &Entity, toself: b
         buf,
         closure(toself, *entity),
     )
+}
+
+pub fn send_codes(
+    world: &mut World,
+    storage: &Storage,
+    entity: &Entity,
+    code: String,
+    handshake: String,
+) -> Result<()> {
+    let mut buf = ByteBuffer::new_packet_with(code.len() + handshake.len() + 4)?;
+
+    buf.write(ServerPackets::HandShake)?;
+    buf.write(&code)?;
+    buf.write(&handshake)?;
+    buf.finish()?;
+
+    let id: usize = world.get::<&Socket>(entity.0)?.id;
+
+    // Once the codes are Sent we need to set this to unencrypted mode as the client will be un unencrypted mode.
+    set_encryption_status(storage, id, EncryptionState::WriteTransfering);
+    send_to(storage, id, buf)
 }
 
 #[inline]

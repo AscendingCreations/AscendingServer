@@ -92,6 +92,16 @@ pub struct Money {
     pub vals: u64,
 }
 
+#[derive(Clone, Debug, Default)]
+pub struct ReloginCode {
+    pub code: String,
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct LoginHandShake {
+    pub handshake: String,
+}
+
 #[derive(Copy, Clone, Debug, Default)]
 pub struct Player {
     pub levelexp: u64,

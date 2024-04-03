@@ -118,4 +118,11 @@ pub enum AscendingError {
         #[backtrace]
         backtrace: Box<Backtrace>,
     },
+    #[error("Error: {error}, BackTrace: {backtrace}")]
+    RustlsVerifierBuilder {
+        #[from]
+        error: rustls::client::VerifierBuilderError,
+        #[backtrace]
+        backtrace: Box<Backtrace>,
+    },
 }

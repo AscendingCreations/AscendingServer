@@ -10,6 +10,7 @@ pub enum ServerPackets {
     Status,
     AlertMsg,
     FltAlert,
+    HandShake,
     LoginOk,
     Ingame,
     UpdateMap,
@@ -70,6 +71,7 @@ pub enum ServerPackets {
 pub enum ClientPacket {
     Register,
     Login,
+    HandShake,
     Move,
     Dir,
     Attack,
