@@ -14,7 +14,7 @@ use mio::Poll;
 use rustls::{
     crypto::{ring as provider, CryptoProvider},
     pki_types::{CertificateDer, PrivateKeyDer},
-    server::{danger::ClientCertVerifier, WebPkiClientVerifier},
+    server::WebPkiClientVerifier,
     RootCertStore, ServerConfig,
 };
 use serde::Deserialize;
