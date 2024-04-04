@@ -51,7 +51,7 @@ pub fn auto_set_inv_item(
     entity: &crate::Entity,
     item: &mut Item,
     base: &ItemData,
-) -> Result<u16> {
+) -> Result<SlotSpace> {
     let mut rem = item.val;
     let mut save_item_list = Vec::new();
 
@@ -62,6 +62,7 @@ pub fn auto_set_inv_item(
                 player_inv.items[slot] = *item;
                 item.val = 0;
                 save_item_list.push(slot);
+                rem = 0;
                 break;
             }
 
@@ -82,7 +83,11 @@ pub fn auto_set_inv_item(
         save_inv_item(world, storage, entity, *slot)?;
     }
 
-    Ok(rem)
+    if rem > 0 {
+        Ok(SlotSpace::NoSpace(rem))
+    } else {
+        Ok(SlotSpace::Completed)
+    }
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -132,7 +137,7 @@ pub fn give_inv_item(
     storage: &Storage,
     entity: &crate::Entity,
     item: &mut Item,
-) -> Result<u16> {
+) -> Result<SlotSpace> {
     let base = &storage.bases.items[item.num as usize];
 
     auto_set_inv_item(world, storage, entity, item, base)
@@ -333,9 +338,9 @@ pub fn player_unequip(
     }
 
     let mut item = world.get::<&Equipment>(entity.0)?.items[slot];
-    let rem = give_inv_item(world, storage, entity, &mut item)?;
-    if rem > 0 {
-        return Ok(false);
+    match give_inv_item(world, storage, entity, &mut item)? {
+        SlotSpace::NoSpace(_) => return Ok(false),
+        SlotSpace::Completed => {}
     }
 
     {
@@ -343,7 +348,6 @@ pub fn player_unequip(
     }
 
     update_equipment(storage, world, entity, slot)?;
-    //TODO calculatestats();
     send_equipment(world, storage, entity)?;
 
     Ok(true)
@@ -360,7 +364,6 @@ pub fn player_equip(
         world.get::<&mut Equipment>(entity.0)?.items[slot] = item;
     }
     update_equipment(storage, world, entity, slot)?;
-    //TODO calculatestats();
     send_equipment(world, storage, entity)?;
 
     Ok(())

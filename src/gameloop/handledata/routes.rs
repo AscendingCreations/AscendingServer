@@ -504,34 +504,39 @@ pub fn handle_pickup(
                             }
                         } else {
                             let amount = mapitems.item.val;
-                            let rem = give_inv_item(world, storage, entity, &mut mapitems.item)?;
+                            let result = give_inv_item(world, storage, entity, &mut mapitems.item)?;
                             let item = &storage.bases.items[mapitems.item.num as usize];
 
-                            if rem == 0 {
-                                let st = match amount {
-                                    0 | 1 => "",
-                                    _ => "'s",
-                                };
+                            match result {
+                                SlotSpace::Completed => {
+                                    let st = match amount {
+                                        0 | 1 => "",
+                                        _ => "'s",
+                                    };
 
-                                send_fltalert(
-                                    storage,
-                                    world.get::<&Socket>(entity.0)?.id,
-                                    format!("You picked up {} {}{}.", amount, item.name, st),
-                                    FtlType::Item,
-                                )?;
-                                remove_id.push((x, i));
-                            } else if rem < amount {
-                                let st = match amount - rem {
-                                    0 | 1 => "",
-                                    _ => "'s",
-                                };
+                                    send_fltalert(
+                                        storage,
+                                        world.get::<&Socket>(entity.0)?.id,
+                                        format!("You picked up {} {}{}.", amount, item.name, st),
+                                        FtlType::Item,
+                                    )?;
+                                    remove_id.push((x, i));
+                                }
+                                SlotSpace::NoSpace(rem) => {
+                                    if rem < amount {
+                                        let st = match amount - rem {
+                                            0 | 1 => "",
+                                            _ => "'s",
+                                        };
 
-                                send_fltalert(
+                                        send_fltalert(
                                         storage,
                                         world.get::<&Socket>(entity.0)?.id,
                                         format!("You picked up {} {}{}. Your inventory is Full so some items remain.", amount, item.name, st),
                                         FtlType::Item,
                                     )?;
+                                    }
+                                }
                             }
                         }
                     }
@@ -846,7 +851,10 @@ pub fn handle_withdrawitem(
             let mut leftover = item_data.val;
             let mut loop_count = 0;
             while leftover > 0 && loop_count < MAX_INV {
-                leftover = give_inv_item(world, storage, entity, &mut item_data)?;
+                match give_inv_item(world, storage, entity, &mut item_data)? {
+                    SlotSpace::NoSpace(rem) => leftover = rem,
+                    SlotSpace::Completed => leftover = 0,
+                }
                 loop_count += 1;
             }
             let take_amount = amount - leftover;
@@ -1163,9 +1171,11 @@ pub fn handle_buyitem(
             ..Default::default()
         };
 
-        let leftover = give_inv_item(world, storage, entity, &mut item)?;
-        if leftover != shop_value[slot as usize] {
-            player_take_vals(world, storage, entity, shop_price[slot as usize])?;
+        match give_inv_item(world, storage, entity, &mut item)? {
+            SlotSpace::Completed => {
+                player_take_vals(world, storage, entity, shop_price[slot as usize])?
+            }
+            SlotSpace::NoSpace(_) => {}
         }
 
         // ToDo Message that purchase complete

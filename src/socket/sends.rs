@@ -230,26 +230,6 @@ pub fn send_data_remove_list(storage: &Storage, socket_id: usize, remove: &[Enti
 }
 
 #[inline]
-pub fn send_vitals(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
-    let mut buf = ByteBuffer::new_packet_with(32)?;
-
-    let vitals = world.get_or_err::<Vitals>(entity)?;
-
-    buf.write(ServerPackets::PlayerVitals)?;
-    buf.write(vitals.vital)?;
-    buf.write(vitals.vitalmax)?;
-    buf.finish()?;
-
-    send_to_maps(
-        world,
-        storage,
-        world.get_or_err::<Position>(entity)?.map,
-        buf,
-        None,
-    )
-}
-
-#[inline]
 pub fn send_inv(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(6500)?;
 

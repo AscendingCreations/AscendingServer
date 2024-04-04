@@ -115,7 +115,6 @@ pub fn player_earn_exp(
         )?;
     }
 
-    send_vitals(world, storage, entity)?;
     send_level(world, storage, entity)?;
     DataTaskToken::PlayerVitals(world.get_or_err::<Position>(entity)?.map).add_task(
         storage,
