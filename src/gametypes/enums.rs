@@ -391,6 +391,12 @@ pub enum IsUsingType {
     Other(i64),
 }
 
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum SlotSpace {
+    NoSpace(u16),
+    Completed,
+}
+
 impl IsUsingType {
     pub fn inuse(self) -> bool {
         !matches!(self, IsUsingType::None)

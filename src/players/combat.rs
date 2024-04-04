@@ -50,7 +50,7 @@ pub fn player_combat(
         let world_entity_type = world.get_or_default::<WorldEntityType>(target_entity);
         match world_entity_type {
             WorldEntityType::Player => {
-                let damage = player_combat_damage(world, entity, target_entity)?;
+                let damage = player_combat_damage(world, storage, entity, target_entity)?;
                 damage_player(world, target_entity, damage)?;
 
                 DataTaskToken::PlayerAttack(world.get_or_default::<Position>(entity).map)
@@ -67,7 +67,7 @@ pub fn player_combat(
                 }
             }
             WorldEntityType::Npc => {
-                let damage = player_combat_damage(world, entity, target_entity)?;
+                let damage = player_combat_damage(world, storage, entity, target_entity)?;
                 damage_npc(world, target_entity, damage)?;
 
                 DataTaskToken::PlayerAttack(world.get_or_default::<Position>(entity).map)
@@ -100,18 +100,23 @@ pub fn player_combat(
 
 pub fn player_combat_damage(
     world: &mut World,
+    storage: &Storage,
     entity: &Entity,
     target_entity: &Entity,
 ) -> Result<i32> {
+    let def = if world.get_or_err::<WorldEntityType>(target_entity)? == WorldEntityType::Player {
+        world.get_or_err::<Physical>(target_entity)?.defense
+            + player_get_armor_defense(world, storage, entity)?.0 as u32
+            + world
+                .get_or_err::<Level>(target_entity)?
+                .0
+                .saturating_div(5) as u32
+    } else {
+        world.get_or_err::<Physical>(target_entity)?.defense
+    };
+
     let data = world.entity(entity.0)?;
     let edata = world.entity(target_entity.0)?;
-
-    let def = if edata.get_or_err::<WorldEntityType>()? == WorldEntityType::Player {
-        edata.get_or_err::<Physical>()?.defense
-            + edata.get_or_err::<Level>()?.0.saturating_div(5) as u32
-    } else {
-        edata.get_or_err::<Physical>()?.defense
-    };
 
     let offset = if edata.get_or_err::<WorldEntityType>()? == WorldEntityType::Player {
         4
@@ -119,9 +124,8 @@ pub fn player_combat_damage(
         2
     };
 
-    let mut damage = data
-        .get_or_err::<Physical>()?
-        .damage
+    let mut damage = (data.get_or_err::<Physical>()?.damage
+        + player_get_weapon_damage(world, storage, entity)?.0 as u32)
         .saturating_sub(def / offset)
         .max(1);
     let mut rng = thread_rng();

@@ -321,12 +321,29 @@ pub fn player_setmap(world: &mut World, entity: &crate::Entity, map: MapPosition
     Ok(())
 }
 
-pub fn player_sethp(world: &mut World, entity: &crate::Entity, hp: i32) -> Result<()> {
-    let mut query = world.query_one::<&mut Vitals>(entity.0)?;
+pub fn player_set_vital(
+    world: &mut World,
+    storage: &Storage,
+    entity: &crate::Entity,
+    vital: VitalTypes,
+    amount: i32,
+) -> Result<()> {
+    {
+        let mut query = world.query_one::<&mut Vitals>(entity.0)?;
 
-    if let Some(player_vital) = query.get() {
-        player_vital.vital[VitalTypes::Hp as usize] = hp;
+        if let Some(player_vital) = query.get() {
+            player_vital.vital[vital as usize] = amount.min(player_vital.vitalmax[vital as usize]);
+        }
     }
+
+    DataTaskToken::PlayerVitals(world.get_or_default::<Position>(entity).map).add_task(
+        storage,
+        {
+            let vitals = world.get_or_err::<Vitals>(entity)?;
+
+            &VitalsPacket::new(*entity, vitals.vital, vitals.vitalmax)
+        },
+    )?;
 
     Ok(())
 }

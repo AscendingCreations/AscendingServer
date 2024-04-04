@@ -455,7 +455,7 @@ pub fn handle_pickup(
     entity: &Entity,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
-        let mut remid: Option<(MapPosition, Entity)> = None;
+        let mut remove_id: Vec<(MapPosition, Entity)> = Vec::new();
 
         if !world.get_or_err::<DeathType>(entity)?.is_alive()
             || world.get_or_err::<IsUsingType>(entity)?.inuse()
@@ -468,7 +468,7 @@ pub fn handle_pickup(
 
         let mapids = get_maps_in_range(storage, &world.get_or_err::<Position>(entity)?, 1);
 
-        'remremove: for id in mapids {
+        for id in mapids {
             if let Some(x) = id.get() {
                 let map = match storage.maps.get(&x) {
                     Some(map) => map,
@@ -500,57 +500,59 @@ pub fn handle_pickup(
                             mapitems.item.val = rem as u16;
 
                             if rem == 0 {
-                                remid = Some((x, i));
-                                break 'remremove;
+                                remove_id.push((x, i));
                             }
                         } else {
                             let amount = mapitems.item.val;
-                            let rem = give_inv_item(world, storage, entity, &mut mapitems.item)?;
+                            let result = give_inv_item(world, storage, entity, &mut mapitems.item)?;
                             let item = &storage.bases.items[mapitems.item.num as usize];
 
-                            if rem == 0 {
-                                let st = match amount {
-                                    0 | 1 => "",
-                                    _ => "'s",
-                                };
+                            match result {
+                                SlotSpace::Completed => {
+                                    let st = match amount {
+                                        0 | 1 => "",
+                                        _ => "'s",
+                                    };
 
-                                send_fltalert(
-                                    storage,
-                                    world.get::<&Socket>(entity.0)?.id,
-                                    format!("You picked up {} {}{}.", amount, item.name, st),
-                                    FtlType::Item,
-                                )?;
-                                remid = Some((x, i));
-                            } else if rem < amount {
-                                let st = match amount - rem {
-                                    0 | 1 => "",
-                                    _ => "'s",
-                                };
+                                    send_fltalert(
+                                        storage,
+                                        world.get::<&Socket>(entity.0)?.id,
+                                        format!("You picked up {} {}{}.", amount, item.name, st),
+                                        FtlType::Item,
+                                    )?;
+                                    remove_id.push((x, i));
+                                }
+                                SlotSpace::NoSpace(rem) => {
+                                    if rem < amount {
+                                        let st = match amount - rem {
+                                            0 | 1 => "",
+                                            _ => "'s",
+                                        };
 
-                                send_fltalert(
+                                        send_fltalert(
                                         storage,
                                         world.get::<&Socket>(entity.0)?.id,
                                         format!("You picked up {} {}{}. Your inventory is Full so some items remain.", amount, item.name, st),
                                         FtlType::Item,
                                     )?;
+                                    }
+                                }
                             }
-
-                            break 'remremove;
                         }
                     }
                 }
             }
         }
 
-        if let Some(id) = remid {
-            if let Some(map) = storage.maps.get(&id.0) {
-                let pos = world.get_or_err::<MapItem>(&id.1)?.pos;
+        for (mappos, entity) in remove_id.iter_mut() {
+            if let Some(map) = storage.maps.get(mappos) {
+                let pos = world.get_or_err::<MapItem>(entity)?.pos;
                 let mut storage_mapitems = storage.map_items.borrow_mut();
                 if storage_mapitems.contains_key(&pos) {
                     storage_mapitems.swap_remove(&pos);
                 }
-                map.borrow_mut().remove_item(id.1);
-                DataTaskToken::EntityUnload(id.0).add_task(storage, &(id.1))?;
+                map.borrow_mut().remove_item(*entity);
+                DataTaskToken::EntityUnload(*mappos).add_task(storage, &(*entity))?;
             }
         }
         {
@@ -849,7 +851,10 @@ pub fn handle_withdrawitem(
             let mut leftover = item_data.val;
             let mut loop_count = 0;
             while leftover > 0 && loop_count < MAX_INV {
-                leftover = give_inv_item(world, storage, entity, &mut item_data)?;
+                match give_inv_item(world, storage, entity, &mut item_data)? {
+                    SlotSpace::NoSpace(rem) => leftover = rem,
+                    SlotSpace::Completed => leftover = 0,
+                }
                 loop_count += 1;
             }
             let take_amount = amount - leftover;
@@ -1166,9 +1171,11 @@ pub fn handle_buyitem(
             ..Default::default()
         };
 
-        let leftover = give_inv_item(world, storage, entity, &mut item)?;
-        if leftover != shop_value[slot as usize] {
-            player_take_vals(world, storage, entity, shop_price[slot as usize])?;
+        match give_inv_item(world, storage, entity, &mut item)? {
+            SlotSpace::Completed => {
+                player_take_vals(world, storage, entity, shop_price[slot as usize])?
+            }
+            SlotSpace::NoSpace(_) => {}
         }
 
         // ToDo Message that purchase complete

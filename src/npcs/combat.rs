@@ -95,7 +95,7 @@ pub fn npc_combat(
     match npc_cast(world, entity, base)? {
         EntityType::Player(i, _accid) => {
             if world.contains(i.0) {
-                let damage = npc_combat_damage(world, entity, &i, base)?;
+                let damage = npc_combat_damage(world, storage, entity, &i, base)?;
                 damage_player(world, &i, damage)?;
 
                 DataTaskToken::NpcAttack(world.get_or_default::<Position>(entity).map)
@@ -117,7 +117,7 @@ pub fn npc_combat(
         }
         EntityType::Npc(i) => {
             if world.contains(i.0) {
-                let damage = npc_combat_damage(world, entity, &i, base)?;
+                let damage = npc_combat_damage(world, storage, entity, &i, base)?;
                 damage_npc(world, &i, damage)?;
 
                 DataTaskToken::NpcAttack(world.get_or_default::<Position>(entity).map)
@@ -140,19 +140,21 @@ pub fn npc_combat(
 
 pub fn npc_combat_damage(
     world: &mut World,
+    storage: &Storage,
     entity: &Entity,
     enemy_entity: &Entity,
     base: &NpcData,
 ) -> Result<i32> {
+    let def = if world.get_or_err::<WorldEntityType>(enemy_entity)? == WorldEntityType::Player {
+        world.get_or_err::<Physical>(enemy_entity)?.defense
+            + player_get_armor_defense(world, storage, entity)?.0 as u32
+            + world.get_or_err::<Level>(enemy_entity)?.0.saturating_div(5) as u32
+    } else {
+        world.get_or_err::<Physical>(enemy_entity)?.defense
+    };
+
     let data = world.entity(entity.0)?;
     let edata = world.entity(enemy_entity.0)?;
-
-    let def = if edata.get_or_err::<WorldEntityType>()? == WorldEntityType::Player {
-        edata.get_or_err::<Physical>()?.defense
-            + edata.get_or_err::<Level>()?.0.saturating_div(5) as u32
-    } else {
-        edata.get_or_err::<Physical>()?.defense
-    };
 
     let offset = if edata.get_or_err::<WorldEntityType>()? == WorldEntityType::Player {
         4
