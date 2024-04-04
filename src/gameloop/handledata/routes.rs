@@ -455,7 +455,7 @@ pub fn handle_pickup(
     entity: &Entity,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
-        let mut remid: Option<(MapPosition, Entity)> = None;
+        let mut remove_id: Vec<(MapPosition, Entity)> = Vec::new();
 
         if !world.get_or_err::<DeathType>(entity)?.is_alive()
             || world.get_or_err::<IsUsingType>(entity)?.inuse()
@@ -468,7 +468,7 @@ pub fn handle_pickup(
 
         let mapids = get_maps_in_range(storage, &world.get_or_err::<Position>(entity)?, 1);
 
-        'remremove: for id in mapids {
+        for id in mapids {
             if let Some(x) = id.get() {
                 let map = match storage.maps.get(&x) {
                     Some(map) => map,
@@ -500,8 +500,7 @@ pub fn handle_pickup(
                             mapitems.item.val = rem as u16;
 
                             if rem == 0 {
-                                remid = Some((x, i));
-                                break 'remremove;
+                                remove_id.push((x, i));
                             }
                         } else {
                             let amount = mapitems.item.val;
@@ -520,7 +519,7 @@ pub fn handle_pickup(
                                     format!("You picked up {} {}{}.", amount, item.name, st),
                                     FtlType::Item,
                                 )?;
-                                remid = Some((x, i));
+                                remove_id.push((x, i));
                             } else if rem < amount {
                                 let st = match amount - rem {
                                     0 | 1 => "",
@@ -534,23 +533,21 @@ pub fn handle_pickup(
                                         FtlType::Item,
                                     )?;
                             }
-
-                            break 'remremove;
                         }
                     }
                 }
             }
         }
 
-        if let Some(id) = remid {
-            if let Some(map) = storage.maps.get(&id.0) {
-                let pos = world.get_or_err::<MapItem>(&id.1)?.pos;
+        for (mappos, entity) in remove_id.iter_mut() {
+            if let Some(map) = storage.maps.get(mappos) {
+                let pos = world.get_or_err::<MapItem>(entity)?.pos;
                 let mut storage_mapitems = storage.map_items.borrow_mut();
                 if storage_mapitems.contains_key(&pos) {
                     storage_mapitems.swap_remove(&pos);
                 }
-                map.borrow_mut().remove_item(id.1);
-                DataTaskToken::EntityUnload(id.0).add_task(storage, &(id.1))?;
+                map.borrow_mut().remove_item(*entity);
+                DataTaskToken::EntityUnload(*mappos).add_task(storage, &(*entity))?;
             }
         }
         {

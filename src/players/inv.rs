@@ -52,7 +52,7 @@ pub fn auto_set_inv_item(
     item: &mut Item,
     base: &ItemData,
 ) -> Result<u16> {
-    let mut rem = 0u16;
+    let mut rem = item.val;
     let mut save_item_list = Vec::new();
 
     {
