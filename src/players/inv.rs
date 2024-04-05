@@ -433,6 +433,10 @@ pub fn player_use_item(
         _ => return Ok(()),
     }
 
+    if let Some(_sfx) = &base.sound_index {
+        send_playitemsfx(world, storage, entity, item.num as u16)?;
+    }
+
     take_inv_itemslot(world, storage, entity, slot as usize, 1)?;
 
     Ok(())

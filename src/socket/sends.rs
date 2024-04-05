@@ -605,3 +605,19 @@ pub fn send_traderequest(
 
     send_to(storage, world.get::<&Socket>(target_entity.0)?.id, buf)
 }
+
+#[inline]
+pub fn send_playitemsfx(
+    world: &mut World,
+    storage: &Storage,
+    entity: &Entity,
+    item_index: u16,
+) -> Result<()> {
+    let mut buf = ByteBuffer::new_packet_with(12)?;
+
+    buf.write(ServerPackets::PlayItemSfx)?;
+    buf.write(item_index)?;
+    buf.finish()?;
+
+    send_to(storage, world.get::<&Socket>(entity.0)?.id, buf)
+}

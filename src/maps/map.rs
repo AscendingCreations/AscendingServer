@@ -75,7 +75,7 @@ pub struct Map {
     pub zonespawns: [Vec<(u16, u16)>; 5],
     // (Max spawns per zone, [npc_id; 5])
     pub zones: [(u64, [Option<u64>; 5]); 5],
-    pub music: u32,
+    pub music: Option<String>,
     pub weather: Weather,
 }
 

@@ -64,6 +64,7 @@ pub enum ServerPackets {
     InitTrade,
     TradeStatus,
     TradeRequest,
+    PlayItemSfx,
     ServerPacketCount,
 }
 
