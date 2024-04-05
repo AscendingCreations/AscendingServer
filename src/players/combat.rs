@@ -2,7 +2,7 @@ use crate::{
     containers::Storage,
     gametypes::*,
     maps::can_target,
-    npcs::{damage_npc, kill_npc, try_target_entity},
+    npcs::{damage_npc, kill_npc, try_target_entity, NpcIndex},
     players::*,
     tasks::{init_data_lists, DataTaskToken, VitalsPacket},
 };
@@ -88,6 +88,13 @@ pub fn player_combat(
                         EntityType::Player(*entity, acc_id),
                     )?;
                 } else {
+                    let npc_index = world.get_or_err::<NpcIndex>(target_entity)?.0;
+                    let base = &storage.bases.npcs[npc_index as usize];
+
+                    let level = world.get_or_err::<Level>(target_entity)?.0;
+                    let exp = base.exp;
+
+                    player_earn_exp(world, storage, entity, level, exp, 1.0)?;
                     kill_npc(world, storage, target_entity)?;
                 }
             }

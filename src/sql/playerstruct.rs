@@ -58,6 +58,7 @@ pub struct PGPlayerWithID {
     pub access: UserAccess,
     pub pos: Position,
     pub vital: Vec<i32>,
+    pub vital_max: Vec<i32>,
     pub deathtimer: MyInstant,
     pub indeath: bool,
     pub level: i32,
@@ -98,6 +99,9 @@ impl PGPlayerWithID {
             *access = self.access;
             *position = self.pos;
             vitals.vital = self.vital[..VITALS_MAX]
+                .try_into()
+                .unwrap_or([0; VITALS_MAX]);
+            vitals.vitalmax = self.vital_max[..VITALS_MAX]
                 .try_into()
                 .unwrap_or([0; VITALS_MAX]);
             death_timer.0 = self.deathtimer;

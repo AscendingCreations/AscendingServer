@@ -514,11 +514,14 @@ pub fn handle_pickup(
                                         _ => "'s",
                                     };
 
-                                    send_fltalert(
+                                    send_message(
+                                        world,
                                         storage,
-                                        world.get::<&Socket>(entity.0)?.id,
+                                        entity,
                                         format!("You picked up {} {}{}.", amount, item.name, st),
-                                        FtlType::Item,
+                                        String::new(),
+                                        MessageChannel::Private,
+                                        Some(world.cloned_get_or_err::<Socket>(entity)?.id),
                                     )?;
                                     remove_id.push((x, i));
                                 }
@@ -529,12 +532,15 @@ pub fn handle_pickup(
                                             _ => "'s",
                                         };
 
-                                        send_fltalert(
-                                        storage,
-                                        world.get::<&Socket>(entity.0)?.id,
-                                        format!("You picked up {} {}{}. Your inventory is Full so some items remain.", amount, item.name, st),
-                                        FtlType::Item,
-                                    )?;
+                                        send_message(
+                                            world,
+                                            storage,
+                                            entity,
+                                            format!("You picked up {} {}{}. Your inventory is Full so some items remain.", amount, item.name, st),
+                                            String::new(),
+                                            MessageChannel::Private,
+                                            Some(world.cloned_get_or_err::<Socket>(entity)?.id),
+                                        )?;
                                     }
                                 }
                             }
@@ -799,6 +805,17 @@ pub fn handle_deposititem(
                 leftover = give_storage_item(world, storage, entity, &mut item_data)?;
                 loop_count += 1;
             }
+            if leftover == item_data.val {
+                send_message(
+                    world,
+                    storage,
+                    entity,
+                    "You do not have enough slot to deposit this item!".into(),
+                    String::new(),
+                    MessageChannel::Private,
+                    Some(world.cloned_get_or_err::<Socket>(entity)?.id),
+                )?;
+            }
             let take_amount = amount - leftover;
             take_inv_itemslot(world, storage, entity, inv_slot, take_amount)?;
         }
@@ -856,6 +873,17 @@ pub fn handle_withdrawitem(
                     SlotSpace::Completed => leftover = 0,
                 }
                 loop_count += 1;
+            }
+            if leftover == item_data.val {
+                send_message(
+                    world,
+                    storage,
+                    entity,
+                    "You do not have enough slot to withdraw this item!".into(),
+                    String::new(),
+                    MessageChannel::Private,
+                    Some(world.cloned_get_or_err::<Socket>(entity)?.id),
+                )?;
             }
             let take_amount = amount - leftover;
             take_storage_itemslot(world, storage, entity, bank_slot, take_amount)?;
@@ -1126,9 +1154,18 @@ pub fn handle_closetrade(
         close_trade(world, storage, entity)?;
         close_trade(world, storage, &target_entity)?;
 
-        // ToDo Warning, trade closed
-
-        return Ok(());
+        return send_message(
+            world,
+            storage,
+            entity,
+            format!(
+                "{} has cancelled the trade",
+                world.cloned_get_or_err::<Account>(entity)?.username
+            ),
+            String::new(),
+            MessageChannel::Private,
+            Some(world.cloned_get_or_err::<Socket>(&target_entity)?.id),
+        );
     }
 
     Err(AscendingError::InvalidSocket)
@@ -1161,8 +1198,15 @@ pub fn handle_buyitem(
 
         let player_money = world.get_or_err::<Money>(entity)?.vals;
         if player_money < shop_price[slot as usize] {
-            // ToDo Warning not enough money
-            return Ok(());
+            return send_message(
+                world,
+                storage,
+                entity,
+                "You do not have enough money".into(),
+                String::new(),
+                MessageChannel::Private,
+                Some(world.cloned_get_or_err::<Socket>(entity)?.id),
+            );
         }
 
         let mut item = Item {
@@ -1175,12 +1219,28 @@ pub fn handle_buyitem(
             SlotSpace::Completed => {
                 player_take_vals(world, storage, entity, shop_price[slot as usize])?
             }
-            SlotSpace::NoSpace(_) => {}
+            SlotSpace::NoSpace(_) => {
+                return send_message(
+                    world,
+                    storage,
+                    entity,
+                    "You do not have enough space in your inventory".into(),
+                    String::new(),
+                    MessageChannel::Private,
+                    Some(world.cloned_get_or_err::<Socket>(entity)?.id),
+                );
+            }
         }
 
-        // ToDo Message that purchase complete
-
-        return Ok(());
+        return send_message(
+            world,
+            storage,
+            entity,
+            "You have successfully bought an item!".into(),
+            String::new(),
+            MessageChannel::Private,
+            Some(world.cloned_get_or_err::<Socket>(entity)?.id),
+        );
     }
 
     Err(AscendingError::InvalidSocket)
@@ -1222,12 +1282,19 @@ pub fn handle_sellitem(
             0
         };
 
+        let total_price = price * amount as u64;
         take_inv_itemslot(world, storage, entity, slot, amount)?;
-        player_give_vals(world, storage, entity, price * amount as u64)?;
+        player_give_vals(world, storage, entity, total_price)?;
 
-        // ToDo Info Msg
-
-        return Ok(());
+        return send_message(
+            world,
+            storage,
+            entity,
+            format!("You have sold an item for {}!", total_price),
+            String::new(),
+            MessageChannel::Private,
+            Some(world.cloned_get_or_err::<Socket>(entity)?.id),
+        );
     }
 
     Err(AscendingError::InvalidSocket)

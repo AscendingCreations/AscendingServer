@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS public.player
     pk boolean NOT NULL,
     data bigint[] NOT NULL,
     vital integer[] NOT NULL,
+    vital_max integer[] NOT NULL,
     passresetcode text COLLATE pg_catalog.\"default\",
     access \"user_access\" NOT NULL,
     created_on timestamp with time zone NOT NULL DEFAULT now(),

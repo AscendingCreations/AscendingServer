@@ -82,7 +82,7 @@ pub fn player_earn_exp(
     }
 
     {
-        world.get::<&mut Player>(entity.0)?.levelexp = cmp::max(giveexp, 1) as u64;
+        world.get::<&mut Player>(entity.0)?.levelexp += cmp::max(giveexp, 1) as u64;
     }
 
     while world.get_or_err::<Player>(entity)?.levelexp >= player_get_next_lvl_exp(world, entity)?
@@ -99,6 +99,16 @@ pub fn player_earn_exp(
             world.get::<&mut Vitals>(entity.0)?.vitalmax[VitalTypes::Mp as usize] =
                 player_calc_max_mp(world, entity)?;
         }
+
+        send_message(
+            world,
+            storage,
+            entity,
+            "You have gained a level!".into(),
+            String::new(),
+            MessageChannel::Private,
+            Some(world.cloned_get_or_err::<Socket>(entity)?.id),
+        )?;
 
         for i in 0..VitalTypes::Count as usize {
             {
@@ -307,6 +317,20 @@ pub fn joingame(world: &mut World, storage: &Storage, entity: &Entity) -> Result
     }
 
     send_inv(world, storage, entity)?;
+    send_level(world, storage, entity)?;
+
+    DataTaskToken::MapChat(position.map).add_task(
+        storage,
+        &MessagePacket::new(
+            MessageChannel::Map,
+            String::new(),
+            format!(
+                "{} has joined the game",
+                world.cloned_get_or_err::<Account>(entity)?.username
+            ),
+            None,
+        ),
+    )?;
 
     debug!("Login Ok");
     // Finish loading
@@ -320,6 +344,27 @@ pub fn joingame(world: &mut World, storage: &Storage, entity: &Entity) -> Result
         MessageChannel::Private,
         Some(socket_id),
     )
+}
+
+pub fn left_game(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
+    let position = world.get_or_err::<Position>(entity)?;
+    DataTaskToken::MapChat(position.map).add_task(
+        storage,
+        &MessagePacket::new(
+            MessageChannel::Map,
+            String::new(),
+            format!(
+                "{} has left the game",
+                world.cloned_get_or_err::<Account>(entity)?.username
+            ),
+            None,
+        ),
+    )?;
+
+    //todo Add save for player world here.
+    //todo Add Update Players on map here.
+
+    Ok(())
 }
 
 pub fn remove_all_npc_target(world: &mut World, entity: &Entity) {

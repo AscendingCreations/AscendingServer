@@ -1,6 +1,6 @@
 {
   "name": "Npc1",
-  "level": 1,
+  "level": 2,
   "sprite": 1,
   "respawn_wait": 1,
   "movement_wait": 350,
@@ -107,5 +107,6 @@
       0
     ]
   ],
-  "drops_max": 0
+  "drops_max": 0,
+  "exp": 100
 }

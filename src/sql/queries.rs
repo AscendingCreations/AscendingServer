@@ -149,8 +149,8 @@ pub fn new_player(
         local.block_on(&rt,
         sqlx::query_as(r#"
         INSERT INTO public.player(
-            username, address, password, itemtimer, deathtimer, vals, spawn, pos, email, sprite, indeath, level, levelexp, resetcount, pk, data, vital, access)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18) RETURNING uid;
+            username, address, password, itemtimer, deathtimer, vals, spawn, pos, email, sprite, indeath, level, levelexp, resetcount, pk, data, vital, vital_max, access)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19) RETURNING uid;
         "#)
             .bind(&username)
             .bind(&socket.addr)
@@ -169,6 +169,7 @@ pub fn new_player(
             .bind(player.pk)
             .bind(entity_data.0)
             .bind(vitals.vital)
+            .bind(vitals.vitalmax)
             .bind(access)
             .fetch_one(&storage.pgconn),
     )?
@@ -241,7 +242,7 @@ pub fn load_player(
 
     let player_with_id: PGPlayerWithID = local.block_on(&rt,
         sqlx::query_as(r#"
-        SELECT uid, username, address, password, itemtimer, deathtimer, vals, spawn, pos, email, sprite, indeath, level, levelexp, resetcount, pk, data, vital, passresetcode, access
+        SELECT uid, username, address, password, itemtimer, deathtimer, vals, spawn, pos, email, sprite, indeath, level, levelexp, resetcount, pk, data, vital, vital_max, passresetcode, access
 	    FROM public.player where uid = $1;
         "#)
             .bind(accountid)
@@ -324,7 +325,7 @@ pub fn update_player(storage: &Storage, world: &mut World, entity: &crate::Entit
             sqlx::query(
                 r#"
         UPDATE public.player
-        SET itemtimer=$2, deathtimer=$3, pos=$4, vital=$5, indeath=$6, pk=$7
+        SET itemtimer=$2, deathtimer=$3, pos=$4, vital=$5, indeath=$6, pk=$7, vital_max=$8
         WHERE uid = $1;
     "#,
             )
@@ -335,6 +336,7 @@ pub fn update_player(storage: &Storage, world: &mut World, entity: &crate::Entit
             .bind(vitals.vital)
             .bind(death_type.is_spirit())
             .bind(player.pk)
+            .bind(vitals.vitalmax)
             .execute(&storage.pgconn),
         )?;
     }
@@ -551,7 +553,7 @@ pub fn update_level(storage: &Storage, world: &mut World, entity: &crate::Entity
             sqlx::query(
                 r#"
                 UPDATE public.player
-                SET level=$2, levelexp=$3, vital=$4
+                SET level=$2, levelexp=$3, vital=$4, vital_max=$5
                 WHERE uid = $1;
             "#,
             )
@@ -559,6 +561,7 @@ pub fn update_level(storage: &Storage, world: &mut World, entity: &crate::Entity
             .bind(level.0)
             .bind(i64::unshift_signed(&player.levelexp))
             .bind(vitals.vital)
+            .bind(vitals.vitalmax)
             .execute(&storage.pgconn),
         )?;
     }

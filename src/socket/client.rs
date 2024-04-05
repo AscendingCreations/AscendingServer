@@ -430,12 +430,12 @@ impl Client {
 
 #[inline]
 pub fn disconnect(playerid: Entity, world: &mut World, storage: &Storage) -> Result<()> {
+    left_game(world, storage, &playerid)?;
+
     let (_socket, position) = storage.remove_player(world, playerid)?;
 
     if let Some(map) = storage.maps.get(&position.map) {
         map.borrow_mut().remove_player(storage, playerid);
-        //todo Add save for player world here.
-        //todo Add Update Players on map here.
         map.borrow_mut().remove_entity_from_grid(position);
         DataTaskToken::EntityUnload(position.map).add_task(storage, &(playerid))?;
     }
