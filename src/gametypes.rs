@@ -34,6 +34,7 @@ pub const MAX_TILE: usize = MAP_MAX_X * MAP_MAX_Y - 1;
 ///Array Data Maxs
 pub const MAX_NPCS: usize = 1000;
 pub const MAX_ITEMS: usize = 2000;
+pub const MAX_SHOPS: usize = 100;
 pub const MAX_PLAYERS: usize = 1000;
 pub const MAX_SOCKET_PLAYERS: usize = 2000;
 
@@ -51,6 +52,7 @@ pub const START_MAP: u32 = 21;
 pub const START_X: u32 = 17;
 pub const START_Y: u32 = 15;
 pub const MAX_PARTY_SIZE: usize = 12;
+pub const MAX_SHOP_ITEM: usize = 20;
 
 pub const DIR_UP: usize = 0;
 pub const DIR_RIGHT: usize = 1;

@@ -1183,7 +1183,7 @@ pub fn handle_buyitem(
         {
             return Ok(());
         }
-        let _shop_index =
+        let shop_index =
             if let IsUsingType::Store(shop) = world.get_or_err::<IsUsingType>(entity)? {
                 shop
             } else {
@@ -1191,13 +1191,10 @@ pub fn handle_buyitem(
             };
         let slot = data.read::<u16>()?;
 
-        // TEMP DATA
-        let shop_data = [0, 1, 1, 2, 0, 2, 1];
-        let shop_price = [10, 20, 30, 40, 50, 60, 70];
-        let shop_value = [5, 3, 4, 1, 1, 1, 7];
+        let shopdata = storage.bases.shops[shop_index as usize].clone();
 
         let player_money = world.get_or_err::<Money>(entity)?.vals;
-        if player_money < shop_price[slot as usize] {
+        if player_money < shopdata.item[slot as usize].price {
             return send_message(
                 world,
                 storage,
@@ -1210,14 +1207,14 @@ pub fn handle_buyitem(
         }
 
         let mut item = Item {
-            num: shop_data[slot as usize],
-            val: shop_value[slot as usize],
+            num: shopdata.item[slot as usize].index as u32,
+            val: shopdata.item[slot as usize].amount,
             ..Default::default()
         };
 
         match give_inv_item(world, storage, entity, &mut item)? {
             SlotSpace::Completed => {
-                player_take_vals(world, storage, entity, shop_price[slot as usize])?
+                player_take_vals(world, storage, entity, shopdata.item[slot as usize].price)?
             }
             SlotSpace::NoSpace(_) => {
                 return send_message(
