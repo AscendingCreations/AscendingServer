@@ -347,6 +347,10 @@ pub fn joingame(world: &mut World, storage: &Storage, entity: &Entity) -> Result
 }
 
 pub fn left_game(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
+    if world.get_or_err::<OnlineType>(entity)? != OnlineType::Online {
+        return Ok(());
+    }
+
     let position = world.get_or_err::<Position>(entity)?;
     DataTaskToken::MapChat(position.map).add_task(
         storage,

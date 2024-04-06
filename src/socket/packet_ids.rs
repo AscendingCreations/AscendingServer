@@ -65,6 +65,8 @@ pub enum ServerPackets {
     TradeStatus,
     TradeRequest,
     PlayItemSfx,
+    FloatTextDamage,
+    FloatTextHeal,
     ServerPacketCount,
 }
 

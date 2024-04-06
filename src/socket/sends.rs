@@ -621,3 +621,37 @@ pub fn send_playitemsfx(
 
     send_to(storage, world.get::<&Socket>(entity.0)?.id, buf)
 }
+
+#[inline]
+pub fn send_floattextdamage(
+    world: &mut World,
+    storage: &Storage,
+    pos: Position,
+    damage: u16,
+) -> Result<()> {
+    let mut buf = ByteBuffer::new_packet_with(12)?;
+
+    buf.write(ServerPackets::FloatTextDamage)?;
+    buf.write(damage)?;
+    buf.write(pos)?;
+    buf.finish()?;
+
+    send_to_maps(world, storage, pos.map, buf, None)
+}
+
+#[inline]
+pub fn send_floattextheal(
+    world: &mut World,
+    storage: &Storage,
+    pos: Position,
+    amount: u16,
+) -> Result<()> {
+    let mut buf = ByteBuffer::new_packet_with(12)?;
+
+    buf.write(ServerPackets::FloatTextHeal)?;
+    buf.write(amount)?;
+    buf.write(pos)?;
+    buf.finish()?;
+
+    send_to_maps(world, storage, pos.map, buf, None)
+}

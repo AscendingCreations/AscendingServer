@@ -4,6 +4,7 @@ use crate::{
     maps::can_target,
     npcs::{damage_npc, kill_npc, try_target_entity, NpcIndex},
     players::*,
+    socket::send_floattextdamage,
     tasks::{init_data_lists, DataTaskToken, VitalsPacket},
 };
 use hecs::World;
@@ -53,6 +54,13 @@ pub fn player_combat(
                 let damage = player_combat_damage(world, storage, entity, target_entity)?;
                 damage_player(world, target_entity, damage)?;
 
+                send_floattextdamage(
+                    world,
+                    storage,
+                    world.get_or_default::<Position>(target_entity),
+                    damage as u16,
+                )?;
+
                 DataTaskToken::PlayerAttack(world.get_or_default::<Position>(entity).map)
                     .add_task(storage, entity)?;
 
@@ -69,6 +77,13 @@ pub fn player_combat(
             WorldEntityType::Npc => {
                 let damage = player_combat_damage(world, storage, entity, target_entity)?;
                 damage_npc(world, target_entity, damage)?;
+
+                send_floattextdamage(
+                    world,
+                    storage,
+                    world.get_or_default::<Position>(target_entity),
+                    damage as u16,
+                )?;
 
                 DataTaskToken::PlayerAttack(world.get_or_default::<Position>(entity).map)
                     .add_task(storage, entity)?;

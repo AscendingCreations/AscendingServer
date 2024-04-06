@@ -393,6 +393,13 @@ pub fn player_use_item(
                     .saturating_add(base.data[0] as i32)
                     .min(player_vital.vitalmax[VitalTypes::Hp as usize]);
                 player_set_vital(world, storage, entity, VitalTypes::Hp, set_vital)?;
+
+                send_floattextheal(
+                    world,
+                    storage,
+                    world.get_or_default::<Position>(entity),
+                    base.data[0] as u16,
+                )?;
             }
 
             if base.data[1] > 0 {

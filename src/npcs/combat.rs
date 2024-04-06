@@ -1,6 +1,9 @@
 use std::borrow::Borrow;
 
-use crate::{containers::Storage, gametypes::*, maps::*, npcs::*, players::*, tasks::*};
+use crate::{
+    containers::Storage, gametypes::*, maps::*, npcs::*, players::*, socket::send_floattextdamage,
+    tasks::*,
+};
 use hecs::World;
 use rand::{thread_rng, Rng};
 
@@ -98,6 +101,13 @@ pub fn npc_combat(
                 let damage = npc_combat_damage(world, storage, entity, &i, base)?;
                 damage_player(world, &i, damage)?;
 
+                send_floattextdamage(
+                    world,
+                    storage,
+                    world.get_or_default::<Position>(&i),
+                    damage as u16,
+                )?;
+
                 DataTaskToken::NpcAttack(world.get_or_default::<Position>(entity).map)
                     .add_task(storage, entity)?;
                 let vitals = world.get_or_err::<Vitals>(&i)?;
@@ -119,6 +129,13 @@ pub fn npc_combat(
             if world.contains(i.0) {
                 let damage = npc_combat_damage(world, storage, entity, &i, base)?;
                 damage_npc(world, &i, damage)?;
+
+                send_floattextdamage(
+                    world,
+                    storage,
+                    world.get_or_default::<Position>(&i),
+                    damage as u16,
+                )?;
 
                 DataTaskToken::NpcAttack(world.get_or_default::<Position>(entity).map)
                     .add_task(storage, entity)?;
