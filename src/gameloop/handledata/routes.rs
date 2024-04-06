@@ -102,6 +102,11 @@ pub fn handle_register(
             sprite.id = sprite_id as u16;
         }
 
+        storage
+            .player_names
+            .borrow_mut()
+            .insert(username.clone(), *entity);
+
         return match new_player(storage, world, entity, username, email, password) {
             Ok(uid) => {
                 {
@@ -190,6 +195,11 @@ pub fn handle_login(
         if let Err(_e) = load_player(storage, world, entity, id) {
             return send_infomsg(storage, socket_id, "Error Loading User.".into(), 1);
         }
+
+        storage.player_names.borrow_mut().insert(
+            world.cloned_get_or_err::<Account>(entity)?.username,
+            *entity,
+        );
 
         //joingame(world, storage, entity)?;
         send_myindex(storage, socket_id, entity)?;

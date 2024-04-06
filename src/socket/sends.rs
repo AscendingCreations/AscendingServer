@@ -462,7 +462,8 @@ pub fn send_message(
             buf.finish()?;
 
             if let Some(i) = id {
-                send_to(storage, i, buf)?;
+                send_to(storage, i, buf.clone())?;
+                send_to(storage, world.get::<&Socket>(entity.0)?.id, buf)?;
             }
         }
         MessageChannel::Guild => {}
