@@ -205,6 +205,7 @@ impl Storage {
                     }
                     _ => {}
                 }
+                map.move_grid[id].dir_block = map_data.dir_block[id];
             }
 
             storage.maps.insert(position, RefCell::new(map));

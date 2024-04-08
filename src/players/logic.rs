@@ -342,7 +342,7 @@ pub fn joingame(world: &mut World, storage: &Storage, entity: &Entity) -> Result
         "Welcome Message".into(),
         String::new(),
         MessageChannel::Private,
-        Some(socket_id),
+        None,
     )
 }
 

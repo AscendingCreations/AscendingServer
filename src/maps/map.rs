@@ -69,6 +69,7 @@ pub struct GridTile {
 #[educe(Default(new))]
 pub struct Map {
     pub position: MapPosition,
+    pub dir_block: Vec<u8>,
     pub attribute: Vec<MapAttribute>,
     // Tiles for zone spawning. (x, y) using u8 to cut down the size and since maps should never Exceed 64x64
     // As super large maps are stupid within a Seamless Structure.
