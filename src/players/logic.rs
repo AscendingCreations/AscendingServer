@@ -262,7 +262,6 @@ pub fn player_repair_equipment(
                 equipment.items[slot].data[0] =
                     equipment.items[slot].data[0].saturating_add(repair_amount);
             }
-            //TODO: CalculateStats();
 
             update = true;
         }
@@ -318,6 +317,7 @@ pub fn joingame(world: &mut World, storage: &Storage, entity: &Entity) -> Result
 
     send_inv(world, storage, entity)?;
     send_level(world, storage, entity)?;
+    send_money(world, storage, entity)?;
 
     DataTaskToken::MapChat(position.map).add_task(
         storage,
@@ -365,7 +365,14 @@ pub fn left_game(world: &mut World, storage: &Storage, entity: &Entity) -> Resul
         ),
     )?;
 
-    //todo Add save for player world here.
+    update_playerdata(storage, world, entity)?;
+    update_player(storage, world, entity)?;
+    update_level(storage, world, entity)?;
+    update_spawn(storage, world, entity)?;
+    update_pos(storage, world, entity)?;
+    update_currency(storage, world, entity)?;
+    update_resetcount(storage, world, entity)?;
+
     //todo Add Update Players on map here.
 
     Ok(())

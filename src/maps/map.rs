@@ -508,7 +508,6 @@ pub fn map_path_blocked(
 ) -> bool {
     // Directional blocking might be in the wrong order as it should be.
     // 0 down, 1 right, 2 up, 3 left
-    //TODO: Sherwin check this please when you get a chance.
     let blocked = match movedir {
         0 => {
             if let Some(map) = storage.maps.get(&cur_pos.map) {

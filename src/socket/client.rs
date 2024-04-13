@@ -534,16 +534,3 @@ pub fn send_to_maps(
 
     Ok(())
 }
-
-//Example code for querying.
-/*for (entity, (_, socket)) in world
-    .query::<((&WorldEntityType, &OnlineType, &Position), &Socket)>()
-    .iter()
-    .filter(|(_entity, ((worldentitytype, onlinetype, pos), _))| {
-        **worldentitytype == WorldEntityType::Player
-            && **onlinetype == OnlineType::Online
-            && pos.map == map.position
-    })
-{
-    // ToDo: Avoid index
-}*/

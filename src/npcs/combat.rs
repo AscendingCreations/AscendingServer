@@ -122,7 +122,6 @@ pub fn npc_combat(
                     remove_all_npc_target(world, &i);
                     kill_player(world, storage, &i)?;
                 }
-                //TODO Send Attack Msg/Damage
             }
         }
         EntityType::Npc(i) => {

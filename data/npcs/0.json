@@ -1,5 +1,5 @@
 {
-  "name": "Npc1",
+  "name": "Human",
   "level": 2,
   "sprite": 1,
   "respawn_wait": 1,

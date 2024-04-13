@@ -3,6 +3,7 @@
   "levelreq": 0,
   "soundid": 0,
   "sprite": 11,
+  "animation": null,
   "data": [
     2,
     0,
@@ -37,5 +38,6 @@
     "g": 0,
     "b": 0,
     "a": 0
-  }
+  },
+  "sound_index": null
 }

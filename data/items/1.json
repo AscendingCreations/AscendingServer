@@ -3,6 +3,7 @@
   "levelreq": 0,
   "soundid": 0,
   "sprite": 1,
+  "animation": null,
   "data": [
     10,
     0,
