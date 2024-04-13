@@ -107,7 +107,7 @@ pub fn player_earn_exp(
             "You have gained a level!".into(),
             String::new(),
             MessageChannel::Private,
-            Some(world.cloned_get_or_err::<Socket>(entity)?.id),
+            None,
         )?;
 
         for i in 0..VitalTypes::Count as usize {

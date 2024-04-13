@@ -531,7 +531,7 @@ pub fn handle_pickup(
                                         format!("You picked up {} {}{}.", amount, item.name, st),
                                         String::new(),
                                         MessageChannel::Private,
-                                        Some(world.cloned_get_or_err::<Socket>(entity)?.id),
+                                        None,
                                     )?;
                                     remove_id.push((x, i));
                                 }
@@ -549,7 +549,7 @@ pub fn handle_pickup(
                                             format!("You picked up {} {}{}. Your inventory is Full so some items remain.", amount, item.name, st),
                                             String::new(),
                                             MessageChannel::Private,
-                                            Some(world.cloned_get_or_err::<Socket>(entity)?.id),
+                                            None,
                                         )?;
                                     }
                                 }
@@ -823,7 +823,7 @@ pub fn handle_deposititem(
                     "You do not have enough slot to deposit this item!".into(),
                     String::new(),
                     MessageChannel::Private,
-                    Some(world.cloned_get_or_err::<Socket>(entity)?.id),
+                    None,
                 )?;
             }
             let take_amount = amount - leftover;
@@ -892,7 +892,7 @@ pub fn handle_withdrawitem(
                     "You do not have enough slot to withdraw this item!".into(),
                     String::new(),
                     MessageChannel::Private,
-                    Some(world.cloned_get_or_err::<Socket>(entity)?.id),
+                    None,
                 )?;
             }
             let take_amount = amount - leftover;
@@ -1174,7 +1174,7 @@ pub fn handle_closetrade(
             ),
             String::new(),
             MessageChannel::Private,
-            Some(world.cloned_get_or_err::<Socket>(&target_entity)?.id),
+            None,
         );
     }
 
@@ -1212,7 +1212,7 @@ pub fn handle_buyitem(
                 "You do not have enough money".into(),
                 String::new(),
                 MessageChannel::Private,
-                Some(world.cloned_get_or_err::<Socket>(entity)?.id),
+                None,
             );
         }
 
@@ -1234,7 +1234,7 @@ pub fn handle_buyitem(
                     "You do not have enough space in your inventory".into(),
                     String::new(),
                     MessageChannel::Private,
-                    Some(world.cloned_get_or_err::<Socket>(entity)?.id),
+                    None,
                 );
             }
         }
@@ -1246,7 +1246,7 @@ pub fn handle_buyitem(
             "You have successfully bought an item!".into(),
             String::new(),
             MessageChannel::Private,
-            Some(world.cloned_get_or_err::<Socket>(entity)?.id),
+            None,
         );
     }
 
@@ -1300,7 +1300,7 @@ pub fn handle_sellitem(
             format!("You have sold an item for {}!", total_price),
             String::new(),
             MessageChannel::Private,
-            Some(world.cloned_get_or_err::<Socket>(entity)?.id),
+            None,
         );
     }
 
