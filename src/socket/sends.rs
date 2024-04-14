@@ -177,6 +177,18 @@ pub fn send_codes(
     send_to(storage, id, buf)
 }
 
+pub fn send_ping(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
+    let mut buf = ByteBuffer::new_packet_with(10)?;
+
+    buf.write(ServerPackets::Ping)?;
+    buf.write(&0u64)?;
+    buf.finish()?;
+
+    let id: usize = world.get::<&Socket>(entity.0)?.id;
+
+    send_to(storage, id, buf)
+}
+
 #[inline]
 #[allow(clippy::too_many_arguments)]
 pub fn send_move(

@@ -19,6 +19,7 @@ pub fn game_loop(world: &mut World, storage: &Storage, router: &PacketRouter) {
     let mut tmr500: MyInstant = MyInstant::now();
     let mut tmr1000: MyInstant = MyInstant::now();
     let mut tmr60000: MyInstant = MyInstant::now();
+    let mut ping_timer: MyInstant = MyInstant::now();
 
     loop {
         let _ = storage.gettick.replace(MyInstant::now());
@@ -50,6 +51,12 @@ pub fn game_loop(world: &mut World, storage: &Storage, router: &PacketRouter) {
                 }
             }
             tmr60000 = tick + Duration::try_milliseconds(60000).unwrap_or_default();
+        }
+
+        //to ping sockets to ensure they are still connected. we will then unload those who are not.
+        if tick > ping_timer {
+            send_connection_pings(world, storage).unwrap();
+            ping_timer = tick + Duration::try_hours(2).unwrap_or_default();
         }
 
         poll_events(world, storage).unwrap();

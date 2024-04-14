@@ -51,6 +51,16 @@ pub fn update_players(world: &mut World, storage: &Storage) -> Result<()> {
     Ok(())
 }
 
+pub fn send_connection_pings(world: &mut World, storage: &Storage) -> Result<()> {
+    for id in &*storage.player_ids.borrow() {
+        if world.get_or_err::<OnlineType>(id)? == OnlineType::Online {
+            send_ping(world, storage, id)?;
+        }
+    }
+
+    Ok(())
+}
+
 pub fn player_earn_exp(
     world: &mut World,
     storage: &Storage,
