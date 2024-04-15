@@ -181,7 +181,7 @@ pub fn send_ping(world: &mut World, storage: &Storage, entity: &Entity) -> Resul
     let mut buf = ByteBuffer::new_packet_with(10)?;
 
     buf.write(ServerPackets::Ping)?;
-    buf.write(&0u64)?;
+    buf.write(0u64)?;
     buf.finish()?;
 
     let id: usize = world.get::<&Socket>(entity.0)?.id;
