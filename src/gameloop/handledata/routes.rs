@@ -206,7 +206,6 @@ pub fn handle_login(
         // we need to Add all the player types creations in a sub function that Creates the Defaults and then adds them to World.
         let code = Alphanumeric.sample_string(&mut rand::thread_rng(), 32);
         let handshake = Alphanumeric.sample_string(&mut rand::thread_rng(), 32);
-
         let old_entity = { storage.player_names.borrow().get(&username).copied() };
 
         if let Some(old_entity) = old_entity {
@@ -223,6 +222,29 @@ pub fn handle_login(
                     } else {
                         return send_swap_error(world, storage, socket.id, socket_id);
                     }
+                }
+            } else {
+                let old_code = world.cloned_get_or_default::<ReloginCode>(&old_entity);
+
+                if !old_code.code.is_empty()
+                    && !reconnect_code.is_empty()
+                    && reconnect_code == old_code.code
+                {
+                    if let Ok(socket) = world.cloned_get_or_err::<Socket>(&old_entity) {
+                        if socket.id != socket_id {
+                            if let Some(client) =
+                                storage.server.borrow().clients.get(&mio::Token(socket.id))
+                            {
+                                client.borrow_mut().close_socket(world, storage)?;
+                            } else {
+                                return send_swap_error(world, storage, socket.id, socket_id);
+                            }
+                        } else {
+                            return send_swap_error(world, storage, socket.id, socket_id);
+                        }
+                    }
+                } else {
+                    return send_infomsg(storage, socket_id, "Error Loading User.".into(), 1);
                 }
             }
         }
