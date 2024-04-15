@@ -55,7 +55,7 @@ impl Server {
                 Err(e) => return Err(e.into()),
             };
 
-            stream.set_nodelay(true)?;
+            //stream.set_nodelay(true)?;
 
             if let Some(token) = self.tokens.pop_front() {
                 // Attempt to Create a Empty Player Entity.

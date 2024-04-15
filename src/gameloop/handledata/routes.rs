@@ -10,6 +10,15 @@ use log::debug;
 use rand::distributions::{Alphanumeric, DistString};
 use regex::Regex;
 
+pub fn handle_ping(
+    _world: &mut World,
+    _storage: &Storage,
+    _data: &mut ByteBuffer,
+    _entity: &Entity,
+) -> Result<()> {
+    Ok(())
+}
+
 pub fn handle_register(
     world: &mut World,
     storage: &Storage,
@@ -198,106 +207,23 @@ pub fn handle_login(
         let code = Alphanumeric.sample_string(&mut rand::thread_rng(), 32);
         let handshake = Alphanumeric.sample_string(&mut rand::thread_rng(), 32);
 
-        if let Some(old_entity) = storage.player_names.borrow().get(&username) {
-            let relog_code = world.cloned_get_or_err::<ReloginCode>(old_entity)?;
-            let online = world.get_or_err::<OnlineType>(old_entity)?;
+        let old_entity = { storage.player_names.borrow().get(&username).copied() };
 
-            //If the user is still online and the relogin code is correct then we can swap the
-            //Old entity into the new socket giving them direct access to the entity.
-            //We then will treat it like a normal login event to ensure everyone is updated.
-            //This should only Occur if the Socket never tried to get or send data server side to know
-            //When a Client got disconnected. This way we allow a user with the correct code to take over
-            //The logged in account. If they do not have the correct code then we need to boot them.
-            if online == OnlineType::Online
-                && !reconnect_code.is_empty()
-                && relog_code.code == reconnect_code
-            {
-                let new_socket = world.remove::<Socket>(entity.0)?;
-                let old_socket = world.remove::<Socket>(old_entity.0)?;
-                let old_socket_id = old_socket.id;
-
-                world.insert_one(entity.0, old_socket)?;
-                world.insert_one(old_entity.0, new_socket)?;
-
-                if let Some(client) = storage.server.borrow().clients.get(&mio::Token(socket_id)) {
-                    client.borrow_mut().entity = *old_entity;
-                } else {
-                    send_infomsg(
-                        storage,
-                        old_socket_id,
-                        "Server Error in player swap".into(),
-                        1,
-                    )?;
-
-                    return send_infomsg(
-                        storage,
-                        socket_id,
-                        "Server Error in player swap".into(),
-                        1,
-                    );
+        if let Some(old_entity) = old_entity {
+            if old_entity.0.id() == entity.0.id() {
+                if let Ok(socket) = world.cloned_get_or_err::<Socket>(&old_entity) {
+                    if socket.id != socket_id {
+                        if let Some(client) =
+                            storage.server.borrow().clients.get(&mio::Token(socket.id))
+                        {
+                            client.borrow_mut().close_socket(world, storage)?;
+                        } else {
+                            return send_swap_error(world, storage, socket.id, socket_id);
+                        }
+                    } else {
+                        return send_swap_error(world, storage, socket.id, socket_id);
+                    }
                 }
-
-                if let Some(client) = storage
-                    .server
-                    .borrow()
-                    .clients
-                    .get(&mio::Token(old_socket_id))
-                {
-                    client.borrow_mut().entity = *entity;
-                    client.borrow_mut().close_socket(world, storage)?;
-                } else {
-                    send_infomsg(
-                        storage,
-                        old_socket_id,
-                        "Server Error in player swap".into(),
-                        1,
-                    )?;
-                    return send_infomsg(
-                        storage,
-                        socket_id,
-                        "Server Error in player swap".into(),
-                        1,
-                    );
-                }
-
-                {
-                    *world.get::<&mut OnlineType>(old_entity.0)? = OnlineType::Accepted;
-                }
-
-                world.insert(
-                    old_entity.0,
-                    (
-                        ReloginCode { code: code.clone() },
-                        LoginHandShake {
-                            handshake: handshake.clone(),
-                        },
-                    ),
-                )?;
-
-                send_myindex(storage, socket_id, old_entity)?;
-                return send_codes(world, storage, old_entity, code, handshake);
-            } else if online == OnlineType::Accepted || online == OnlineType::None {
-                //they did not fully login the last time so lets kill the old and reload them.
-                let old_socket_id = world.get::<&Socket>(old_entity.0)?.id;
-
-                if let Some(client) = storage
-                    .server
-                    .borrow()
-                    .clients
-                    .get(&mio::Token(old_socket_id))
-                {
-                    client.borrow_mut().close_socket(world, storage)?;
-                }
-            } else {
-                send_message(
-                    world,
-                    storage,
-                    old_entity,
-                    "Another User Was almost successful in logging into this account with your current password. Please Reset your password.".to_owned(),
-                    "".to_owned(),
-                    MessageChannel::Private,
-                    None)?;
-                return send_infomsg(storage, socket_id, "Account Already Online.".into(), 1);
             }
         }
 
@@ -307,9 +233,7 @@ pub fn handle_login(
             return send_infomsg(storage, socket_id, "Error Loading User.".into(), 1);
         }
 
-        storage.player_names.borrow_mut().insert(username, *entity);
-        send_myindex(storage, socket_id, entity)?;
-        return send_codes(world, storage, entity, code, handshake);
+        return send_login_info(world, storage, entity, code, handshake, socket_id, username);
     }
 
     Err(AscendingError::InvalidSocket)

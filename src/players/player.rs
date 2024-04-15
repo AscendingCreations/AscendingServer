@@ -1,6 +1,6 @@
 use crate::{containers::*, gametypes::*, items::*, socket::*, sql::*, tasks::*, time_ext::*};
 use educe::Educe;
-use hecs::*;
+use hecs::{Bundle, World};
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
 
@@ -417,4 +417,46 @@ pub fn player_take_vals(
         format!("You Lost {} Vals.", cur),
         FtlType::Money,
     )
+}
+
+pub fn send_swap_error(
+    _world: &mut World,
+    storage: &Storage,
+    old_socket_id: usize,
+    socket_id: usize,
+) -> Result<()> {
+    send_infomsg(
+        storage,
+        old_socket_id,
+        "Server Error in player swap".into(),
+        1,
+    )?;
+
+    send_infomsg(storage, socket_id, "Server Error in player swap".into(), 1)
+}
+
+pub fn send_login_info(
+    world: &mut World,
+    storage: &Storage,
+    entity: &Entity,
+    code: String,
+    handshake: String,
+    socket_id: usize,
+    username: String,
+) -> Result<()> {
+    world.insert(
+        entity.0,
+        (
+            ReloginCode {
+                code: code.to_owned(),
+            },
+            LoginHandShake {
+                handshake: handshake.to_owned(),
+            },
+        ),
+    )?;
+
+    storage.player_names.borrow_mut().insert(username, *entity);
+    send_myindex(storage, socket_id, entity)?;
+    send_codes(world, storage, entity, code, handshake)
 }

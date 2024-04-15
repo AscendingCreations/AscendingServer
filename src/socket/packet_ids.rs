@@ -74,6 +74,7 @@ pub enum ServerPackets {
     Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ByteBufferRead, ByteBufferWrite, Hash,
 )]
 pub enum ClientPacket {
+    Ping,
     Register,
     Login,
     HandShake,

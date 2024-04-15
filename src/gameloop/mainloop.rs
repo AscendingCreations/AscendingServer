@@ -97,7 +97,13 @@ pub fn process_packets(world: &mut World, storage: &Storage, router: &PacketRout
         count = 0;
 
         let (lock, socket_id) = {
-            let socket = world.get::<&Socket>(entity.0)?;
+            let socket = match world.get::<&Socket>(entity.0) {
+                Ok(s) => s,
+                Err(_) => {
+                    rem_arr.push(*entity);
+                    continue 'user_loop;
+                }
+            };
 
             (socket.buffer.clone(), socket.id)
         };
