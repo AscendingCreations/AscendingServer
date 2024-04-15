@@ -209,13 +209,13 @@ pub fn handle_login(
         let old_entity = { storage.player_names.borrow().get(&username).copied() };
 
         if let Some(old_entity) = old_entity {
-            if old_entity.0.id() != entity.0.id() {
+            if old_entity.0 != entity.0 {
                 let old_code = world.cloned_get_or_default::<ReloginCode>(&old_entity);
 
-                if !old_code.code.is_empty()
-                    && !reconnect_code.is_empty()
-                    && reconnect_code == old_code.code
-                {
+                // if old code is empty means they did get unloaded just not all the way for some reason.
+                if old_code.code.is_empty() {
+                    let _ = storage.player_names.borrow_mut().remove(&username);
+                } else if !reconnect_code.is_empty() && reconnect_code == old_code.code {
                     if let Ok(socket) = world.cloned_get_or_err::<Socket>(&old_entity) {
                         if socket.id != socket_id {
                             if let Some(client) =
