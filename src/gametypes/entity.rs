@@ -30,6 +30,14 @@ pub struct Target {
 
 #[derive(Educe, Debug, Copy, Clone, PartialEq, Eq)]
 #[educe(Default)]
+pub struct ConnectionLoginTimer {
+    pub initiated: bool,
+    #[educe(Default = MyInstant::now())]
+    pub timer: MyInstant,
+}
+
+#[derive(Educe, Debug, Copy, Clone, PartialEq, Eq)]
+#[educe(Default)]
 pub struct PlayerTarget(pub Option<Entity>);
 
 #[derive(Educe, Debug, Copy, Clone, PartialEq, Eq)]

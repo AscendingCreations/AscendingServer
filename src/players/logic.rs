@@ -51,7 +51,27 @@ pub fn update_players(world: &mut World, storage: &Storage) -> Result<()> {
     Ok(())
 }
 
-//TODO Sherwin: Add in Timer to user accounts for Logging in. IF this timer exceeds a certain threash hold to force disconnect them.
+pub fn check_player_connection(world: &mut World, storage: &Storage) -> Result<()> {
+    let mut remove_player_list = Vec::new();
+
+    for (entity, connection_login_timer) in world
+        .query_mut::<Option<&ConnectionLoginTimer>>()
+        .into_iter()
+    {
+        if let Some(timer) = connection_login_timer {
+            if timer.initiated && timer.timer < *storage.gettick.borrow() {
+                remove_player_list.push(entity);
+            }
+        }
+    }
+
+    for i in remove_player_list.iter() {
+        // Close Socket
+        disconnect(Entity(*i), world, storage)?;
+    }
+    Ok(())
+}
+
 //If they login successfully the remove the timer from world.
 pub fn send_connection_pings(world: &mut World, storage: &Storage) -> Result<()> {
     for id in &*storage.player_ids.borrow() {

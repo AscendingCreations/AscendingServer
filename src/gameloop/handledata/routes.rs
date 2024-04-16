@@ -116,6 +116,12 @@ pub fn handle_register(
 
             account.username.clone_from(&username);
             sprite.id = sprite_id as u16;
+
+            if let Ok(mut timer) = world.get::<&mut ConnectionLoginTimer>(entity.0) {
+                timer.timer = *storage.gettick.borrow()
+                    + Duration::try_milliseconds(600000).unwrap_or_default();
+                timer.initiated = true;
+            }
         }
 
         storage
@@ -156,6 +162,7 @@ pub fn handle_handshake(
 
     if world.get::<&LoginHandShake>(entity.0)?.handshake == handshake {
         world.remove_one::<LoginHandShake>(entity.0)?;
+        world.remove_one::<ConnectionLoginTimer>(entity.0)?;
         return joingame(world, storage, entity);
     }
 
@@ -236,6 +243,12 @@ pub fn handle_login(
         }
 
         storage.add_player_data(world, entity, code.clone(), handshake.clone())?;
+
+        if let Ok(mut timer) = world.get::<&mut ConnectionLoginTimer>(entity.0) {
+            timer.timer =
+                *storage.gettick.borrow() + Duration::try_milliseconds(600000).unwrap_or_default();
+            timer.initiated = true;
+        }
 
         if let Err(_e) = load_player(storage, world, entity, id) {
             return send_infomsg(storage, socket_id, "Error Loading User.".into(), 1);

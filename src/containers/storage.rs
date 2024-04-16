@@ -310,6 +310,7 @@ impl Storage {
                 TradeMoney::default(),
                 TradeStatus::default(),
                 TradeRequestEntity::default(),
+                ConnectionLoginTimer::default(),
             ),
         )?;
         self.player_ids.borrow_mut().insert(*entity);

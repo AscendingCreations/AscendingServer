@@ -28,6 +28,7 @@ pub fn game_loop(world: &mut World, storage: &Storage, router: &PacketRouter) {
         if tick > tmr100 {
             update_npcs(world, storage).unwrap();
             update_players(world, storage).unwrap();
+            check_player_connection(world, storage).unwrap();
             tmr100 = tick + Duration::try_milliseconds(100).unwrap_or_default();
         }
 
