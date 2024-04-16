@@ -108,20 +108,15 @@ pub fn handle_register(
         let code = Alphanumeric.sample_string(&mut rand::thread_rng(), 32);
         let handshake = Alphanumeric.sample_string(&mut rand::thread_rng(), 32);
 
+        let tick = *storage.gettick.borrow();
         // we need to Add all the player types creations in a sub function that Creates the Defaults and then adds them to World.
-        storage.add_player_data(world, entity, code.clone(), handshake.clone())?;
+        storage.add_player_data(world, entity, code.clone(), handshake.clone(), tick)?;
 
         {
             let (account, sprite) = world.query_one_mut::<(&mut Account, &mut Sprite)>(entity.0)?;
 
             account.username.clone_from(&username);
             sprite.id = sprite_id as u16;
-
-            if let Ok(mut timer) = world.get::<&mut ConnectionLoginTimer>(entity.0) {
-                timer.timer = *storage.gettick.borrow()
-                    + Duration::try_milliseconds(600000).unwrap_or_default();
-                timer.initiated = true;
-            }
         }
 
         storage
@@ -242,13 +237,8 @@ pub fn handle_login(
             }
         }
 
-        storage.add_player_data(world, entity, code.clone(), handshake.clone())?;
-
-        if let Ok(mut timer) = world.get::<&mut ConnectionLoginTimer>(entity.0) {
-            timer.timer =
-                *storage.gettick.borrow() + Duration::try_milliseconds(600000).unwrap_or_default();
-            timer.initiated = true;
-        }
+        let tick = *storage.gettick.borrow();
+        storage.add_player_data(world, entity, code.clone(), handshake.clone(), tick)?;
 
         if let Err(_e) = load_player(storage, world, entity, id) {
             return send_infomsg(storage, socket_id, "Error Loading User.".into(), 1);

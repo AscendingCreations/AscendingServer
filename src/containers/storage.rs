@@ -8,6 +8,7 @@ use crate::{
     tasks::{DataTaskToken, MapSwitchTasks},
     time_ext::MyInstant,
 };
+use chrono::Duration;
 use hecs::World;
 use mio::Poll;
 use rustls::{
@@ -259,6 +260,7 @@ impl Storage {
         entity: &Entity,
         code: String,
         handshake: String,
+        time: MyInstant,
     ) -> Result<()> {
         world.insert(
             entity.0,
@@ -310,7 +312,7 @@ impl Storage {
                 TradeMoney::default(),
                 TradeStatus::default(),
                 TradeRequestEntity::default(),
-                ConnectionLoginTimer::default(),
+                ConnectionLoginTimer(time + Duration::try_milliseconds(600000).unwrap_or_default()),
             ),
         )?;
         self.player_ids.borrow_mut().insert(*entity);

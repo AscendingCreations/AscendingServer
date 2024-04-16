@@ -54,14 +54,9 @@ pub fn update_players(world: &mut World, storage: &Storage) -> Result<()> {
 pub fn check_player_connection(world: &mut World, storage: &Storage) -> Result<()> {
     let mut remove_player_list = Vec::new();
 
-    for (entity, connection_login_timer) in world
-        .query_mut::<Option<&ConnectionLoginTimer>>()
-        .into_iter()
-    {
-        if let Some(timer) = connection_login_timer {
-            if timer.initiated && timer.timer < *storage.gettick.borrow() {
-                remove_player_list.push(entity);
-            }
+    for (entity, timer) in world.query::<&ConnectionLoginTimer>().iter() {
+        if timer.0 < *storage.gettick.borrow() {
+            remove_player_list.push(entity);
         }
     }
 
