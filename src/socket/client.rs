@@ -534,3 +534,25 @@ pub fn send_to_maps(
 
     Ok(())
 }
+
+#[inline]
+pub fn send_to_entities(
+    world: &mut World,
+    storage: &Storage,
+    entities: &[Entity],
+    buf: ByteBuffer,
+) -> Result<()> {
+    for entity in entities {
+        let (status, socket) = world.query_one_mut::<(&OnlineType, &Socket)>(entity.0)?;
+
+        if *status == OnlineType::Online {
+            if let Some(client) = storage.server.borrow().clients.get(&mio::Token(socket.id)) {
+                client
+                    .borrow_mut()
+                    .send(&storage.poll.borrow(), buf.clone())?;
+            }
+        }
+    }
+
+    Ok(())
+}

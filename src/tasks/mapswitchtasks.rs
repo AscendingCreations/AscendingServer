@@ -121,6 +121,8 @@ pub fn init_data_lists(
         .filter(|id| !new_players.contains(id))
         .collect::<Vec<Entity>>();
 
+    send_data_removals_to_entitys(world, storage, &[*user], &removals)?;
+
     removals.append(
         &mut old_npcs
             .iter()
@@ -136,7 +138,7 @@ pub fn init_data_lists(
             .collect::<Vec<Entity>>(),
     );
 
-    send_data_remove_list(storage, socket_id, &removals)?;
+    send_data_removals(storage, socket_id, &removals)?;
 
     if let Some(tasks) = map_switch_tasks.get_mut(user) {
         tasks.push(MapSwitchTasks::Player(task_player));

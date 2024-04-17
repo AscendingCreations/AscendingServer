@@ -231,14 +231,29 @@ pub fn send_warp(world: &mut World, storage: &Storage, entity: &Entity) -> Resul
     send_to_maps(world, storage, pos.map, buf, None)
 }
 
-pub fn send_data_remove_list(storage: &Storage, socket_id: usize, remove: &[Entity]) -> Result<()> {
+pub fn send_data_removals(storage: &Storage, socket_id: usize, removals: &[Entity]) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(PACKET_DATA_LIMIT - 8)?;
 
     buf.write(ServerPackets::Dataremovelist)?;
-    buf.write(remove.to_vec())?;
+    buf.write(removals.to_vec())?;
     buf.finish()?;
 
     send_to(storage, socket_id, buf)
+}
+
+pub fn send_data_removals_to_entitys(
+    world: &mut World,
+    storage: &Storage,
+    removals: &[Entity],
+    entities: &[Entity],
+) -> Result<()> {
+    let mut buf = ByteBuffer::new_packet_with(PACKET_DATA_LIMIT - 8)?;
+
+    buf.write(ServerPackets::Dataremovelist)?;
+    buf.write(removals.to_vec())?;
+    buf.finish()?;
+
+    send_to_entities(world, storage, entities, buf)
 }
 
 #[inline]
