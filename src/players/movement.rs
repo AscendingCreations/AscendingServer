@@ -98,7 +98,22 @@ pub fn player_movement(
         return Ok(false);
     }
 
-    //TODO: Process Tile step actions here
+    let mapdata = match storage.bases.maps.get(&new_pos.map) {
+        Some(data) => data,
+        None => return Ok(false),
+    };
+    let attribute = &mapdata.attribute[new_pos.as_tile()];
+    if let MapAttribute::Warp(warpdata) = attribute {
+        let warp_pos = Position::new(
+            warpdata.tile_x as i32,
+            warpdata.tile_y as i32,
+            MapPosition::new(warpdata.map_x, warpdata.map_y, warpdata.map_group as i32),
+        );
+        if storage.bases.maps.contains_key(&warp_pos.map) {
+            player_warp(world, storage, entity, &warp_pos, true)?;
+            return Ok(true);
+        }
+    }
 
     {
         world.get::<&mut Player>(entity.0)?.movesavecount += 1;
