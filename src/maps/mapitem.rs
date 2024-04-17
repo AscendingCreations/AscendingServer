@@ -267,6 +267,7 @@ pub fn player_interact_object(world: &mut World, storage: &Storage, entity: &Ent
         match mapdata.attribute[target_pos.as_tile()] {
             MapAttribute::Storage => {
                 *world.get::<&mut IsUsingType>(entity.0)? = IsUsingType::Bank;
+                send_storage(world, storage, entity)?;
                 send_openstorage(world, storage, entity)
             }
             MapAttribute::Shop(shop_index) => {
