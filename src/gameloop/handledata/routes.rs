@@ -1098,7 +1098,36 @@ pub fn handle_command(
                                 // 1 Minute
                             }
                         }
+                        send_message(
+                            world,
+                            storage,
+                            entity,
+                            "Trade Request Sent".into(),
+                            String::new(),
+                            MessageChannel::Private,
+                            None,
+                        )?;
+                    } else {
+                        send_message(
+                            world,
+                            storage,
+                            entity,
+                            "Player is busy".into(),
+                            String::new(),
+                            MessageChannel::Private,
+                            None,
+                        )?;
                     }
+                } else {
+                    send_message(
+                        world,
+                        storage,
+                        entity,
+                        "Could not find player".into(),
+                        String::new(),
+                        MessageChannel::Private,
+                        None,
+                    )?;
                 }
             }
         }
@@ -1626,11 +1655,25 @@ pub fn handle_accepttrade(
         {
             *world.get::<&mut TradeStatus>(entity.0)? = TradeStatus::None;
             *world.get::<&mut TradeStatus>(trade_entity.0)? = TradeStatus::None;
+            *world.get::<&mut TradeRequestEntity>(entity.0)? = TradeRequestEntity::default();
+            *world.get::<&mut TradeRequestEntity>(target_entity.0)? = TradeRequestEntity::default();
         }
+        send_tradestatus(
+            world,
+            storage,
+            entity,
+            &world.get_or_err::<TradeStatus>(entity)?,
+            &world.get_or_err::<TradeStatus>(&trade_entity)?,
+        )?;
+        send_tradestatus(
+            world,
+            storage,
+            &trade_entity,
+            &world.get_or_err::<TradeStatus>(&trade_entity)?,
+            &world.get_or_err::<TradeStatus>(entity)?,
+        )?;
 
-        init_trade(world, storage, entity, &target_entity)?;
-
-        return Ok(());
+        return init_trade(world, storage, entity, &target_entity);
     }
 
     Err(AscendingError::InvalidSocket)

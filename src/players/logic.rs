@@ -11,40 +11,61 @@ pub fn update_players(world: &mut World, storage: &Storage) -> Result<()> {
     let tick = *storage.gettick.borrow();
 
     for id in &*storage.player_ids.borrow() {
-        if world.get_or_err::<OnlineType>(id)? == OnlineType::Online
-            && world.get_or_err::<DeathType>(id)? == DeathType::Spirit
-        {
-            //timers
-            if world.get_or_err::<DeathTimer>(id)?.0 < tick {
-                {
-                    *world.get::<&mut DeathType>(id.0)? = DeathType::Alive;
-                }
-                send_life_status(world, storage, id, true)?;
-                player_warp(
-                    world,
-                    storage,
-                    id,
-                    &world.get_or_err::<Position>(id)?,
-                    false,
-                )?;
-
-                //lets heal them fully on revival.
-                for i in 0..VITALS_MAX {
-                    let max_vital = world.get_or_err::<Vitals>(id)?;
+        if world.get_or_err::<OnlineType>(id)? == OnlineType::Online {
+            if world.get_or_err::<DeathType>(id)? == DeathType::Spirit {
+                //timers
+                if world.get_or_err::<DeathTimer>(id)?.0 < tick {
                     {
-                        world.get::<&mut Vitals>(id.0)?.vital[i] = max_vital.vitalmax[i];
+                        *world.get::<&mut DeathType>(id.0)? = DeathType::Alive;
+                    }
+                    send_life_status(world, storage, id, true)?;
+                    player_warp(
+                        world,
+                        storage,
+                        id,
+                        &world.get_or_err::<Position>(id)?,
+                        false,
+                    )?;
+
+                    //lets heal them fully on revival.
+                    for i in 0..VITALS_MAX {
+                        let max_vital = world.get_or_err::<Vitals>(id)?;
+                        {
+                            world.get::<&mut Vitals>(id.0)?.vital[i] = max_vital.vitalmax[i];
+                        }
+                    }
+
+                    //todo: party stuff here
+                }
+
+                let killcount = world.get_or_err::<KillCount>(id)?;
+                if killcount.count > 0 && killcount.killcounttimer < tick {
+                    {
+                        world.get::<&mut KillCount>(id.0)?.count = 0;
                     }
                 }
-
-                //todo: party stuff here
             }
 
-            let killcount = world.get_or_err::<KillCount>(id)?;
-            if killcount.count > 0 && killcount.killcounttimer < tick {
-                {
-                    world.get::<&mut KillCount>(id.0)?.count = 0;
+            // Check Trade
+            if let IsUsingType::Trading(tradeentity) = world.get_or_err::<IsUsingType>(id)? {
+                if !world.contains(tradeentity.0) {
+                    close_trade(world, storage, id)?;
+                    send_message(
+                        world,
+                        storage,
+                        id,
+                        "Trade has cancelled the trade".into(),
+                        String::new(),
+                        MessageChannel::Private,
+                        None,
+                    )?;
+
+                    {
+                        *world.get::<&mut TradeRequestEntity>(id.0)? =
+                            TradeRequestEntity::default();
+                    }
                 }
-            }
+            };
         }
     }
 
@@ -377,29 +398,6 @@ pub fn left_game(world: &mut World, storage: &Storage, entity: &Entity) -> Resul
     if world.get_or_err::<OnlineType>(entity)? != OnlineType::Online {
         return Ok(());
     }
-
-    if let IsUsingType::Trading(tradeentity) = world.get_or_err::<IsUsingType>(entity)? {
-        if world.contains(tradeentity.0) {
-            close_trade(world, storage, &tradeentity)?;
-            send_message(
-                world,
-                storage,
-                &tradeentity,
-                format!(
-                    "{} has cancelled the trade",
-                    world.cloned_get_or_err::<Account>(entity)?.username
-                ),
-                String::new(),
-                MessageChannel::Private,
-                None,
-            )?;
-
-            {
-                *world.get::<&mut TradeRequestEntity>(tradeentity.0)? =
-                    TradeRequestEntity::default();
-            }
-        }
-    };
 
     let position = world.get_or_err::<Position>(entity)?;
     DataTaskToken::MapChat(position.map).add_task(
