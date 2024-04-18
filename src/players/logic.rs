@@ -378,6 +378,29 @@ pub fn left_game(world: &mut World, storage: &Storage, entity: &Entity) -> Resul
         return Ok(());
     }
 
+    if let IsUsingType::Trading(tradeentity) = world.get_or_err::<IsUsingType>(entity)? {
+        if world.contains(tradeentity.0) {
+            close_trade(world, storage, &tradeentity)?;
+            send_message(
+                world,
+                storage,
+                &tradeentity,
+                format!(
+                    "{} has cancelled the trade",
+                    world.cloned_get_or_err::<Account>(entity)?.username
+                ),
+                String::new(),
+                MessageChannel::Private,
+                None,
+            )?;
+
+            {
+                *world.get::<&mut TradeRequestEntity>(tradeentity.0)? =
+                    TradeRequestEntity::default();
+            }
+        }
+    };
+
     let position = world.get_or_err::<Position>(entity)?;
     DataTaskToken::MapChat(position.map).add_task(
         storage,

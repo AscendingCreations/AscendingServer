@@ -1205,10 +1205,15 @@ pub fn handle_closetrade(
         close_trade(world, storage, entity)?;
         close_trade(world, storage, &target_entity)?;
 
+        {
+            *world.get::<&mut TradeRequestEntity>(entity.0)? = TradeRequestEntity::default();
+            *world.get::<&mut TradeRequestEntity>(target_entity.0)? = TradeRequestEntity::default();
+        }
+
         return send_message(
             world,
             storage,
-            entity,
+            &target_entity,
             format!(
                 "{} has cancelled the trade",
                 world.cloned_get_or_err::<Account>(entity)?.username
@@ -1618,6 +1623,11 @@ pub fn handle_accepttrade(
             return Ok(());
         }
 
+        {
+            *world.get::<&mut TradeStatus>(entity.0)? = TradeStatus::None;
+            *world.get::<&mut TradeStatus>(trade_entity.0)? = TradeStatus::None;
+        }
+
         init_trade(world, storage, entity, &target_entity)?;
 
         return Ok(());
@@ -1659,12 +1669,26 @@ pub fn handle_declinetrade(
                 *world.get::<&mut TradeRequestEntity>(target_entity.0)? =
                     TradeRequestEntity::default();
             }
+            send_message(
+                world,
+                storage,
+                &target_entity,
+                "Trade Request has been declined".into(),
+                String::new(),
+                MessageChannel::Private,
+                None,
+            )?;
         }
 
-        // ToDo Inform that trade was declined
-        println!("Trade Declined");
-
-        return Ok(());
+        return send_message(
+            world,
+            storage,
+            entity,
+            "Trade Request has been declined".into(),
+            String::new(),
+            MessageChannel::Private,
+            None,
+        );
     }
 
     Err(AscendingError::InvalidSocket)

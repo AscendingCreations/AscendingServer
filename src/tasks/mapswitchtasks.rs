@@ -121,7 +121,7 @@ pub fn init_data_lists(
         .filter(|id| !new_players.contains(id))
         .collect::<Vec<Entity>>();
 
-    send_data_removals_to_entitys(world, storage, &[*user], &removals)?;
+    //send_data_removals_to_entitys(world, storage, &[*user], &removals)?;
 
     removals.append(
         &mut old_npcs
