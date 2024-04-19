@@ -158,7 +158,8 @@ impl Client {
         match self.state {
             ClientState::Closed => Ok(()),
             _ => {
-                self.stream.shutdown(std::net::Shutdown::Both)?;
+                //We dont care about errors here as they only occur when a socket is already disconnected by the client.
+                let _ = self.stream.shutdown(std::net::Shutdown::Both);
                 self.state = ClientState::Closed;
                 disconnect(self.entity, world, storage)
             }

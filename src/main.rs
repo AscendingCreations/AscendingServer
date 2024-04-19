@@ -21,7 +21,7 @@ use gameloop::*;
 use gametypes::*;
 use hecs::World;
 use log::{error, info, Level, LevelFilter, Metadata, Record};
-use std::{fs::File, io::Write, panic};
+use std::{env, fs::File, io::Write, panic};
 
 // used to get string input when we add a command console to control the game.
 // until then we will just not use this.
@@ -71,6 +71,9 @@ fn main() {
     log::set_logger(&MY_LOGGER).unwrap();
     // Set the Max level we accept logging to the file for.
     log::set_max_level(LevelFilter::Info);
+
+    env::set_var("RUST_BACKTRACE", "1");
+
     panic::set_hook(Box::new(|panic_info| {
         let bt = Backtrace::new();
 
