@@ -3,7 +3,6 @@ use crate::{
     gametypes::*,
     maps::*,
     players::*,
-    socket::*,
     tasks::{DataTaskToken, MapItemPacket, NpcSpawnPacket, PlayerSpawnPacket},
 };
 use hecs::World;
@@ -115,13 +114,11 @@ pub fn init_data_lists(
     }
 
     //Gather our Entities to Send for Removal. Type doesnt matter here.
-    let mut removals = old_players
+    /*let mut removals = old_players
         .iter()
         .copied()
         .filter(|id| !new_players.contains(id))
         .collect::<Vec<Entity>>();
-
-    //send_data_removals_to_entitys(world, storage, &[*user], &removals)?;
 
     removals.append(
         &mut old_npcs
@@ -138,7 +135,7 @@ pub fn init_data_lists(
             .collect::<Vec<Entity>>(),
     );
 
-    send_data_removals(storage, socket_id, &removals)?;
+    send_data_removals(storage, socket_id, &removals)?; */
 
     if let Some(tasks) = map_switch_tasks.get_mut(user) {
         tasks.push(MapSwitchTasks::Player(task_player));
