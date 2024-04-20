@@ -44,6 +44,9 @@ pub fn npc_movement(
     {
         let old_pos = world.get_or_err::<Target>(entity)?.targetpos;
         update_target_pos(world, entity)?;
+        if world.get_or_err::<Target>(entity)?.targettype == EntityType::None {
+            return Ok(());
+        }
 
         let pos = world.get_or_err::<Position>(entity)?;
         let target_pos = world.get_or_err::<Target>(entity)?.targetpos;
@@ -104,7 +107,7 @@ pub fn npc_movement(
         {
             let moves = npc_rand_movement(storage, world.get_or_err::<Position>(entity)?);
             //get a count of moves to increase the AI wait timer.
-            let count = moves.len();
+            let count = 3; //moves.len();
 
             npc_set_move_path(world, entity, moves)?;
 

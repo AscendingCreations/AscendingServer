@@ -21,6 +21,7 @@ pub fn targeting(
                 }
 
                 *world.get::<&mut Target>(entity.0)? = Target::default();
+                npc_clear_move_path(world, entity)?;
                 Ok(())
             }
             EntityType::Npc(i) => {
@@ -33,6 +34,7 @@ pub fn targeting(
                 }
 
                 *world.get::<&mut Target>(entity.0)? = Target::default();
+                npc_clear_move_path(world, entity)?;
                 Ok(())
             }
             _ => Ok(()),
@@ -49,6 +51,7 @@ pub fn targeting(
                     > base.sight)
         {
             *world.get::<&mut Target>(entity.0)? = Target::default();
+            npc_clear_move_path(world, entity)?;
         } else {
             return Ok(());
         }
@@ -162,9 +165,13 @@ pub fn update_target_pos(world: &mut World, entity: &Entity) -> Result<()> {
                     || !deathtype.is_alive()
                 {
                     *world.get::<&mut Target>(entity.0)? = Target::default();
+                    npc_clear_move_path(world, entity)?;
                 } else {
                     world.get::<&mut Target>(entity.0)?.targetpos = target_pos;
                 }
+            } else {
+                *world.get::<&mut Target>(entity.0)? = Target::default();
+                npc_clear_move_path(world, entity)?;
             }
         }
         _ => {}

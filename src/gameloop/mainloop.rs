@@ -12,6 +12,7 @@ use crate::{
 };
 use chrono::Duration;
 use hecs::World;
+use log::warn;
 
 pub fn game_loop(world: &mut World, storage: &Storage, router: &PacketRouter) {
     let mut tick: MyInstant;
@@ -73,6 +74,7 @@ pub fn get_length(storage: &Storage, buffer: &mut ByteBuffer, id: usize) -> Resu
 
         if !(1..=8192).contains(&length) {
             if let Some(client) = storage.server.borrow().clients.get(&mio::Token(id)) {
+                warn!("Player was disconnected on get_length LENGTH: {:?}", length);
                 client.borrow_mut().set_to_closing(storage)?;
                 return Ok(None);
             }
@@ -126,6 +128,7 @@ pub fn process_packets(world: &mut World, storage: &Storage, router: &PacketRout
                             if let Some(client) =
                                 storage.server.borrow().clients.get(&mio::Token(socket_id))
                             {
+                                warn!("Player was disconnected due to error on packet length");
                                 client.borrow_mut().set_to_closing(storage)?;
                             }
 
@@ -138,6 +141,7 @@ pub fn process_packets(world: &mut World, storage: &Storage, router: &PacketRout
                         if let Some(client) =
                             storage.server.borrow().clients.get(&mio::Token(socket_id))
                         {
+                            warn!("Player was disconnected due to invalid packets");
                             client.borrow_mut().set_to_closing(storage)?;
                         }
 

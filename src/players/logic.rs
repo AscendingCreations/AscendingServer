@@ -1,5 +1,6 @@
 use crate::{
-    containers::Storage, gametypes::*, maps::can_target, players::*, socket::*, sql::*, tasks::*,
+    containers::Storage, gametypes::*, maps::can_target, npcs::npc_clear_move_path, players::*,
+    socket::*, sql::*, tasks::*,
 };
 use chrono::Duration;
 use log::debug;
@@ -426,8 +427,9 @@ pub fn left_game(world: &mut World, storage: &Storage, entity: &Entity) -> Resul
     Ok(())
 }
 
-pub fn remove_all_npc_target(world: &mut World, entity: &Entity) {
-    for (_, (_, target)) in world
+pub fn remove_all_npc_target(world: &mut World, entity: &Entity) -> Result<()> {
+    let mut clear_move_path = Vec::new();
+    for (entity, (worldentitytype, target)) in world
         .query::<(&WorldEntityType, &mut Target)>()
         .iter()
         .filter(|(_entity, (worldentitytype, target))| {
@@ -444,7 +446,15 @@ pub fn remove_all_npc_target(world: &mut World, entity: &Entity) {
         })
     {
         *target = Target::default();
+        clear_move_path.push((entity, *worldentitytype));
     }
+
+    for (entity, targettype) in clear_move_path {
+        if targettype == WorldEntityType::Npc {
+            npc_clear_move_path(world, &Entity(entity))?;
+        }
+    }
+    Ok(())
 }
 
 pub fn init_trade(

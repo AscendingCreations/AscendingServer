@@ -119,7 +119,7 @@ pub fn npc_combat(
                             &VitalsPacket::new(i, vitals.vital, vitals.vitalmax)
                         })?;
                 } else {
-                    remove_all_npc_target(world, &i);
+                    remove_all_npc_target(world, &i)?;
                     kill_player(world, storage, &i)?;
                 }
             }

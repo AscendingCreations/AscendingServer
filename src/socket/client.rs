@@ -147,6 +147,11 @@ impl Client {
     }
 
     #[inline]
+    pub fn deregister(&mut self, poll: &mio::Poll) -> Result<()> {
+        Ok(poll.registry().deregister(&mut self.stream)?)
+    }
+
+    #[inline]
     pub fn set_to_closing(&mut self, storage: &Storage) -> Result<()> {
         self.state = ClientState::Closing;
         self.poll_state.add(SocketPollState::Write);
@@ -159,6 +164,7 @@ impl Client {
             ClientState::Closed => Ok(()),
             _ => {
                 //We dont care about errors here as they only occur when a socket is already disconnected by the client.
+                self.deregister(&storage.poll.borrow_mut())?;
                 let _ = self.stream.shutdown(std::net::Shutdown::Both);
                 self.state = ClientState::Closed;
                 disconnect(self.entity, world, storage)

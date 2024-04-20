@@ -271,6 +271,9 @@ pub fn check_surrounding(
     position: MapPosition,
     include_corners: bool,
 ) -> MapPos {
+    if start.group != position.group {
+        return MapPos::None;
+    }
     if position == start {
         MapPos::Center(position)
     } else if position == start.map_offset(MapPosDir::Up) {
