@@ -45,6 +45,7 @@ pub fn try_cast(
         EntityType::Player(i, _accid) => {
             if world.contains(i.0)
                 && (base.can_attack_player || matches!(npc_mode, NpcMode::Pet | NpcMode::Summon))
+                && !world.get_or_err::<IsUsingType>(&i)?.inuse()
             {
                 let target_pos = world.get_or_default::<Position>(&i);
                 let life = world.get_or_default::<DeathType>(&i);

@@ -339,7 +339,11 @@ impl Storage {
                 WorldEntityType::Npc,
                 Position::default(),
                 NpcIndex::default(),
-                NpcTimer::default(),
+                NpcTimer {
+                    spawntimer: *self.gettick.borrow()
+                        + Duration::try_milliseconds(npcdata.spawn_wait).unwrap_or_default(),
+                    ..Default::default()
+                },
                 NpcAITimer::default(),
                 NpcDespawns::default(),
                 NpcMoving::default(),

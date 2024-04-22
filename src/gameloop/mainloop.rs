@@ -2,7 +2,7 @@ use crate::{
     containers::Storage,
     gameloop::handle_data,
     gametypes::*,
-    maps::update_maps,
+    maps::{update_map_items, update_maps},
     npcs::*,
     players::*,
     socket::*,
@@ -29,6 +29,7 @@ pub fn game_loop(world: &mut World, storage: &Storage, router: &PacketRouter) {
         if tick > tmr100 {
             update_npcs(world, storage).unwrap();
             update_players(world, storage).unwrap();
+            update_map_items(world, storage).unwrap();
             check_player_connection(world, storage).unwrap();
             tmr100 = tick + Duration::try_milliseconds(100).unwrap_or_default();
         }
@@ -167,9 +168,9 @@ pub fn process_packets(world: &mut World, storage: &Storage, router: &PacketRout
                 buffer.truncate(0)?;
             }
 
-            if buffer.capacity() > 25000 {
+            /*if buffer.capacity() > 25000 {
                 buffer.resize(4096)?;
-            }
+            }*/
         };
     }
 

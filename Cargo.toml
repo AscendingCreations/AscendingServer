@@ -57,3 +57,6 @@ panic = 'unwind'
 incremental = true
 codegen-units = 256
 rpath = false
+
+[profile.dev.package."*"]
+opt-level = 2

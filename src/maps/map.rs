@@ -1,12 +1,10 @@
 use crate::{
     containers::{HashSet, IndexSet, Storage},
     gametypes::*,
-    maps::MapItem,
     time_ext::MyInstant,
 };
 use bit_op::{bit_u8::*, BitOp};
 use educe::Educe;
-use hecs::World;
 use serde::{Deserialize, Serialize};
 use std::fs::{self, OpenOptions};
 use std::io::BufReader;
@@ -174,13 +172,6 @@ impl MapData {
             timer_set,
             ..Default::default()
         });
-    }
-
-    pub fn add_mapitem(&mut self, world: &mut World, mapitem: MapItem) -> Result<Entity> {
-        let id = world.spawn((WorldEntityType::MapItem, mapitem));
-        world.insert_one(id, EntityType::MapItem(Entity(id)))?;
-        self.itemids.insert(Entity(id));
-        Ok(Entity(id))
     }
 
     pub fn is_blocked_tile(&self, pos: Position, entity_type: WorldEntityType) -> bool {

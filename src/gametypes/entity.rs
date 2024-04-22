@@ -62,6 +62,10 @@ pub struct Dir(pub u8);
 
 #[derive(Educe, Debug, Copy, Clone, PartialEq, Eq)]
 #[educe(Default)]
+pub struct DespawnTimer(#[educe(Default = MyInstant::now())] pub MyInstant);
+
+#[derive(Educe, Debug, Copy, Clone, PartialEq, Eq)]
+#[educe(Default)]
 pub struct AttackTimer(#[educe(Default = MyInstant::now())] pub MyInstant);
 
 #[derive(Educe, Debug, Copy, Clone, PartialEq, Eq)]
