@@ -163,13 +163,17 @@ pub fn process_data_lists(world: &mut World, storage: &Storage) -> Result<()> {
                 let amount_left = match task {
                     MapSwitchTasks::Npc(entities) => {
                         while let Some(entity) = entities.pop() {
-                            DataTaskToken::NpcSpawnToEntity(socket_id)
-                                .add_task(storage, &NpcSpawnPacket::new(world, &entity, false)?)?;
+                            if world.contains(entity.0) {
+                                DataTaskToken::NpcSpawnToEntity(socket_id).add_task(
+                                    storage,
+                                    &NpcSpawnPacket::new(world, &entity, false)?,
+                                )?;
 
-                            count += 1;
+                                count += 1;
 
-                            if count >= PROCESS_LIMIT {
-                                break;
+                                if count >= PROCESS_LIMIT {
+                                    break;
+                                }
                             }
                         }
 
@@ -177,15 +181,17 @@ pub fn process_data_lists(world: &mut World, storage: &Storage) -> Result<()> {
                     }
                     MapSwitchTasks::Player(entities) => {
                         while let Some(entity) = entities.pop() {
-                            DataTaskToken::PlayerSpawnToEntity(socket_id).add_task(
-                                storage,
-                                &PlayerSpawnPacket::new(world, &entity, false)?,
-                            )?;
+                            if world.contains(entity.0) {
+                                DataTaskToken::PlayerSpawnToEntity(socket_id).add_task(
+                                    storage,
+                                    &PlayerSpawnPacket::new(world, &entity, false)?,
+                                )?;
 
-                            count += 1;
+                                count += 1;
 
-                            if count >= PROCESS_LIMIT {
-                                break;
+                                if count >= PROCESS_LIMIT {
+                                    break;
+                                }
                             }
                         }
 
@@ -193,22 +199,24 @@ pub fn process_data_lists(world: &mut World, storage: &Storage) -> Result<()> {
                     }
                     MapSwitchTasks::Items(entities) => {
                         while let Some(entity) = entities.pop() {
-                            if let Ok(map_item) = world.get::<&MapItem>(entity.0) {
-                                DataTaskToken::ItemLoadToEntity(socket_id).add_task(
-                                    storage,
-                                    &MapItemPacket::new(
-                                        entity,
-                                        map_item.pos,
-                                        map_item.item,
-                                        map_item.ownerid,
-                                        false,
-                                    ),
-                                )?;
+                            if world.contains(entity.0) {
+                                if let Ok(map_item) = world.get::<&MapItem>(entity.0) {
+                                    DataTaskToken::ItemLoadToEntity(socket_id).add_task(
+                                        storage,
+                                        &MapItemPacket::new(
+                                            entity,
+                                            map_item.pos,
+                                            map_item.item,
+                                            map_item.ownerid,
+                                            false,
+                                        ),
+                                    )?;
 
-                                count += 1;
+                                    count += 1;
 
-                                if count >= PROCESS_LIMIT {
-                                    break;
+                                    if count >= PROCESS_LIMIT {
+                                        break;
+                                    }
                                 }
                             }
                         }

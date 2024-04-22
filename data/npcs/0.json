@@ -6,7 +6,7 @@
   "movement_wait": 350,
   "attack_wait": 1000,
   "intervaled_wait": 1,
-  "spawn_wait": 1,
+  "spawn_wait": 5000,
   "maxhp": 1,
   "maxsp": 0,
   "maxmp": 0,

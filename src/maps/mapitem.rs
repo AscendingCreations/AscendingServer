@@ -39,6 +39,33 @@ pub struct DropItem {
     pub pos: Position,
 }
 
+pub fn update_map_items(world: &mut World, storage: &Storage) -> Result<()> {
+    let tick = *storage.gettick.borrow();
+
+    let mut to_remove = Vec::new();
+
+    for id in &*storage.map_items.borrow() {
+        let mapitems = world.get_or_err::<MapItem>(id.1)?;
+        if mapitems.despawn.is_some() && world.get_or_err::<DespawnTimer>(id.1)?.0 <= tick {
+            to_remove.push((*id.1, *id.0))
+        }
+    }
+
+    for (entity, e_pos) in to_remove.iter_mut() {
+        if let Some(map) = storage.maps.get(&e_pos.map) {
+            let pos = world.get_or_err::<MapItem>(entity)?.pos;
+            let mut storage_mapitems = storage.map_items.borrow_mut();
+            if storage_mapitems.contains_key(&pos) {
+                storage_mapitems.swap_remove(&pos);
+            }
+            map.borrow_mut().remove_item(*entity);
+            DataTaskToken::EntityUnload(e_pos.map).add_task(storage, &(*entity))?;
+        }
+    }
+
+    Ok(())
+}
+
 pub fn find_drop_pos(
     world: &mut World,
     storage: &Storage,
@@ -196,7 +223,12 @@ pub fn try_drop_item(
                 map_item.ownertimer = ownertimer;
                 map_item.ownerid = ownerid;
                 let id = world.spawn((WorldEntityType::MapItem, map_item));
-                world.insert_one(id, EntityType::MapItem(Entity(id)))?;
+                let despawntimer = if let Some(timer) = despawn {
+                    DespawnTimer(timer)
+                } else {
+                    DespawnTimer::default()
+                };
+                world.insert(id, (EntityType::MapItem(Entity(id)), despawntimer))?;
                 map_data.borrow_mut().itemids.insert(Entity(id));
                 storage_mapitem.insert(found_pos.0, Entity(id));
                 DataTaskToken::ItemLoad(found_pos.0.map).add_task(

@@ -446,7 +446,7 @@ pub fn handle_switchinvslot(
 
         let oldslot = data.read::<u16>()? as usize;
         let newslot = data.read::<u16>()? as usize;
-        let amount = data.read::<u16>()?;
+        let mut amount = data.read::<u16>()?;
 
         if oldslot >= MAX_INV
             || newslot >= MAX_INV
@@ -454,6 +454,8 @@ pub fn handle_switchinvslot(
         {
             return Ok(());
         }
+
+        amount = amount.min(world.get::<&Inventory>(entity.0)?.items[oldslot].val);
 
         let mut itemold = world.get::<&Inventory>(entity.0)?.items[oldslot];
 
@@ -638,12 +640,14 @@ pub fn handle_dropitem(
         }
 
         let slot = data.read::<u16>()? as usize;
-        let amount = data.read::<u16>()?;
+        let mut amount = data.read::<u16>()?;
 
         if slot >= MAX_INV || world.get::<&Inventory>(entity.0)?.items[slot].val == 0 || amount == 0
         {
             return Ok(());
         }
+
+        amount = amount.min(world.get::<&Inventory>(entity.0)?.items[slot].val);
 
         let item_data = world.get::<&Inventory>(entity.0)?.items[slot];
 
@@ -730,7 +734,7 @@ pub fn handle_switchstorageslot(
 
         let oldslot = data.read::<u16>()? as usize;
         let newslot = data.read::<u16>()? as usize;
-        let amount = data.read::<u16>()?;
+        let mut amount = data.read::<u16>()?;
 
         if oldslot >= MAX_STORAGE
             || newslot >= MAX_STORAGE
@@ -738,6 +742,8 @@ pub fn handle_switchstorageslot(
         {
             return Ok(());
         }
+
+        amount = amount.min(world.get::<&PlayerStorage>(entity.0)?.items[oldslot].val);
 
         let mut itemold = world.get::<&PlayerStorage>(entity.0)?.items[oldslot];
 
@@ -768,10 +774,12 @@ pub fn handle_switchstorageslot(
                     );
             }
         } else {
-            set_storage_slot(world, storage, entity, &mut itemold, newslot, amount)?;
+            let itemnew = world.get::<&PlayerStorage>(entity.0)?.items[newslot];
             {
-                world.get::<&mut PlayerStorage>(entity.0)?.items[oldslot] = itemold;
+                world.get::<&mut PlayerStorage>(entity.0)?.items[newslot] = itemold;
+                world.get::<&mut PlayerStorage>(entity.0)?.items[oldslot] = itemnew;
             }
+            save_storage_item(world, storage, entity, newslot)?;
             save_storage_item(world, storage, entity, oldslot)?;
         }
 

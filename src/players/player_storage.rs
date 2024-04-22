@@ -106,11 +106,9 @@ pub fn set_storage_item(
     if player_storage.items[slot].val == 0 {
         {
             let mut storage = world.get::<&mut PlayerStorage>(entity.0)?;
-
             storage.items[slot] = *item;
             storage.items[slot].val = item_min;
         }
-        item.val = item.val.saturating_sub(item_min);
         save_storage_item(world, storage, entity, slot)?;
         return Ok(0);
     } else if player_storage.items[slot].num == item.num {

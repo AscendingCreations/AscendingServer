@@ -115,7 +115,10 @@ pub fn update_maps(world: &mut World, storage: &Storage) -> Result<()> {
                     if data.timer <= tick {
                         let map_item = create_mapitem(data.index, data.amount, data.pos);
                         let id = world.spawn((WorldEntityType::MapItem, map_item));
-                        world.insert_one(id, EntityType::MapItem(Entity(id)))?;
+                        world.insert(
+                            id,
+                            (EntityType::MapItem(Entity(id)), DespawnTimer::default()),
+                        )?;
                         storage_mapitem.insert(data.pos, Entity(id));
                         DataTaskToken::ItemLoad(data.pos.map).add_task(
                             storage,
