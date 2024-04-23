@@ -1,9 +1,12 @@
 use crate::{
-    containers::Storage, gametypes::*, maps::*, players::*, socket::*, tasks::DataTaskToken,
+    containers::Storage, gametypes::*, handle_data, maps::*, players::*, socket::*,
+    tasks::DataTaskToken, PacketRouter,
 };
 use hecs::World;
+use log::{error, warn};
 use mio::{net::TcpStream, Interest};
 use std::{
+    cmp::max,
     collections::VecDeque,
     io::{self, Read, Write},
 };
@@ -558,6 +561,136 @@ pub fn send_to_entities(
                     .borrow_mut()
                     .send(&storage.poll.borrow(), buf.clone())?;
             }
+        }
+    }
+
+    Ok(())
+}
+
+pub fn get_length(storage: &Storage, buffer: &mut ByteBuffer, id: usize) -> Result<Option<u64>> {
+    if buffer.length() - buffer.cursor() >= 8 {
+        let length = buffer.read::<u64>()?;
+
+        if !(1..=8192).contains(&length) {
+            if let Some(client) = storage.server.borrow().clients.get(&mio::Token(id)) {
+                warn!("Player was disconnected on get_length LENGTH: {:?}", length);
+                client.borrow_mut().set_to_closing(storage)?;
+                return Ok(None);
+            }
+        }
+
+        Ok(Some(length))
+    } else {
+        if let Some(client) = storage.server.borrow().clients.get(&mio::Token(id)) {
+            client.borrow_mut().poll_state.add(SocketPollState::Read);
+            client.borrow_mut().reregister(&storage.poll.borrow_mut())?;
+        }
+
+        Ok(None)
+    }
+}
+
+pub fn process_packets(world: &mut World, storage: &Storage, router: &PacketRouter) -> Result<()> {
+    let mut rem_arr: Vec<Entity> = Vec::with_capacity(32);
+    let mut close_arr: Vec<(Entity, usize)> = Vec::with_capacity(32);
+    let max_packet_handle = max(1000 / (storage.recv_ids.borrow().len() + 1), 25);
+
+    'user_loop: for entity in &*storage.recv_ids.borrow() {
+        let mut count = 0;
+
+        let (lock, socket_id, address) = {
+            let socket = match world.get::<&Socket>(entity.0) {
+                Ok(s) => s,
+                Err(_) => {
+                    error!(
+                        "Entity: {:?}, did not get fully unloaded. recv_id buffer still existed.",
+                        entity
+                    );
+                    rem_arr.push(*entity);
+                    continue 'user_loop;
+                }
+            };
+
+            (socket.buffer.clone(), socket.id, socket.addr.clone())
+        };
+
+        if let Ok(mut buffer) = lock.lock() {
+            loop {
+                let length = match get_length(storage, &mut buffer, socket_id)? {
+                    Some(n) => n,
+                    None => {
+                        rem_arr.push(*entity);
+                        break;
+                    }
+                };
+
+                if length == 0 {
+                    warn!(
+                        "Length was Zero. Bad or malformed packet from IP: {}",
+                        address
+                    );
+
+                    close_arr.push((*entity, socket_id));
+                    continue 'user_loop;
+                }
+
+                if length <= (buffer.length() - buffer.cursor()) as u64 {
+                    let mut buffer = match buffer.read_to_buffer(length as usize) {
+                        Ok(n) => n,
+                        Err(_) => {
+                            warn!(
+                                "IP: {} was disconnected due to error on packet length.",
+                                address
+                            );
+                            close_arr.push((*entity, socket_id));
+                            continue 'user_loop;
+                        }
+                    };
+
+                    if handle_data(router, world, storage, &mut buffer, entity).is_err() {
+                        warn!("IP: {} was disconnected due to invalid packets", address);
+                        close_arr.push((*entity, socket_id));
+                        continue 'user_loop;
+                    }
+
+                    count += 1
+                } else {
+                    let cursor = buffer.cursor() - 8;
+                    buffer.move_cursor(cursor)?;
+
+                    rem_arr.push(*entity);
+                    break;
+                }
+
+                if count == max_packet_handle {
+                    break;
+                }
+            }
+
+            let buffer_len = buffer.length() - buffer.cursor();
+
+            if buffer.cursor() == buffer.length() {
+                buffer.truncate(0)?;
+                if buffer.capacity() > 25000 {
+                    buffer.resize(4096)?;
+                }
+            } else if buffer.capacity() > 25000 && buffer_len <= 10000 {
+                let mut replacement = ByteBuffer::with_capacity(buffer_len)?;
+                replacement.write_slice(buffer.read_slice(buffer_len)?)?;
+                replacement.move_cursor_to_start();
+                *buffer = replacement;
+            }
+        };
+    }
+
+    for i in rem_arr {
+        storage.recv_ids.borrow_mut().swap_remove(&i);
+    }
+
+    for (entity, socket_id) in close_arr {
+        storage.recv_ids.borrow_mut().swap_remove(&entity);
+        if let Some(client) = storage.server.borrow().clients.get(&mio::Token(socket_id)) {
+            client.borrow_mut().set_to_closing(storage)?;
         }
     }
 

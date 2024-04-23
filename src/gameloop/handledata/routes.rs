@@ -6,7 +6,7 @@ use crate::{
 };
 use chrono::Duration;
 use hecs::World;
-use log::debug;
+use log::{debug, info};
 use rand::distributions::{Alphanumeric, DistString};
 use regex::Regex;
 
@@ -29,12 +29,16 @@ pub fn handle_register(
     let password = data.read::<String>()?;
     let email = data.read::<String>()?;
     let sprite_id = data.read::<u8>()?;
-    let socket_id = world.get::<&Socket>(entity.0)?.id;
     let appmajor = data.read::<u16>()? as usize;
     let appminior = data.read::<u16>()? as usize;
     let apprevision = data.read::<u16>()? as usize;
 
     if !storage.player_ids.borrow().contains(entity) {
+        let (socket_id, address) = {
+            let socket = world.get::<&Socket>(entity.0)?;
+            (socket.id, socket.addr.clone())
+        };
+
         if APP_MAJOR > appmajor && APP_MINOR > appminior && APP_REVISION > apprevision {
             return send_infomsg(storage, socket_id, "Client needs to be updated.".into(), 1);
         }
@@ -124,6 +128,8 @@ pub fn handle_register(
             .borrow_mut()
             .insert(username.clone(), *entity);
 
+        info!("New Player {} with IP {}, Logging in.", &username, &address);
+
         return match new_player(storage, world, entity, username, email, password) {
             Ok(uid) => {
                 {
@@ -140,8 +146,6 @@ pub fn handle_register(
                 0,
             ),
         };
-        //return send_infomsg(storage, socket_id,
-        //     "Account Was Created. Please wait for the Verification code sent to your email before logging in.".into(), 1);
     }
 
     Err(AscendingError::InvalidSocket)
@@ -177,7 +181,10 @@ pub fn handle_login(
     let apprevision = data.read::<u16>()? as usize;
     let reconnect_code = data.read::<String>()?;
 
-    let socket_id = world.get::<&Socket>(entity.0)?.id;
+    let (socket_id, address) = {
+        let socket = world.get::<&Socket>(entity.0)?;
+        (socket.id, socket.addr.clone())
+    };
 
     if !storage.player_ids.borrow().contains(entity) {
         if APP_MAJOR > appmajor && APP_MINOR > appminior && APP_REVISION > apprevision {
@@ -244,6 +251,7 @@ pub fn handle_login(
             return send_infomsg(storage, socket_id, "Error Loading User.".into(), 1);
         }
 
+        info!("Player {} with IP: {}, Logging in.", &username, address);
         return send_login_info(world, storage, entity, code, handshake, socket_id, username);
     }
 
@@ -520,6 +528,7 @@ pub fn handle_pickup(
         }
 
         let mapids = get_maps_in_range(storage, &world.get_or_err::<Position>(entity)?, 1);
+        let mut full_message = false;
 
         for id in mapids {
             if let Some(x) = id.get() {
@@ -550,57 +559,78 @@ pub fn handle_pickup(
                         if mapitems.item.num == 0 {
                             let rem =
                                 player_give_vals(world, storage, entity, mapitems.item.val as u64)?;
-                            mapitems.item.val = rem as u16;
+                            world.get::<&mut MapItem>(i.0)?.item.val = rem as u16;
 
                             if rem == 0 {
                                 remove_id.push((x, i));
                             }
                         } else {
-                            let amount = mapitems.item.val;
-                            let result = give_inv_item(world, storage, entity, &mut mapitems.item)?;
-                            let item = &storage.bases.items[mapitems.item.num as usize];
+                            //let amount = mapitems.item.val;
 
-                            match result {
-                                SlotSpace::Completed => {
-                                    let st = match amount {
-                                        0 | 1 => "",
-                                        _ => "'s",
-                                    };
+                            let (is_less, amount, start) = check_inv_partial_space(
+                                world,
+                                storage,
+                                entity,
+                                &mut mapitems.item,
+                            )?;
 
+                            //if passed then we only get partial of the map item.
+                            if is_less {
+                                give_inv_item(world, storage, entity, &mut mapitems.item)?;
+
+                                let st = match amount {
+                                    0 | 1 => "",
+                                    _ => "'s",
+                                };
+
+                                if amount != start {
+                                    send_message(
+                                    world,
+                                    storage,
+                                    entity,
+                                    format!("You picked up {} {}{}. Your inventory is Full so some items remain.", amount, storage.bases.items[mapitems.item.num as usize].name, st),
+                                    String::new(),
+                                    MessageChannel::Private,
+                                    None,
+                                )?;
+                                    world.get::<&mut MapItem>(i.0)?.item.val = start - amount;
+                                } else {
                                     send_message(
                                         world,
                                         storage,
                                         entity,
-                                        format!("You picked up {} {}{}.", amount, item.name, st),
+                                        format!(
+                                            "You picked up {} {}{}.",
+                                            amount,
+                                            storage.bases.items[mapitems.item.num as usize].name,
+                                            st
+                                        ),
                                         String::new(),
                                         MessageChannel::Private,
                                         None,
                                     )?;
+
                                     remove_id.push((x, i));
                                 }
-                                SlotSpace::NoSpace(rem) => {
-                                    if rem < amount {
-                                        let st = match amount - rem {
-                                            0 | 1 => "",
-                                            _ => "'s",
-                                        };
-
-                                        send_message(
-                                            world,
-                                            storage,
-                                            entity,
-                                            format!("You picked up {} {}{}. Your inventory is Full so some items remain.", amount, item.name, st),
-                                            String::new(),
-                                            MessageChannel::Private,
-                                            None,
-                                        )?;
-                                    }
-                                }
+                            } else {
+                                full_message = true;
                             }
                         }
                     }
                 }
             }
+        }
+
+        if full_message {
+            send_message(
+                world,
+                storage,
+                entity,
+                "Your inventory is Full!".to_owned(),
+                String::new(),
+                MessageChannel::Private,
+                None,
+            )?;
         }
 
         for (mappos, entity) in remove_id.iter_mut() {
@@ -845,26 +875,26 @@ pub fn handle_deposititem(
             return Ok(());
         }
 
-        let mut item_data = world.cloned_get_or_err::<Inventory>(entity)?.items[inv_slot];
+        let mut item_data = { world.get::<&Inventory>(entity.0)?.items[inv_slot] };
+
         if item_data.val > amount {
             item_data.val = amount;
         };
-        let bank_data = world.cloned_get_or_err::<PlayerStorage>(entity)?;
 
-        if bank_data.items[bank_slot].val == 0 {
+        if { world.get::<&PlayerStorage>(entity.0)?.items[bank_slot].val } == 0 {
             {
                 world.get::<&mut PlayerStorage>(entity.0)?.items[bank_slot] = item_data;
             }
             save_storage_item(world, storage, entity, bank_slot)?;
             take_inv_itemslot(world, storage, entity, inv_slot, amount)?;
         } else {
-            let mut leftover = item_data.val;
-            let mut loop_count = 0;
-            while leftover > 0 && loop_count < MAX_STORAGE {
-                leftover = give_storage_item(world, storage, entity, &mut item_data)?;
-                loop_count += 1;
-            }
-            if leftover == item_data.val {
+            let (is_less, amount, _started) =
+                check_storage_partial_space(world, storage, entity, &mut item_data)?;
+
+            if is_less {
+                give_storage_item(world, storage, entity, &mut item_data)?;
+                take_inv_itemslot(world, storage, entity, inv_slot, amount)?;
+            } else {
                 send_message(
                     world,
                     storage,
@@ -875,8 +905,6 @@ pub fn handle_deposititem(
                     None,
                 )?;
             }
-            let take_amount = amount - leftover;
-            take_inv_itemslot(world, storage, entity, inv_slot, take_amount)?;
         }
 
         return Ok(());
@@ -911,29 +939,26 @@ pub fn handle_withdrawitem(
             return Ok(());
         }
 
-        let mut item_data = world.cloned_get_or_err::<PlayerStorage>(entity)?.items[bank_slot];
+        let mut item_data = { world.get::<&PlayerStorage>(entity.0)?.items[bank_slot] };
+
         if item_data.val > amount {
             item_data.val = amount;
         };
-        let inv_data = world.cloned_get_or_err::<Inventory>(entity)?;
 
-        if inv_data.items[inv_slot].val == 0 {
+        if { world.get::<&Inventory>(entity.0)?.items[inv_slot].val } == 0 {
             {
                 world.get::<&mut Inventory>(entity.0)?.items[inv_slot] = item_data;
             }
             save_inv_item(world, storage, entity, inv_slot)?;
             take_storage_itemslot(world, storage, entity, bank_slot, amount)?;
         } else {
-            let mut leftover = item_data.val;
-            let mut loop_count = 0;
-            while leftover > 0 && loop_count < MAX_INV {
-                match give_inv_item(world, storage, entity, &mut item_data)? {
-                    SlotSpace::NoSpace(rem) => leftover = rem,
-                    SlotSpace::Completed => leftover = 0,
-                }
-                loop_count += 1;
-            }
-            if leftover == item_data.val {
+            let (is_less, amount, _started) =
+                check_inv_partial_space(world, storage, entity, &mut item_data)?;
+
+            if is_less {
+                give_inv_item(world, storage, entity, &mut item_data)?;
+                take_storage_itemslot(world, storage, entity, bank_slot, amount)?;
+            } else {
                 send_message(
                     world,
                     storage,
@@ -944,10 +969,7 @@ pub fn handle_withdrawitem(
                     None,
                 )?;
             }
-            let take_amount = amount - leftover;
-            take_storage_itemslot(world, storage, entity, bank_slot, take_amount)?;
         }
-
         return Ok(());
     }
 
@@ -1305,21 +1327,19 @@ pub fn handle_buyitem(
             ..Default::default()
         };
 
-        match give_inv_item(world, storage, entity, &mut item)? {
-            SlotSpace::Completed => {
-                player_take_vals(world, storage, entity, shopdata.item[slot as usize].price)?
-            }
-            SlotSpace::NoSpace(_) => {
-                return send_message(
-                    world,
-                    storage,
-                    entity,
-                    "You do not have enough space in your inventory".into(),
-                    String::new(),
-                    MessageChannel::Private,
-                    None,
-                );
-            }
+        if check_inv_space(world, storage, entity, &mut item)? {
+            give_inv_item(world, storage, entity, &mut item)?;
+            player_take_vals(world, storage, entity, shopdata.item[slot as usize].price)?;
+        } else {
+            return send_message(
+                world,
+                storage,
+                entity,
+                "You do not have enough space in your inventory".into(),
+                String::new(),
+                MessageChannel::Private,
+                None,
+            );
         }
 
         return send_message(

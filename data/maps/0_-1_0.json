@@ -10493,82 +10493,68 @@
     "Walkable",
     "Walkable",
     "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
     "Walkable",
     "Walkable",
     "Walkable",
     "Blocked",
     "Blocked",
     "Blocked",
-    "Blocked",
-    "Blocked",
-    "Blocked",
-    "Blocked",
-    "Blocked",
-    "Blocked",
-    "Blocked",
-    "Blocked",
-    "Blocked",
-    "Blocked",
-    "Blocked",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Blocked",
-    "Blocked",
-    "Blocked",
-    "Blocked",
-    "Blocked",
-    "Blocked",
-    "Blocked",
-    "Blocked",
-    "Blocked",
-    "Blocked",
-    "Blocked",
-    "Blocked",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
     "Blocked",
     "Blocked",
     "Blocked",
@@ -10584,22 +10570,354 @@
     "Walkable",
     "Walkable",
     "Walkable",
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
     "Walkable",
     "Walkable",
     "Walkable",
+    "Blocked",
+    "Blocked",
+    "Blocked",
+    "Blocked",
+    "Blocked",
+    "Blocked",
+    "Blocked",
+    "Blocked",
+    "Blocked",
+    "Blocked",
+    "Blocked",
+    "Blocked",
     "Walkable",
     "Walkable",
     "Walkable",
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
     "Walkable",
     "Walkable",
+    "Blocked",
+    "Blocked",
+    "Blocked",
+    "Blocked",
+    "Blocked",
+    "Blocked",
+    "Blocked",
+    "Blocked",
+    "Blocked",
+    "Blocked",
+    "Blocked",
     "Walkable",
     "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
     "Walkable",
     "Walkable",
     "Blocked",
@@ -10613,26 +10931,146 @@
     "Blocked",
     "Walkable",
     "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
     "Walkable",
     "Walkable",
     "Blocked",
@@ -10645,24 +11083,1396 @@
     "Walkable",
     "Walkable",
     "Walkable",
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    "Walkable",
+    "Walkable",
+    "Walkable",
+    "Walkable",
+    "NpcBlocked",
+    "NpcBlocked",
+    "NpcBlocked",
+    "NpcBlocked",
+    "Walkable",
+    "Walkable",
+    "Walkable",
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    "Walkable",
+    "Walkable",
+    "Walkable",
+    "Walkable",
+    "NpcBlocked",
+    "NpcBlocked",
+    "NpcBlocked",
+    "NpcBlocked",
+    "Walkable",
+    "Walkable",
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
     "Walkable",
     "Walkable",
     "Walkable",
     "Walkable",
     "Walkable",
+    "NpcBlocked",
+    "NpcBlocked",
+    "NpcBlocked",
+    "NpcBlocked",
+    "Walkable",
+    "Walkable",
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
     "Walkable",
     "Walkable",
     "Walkable",
     "Walkable",
     "Walkable",
+    "NpcBlocked",
+    "NpcBlocked",
+    "NpcBlocked",
+    "NpcBlocked",
+    "Walkable",
+    "Walkable",
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
     "Walkable",
     "Walkable",
     "Walkable",
     "Walkable",
     "Walkable",
+    "NpcBlocked",
+    "NpcBlocked",
+    "NpcBlocked",
+    "NpcBlocked",
+    "Walkable",
+    "Walkable",
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
     "Walkable",
     "Walkable",
     "Walkable",
+    "Walkable",
+    "Walkable",
+    "NpcBlocked",
+    "NpcBlocked",
+    "NpcBlocked",
+    "NpcBlocked",
+    "Walkable",
+    "Walkable",
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    "Walkable",
+    "Walkable",
+    "Walkable",
+    "Walkable",
+    "Walkable",
+    "NpcBlocked",
+    "NpcBlocked",
+    "NpcBlocked",
+    "NpcBlocked",
+    "Walkable",
+    "Walkable",
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    "Walkable",
+    "Walkable",
+    "Walkable",
+    "Walkable",
+    "Walkable",
+    "NpcBlocked",
+    "NpcBlocked",
+    "NpcBlocked",
+    "NpcBlocked",
+    "Walkable",
+    "Walkable",
+    "Walkable",
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
     "Walkable",
     "Walkable",
     "Walkable",
@@ -10676,281 +12486,139 @@
     "Walkable",
     "Walkable",
     "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "NpcBlocked",
-    "NpcBlocked",
-    "NpcBlocked",
-    "NpcBlocked",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "NpcBlocked",
-    "NpcBlocked",
-    "NpcBlocked",
-    "NpcBlocked",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "NpcBlocked",
-    "NpcBlocked",
-    "NpcBlocked",
-    "NpcBlocked",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "NpcBlocked",
-    "NpcBlocked",
-    "NpcBlocked",
-    "NpcBlocked",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "NpcBlocked",
-    "NpcBlocked",
-    "NpcBlocked",
-    "NpcBlocked",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "NpcBlocked",
-    "NpcBlocked",
-    "NpcBlocked",
-    "NpcBlocked",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "NpcBlocked",
-    "NpcBlocked",
-    "NpcBlocked",
-    "NpcBlocked",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "NpcBlocked",
-    "NpcBlocked",
-    "NpcBlocked",
-    "NpcBlocked",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
     "Walkable",
     "Walkable",
     "Walkable",
@@ -10964,25 +12632,139 @@
     "Walkable",
     "Walkable",
     "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
     "Walkable",
     "Walkable",
     "Walkable",
@@ -10996,24 +12778,132 @@
     "Walkable",
     "Walkable",
     "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
     "Walkable",
     "Walkable",
     "Walkable",
@@ -11028,24 +12918,132 @@
     "Walkable",
     "Walkable",
     "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
     "Walkable",
     "Walkable",
     "Walkable",
@@ -11060,23 +13058,125 @@
     "Walkable",
     "Walkable",
     "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
     "Walkable",
     "Walkable",
     "Walkable",
@@ -11093,21 +13193,111 @@
     "Walkable",
     "Walkable",
     "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
     "Walkable",
     "Walkable",
     "Walkable",
@@ -11125,19 +13315,97 @@
     "Walkable",
     "Walkable",
     "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
     "Walkable",
     "Walkable",
     "Walkable",
@@ -11158,17 +13426,83 @@
     "Walkable",
     "Walkable",
     "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
     "Walkable",
     "Walkable",
     "Walkable",
@@ -11191,15 +13525,69 @@
     "Walkable",
     "Walkable",
     "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
-    "Walkable",
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
+    {
+      "ItemSpawn": {
+        "index": 2,
+        "amount": 1,
+        "timer": 1000
+      }
+    },
     "Walkable",
     "Walkable",
     "Walkable",

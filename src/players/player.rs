@@ -7,7 +7,7 @@ use std::sync::{Arc, Mutex};
 #[derive(Clone, Debug, Bundle)]
 pub struct Socket {
     // IP address
-    pub addr: String,
+    pub addr: Arc<String>,
     // Socket ID
     pub id: usize,
     // Packet Buffer
@@ -19,7 +19,7 @@ impl Socket {
     pub fn new(id: usize, addr: String) -> Result<Self> {
         Ok(Self {
             id,
-            addr,
+            addr: Arc::new(addr),
             buffer: Arc::new(Mutex::new(ByteBuffer::with_capacity(8192)?)),
         })
     }

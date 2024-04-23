@@ -153,7 +153,7 @@ pub fn new_player(
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19) RETURNING uid;
         "#)
             .bind(&username)
-            .bind(&socket.addr)
+            .bind(&*socket.addr)
             .bind(hashed_password)
             .bind(itemtimer.itemtimer)
             .bind(death_timer.0)
@@ -413,7 +413,7 @@ pub fn update_address(storage: &Storage, world: &mut World, entity: &crate::Enti
             "#,
             )
             .bind(account.id)
-            .bind(&socket.addr)
+            .bind(&*socket.addr)
             .execute(&storage.pgconn),
         )?;
     }

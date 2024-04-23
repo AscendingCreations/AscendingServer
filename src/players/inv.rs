@@ -51,30 +51,44 @@ pub fn auto_set_inv_item(
     entity: &crate::Entity,
     item: &mut Item,
     base: &ItemData,
-) -> Result<SlotSpace> {
-    let mut rem = item.val;
+) -> Result<()> {
     let mut save_item_list = Vec::new();
+    let mut total_left = if item.val == 0 { 1 } else { item.val };
 
     {
         let mut player_inv = world.get::<&mut Inventory>(entity.0)?;
-        while let Some(slot) = find_inv_slot(item, &player_inv.items, base) {
-            if player_inv.items[slot].val == 0 {
-                player_inv.items[slot] = *item;
-                item.val = 0;
-                save_item_list.push(slot);
-                rem = 0;
-                break;
+
+        if base.stackable {
+            for id in 0..MAX_INV {
+                if player_inv.items[id].num == item.num
+                    && player_inv.items[id].val < base.stacklimit
+                    && player_inv.items[id].val > 0
+                {
+                    val_add_rem(
+                        &mut player_inv.items[id].val,
+                        &mut total_left,
+                        base.stacklimit,
+                    );
+
+                    save_item_list.push(id);
+
+                    if total_left == 0 {
+                        break;
+                    }
+                }
             }
+        }
 
-            rem = val_add_rem(
-                &mut player_inv.items[slot].val,
-                &mut item.val,
-                base.stacklimit,
-            );
-            save_item_list.push(slot);
+        item.val = total_left;
 
-            if rem == 0 {
-                break;
+        if total_left != 0 {
+            for id in 0..MAX_INV {
+                if player_inv.items[id].val == 0 {
+                    player_inv.items[id] = *item;
+                    item.val = 0;
+                    save_item_list.push(id);
+                    break;
+                }
             }
         }
     }
@@ -83,11 +97,73 @@ pub fn auto_set_inv_item(
         save_inv_item(world, storage, entity, *slot)?;
     }
 
-    if rem > 0 {
-        Ok(SlotSpace::NoSpace(rem))
-    } else {
-        Ok(SlotSpace::Completed)
+    Ok(())
+}
+
+pub fn check_inv_item_space(
+    world: &mut World,
+    entity: &crate::Entity,
+    item: &mut Item,
+    base: &ItemData,
+) -> Result<bool> {
+    let mut total_left = if item.val == 0 { 1 } else { item.val };
+    let player_inv = world.get::<&Inventory>(entity.0)?;
+    let mut empty_space_count = 0;
+
+    //First try to add it to other of the same type
+    if base.stackable {
+        for id in 0..MAX_INV {
+            if player_inv.items[id].num == item.num
+                && player_inv.items[id].val < base.stacklimit
+                && player_inv.items[id].val > 0
+            {
+                if player_inv.items[id].val + total_left > base.stacklimit {
+                    total_left = total_left + player_inv.items[id].val - base.stacklimit;
+                } else {
+                    return Ok(true);
+                }
+            } else if player_inv.items[id].val == 0 {
+                empty_space_count += 1;
+            }
+        }
     }
+
+    Ok(empty_space_count > 0)
+}
+
+pub fn check_inv_item_partial_space(
+    world: &mut World,
+    entity: &crate::Entity,
+    item: &mut Item,
+    base: &ItemData,
+) -> Result<(u16, u16)> {
+    let mut total_left = if item.val == 0 { 1 } else { item.val };
+    let start_val = if item.val == 0 { 1 } else { item.val };
+    let player_inv = world.get::<&Inventory>(entity.0)?;
+
+    //First try to add it to other of the same type
+    if base.stackable {
+        for id in 0..MAX_INV {
+            if player_inv.items[id].num == item.num
+                && player_inv.items[id].val < base.stacklimit
+                && player_inv.items[id].val > 0
+            {
+                if player_inv.items[id].val + total_left > base.stacklimit {
+                    total_left = total_left + player_inv.items[id].val - base.stacklimit;
+                } else {
+                    return Ok((0, start_val));
+                }
+            }
+        }
+    }
+
+    for id in 0..MAX_INV {
+        if player_inv.items[id].val == 0 {
+            return Ok((0, start_val));
+        }
+    }
+
+    Ok((total_left, start_val))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -137,10 +213,40 @@ pub fn give_inv_item(
     storage: &Storage,
     entity: &crate::Entity,
     item: &mut Item,
-) -> Result<SlotSpace> {
+) -> Result<()> {
     let base = &storage.bases.items[item.num as usize];
 
     auto_set_inv_item(world, storage, entity, item, base)
+}
+
+pub fn check_inv_space(
+    world: &mut World,
+    storage: &Storage,
+    entity: &crate::Entity,
+    item: &mut Item,
+) -> Result<bool> {
+    let base = &storage.bases.items[item.num as usize];
+
+    check_inv_item_space(world, entity, item, base)
+}
+
+//checks if we only got partial or not if so returns how many we got.
+//Returns is_less, amount removed, amount it started with.
+pub fn check_inv_partial_space(
+    world: &mut World,
+    storage: &Storage,
+    entity: &crate::Entity,
+    item: &mut Item,
+) -> Result<(bool, u16, u16)> {
+    let base = &storage.bases.items[item.num as usize];
+
+    let (left, start) = check_inv_item_partial_space(world, entity, item, base)?;
+
+    if left < start {
+        Ok((true, start - left, start))
+    } else {
+        Ok((false, start, 0))
+    }
 }
 
 #[inline]
@@ -338,10 +444,12 @@ pub fn player_unequip(
     }
 
     let mut item = world.get::<&Equipment>(entity.0)?.items[slot];
-    match give_inv_item(world, storage, entity, &mut item)? {
-        SlotSpace::NoSpace(_) => return Ok(false),
-        SlotSpace::Completed => {}
+
+    if !check_inv_space(world, storage, entity, &mut item)? {
+        return Ok(false);
     }
+
+    give_inv_item(world, storage, entity, &mut item)?;
 
     {
         world.get::<&mut Equipment>(entity.0)?.items[slot] = Item::default();

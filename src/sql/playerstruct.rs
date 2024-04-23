@@ -1,4 +1,5 @@
 use std::backtrace::Backtrace;
+use std::sync::Arc;
 
 use crate::sql::integers::Shifting;
 use crate::{gametypes::*, players::*, time_ext::*};
@@ -90,7 +91,7 @@ impl PGPlayerWithID {
         {
             account.id = self.uid;
             account.username.clone_from(&self.username);
-            socket.addr.clone_from(&self.address);
+            socket.addr = Arc::new(self.address);
             sprite.id = self.sprite.shift_signed();
             spawn.pos = self.spawn;
             itemtimer.itemtimer = self.itemtimer;

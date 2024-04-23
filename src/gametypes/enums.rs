@@ -603,3 +603,10 @@ pub enum Command {
     SpawnNpc(i32, Position),
     Trade,
 }
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum ItemLeftOver {
+    None,
+    Left(u16),
+    Full,
+}

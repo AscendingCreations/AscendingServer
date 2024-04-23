@@ -47,35 +47,51 @@ pub fn find_storage_slot(item: &Item, storage: &[Item], base: &ItemData) -> Opti
 }
 
 #[inline]
+//This should always be successful unless an error occurs since we check for space ahead of time.
 pub fn auto_set_storage_item(
     world: &mut World,
     storage: &Storage,
     entity: &crate::Entity,
     item: &mut Item,
     base: &ItemData,
-) -> Result<u16> {
-    let mut rem = 0u16;
+) -> Result<()> {
     let mut save_item_list = Vec::new();
+    let mut total_left = if item.val == 0 { 1 } else { item.val };
 
     {
         let mut player_storage = world.get::<&mut PlayerStorage>(entity.0)?;
-        while let Some(slot) = find_storage_slot(item, &player_storage.items, base) {
-            if player_storage.items[slot].val == 0 {
-                player_storage.items[slot] = *item;
-                item.val = 0;
-                save_item_list.push(slot);
-                break;
+
+        if base.stackable {
+            for id in 0..MAX_STORAGE {
+                if player_storage.items[id].num == item.num
+                    && player_storage.items[id].val < base.stacklimit
+                    && player_storage.items[id].val > 0
+                {
+                    val_add_rem(
+                        &mut player_storage.items[id].val,
+                        &mut total_left,
+                        base.stacklimit,
+                    );
+
+                    save_item_list.push(id);
+
+                    if total_left == 0 {
+                        break;
+                    }
+                }
             }
+        }
 
-            rem = val_add_rem(
-                &mut player_storage.items[slot].val,
-                &mut item.val,
-                base.stacklimit,
-            );
-            save_item_list.push(slot);
+        item.val = total_left;
 
-            if rem == 0 {
-                break;
+        if total_left > 0 {
+            for id in 0..MAX_STORAGE {
+                if player_storage.items[id].val == 0 {
+                    player_storage.items[id] = *item;
+                    item.val = 0;
+                    save_item_list.push(id);
+                    break;
+                }
             }
         }
     }
@@ -84,7 +100,92 @@ pub fn auto_set_storage_item(
         save_storage_item(world, storage, entity, *slot)?;
     }
 
-    Ok(rem)
+    Ok(())
+}
+
+pub fn check_storage_space(
+    world: &mut World,
+    entity: &crate::Entity,
+    item: &mut Item,
+    base: &ItemData,
+) -> Result<bool> {
+    let mut total_left = if item.val == 0 { 1 } else { item.val };
+    let mut empty_space_count = 0;
+    let player_storage = world.get::<&PlayerStorage>(entity.0)?;
+
+    //First try to add it to other of the same type
+    if base.stackable {
+        for id in 0..MAX_STORAGE {
+            if player_storage.items[id].num == item.num
+                && player_storage.items[id].val < base.stacklimit
+                && player_storage.items[id].val > 0
+            {
+                if player_storage.items[id].val + total_left > base.stacklimit {
+                    total_left = total_left + player_storage.items[id].val - base.stacklimit;
+                } else {
+                    return Ok(true);
+                }
+            } else if player_storage.items[id].val == 0 {
+                empty_space_count += 1;
+            }
+        }
+    }
+
+    Ok(empty_space_count > 0)
+}
+
+pub fn check_storage_item_partial_space(
+    world: &mut World,
+    entity: &crate::Entity,
+    item: &mut Item,
+    base: &ItemData,
+) -> Result<(u16, u16)> {
+    let mut total_left = if item.val == 0 { 1 } else { item.val };
+    let start_val = if item.val == 0 { 1 } else { item.val };
+    let player_storage = world.get::<&PlayerStorage>(entity.0)?;
+
+    //First try to add it to other of the same type
+    if base.stackable {
+        for id in 0..MAX_STORAGE {
+            if player_storage.items[id].num == item.num
+                && player_storage.items[id].val < base.stacklimit
+                && player_storage.items[id].val > 0
+            {
+                if player_storage.items[id].val + total_left > base.stacklimit {
+                    total_left = total_left + player_storage.items[id].val - base.stacklimit;
+                } else {
+                    return Ok((0, start_val));
+                }
+            }
+        }
+    }
+
+    for id in 0..MAX_STORAGE {
+        if player_storage.items[id].val == 0 {
+            return Ok((0, start_val));
+        }
+    }
+
+    Ok((total_left, start_val))
+}
+
+//checks if we only got partial or not if so returns how many we got.
+//Returns is_less, amount removed, amount it started with.
+pub fn check_storage_partial_space(
+    world: &mut World,
+    storage: &Storage,
+    entity: &crate::Entity,
+    item: &mut Item,
+) -> Result<(bool, u16, u16)> {
+    let base = &storage.bases.items[item.num as usize];
+
+    let (left, start) = check_storage_item_partial_space(world, entity, item, base)?;
+
+    if left < start {
+        Ok((true, start - left, start))
+    } else {
+        Ok((false, start, 0))
+    }
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -133,10 +234,22 @@ pub fn give_storage_item(
     storage: &Storage,
     entity: &crate::Entity,
     item: &mut Item,
-) -> Result<u16> {
+) -> Result<()> {
     let base = &storage.bases.items[item.num as usize];
 
     auto_set_storage_item(world, storage, entity, item, base)
+}
+
+#[inline]
+pub fn check_storage_item_fits(
+    world: &mut World,
+    storage: &Storage,
+    entity: &crate::Entity,
+    item: &mut Item,
+) -> Result<bool> {
+    let base = &storage.bases.items[item.num as usize];
+
+    check_storage_space(world, entity, item, base)
 }
 
 #[inline]
