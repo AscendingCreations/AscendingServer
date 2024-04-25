@@ -23,23 +23,16 @@
             "cwd": "${workspaceFolder}"
         },
         {
-            "type": "lldb",
+            "name": "(Windows) Launch",
+            "type": "cppvsdbg",
             "request": "launch",
-            "name": "Debug unit tests in executable 'ascending_server'",
-            "cargo": {
-                "args": [
-                    "test",
-                    "--no-run",
-                    "--bin=ascending_server",
-                    "--package=ascending_server"
-                ],
-                "filter": {
-                    "name": "ascending_server",
-                    "kind": "bin"
-                }
-            },
+            "program": "${workspaceRoot}/target/debug/ascending_server.exe",
             "args": [],
-            "cwd": "${workspaceFolder}"
-        }
+            "stopAtEntry": false,
+            "cwd": "${workspaceRoot}",
+            "environment": [],
+            "preLaunchTask": "rust: cargo build",
+            "externalConsole": true
+        },
     ]
 }
