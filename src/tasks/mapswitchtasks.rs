@@ -23,20 +23,10 @@ pub fn init_data_lists(
     oldmap: Option<MapPosition>,
 ) -> Result<()> {
     let mut map_switch_tasks = storage.map_switch_tasks.borrow_mut();
-
-    //Remove old tasks and replace with new ones during map switching.
-    if let Some(tasks) = map_switch_tasks.get_mut(user) {
-        //If this contains any tasks we will clear them first. as we only want to send whats relevent.
-        tasks.clear();
-    } else {
-        //if the task was removed after processing then we simply add a new one.
-        map_switch_tasks.insert(*user, vec![]);
-    }
-
-    let socket_id = world.get::<&Socket>(user.0)?.id;
+    //let socket_id = world.get::<&Socket>(user.0)?.id;
 
     // Lets remove any lengering Packet Sends if they still Exist.
-    {
+    /*{
         let mut packet_cache = storage.packet_cache.borrow_mut();
         let mut packet_cache_ids = storage.packet_cache_ids.borrow_mut();
         for key in [
@@ -47,21 +37,48 @@ pub fn init_data_lists(
             packet_cache.swap_remove(&key);
             packet_cache_ids.swap_remove(&key);
         }
-    }
+    }*/
+
+    let (not_yet_sent_players, not_yet_sent_npcs, not_yet_sent_items) =
+        if let Some(tasks) = map_switch_tasks.get_mut(user) {
+            let mut player = IndexSet::with_capacity(32);
+            let mut npcs = IndexSet::with_capacity(32);
+            let mut items = IndexSet::with_capacity(32);
+
+            for task in tasks {
+                match task {
+                    MapSwitchTasks::Npc(v) => {
+                        while let Some(entity) = v.pop() {
+                            npcs.insert(entity);
+                        }
+                    }
+                    MapSwitchTasks::Player(v) => {
+                        while let Some(entity) = v.pop() {
+                            player.insert(entity);
+                        }
+                    }
+                    MapSwitchTasks::Items(v) => {
+                        while let Some(entity) = v.pop() {
+                            items.insert(entity);
+                        }
+                    }
+                }
+            }
+
+            (player, npcs, items)
+        } else {
+            (IndexSet::new(), IndexSet::new(), IndexSet::new())
+        };
 
     //setup the old and new information so we know what to remove and add for.
     let mut old_players = IndexSet::with_capacity(32);
     let mut old_npcs = IndexSet::with_capacity(32);
     let mut old_items = IndexSet::with_capacity(32);
 
-    let mut new_players = IndexSet::with_capacity(32);
-    let mut new_npcs = IndexSet::with_capacity(32);
-    let mut new_items = IndexSet::with_capacity(32);
-
     //create the data tasks to be ran against.
-    let mut task_player = Vec::with_capacity(50);
-    let mut task_npc = Vec::with_capacity(50);
-    let mut task_item = Vec::with_capacity(50);
+    let mut task_player = Vec::with_capacity(100);
+    let mut task_npc = Vec::with_capacity(100);
+    let mut task_item = Vec::with_capacity(600);
 
     //get the old map npcs, players and items so we can send remove requests.
     if let Some(old_map) = oldmap {
@@ -88,54 +105,33 @@ pub fn init_data_lists(
         if let Some(mapref) = storage.maps.get(&m) {
             let map = mapref.borrow();
             map.players.iter().for_each(|id| {
-                if !old_players.contains(id) {
+                if !old_players.contains(id) || not_yet_sent_players.contains(id) {
                     task_player.push(*id);
                 }
-
-                new_players.insert(*id);
             });
 
             map.npcs.iter().for_each(|id| {
-                if !old_npcs.contains(id) {
+                if !old_npcs.contains(id) || not_yet_sent_npcs.contains(id) {
                     task_npc.push(*id);
                 }
-
-                new_npcs.insert(*id);
             });
 
             map.itemids.iter().for_each(|id| {
-                if !old_items.contains(id) {
+                if !old_items.contains(id) || not_yet_sent_items.contains(id) {
                     task_item.push(*id);
                 }
-
-                new_items.insert(*id);
             });
         }
     }
 
-    //Gather our Entities to Send for Removal. Type doesnt matter here.
-    /*let mut removals = old_players
-        .iter()
-        .copied()
-        .filter(|id| !new_players.contains(id))
-        .collect::<Vec<Entity>>();
-
-    removals.append(
-        &mut old_npcs
-            .iter()
-            .copied()
-            .filter(|id| !new_npcs.contains(id))
-            .collect::<Vec<Entity>>(),
-    );
-    removals.append(
-        &mut old_items
-            .iter()
-            .copied()
-            .filter(|id| !new_items.contains(id))
-            .collect::<Vec<Entity>>(),
-    );
-
-    send_data_removals(storage, socket_id, &removals)?; */
+    //Remove old tasks and replace with new ones during map switching.
+    if let Some(tasks) = map_switch_tasks.get_mut(user) {
+        //If this contains any tasks we will clear them first. as we only want to send whats relevent.
+        tasks.clear();
+    } else {
+        //if the task was removed after processing then we simply add a new one.
+        map_switch_tasks.insert(*user, vec![]);
+    }
 
     if let Some(tasks) = map_switch_tasks.get_mut(user) {
         tasks.push(MapSwitchTasks::Player(task_player));

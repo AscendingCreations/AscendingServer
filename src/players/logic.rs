@@ -509,22 +509,17 @@ pub fn process_player_trade(
     let entity_money = world.get_or_err::<TradeMoney>(entity)?.vals;
     let target_money = world.get_or_err::<TradeMoney>(target_entity)?.vals;
 
+    //check_temp_inv_space
     let mut entity_clone_inv = world.cloned_get_or_err::<Inventory>(entity)?;
     let mut target_clone_inv = world.cloned_get_or_err::<Inventory>(target_entity)?;
     for item in entity_item.items.clone().iter_mut() {
-        if item.val > 0 {
-            let rem = give_temp_inv_item(storage, item, &mut target_clone_inv)?;
-            if rem > 0 {
-                return Ok(false);
-            }
+        if item.val > 0 && !check_temp_inv_space(storage, item, &mut target_clone_inv)? {
+            return Ok(false);
         }
     }
     for item in target_item.items.clone().iter_mut() {
-        if item.val > 0 {
-            let rem = give_temp_inv_item(storage, item, &mut entity_clone_inv)?;
-            if rem > 0 {
-                return Ok(false);
-            }
+        if item.val > 0 && !check_temp_inv_space(storage, item, &mut entity_clone_inv)? {
+            return Ok(false);
         }
     }
 

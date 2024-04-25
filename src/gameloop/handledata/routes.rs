@@ -1615,7 +1615,24 @@ pub fn handle_submittrade(
                         *world.get::<&mut TradeStatus>(entity.0)? = TradeStatus::Submitted;
                     }
                     if !process_player_trade(world, storage, entity, &target_entity)? {
-                        // ToDo Warning not enough slot
+                        send_message(
+                            world,
+                            storage,
+                            entity,
+                            "One of you does not have enough inventory slot to proceed with the trade".into(),
+                            String::new(),
+                            MessageChannel::Private,
+                            None,
+                        )?;
+                        send_message(
+                            world,
+                            storage,
+                            &target_entity,
+                            "One of you does not have enough inventory slot to proceed with the trade".into(),
+                            String::new(),
+                            MessageChannel::Private,
+                            None,
+                        )?;
                     }
                     close_trade(world, storage, entity)?;
                     close_trade(world, storage, &target_entity)?;

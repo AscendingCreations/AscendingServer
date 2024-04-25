@@ -1,7 +1,7 @@
 use crate::{
     containers::Storage,
     gametypes::*,
-    maps::can_target,
+    maps::{can_target, is_dir_blocked},
     npcs::{damage_npc, kill_npc, try_target_entity, NpcIndex},
     players::*,
     socket::send_floattextdamage,
@@ -29,7 +29,12 @@ pub fn get_damage_percentage(damage: u32, hp: (u32, u32)) -> f64 {
     abs_damage / curhp as f64
 }
 
-pub fn try_player_cast(world: &mut World, caster: &Entity, target: &Entity) -> bool {
+pub fn try_player_cast(
+    world: &mut World,
+    storage: &Storage,
+    caster: &Entity,
+    target: &Entity,
+) -> bool {
     if !world.contains(caster.0) || !world.contains(target.0) {
         return false;
     }
@@ -37,6 +42,14 @@ pub fn try_player_cast(world: &mut World, caster: &Entity, target: &Entity) -> b
     let caster_pos = world.get_or_default::<Position>(caster);
     let target_pos = world.get_or_default::<Position>(target);
     let life = world.get_or_default::<DeathType>(target);
+
+    if let Some(dir) = caster_pos.checkdirection(target_pos) {
+        if is_dir_blocked(storage, caster_pos, dir as u8) {
+            return false;
+        }
+    } else {
+        return false;
+    }
 
     can_target(caster_pos, target_pos, life, 1)
 }
@@ -47,7 +60,7 @@ pub fn player_combat(
     entity: &Entity,
     target_entity: &Entity,
 ) -> Result<bool> {
-    if try_player_cast(world, entity, target_entity) {
+    if try_player_cast(world, storage, entity, target_entity) {
         let world_entity_type = world.get_or_default::<WorldEntityType>(target_entity);
         match world_entity_type {
             WorldEntityType::Player => {

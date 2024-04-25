@@ -81,6 +81,29 @@ impl Position {
         x.abs() + y.abs() - 1
     }
 
+    pub fn checkdirection(&self, target: Position) -> Option<i32> {
+        let dx = self.x - target.x;
+        let dy = self.y - target.y;
+
+        let abs_dx = dx.abs();
+        let abs_dy = dy.abs();
+
+        // 0 down, 1 right, 2 up, 3 left
+        match (abs_dx > abs_dy, abs_dy > abs_dx) {
+            (true, _) => match dx {
+                x if x > 0 => Some(3),
+                x if x < 0 => Some(1),
+                _ => None,
+            },
+            (_, true) => match dy {
+                y if y > 0 => Some(0),
+                y if y < 0 => Some(2),
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+
     pub fn map_offset(&self, dir: MapPosDir) -> Position {
         match dir {
             MapPosDir::UpLeft => Position::new(

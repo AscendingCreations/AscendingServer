@@ -111,20 +111,23 @@ pub fn check_inv_item_space(
     let mut empty_space_count = 0;
 
     //First try to add it to other of the same type
-    if base.stackable {
-        for id in 0..MAX_INV {
-            if player_inv.items[id].num == item.num
-                && player_inv.items[id].val < base.stacklimit
-                && player_inv.items[id].val > 0
-            {
-                if player_inv.items[id].val + total_left > base.stacklimit {
-                    total_left = total_left + player_inv.items[id].val - base.stacklimit;
-                } else {
-                    return Ok(true);
-                }
-            } else if player_inv.items[id].val == 0 {
-                empty_space_count += 1;
+    for id in 0..MAX_INV {
+        if base.stackable
+            && player_inv.items[id].num == item.num
+            && player_inv.items[id].val < base.stacklimit
+            && player_inv.items[id].val > 0
+        {
+            if player_inv.items[id].val + total_left > base.stacklimit {
+                total_left = total_left + player_inv.items[id].val - base.stacklimit;
+            } else {
+                return Ok(true);
             }
+        } else if player_inv.items[id].val == 0 {
+            if !base.stackable {
+                return Ok(true);
+            }
+
+            empty_space_count += 1;
         }
     }
 
@@ -393,33 +396,90 @@ pub fn give_trade_item(
     auto_set_trade_item(world, entity, item, base)
 }
 
+pub fn check_temp_inv_space(
+    storage: &Storage,
+    item: &mut Item,
+    temp_inv: &mut Inventory,
+) -> Result<bool> {
+    let base = &storage.bases.items[item.num as usize];
+
+    check_temp_inv_item_space(item, base, temp_inv)
+}
+
+pub fn check_temp_inv_item_space(
+    item: &mut Item,
+    base: &ItemData,
+    temp_inv: &mut Inventory,
+) -> Result<bool> {
+    let mut total_left = if item.val == 0 { 1 } else { item.val };
+    let mut empty_space_count = 0;
+
+    //First try to add it to other of the same type
+    for id in 0..MAX_INV {
+        if base.stackable
+            && temp_inv.items[id].num == item.num
+            && temp_inv.items[id].val < base.stacklimit
+            && temp_inv.items[id].val > 0
+        {
+            if temp_inv.items[id].val + total_left > base.stacklimit {
+                total_left = total_left + temp_inv.items[id].val - base.stacklimit;
+            } else {
+                return Ok(true);
+            }
+        } else if temp_inv.items[id].val == 0 {
+            if !base.stackable {
+                return Ok(true);
+            }
+
+            empty_space_count += 1;
+        }
+    }
+
+    Ok(empty_space_count > 0)
+}
+
 #[inline]
 pub fn auto_set_temp_inv_item(
     item: &mut Item,
     base: &ItemData,
     temp_inv: &mut Inventory,
-) -> Result<u16> {
-    let mut rem = 0u16;
+) -> Result<()> {
+    let mut total_left = if item.val == 0 { 1 } else { item.val };
 
-    while let Some(slot) = find_inv_slot(item, &temp_inv.items, base) {
-        if temp_inv.items[slot].val == 0 {
-            temp_inv.items[slot] = *item;
-            item.val = 0;
-            break;
+    {
+        if base.stackable {
+            for id in 0..MAX_INV {
+                if temp_inv.items[id].num == item.num
+                    && temp_inv.items[id].val < base.stacklimit
+                    && temp_inv.items[id].val > 0
+                {
+                    val_add_rem(
+                        &mut temp_inv.items[id].val,
+                        &mut total_left,
+                        base.stacklimit,
+                    );
+
+                    if total_left == 0 {
+                        break;
+                    }
+                }
+            }
         }
 
-        rem = val_add_rem(
-            &mut temp_inv.items[slot].val,
-            &mut item.val,
-            base.stacklimit,
-        );
+        item.val = total_left;
 
-        if rem == 0 {
-            break;
+        if total_left != 0 {
+            for id in 0..MAX_INV {
+                if temp_inv.items[id].val == 0 {
+                    temp_inv.items[id] = *item;
+                    item.val = 0;
+                    break;
+                }
+            }
         }
     }
 
-    Ok(rem)
+    Ok(())
 }
 
 #[inline]
@@ -427,7 +487,7 @@ pub fn give_temp_inv_item(
     storage: &Storage,
     item: &mut Item,
     temp_inv: &mut Inventory,
-) -> Result<u16> {
+) -> Result<()> {
     let base = &storage.bases.items[item.num as usize];
 
     auto_set_temp_inv_item(item, base, temp_inv)

@@ -114,20 +114,23 @@ pub fn check_storage_space(
     let player_storage = world.get::<&PlayerStorage>(entity.0)?;
 
     //First try to add it to other of the same type
-    if base.stackable {
-        for id in 0..MAX_STORAGE {
-            if player_storage.items[id].num == item.num
-                && player_storage.items[id].val < base.stacklimit
-                && player_storage.items[id].val > 0
-            {
-                if player_storage.items[id].val + total_left > base.stacklimit {
-                    total_left = total_left + player_storage.items[id].val - base.stacklimit;
-                } else {
-                    return Ok(true);
-                }
-            } else if player_storage.items[id].val == 0 {
-                empty_space_count += 1;
+    for id in 0..MAX_STORAGE {
+        if base.stackable
+            && player_storage.items[id].num == item.num
+            && player_storage.items[id].val < base.stacklimit
+            && player_storage.items[id].val > 0
+        {
+            if player_storage.items[id].val + total_left > base.stacklimit {
+                total_left = total_left + player_storage.items[id].val - base.stacklimit;
+            } else {
+                return Ok(true);
             }
+        } else if player_storage.items[id].val == 0 {
+            if !base.stackable {
+                return Ok(true);
+            }
+
+            empty_space_count += 1;
         }
     }
 

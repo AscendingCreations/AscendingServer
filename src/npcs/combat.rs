@@ -28,6 +28,7 @@ fn entity_cast_check(
 
 pub fn try_cast(
     world: &mut World,
+    storage: &Storage,
     caster: &Entity,
     base: &NpcData,
     target: EntityType,
@@ -49,6 +50,15 @@ pub fn try_cast(
             {
                 let target_pos = world.get_or_default::<Position>(&i);
                 let life = world.get_or_default::<DeathType>(&i);
+
+                if let Some(dir) = caster_pos.checkdirection(target_pos) {
+                    if is_dir_blocked(storage, caster_pos, dir as u8) {
+                        return Ok(false);
+                    }
+                } else {
+                    return Ok(false);
+                }
+
                 return Ok(entity_cast_check(caster_pos, target_pos, life, range));
             }
         }
@@ -62,6 +72,15 @@ pub fn try_cast(
             {
                 let target_pos = world.get_or_default::<Position>(&i);
                 let life = world.get_or_default::<DeathType>(&i);
+
+                if let Some(dir) = caster_pos.checkdirection(target_pos) {
+                    if is_dir_blocked(storage, caster_pos, dir as u8) {
+                        return Ok(false);
+                    }
+                } else {
+                    return Ok(false);
+                }
+
                 return Ok(entity_cast_check(caster_pos, target_pos, life, range));
             }
         }
@@ -71,7 +90,12 @@ pub fn try_cast(
     Ok(false)
 }
 
-pub fn npc_cast(world: &mut World, npc: &Entity, base: &NpcData) -> Result<EntityType> {
+pub fn npc_cast(
+    world: &mut World,
+    storage: &Storage,
+    npc: &Entity,
+    base: &NpcData,
+) -> Result<EntityType> {
     match base.behaviour {
         AIBehavior::Agressive
         | AIBehavior::AgressiveHealer
@@ -79,7 +103,15 @@ pub fn npc_cast(world: &mut World, npc: &Entity, base: &NpcData) -> Result<Entit
         | AIBehavior::HelpReactive
         | AIBehavior::Reactive => {
             if let Ok(targettype) = world.get::<&Target>(npc.0).map(|t| t.targettype) {
-                if try_cast(world, npc, base, targettype, base.range, NpcCastType::Enemy)? {
+                if try_cast(
+                    world,
+                    storage,
+                    npc,
+                    base,
+                    targettype,
+                    base.range,
+                    NpcCastType::Enemy,
+                )? {
                     return Ok(targettype);
                 }
             }
@@ -96,7 +128,7 @@ pub fn npc_combat(
     entity: &Entity,
     base: &NpcData,
 ) -> Result<()> {
-    match npc_cast(world, entity, base)? {
+    match npc_cast(world, storage, entity, base)? {
         EntityType::Player(i, _accid) => {
             if world.contains(i.0) {
                 let damage = npc_combat_damage(world, storage, entity, &i, base)?;

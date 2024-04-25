@@ -493,16 +493,10 @@ pub fn get_maps_in_range(storage: &Storage, pos: &Position, range: i32) -> Vec<M
     arr
 }
 
-pub fn map_path_blocked(
-    storage: &Storage,
-    cur_pos: Position,
-    next_pos: Position,
-    movedir: u8,
-    entity_type: WorldEntityType,
-) -> bool {
+pub fn is_dir_blocked(storage: &Storage, cur_pos: Position, movedir: u8) -> bool {
     // Directional blocking might be in the wrong order as it should be.
     // 0 down, 1 right, 2 up, 3 left
-    let blocked = match movedir {
+    match movedir {
         0 => {
             if let Some(map) = storage.maps.get(&cur_pos.map) {
                 map.borrow().move_grid[cur_pos.as_tile()].dir_block.get(B0) == 0b00000001
@@ -531,7 +525,19 @@ pub fn map_path_blocked(
                 true
             }
         }
-    };
+    }
+}
+
+pub fn map_path_blocked(
+    storage: &Storage,
+    cur_pos: Position,
+    next_pos: Position,
+    movedir: u8,
+    entity_type: WorldEntityType,
+) -> bool {
+    // Directional blocking might be in the wrong order as it should be.
+    // 0 down, 1 right, 2 up, 3 left
+    let blocked = is_dir_blocked(storage, cur_pos, movedir);
 
     if !blocked {
         return match storage.maps.get(&next_pos.map) {
