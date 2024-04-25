@@ -181,7 +181,7 @@ impl MapData {
                 if entity_type == WorldEntityType::MapItem {
                     false
                 } else {
-                    self.move_grid[pos.as_tile()].count >= 5
+                    self.move_grid[pos.as_tile()].count >= 1
                 }
             }
             GridAttribute::Blocked => true,
@@ -211,6 +211,7 @@ impl MapData {
                     Some(map) => {
                         let count = map.borrow().players_on_map.saturating_add(1);
                         map.borrow_mut().players_on_map = count;
+                        println!("ADDED:: Players count : {} map {:?}", count, i);
                     }
                     None => continue,
                 }
@@ -234,6 +235,7 @@ impl MapData {
                     Some(map) => {
                         let count = map.borrow().players_on_map.saturating_sub(1);
                         map.borrow_mut().players_on_map = count;
+                        println!("REMOVED:: Players count : {} map {:?}", count, i);
                     }
                     None => continue,
                 }

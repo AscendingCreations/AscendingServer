@@ -442,12 +442,15 @@ impl Client {
 pub fn disconnect(playerid: Entity, world: &mut World, storage: &Storage) -> Result<()> {
     left_game(world, storage, &playerid)?;
 
-    let (_socket, position) = storage.remove_player(world, playerid)?;
+    let (socket, position) = storage.remove_player(world, playerid)?;
 
-    if let Some(map) = storage.maps.get(&position.map) {
-        map.borrow_mut().remove_player(storage, playerid);
-        map.borrow_mut().remove_entity_from_grid(position);
-        DataTaskToken::EntityUnload(position.map).add_task(storage, &(playerid))?;
+    println!("Players Disconnected IP: {} ", &socket.addr);
+    if let Some(pos) = position {
+        if let Some(map) = storage.maps.get(&pos.map) {
+            map.borrow_mut().remove_player(storage, playerid);
+            map.borrow_mut().remove_entity_from_grid(pos);
+            DataTaskToken::EntityUnload(pos.map).add_task(storage, &(playerid))?;
+        }
     }
 
     Ok(())

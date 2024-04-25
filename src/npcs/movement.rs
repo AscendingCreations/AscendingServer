@@ -213,6 +213,8 @@ pub fn npc_movement(
                     storage,
                     &MovePacket::new(*entity, next.0, false, true, next.1),
                 )?;
+                DataTaskToken::NpcSpawn(next.0.map)
+                    .add_task(storage, &NpcSpawnPacket::new(world, entity, true)?)?;
             } else {
                 npc_swap_pos(world, storage, entity, next.0)?;
                 DataTaskToken::NpcMove(next.0.map).add_task(

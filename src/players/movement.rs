@@ -12,13 +12,16 @@ pub fn player_warp(
 ) -> Result<()> {
     if world.get_or_err::<Position>(entity)?.map != new_pos.map {
         let old_pos = player_switch_maps(world, storage, entity, *new_pos)?;
-        DataTaskToken::PlayerWarp(old_pos.map)
+        if !old_pos.1 {
+            println!("Failed to switch map");
+        }
+        DataTaskToken::PlayerWarp(old_pos.0.map)
             .add_task(storage, &WarpPacket::new(*entity, *new_pos))?;
         DataTaskToken::PlayerWarp(new_pos.map)
             .add_task(storage, &WarpPacket::new(*entity, *new_pos))?;
         DataTaskToken::PlayerSpawn(new_pos.map)
             .add_task(storage, &PlayerSpawnPacket::new(world, entity, true)?)?;
-        init_data_lists(world, storage, entity, Some(old_pos.map))?;
+        init_data_lists(world, storage, entity, Some(old_pos.0.map))?;
     } else {
         player_swap_pos(world, storage, entity, *new_pos)?;
         if spawn {
@@ -82,11 +85,6 @@ pub fn player_movement(
         world.get::<&mut Dir>(entity.0)?.0 = dir;
     }
 
-    if !new_pos.update_pos_map(storage) {
-        player_warp(world, storage, entity, &player_position, false)?;
-        return Ok(false);
-    }
-
     if map_path_blocked(
         storage,
         player_position,
@@ -128,7 +126,10 @@ pub fn player_movement(
     let player_dir = world.get_or_err::<Dir>(entity)?;
     if new_pos.map != player_position.map {
         let oldpos = player_switch_maps(world, storage, entity, new_pos)?;
-        DataTaskToken::PlayerMove(oldpos.map).add_task(
+        if !oldpos.1 {
+            println!("Failed to switch map");
+        }
+        DataTaskToken::PlayerMove(oldpos.0.map).add_task(
             storage,
             &MovePacket::new(*entity, new_pos, false, true, player_dir.0),
         )?;
@@ -141,7 +142,7 @@ pub fn player_movement(
         DataTaskToken::PlayerSpawn(new_pos.map)
             .add_task(storage, &PlayerSpawnPacket::new(world, entity, true)?)?;
 
-        init_data_lists(world, storage, entity, Some(oldpos.map))?;
+        init_data_lists(world, storage, entity, Some(oldpos.0.map))?;
     } else {
         player_swap_pos(world, storage, entity, new_pos)?;
         DataTaskToken::PlayerMove(new_pos.map).add_task(

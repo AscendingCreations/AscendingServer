@@ -243,12 +243,7 @@ impl Storage {
     pub fn add_empty_player(&self, world: &mut World, id: usize, addr: String) -> Result<Entity> {
         let socket = Socket::new(id, addr)?;
 
-        let identity = world.spawn((
-            WorldEntityType::Player,
-            socket,
-            OnlineType::Accepted,
-            Position::default(),
-        ));
+        let identity = world.spawn((WorldEntityType::Player, socket, OnlineType::Accepted));
         world.insert_one(identity, EntityType::Player(Entity(identity), 0))?;
 
         Ok(Entity(identity))
@@ -319,18 +314,23 @@ impl Storage {
         Ok(())
     }
 
-    pub fn remove_player(&self, world: &mut World, id: Entity) -> Result<(Socket, Position)> {
+    pub fn remove_player(
+        &self,
+        world: &mut World,
+        id: Entity,
+    ) -> Result<(Socket, Option<Position>)> {
         // only removes the Components in the Fisbone ::<>
-        let ret = world.remove::<(Socket, Position)>(id.0)?;
-
+        let (socket,) = world.remove::<(Socket,)>(id.0)?;
+        let pos = world.remove::<(Position,)>(id.0).ok().map(|v| v.0);
         if let Ok((account,)) = world.remove::<(Account,)>(id.0) {
+            println!("Players Disconnected : {}", &account.username);
             self.player_names.borrow_mut().remove(&account.username);
         }
         //Removes Everything related to the Entity.
         world.despawn(id.0)?;
 
         self.player_ids.borrow_mut().swap_remove(&id);
-        Ok(ret)
+        Ok((socket, pos))
     }
 
     pub fn add_npc(&self, world: &mut World, npc_id: u64) -> Result<Option<Entity>> {

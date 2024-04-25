@@ -158,17 +158,15 @@ pub fn player_switch_maps(
     storage: &Storage,
     entity: &crate::Entity,
     new_pos: Position,
-) -> Result<Position> {
-    let player_position = world.get_or_err::<Position>(entity)?;
+) -> Result<(Position, bool)> {
+    let old_position = world.get_or_err::<Position>(entity)?;
 
-    let old_position = player_position;
-
-    if let Some(mapref) = storage.maps.get(&player_position.map) {
+    if let Some(mapref) = storage.maps.get(&old_position.map) {
         let mut map = mapref.borrow_mut();
         map.remove_player(storage, *entity);
-        map.remove_entity_from_grid(player_position);
+        map.remove_entity_from_grid(old_position);
     } else {
-        return Ok(old_position);
+        return Ok((old_position, false));
     }
 
     if let Some(mapref) = storage.maps.get(&new_pos.map) {
@@ -176,12 +174,18 @@ pub fn player_switch_maps(
         map.add_player(storage, *entity);
         map.add_entity_to_grid(new_pos);
     } else {
-        return Ok(old_position);
+        if let Some(mapref) = storage.maps.get(&old_position.map) {
+            let mut map = mapref.borrow_mut();
+            map.add_player(storage, *entity);
+            map.add_entity_to_grid(old_position);
+        }
+
+        return Ok((old_position, false));
     }
 
     *world.get::<&mut Position>(entity.0)? = new_pos;
 
-    Ok(old_position)
+    Ok((old_position, true))
 }
 
 #[inline(always)]

@@ -282,7 +282,8 @@ pub fn handle_move(
         let pos = world.get_or_err::<Position>(entity)?;
 
         if data_pos != pos {
-            player_warp(world, storage, entity, &data_pos, false)?;
+            println!("Desync! {:?} {:?}", data_pos, pos);
+            player_warp(world, storage, entity, &pos, false)?;
             return Ok(());
         }
 
