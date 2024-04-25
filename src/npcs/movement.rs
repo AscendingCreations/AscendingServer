@@ -132,9 +132,23 @@ pub fn npc_movement(
             next.1,
             WorldEntityType::Npc,
         ) {
-            if world.get_or_err::<Target>(entity)?.targettype != EntityType::None
-                || world.get_or_err::<NpcMovePos>(entity)?.0.is_some()
-            {
+            if world.get_or_err::<Target>(entity)?.targettype != EntityType::None {
+                let pos = world.get_or_err::<Position>(entity)?;
+                let target_pos = world.get_or_err::<Target>(entity)?.targetpos;
+
+                update_target_pos(world, entity)?;
+                if is_next_to_target(pos, target_pos, 1) {
+                    let n_dir = get_target_direction(pos, target_pos);
+                    if world.get_or_err::<Dir>(entity)?.0 != n_dir {
+                        set_npc_dir(world, storage, entity, n_dir)?;
+                    }
+                } else if let Some(path) =
+                    a_star_path(storage, pos, world.get_or_err::<Dir>(entity)?.0, target_pos)
+                {
+                    npc_set_move_path(world, entity, path)?;
+                }
+            } else if world.get_or_err::<NpcMovePos>(entity)?.0.is_some() {
+                //no special movement. Lets wait till we can move again. maybe walkthru upon multi failure here?.
                 world.get::<&mut NpcMoves>(entity.0)?.0.push_front(next);
             } else {
                 npc_clear_move_path(world, entity)?;

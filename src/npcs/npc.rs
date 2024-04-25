@@ -99,14 +99,12 @@ pub fn npc_switch_maps(
 ) -> Result<Position> {
     let npc_position = world.get_or_err::<Position>(entity)?;
 
-    let old_position = npc_position;
-
     if let Some(mapref) = storage.maps.get(&npc_position.map) {
         let mut map = mapref.borrow_mut();
         map.remove_npc(*entity);
         map.remove_entity_from_grid(npc_position);
     } else {
-        return Ok(old_position);
+        return Ok(npc_position);
     }
 
     if let Some(mapref) = storage.maps.get(&new_pos.map) {
@@ -114,12 +112,12 @@ pub fn npc_switch_maps(
         map.add_npc(*entity);
         map.add_entity_to_grid(new_pos);
     } else {
-        return Ok(old_position);
+        return Ok(npc_position);
     }
 
     *world.get::<&mut Position>(entity.0)? = new_pos;
 
-    Ok(old_position)
+    Ok(npc_position)
 }
 
 #[inline(always)]
