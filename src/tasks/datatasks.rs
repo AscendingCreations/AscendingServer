@@ -15,23 +15,16 @@ use std::collections::VecDeque;
 //Token uses the Maps position to Store in the IndexMap.
 #[derive(Copy, Clone, Debug, Hash, PartialEq, Eq)]
 pub enum DataTaskToken {
-    NpcMove(MapPosition),
-    NpcWarp(MapPosition),
-    NpcDir(MapPosition),
-    NpcDeath(MapPosition),
-    NpcAttack(MapPosition),
+    Move(MapPosition),
+    Warp(MapPosition),
+    Dir(MapPosition),
+    Death(MapPosition),
+    Attack(MapPosition),
     NpcSpawn(MapPosition),
-    NpcVitals(MapPosition),
-    NpcDamage(MapPosition),
-    PlayerMove(MapPosition),
-    PlayerWarp(MapPosition),
-    PlayerDir(MapPosition),
-    PlayerDeath(MapPosition),
-    PlayerAttack(MapPosition),
+    Damage(MapPosition),
     PlayerSpawn(MapPosition),
     PlayerLevel(MapPosition),
-    PlayerVitals(MapPosition),
-    PlayerDamage(MapPosition),
+    Vitals(MapPosition),
     MapChat(MapPosition),
     ItemLoad(MapPosition),
     EntityUnload(MapPosition),
@@ -104,26 +97,19 @@ impl DataTaskToken {
     pub fn packet_id(&self) -> ServerPackets {
         use DataTaskToken::*;
         match self {
-            NpcMove(_) => ServerPackets::NpcMove,
-            NpcWarp(_) => ServerPackets::NpcWarp,
-            PlayerMove(_) => ServerPackets::PlayerMove,
-            PlayerWarp(_) => ServerPackets::PlayerWarp,
-            NpcDir(_) => ServerPackets::NpcDir,
-            PlayerDir(_) => ServerPackets::PlayerDir,
-            NpcDeath(_) => ServerPackets::NpcDeath,
-            PlayerDeath(_) => ServerPackets::PlayerDeath,
-            NpcAttack(_) => ServerPackets::NpcAttack,
-            PlayerAttack(_) => ServerPackets::PlayerAttack,
-            NpcVitals(_) => ServerPackets::NpcVital,
-            PlayerVitals(_) => ServerPackets::PlayerVitals,
+            Move(_) => ServerPackets::Move,
+            Warp(_) => ServerPackets::Warp,
+            Dir(_) => ServerPackets::Dir,
+            Death(_) => ServerPackets::Death,
+            Attack(_) => ServerPackets::Attack,
+            Vitals(_) => ServerPackets::Vitals,
             EntityUnload(_) => ServerPackets::EntityUnload,
             NpcSpawn(_) | NpcSpawnToEntity(_) => ServerPackets::NpcData,
             PlayerSpawn(_) | PlayerSpawnToEntity(_) => ServerPackets::PlayerSpawn,
             MapChat(_) => ServerPackets::ChatMsg,
             GlobalChat => ServerPackets::ChatMsg,
             ItemLoad(_) | ItemLoadToEntity(_) => ServerPackets::MapItems,
-            NpcDamage(_) => ServerPackets::MapItems, //TODO: Make a packet ID for Damages. This is to display the damage done to a player/npc on hit.
-            PlayerDamage(_) => ServerPackets::MapItems,
+            Damage(_) => ServerPackets::Damage,
             PlayerLevel(_) => ServerPackets::PlayerLevel,
         }
     }
@@ -132,12 +118,9 @@ impl DataTaskToken {
         use DataTaskToken::*;
         match self {
             GlobalChat => send_to_all(world, storage, buf),
-            NpcMove(mappos) | NpcWarp(mappos) | PlayerMove(mappos) | PlayerWarp(mappos)
-            | PlayerDir(mappos) | NpcDeath(mappos) | NpcDir(mappos) | PlayerDeath(mappos)
-            | EntityUnload(mappos) | NpcAttack(mappos) | PlayerAttack(mappos)
-            | NpcSpawn(mappos) | PlayerSpawn(mappos) | MapChat(mappos) | ItemLoad(mappos)
-            | PlayerVitals(mappos) | PlayerLevel(mappos) | PlayerDamage(mappos)
-            | NpcDamage(mappos) | NpcVitals(mappos) => {
+            Move(mappos) | Warp(mappos) | Death(mappos) | Dir(mappos) | EntityUnload(mappos)
+            | Attack(mappos) | NpcSpawn(mappos) | PlayerSpawn(mappos) | MapChat(mappos)
+            | ItemLoad(mappos) | Vitals(mappos) | PlayerLevel(mappos) | Damage(mappos) => {
                 send_to_maps(world, storage, *mappos, buf, None)
             }
             PlayerSpawnToEntity(socket_id)

@@ -1,6 +1,5 @@
-use crate::{containers::Storage, gametypes::*, maps::*, players::*, socket::*, tasks::*};
+use crate::{containers::Storage, gametypes::*, players::*, socket::*, tasks::*};
 use hecs::World;
-use std::backtrace::Backtrace;
 
 #[inline]
 pub fn send_infomsg(
@@ -107,56 +106,11 @@ pub fn send_playerdata(
 }
 
 #[inline]
-pub fn send_updatemap(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
-    let mut buf = ByteBuffer::new_packet_with(16)?;
-
-    buf.write(ServerPackets::UpdateMap)?;
-    buf.finish()?;
-
-    let id: usize = world.get::<&Socket>(entity.0)?.id;
-
-    send_to(storage, id, buf)
-}
-
-#[inline]
-pub fn send_mapitem(
-    world: &mut World,
-    storage: &Storage,
-    position: MapPosition,
-    id: Entity,
-    sendto: Option<usize>,
-) -> Result<()> {
-    let map = match storage.maps.get(&position) {
-        Some(map) => map,
-        None => return Err(AscendingError::Unhandled(Box::new(Backtrace::capture()))),
-    }
-    .borrow();
-    if let Some(item) = map.itemids.get(&id) {
-        let itemdata = world.get_or_err::<MapItem>(item)?;
-
-        let mut buf = ByteBuffer::new_packet_with(64)?;
-
-        buf.write(ServerPackets::MapItems)?;
-        buf.write(*item)?;
-        buf.write(itemdata)?;
-        buf.finish()?;
-
-        return if let Some(socket_id) = sendto {
-            send_to(storage, socket_id, buf)
-        } else {
-            send_to_maps(world, storage, position, buf, None)
-        };
-    }
-
-    Ok(())
-}
-
-#[inline]
 pub fn send_dir(world: &mut World, storage: &Storage, entity: &Entity, toself: bool) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(16)?;
     let closure = |toself, id| if toself { Some(id) } else { None };
 
-    buf.write(ServerPackets::PlayerDir)?;
+    buf.write(ServerPackets::Dir)?;
     buf.write(world.get_or_err::<Dir>(entity)?.0)?;
     buf.finish()?;
 
@@ -216,7 +170,7 @@ pub fn send_move(
 ) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(31)?;
 
-    buf.write(ServerPackets::PlayerMove)?;
+    buf.write(ServerPackets::Move)?;
     buf.write(*entity)?;
     buf.write(pos)?;
     buf.write(warp)?;
@@ -236,37 +190,12 @@ pub fn send_warp(world: &mut World, storage: &Storage, entity: &Entity) -> Resul
 
     let pos = world.get_or_err::<Position>(entity)?;
 
-    buf.write(ServerPackets::PlayerWarp)?;
+    buf.write(ServerPackets::Warp)?;
     buf.write(*entity)?;
     buf.write(pos)?;
     buf.finish()?;
 
     send_to_maps(world, storage, pos.map, buf, None)
-}
-
-pub fn send_data_removals(storage: &Storage, socket_id: usize, removals: &[Entity]) -> Result<()> {
-    let mut buf = ByteBuffer::new_packet_with(PACKET_DATA_LIMIT - 8)?;
-
-    buf.write(ServerPackets::Dataremovelist)?;
-    buf.write(removals.to_vec())?;
-    buf.finish()?;
-
-    send_to(storage, socket_id, buf)
-}
-
-pub fn send_data_removals_to_entitys(
-    world: &mut World,
-    storage: &Storage,
-    removals: &[Entity],
-    entities: &[Entity],
-) -> Result<()> {
-    let mut buf = ByteBuffer::new_packet_with(PACKET_DATA_LIMIT - 8)?;
-
-    buf.write(ServerPackets::Dataremovelist)?;
-    buf.write(removals.to_vec())?;
-    buf.finish()?;
-
-    send_to_entities(world, storage, entities, buf)
 }
 
 #[inline]
@@ -335,7 +264,7 @@ pub fn send_attack(
     let mut buf = ByteBuffer::new_packet_with(16)?;
     let closure = |toself, id| if toself { Some(id) } else { None };
 
-    buf.write(ServerPackets::PlayerAttack)?;
+    buf.write(ServerPackets::Attack)?;
     buf.write(*entity)?;
     buf.finish()?;
 
@@ -399,50 +328,9 @@ pub fn send_life_status(
     let mut buf = ByteBuffer::new_packet_with(16)?;
     let closure = |toself, id| if toself { Some(id) } else { None };
 
-    buf.write(ServerPackets::PlayerDeath)?;
+    buf.write(ServerPackets::Death)?;
     buf.write(*entity)?;
     buf.write(world.get_or_err::<DeathType>(entity)?)?;
-    buf.finish()?;
-
-    send_to_maps(
-        world,
-        storage,
-        world.get_or_err::<Position>(entity)?.map,
-        buf,
-        closure(toself, *entity),
-    )
-}
-
-#[inline]
-pub fn send_action(
-    world: &mut World,
-    storage: &Storage,
-    entity: &Entity,
-    toself: bool,
-) -> Result<()> {
-    let mut buf = ByteBuffer::new_packet_with(16)?;
-    let closure = |toself, id| if toself { Some(id) } else { None };
-
-    buf.write(ServerPackets::PlayerAction)?;
-    buf.write(world.get_or_err::<Dir>(entity)?.0)?;
-    buf.finish()?;
-
-    send_to_maps(
-        world,
-        storage,
-        world.get_or_err::<Position>(entity)?.map,
-        buf,
-        closure(toself, *entity),
-    )
-}
-
-#[inline]
-pub fn send_pvp(world: &mut World, storage: &Storage, entity: &Entity, toself: bool) -> Result<()> {
-    let mut buf = ByteBuffer::new_packet_with(16)?;
-    let closure = |toself, id| if toself { Some(id) } else { None };
-
-    buf.write(ServerPackets::PlayerPvp)?;
-    buf.write(world.get_or_err::<Player>(entity)?.pvpon)?;
     buf.finish()?;
 
     send_to_maps(
@@ -661,40 +549,6 @@ pub fn send_playitemsfx(
     buf.finish()?;
 
     send_to(storage, world.get::<&Socket>(entity.0)?.id, buf)
-}
-
-#[inline]
-pub fn send_floattextdamage(
-    world: &mut World,
-    storage: &Storage,
-    pos: Position,
-    damage: u16,
-) -> Result<()> {
-    let mut buf = ByteBuffer::new_packet_with(12)?;
-
-    buf.write(ServerPackets::FloatTextDamage)?;
-    buf.write(damage)?;
-    buf.write(pos)?;
-    buf.finish()?;
-
-    send_to_maps(world, storage, pos.map, buf, None)
-}
-
-#[inline]
-pub fn send_floattextheal(
-    world: &mut World,
-    storage: &Storage,
-    pos: Position,
-    amount: u16,
-) -> Result<()> {
-    let mut buf = ByteBuffer::new_packet_with(12)?;
-
-    buf.write(ServerPackets::FloatTextHeal)?;
-    buf.write(amount)?;
-    buf.write(pos)?;
-    buf.finish()?;
-
-    send_to_maps(world, storage, pos.map, buf, None)
 }
 
 #[inline]

@@ -19,12 +19,15 @@ pub fn update_players(world: &mut World, storage: &Storage) -> Result<()> {
                     {
                         *world.get::<&mut DeathType>(id.0)? = DeathType::Alive;
                     }
-                    send_life_status(world, storage, id, true)?;
+
+                    DataTaskToken::Death(world.get_or_err::<Position>(id)?.map)
+                        .add_task(storage, death_packet(*id, DeathType::Alive)?)?;
+
                     player_warp(
                         world,
                         storage,
                         id,
-                        &world.get_or_err::<Position>(id)?,
+                        &world.get_or_err::<Spawn>(id)?.pos,
                         false,
                     )?;
                     init_data_lists(world, storage, id, None)?;
@@ -176,7 +179,7 @@ pub fn player_earn_exp(
     }
 
     send_level(world, storage, entity)?;
-    DataTaskToken::PlayerVitals(world.get_or_err::<Position>(entity)?.map).add_task(
+    DataTaskToken::Vitals(world.get_or_err::<Position>(entity)?.map).add_task(
         storage,
         vitals_packet(
             *entity,

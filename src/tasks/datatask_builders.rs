@@ -193,9 +193,18 @@ pub fn vitals_packet(
     Ok(buffer)
 }
 
-pub fn damage_packet(entity: Entity, damage: u64) -> Result<ByteBuffer> {
-    let mut buffer = ByteBuffer::with_capacity(16)?;
-    buffer.write(entity)?.write(damage)?;
+pub fn damage_packet(
+    entity: Entity,
+    damage: u16,
+    pos: Position,
+    is_damage: bool,
+) -> Result<ByteBuffer> {
+    let mut buffer = ByteBuffer::with_capacity(32)?;
+    buffer
+        .write(entity)?
+        .write(damage)?
+        .write(pos)?
+        .write(is_damage)?;
 
     Ok(buffer)
 }

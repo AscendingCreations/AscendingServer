@@ -1,6 +1,14 @@
 use hecs::World;
 
-use crate::{containers::*, gametypes::*, items::*, players::*, socket::*, sql::*};
+use crate::{
+    containers::*,
+    gametypes::*,
+    items::*,
+    players::*,
+    socket::*,
+    sql::*,
+    tasks::{damage_packet, DataTaskToken},
+};
 
 #[inline]
 pub fn save_inv_item(
@@ -562,11 +570,14 @@ pub fn player_use_item(
                     .min(player_vital.vitalmax[VitalTypes::Hp as usize]);
                 player_set_vital(world, storage, entity, VitalTypes::Hp, set_vital)?;
 
-                send_floattextheal(
-                    world,
+                DataTaskToken::Damage(world.get_or_default::<Position>(entity).map).add_task(
                     storage,
-                    world.get_or_default::<Position>(entity),
-                    base.data[0] as u16,
+                    damage_packet(
+                        *entity,
+                        base.data[0] as u16,
+                        world.get_or_default::<Position>(entity),
+                        false,
+                    )?,
                 )?;
             }
 

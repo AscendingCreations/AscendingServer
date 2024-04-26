@@ -4,8 +4,7 @@ use crate::{
     maps::{can_target, is_dir_blocked},
     npcs::{damage_npc, kill_npc, try_target_entity, NpcIndex},
     players::*,
-    socket::send_floattextdamage,
-    tasks::{attack_packet, init_data_lists, vitals_packet, DataTaskToken},
+    tasks::{attack_packet, damage_packet, init_data_lists, vitals_packet, DataTaskToken},
 };
 use hecs::World;
 use rand::*;
@@ -66,20 +65,21 @@ pub fn player_combat(
             WorldEntityType::Player => {
                 let damage = player_combat_damage(world, storage, entity, target_entity)?;
                 damage_player(world, target_entity, damage)?;
-
-                send_floattextdamage(
-                    world,
+                DataTaskToken::Damage(world.get_or_default::<Position>(entity).map).add_task(
                     storage,
-                    world.get_or_default::<Position>(target_entity),
-                    damage as u16,
+                    damage_packet(
+                        *target_entity,
+                        damage as u16,
+                        world.get_or_default::<Position>(target_entity),
+                        true,
+                    )?,
                 )?;
-
-                DataTaskToken::PlayerAttack(world.get_or_default::<Position>(entity).map)
+                DataTaskToken::Attack(world.get_or_default::<Position>(entity).map)
                     .add_task(storage, attack_packet(*entity)?)?;
 
                 let vitals = world.get_or_err::<Vitals>(target_entity)?;
                 if vitals.vital[0] > 0 {
-                    DataTaskToken::PlayerVitals(world.get_or_default::<Position>(entity).map)
+                    DataTaskToken::Vitals(world.get_or_default::<Position>(entity).map)
                         .add_task(storage, {
                             vitals_packet(*target_entity, vitals.vital, vitals.vitalmax)?
                         })?;
@@ -91,19 +91,21 @@ pub fn player_combat(
                 let damage = player_combat_damage(world, storage, entity, target_entity)?;
                 damage_npc(world, target_entity, damage)?;
 
-                send_floattextdamage(
-                    world,
+                DataTaskToken::Damage(world.get_or_default::<Position>(entity).map).add_task(
                     storage,
-                    world.get_or_default::<Position>(target_entity),
-                    damage as u16,
+                    damage_packet(
+                        *target_entity,
+                        damage as u16,
+                        world.get_or_default::<Position>(target_entity),
+                        true,
+                    )?,
                 )?;
-
-                DataTaskToken::PlayerAttack(world.get_or_default::<Position>(entity).map)
+                DataTaskToken::Attack(world.get_or_default::<Position>(entity).map)
                     .add_task(storage, attack_packet(*entity)?)?;
 
                 let vitals = world.get_or_err::<Vitals>(target_entity)?;
                 if vitals.vital[0] > 0 {
-                    DataTaskToken::NpcVitals(world.get_or_default::<Position>(entity).map)
+                    DataTaskToken::Vitals(world.get_or_default::<Position>(entity).map)
                         .add_task(storage, {
                             vitals_packet(*target_entity, vitals.vital, vitals.vitalmax)?
                         })?;
@@ -189,14 +191,11 @@ pub fn kill_player(world: &mut World, storage: &Storage, entity: &Entity) -> Res
         }
         world.get::<&mut PlayerTarget>(entity.0)?.0 = None;
     }
-    DataTaskToken::PlayerVitals(world.get_or_default::<Position>(entity).map).add_task(
-        storage,
-        {
-            let vitals = world.get_or_err::<Vitals>(entity)?;
+    DataTaskToken::Vitals(world.get_or_default::<Position>(entity).map).add_task(storage, {
+        let vitals = world.get_or_err::<Vitals>(entity)?;
 
-            vitals_packet(*entity, vitals.vital, vitals.vitalmax)?
-        },
-    )?;
+        vitals_packet(*entity, vitals.vital, vitals.vitalmax)?
+    })?;
     let spawn = world.get_or_err::<Spawn>(entity)?;
     player_warp(world, storage, entity, &spawn.pos, false)?;
     init_data_lists(world, storage, entity, None)

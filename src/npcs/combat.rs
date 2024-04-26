@@ -1,9 +1,6 @@
 use std::borrow::Borrow;
 
-use crate::{
-    containers::Storage, gametypes::*, maps::*, npcs::*, players::*, socket::send_floattextdamage,
-    tasks::*,
-};
+use crate::{containers::Storage, gametypes::*, maps::*, npcs::*, players::*, tasks::*};
 use hecs::World;
 use rand::{thread_rng, Rng};
 
@@ -133,24 +130,27 @@ pub fn npc_combat(
             if world.contains(i.0) {
                 let damage = npc_combat_damage(world, storage, entity, &i, base)?;
                 damage_player(world, &i, damage)?;
-
-                send_floattextdamage(
-                    world,
+                DataTaskToken::Damage(world.get_or_default::<Position>(entity).map).add_task(
                     storage,
-                    world.get_or_default::<Position>(&i),
-                    damage as u16,
+                    damage_packet(
+                        *entity,
+                        damage as u16,
+                        world.get_or_default::<Position>(&i),
+                        true,
+                    )?,
                 )?;
-
-                DataTaskToken::NpcAttack(world.get_or_default::<Position>(entity).map)
+                DataTaskToken::Attack(world.get_or_default::<Position>(entity).map)
                     .add_task(storage, attack_packet(*entity)?)?;
                 let vitals = world.get_or_err::<Vitals>(&i)?;
                 if vitals.vital[0] > 0 {
-                    DataTaskToken::PlayerVitals(world.get_or_default::<Position>(entity).map)
-                        .add_task(storage, {
+                    DataTaskToken::Vitals(world.get_or_default::<Position>(entity).map).add_task(
+                        storage,
+                        {
                             let vitals = world.get_or_err::<Vitals>(&i)?;
 
                             vitals_packet(i, vitals.vital, vitals.vitalmax)?
-                        })?;
+                        },
+                    )?;
                 } else {
                     remove_all_npc_target(world, &i)?;
                     kill_player(world, storage, &i)?;
@@ -162,16 +162,18 @@ pub fn npc_combat(
                 let damage = npc_combat_damage(world, storage, entity, &i, base)?;
                 damage_npc(world, &i, damage)?;
 
-                send_floattextdamage(
-                    world,
+                DataTaskToken::Damage(world.get_or_default::<Position>(entity).map).add_task(
                     storage,
-                    world.get_or_default::<Position>(&i),
-                    damage as u16,
+                    damage_packet(
+                        *entity,
+                        damage as u16,
+                        world.get_or_default::<Position>(&i),
+                        true,
+                    )?,
                 )?;
-
-                DataTaskToken::NpcAttack(world.get_or_default::<Position>(entity).map)
+                DataTaskToken::Attack(world.get_or_default::<Position>(entity).map)
                     .add_task(storage, attack_packet(*entity)?)?;
-                DataTaskToken::NpcVitals(world.get_or_default::<Position>(entity).map).add_task(
+                DataTaskToken::Vitals(world.get_or_default::<Position>(entity).map).add_task(
                     storage,
                     {
                         let vitals = world.get_or_err::<Vitals>(&i)?;
