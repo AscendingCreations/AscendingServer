@@ -105,24 +105,6 @@ pub fn send_playerdata(
     send_to(storage, socket_id, buf)
 }
 
-#[inline]
-pub fn send_dir(world: &mut World, storage: &Storage, entity: &Entity, toself: bool) -> Result<()> {
-    let mut buf = ByteBuffer::new_packet_with(16)?;
-    let closure = |toself, id| if toself { Some(id) } else { None };
-
-    buf.write(ServerPackets::Dir)?;
-    buf.write(world.get_or_err::<Dir>(entity)?.0)?;
-    buf.finish()?;
-
-    send_to_maps(
-        world,
-        storage,
-        world.get_or_err::<Position>(entity)?.map,
-        buf,
-        closure(toself, *entity),
-    )
-}
-
 pub fn send_codes(
     world: &mut World,
     storage: &Storage,
@@ -154,48 +136,6 @@ pub fn send_ping(world: &mut World, storage: &Storage, entity: &Entity) -> Resul
     let id: usize = world.get::<&Socket>(entity.0)?.id;
 
     send_to(storage, id, buf)
-}
-
-#[inline]
-#[allow(clippy::too_many_arguments)]
-pub fn send_move(
-    world: &mut World,
-    storage: &Storage,
-    entity: &Entity,
-    pos: Position,
-    warp: bool,
-    switch: bool,
-    dir: u8,
-    send_to_pos: Option<Position>,
-) -> Result<()> {
-    let mut buf = ByteBuffer::new_packet_with(31)?;
-
-    buf.write(ServerPackets::Move)?;
-    buf.write(*entity)?;
-    buf.write(pos)?;
-    buf.write(warp)?;
-    buf.write(switch)?;
-    buf.write(dir)?;
-    buf.finish()?;
-
-    if let Some(sendpos) = send_to_pos {
-        send_to_maps(world, storage, sendpos.map, buf, Some(*entity))
-    } else {
-        send_to_maps(world, storage, pos.map, buf, Some(*entity))
-    }
-}
-
-pub fn send_warp(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
-    let mut buf = ByteBuffer::new_packet_with(24)?;
-
-    let pos = world.get_or_err::<Position>(entity)?;
-
-    buf.write(ServerPackets::Warp)?;
-    buf.write(*entity)?;
-    buf.write(pos)?;
-    buf.finish()?;
-
-    send_to_maps(world, storage, pos.map, buf, None)
 }
 
 #[inline]
@@ -255,29 +195,6 @@ pub fn send_storageslot(
 }
 
 #[inline]
-pub fn send_attack(
-    world: &mut World,
-    storage: &Storage,
-    entity: &Entity,
-    toself: bool,
-) -> Result<()> {
-    let mut buf = ByteBuffer::new_packet_with(16)?;
-    let closure = |toself, id| if toself { Some(id) } else { None };
-
-    buf.write(ServerPackets::Attack)?;
-    buf.write(*entity)?;
-    buf.finish()?;
-
-    send_to_maps(
-        world,
-        storage,
-        world.get_or_err::<Position>(entity)?.map,
-        buf,
-        closure(toself, *entity),
-    )
-}
-
-#[inline]
 pub fn send_equipment(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(16)?;
 
@@ -316,30 +233,6 @@ pub fn send_money(world: &mut World, storage: &Storage, entity: &Entity) -> Resu
     buf.finish()?;
 
     send_to(storage, world.get::<&Socket>(entity.0)?.id, buf)
-}
-
-#[inline]
-pub fn send_life_status(
-    world: &mut World,
-    storage: &Storage,
-    entity: &Entity,
-    toself: bool,
-) -> Result<()> {
-    let mut buf = ByteBuffer::new_packet_with(16)?;
-    let closure = |toself, id| if toself { Some(id) } else { None };
-
-    buf.write(ServerPackets::Death)?;
-    buf.write(*entity)?;
-    buf.write(world.get_or_err::<DeathType>(entity)?)?;
-    buf.finish()?;
-
-    send_to_maps(
-        world,
-        storage,
-        world.get_or_err::<Position>(entity)?.map,
-        buf,
-        closure(toself, *entity),
-    )
 }
 
 #[inline]

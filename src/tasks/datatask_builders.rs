@@ -58,7 +58,7 @@ pub fn npc_spawn_packet(world: &mut World, entity: &Entity, did_spawn: bool) -> 
     if let Some((dir, hidden, level, life, physical, position, sprite, vitals, mode, npc_index)) =
         query.get()
     {
-        let mut buffer = ByteBuffer::with_capacity(77)?;
+        let mut buffer = ByteBuffer::with_capacity(93)?;
         buffer
             .write(dir.0)?
             .write(hidden.0)?
@@ -119,7 +119,7 @@ pub fn player_spawn_packet(
         player,
     )) = query.get()
     {
-        let mut buffer = ByteBuffer::with_capacity(account.username.len() + 202)?;
+        let mut buffer = ByteBuffer::with_capacity(account.username.len() + 226)?;
         buffer
             .write(&account.username)?
             .write(dir.0)?
@@ -134,7 +134,7 @@ pub fn player_spawn_packet(
             .write(vitals.vital)?
             .write(vitals.vitalmax)?
             .write(access)?
-            .write(&equipment.items)? //85
+            .write(equipment)? //85
             .write(player.pk)?
             .write(player.pvpon)?
             .write(did_spawn)?;

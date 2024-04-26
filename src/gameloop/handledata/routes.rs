@@ -302,7 +302,7 @@ pub fn handle_move(
         let pos = world.get_or_err::<Position>(entity)?;
 
         if data_pos != pos {
-            println!("Desync! {:?} {:?}", data_pos, pos);
+            //println!("Desync! {:?} {:?}", data_pos, pos);
             player_warp(world, storage, entity, &pos, false)?;
             return Ok(());
         }
@@ -337,7 +337,8 @@ pub fn handle_dir(
             world.get::<&mut Dir>(entity.0)?.0 = dir;
         }
 
-        send_dir(world, storage, entity, true)?;
+        DataTaskToken::Dir(world.get_or_err::<Position>(entity)?.map)
+            .add_task(storage, dir_packet(*entity, dir)?)?;
 
         return Ok(());
     }
@@ -371,7 +372,8 @@ pub fn handle_attack(
             {
                 world.get::<&mut Dir>(entity.0)?.0 = dir;
             }
-            send_dir(world, storage, entity, true)?;
+            DataTaskToken::Dir(world.get_or_err::<Position>(entity)?.map)
+                .add_task(storage, dir_packet(*entity, dir)?)?;
         };
 
         if let Some(target_entity) = target {

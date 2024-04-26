@@ -134,8 +134,6 @@ pub fn player_movement(
             storage,
             move_packet(*entity, new_pos, false, true, player_dir.0)?,
         )?;
-        //send_move(world, storage, entity, new_pos, false, true, player_dir.0, Some(oldpos));
-        //send_move(world, storage, entity, new_pos, false, true, player_dir.0, None);
         DataTaskToken::PlayerSpawn(new_pos.map)
             .add_task(storage, player_spawn_packet(world, entity, true)?)?;
 
@@ -146,7 +144,6 @@ pub fn player_movement(
             storage,
             move_packet(*entity, new_pos, false, false, player_dir.0)?,
         )?;
-        //send_move(world, storage, entity, new_pos, false, false, player_dir.0, None);
     }
 
     Ok(true)

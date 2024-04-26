@@ -131,17 +131,17 @@ impl DataTaskToken {
 }
 
 pub fn process_tasks(world: &mut World, storage: &Storage) -> Result<()> {
-    while let Some(id) = storage.packet_cache_ids.borrow_mut().pop() {
+    for id in storage.packet_cache_ids.borrow_mut().drain(..) {
         if let Some(buffers) = storage.packet_cache.borrow_mut().get_mut(&id) {
             //We send the older packets first hence pop front as they are the oldest.
-            while let Some((count, mut buffer, is_finished)) = buffers.pop_front() {
+            for (count, mut buffer, is_finished) in buffers.drain(..) {
                 finish_cache(&mut buffer, count, is_finished)?;
                 id.send(world, storage, buffer)?;
             }
 
             //lets resize these if they get to unruly.
-            if buffers.capacity() > 100 && buffers.len() < 50 {
-                buffers.shrink_to_fit()
+            if buffers.capacity() > 250 && buffers.len() < 100 {
+                buffers.shrink_to(100);
             }
         }
     }
