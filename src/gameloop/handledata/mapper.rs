@@ -121,6 +121,7 @@ impl PacketRouter {
                 ClientPacket::DeclineTrade,
                 routes::handle_declinetrade as PacketFunction,
             ),
+            (ClientPacket::Ping, routes::handle_ping as PacketFunction),
         ]))
     }
 }

@@ -696,3 +696,14 @@ pub fn send_floattextheal(
 
     send_to_maps(world, storage, pos.map, buf, None)
 }
+
+#[inline]
+pub fn send_gameping(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
+    let mut buf = ByteBuffer::new_packet_with(10)?;
+
+    buf.write(ServerPackets::Ping)?;
+    buf.write(0u64)?;
+    buf.finish()?;
+
+    send_to(storage, world.get::<&Socket>(entity.0)?.id, buf)
+}
