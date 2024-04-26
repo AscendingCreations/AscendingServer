@@ -142,14 +142,14 @@ pub fn npc_combat(
                 )?;
 
                 DataTaskToken::NpcAttack(world.get_or_default::<Position>(entity).map)
-                    .add_task(storage, entity)?;
+                    .add_task(storage, attack_packet(*entity)?)?;
                 let vitals = world.get_or_err::<Vitals>(&i)?;
                 if vitals.vital[0] > 0 {
                     DataTaskToken::PlayerVitals(world.get_or_default::<Position>(entity).map)
                         .add_task(storage, {
                             let vitals = world.get_or_err::<Vitals>(&i)?;
 
-                            &VitalsPacket::new(i, vitals.vital, vitals.vitalmax)
+                            vitals_packet(i, vitals.vital, vitals.vitalmax)?
                         })?;
                 } else {
                     remove_all_npc_target(world, &i)?;
@@ -170,13 +170,13 @@ pub fn npc_combat(
                 )?;
 
                 DataTaskToken::NpcAttack(world.get_or_default::<Position>(entity).map)
-                    .add_task(storage, entity)?;
+                    .add_task(storage, attack_packet(*entity)?)?;
                 DataTaskToken::NpcVitals(world.get_or_default::<Position>(entity).map).add_task(
                     storage,
                     {
                         let vitals = world.get_or_err::<Vitals>(&i)?;
 
-                        &VitalsPacket::new(i, vitals.vital, vitals.vitalmax)
+                        vitals_packet(i, vitals.vital, vitals.vitalmax)?
                     },
                 )?;
             }

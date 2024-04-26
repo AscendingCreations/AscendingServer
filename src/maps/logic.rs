@@ -4,7 +4,7 @@ use crate::{
     items::Item,
     maps::is_dir_blocked,
     npcs::NpcSpawnedZone,
-    tasks::{DataTaskToken, MapItemPacket},
+    tasks::{map_item_packet, DataTaskToken},
 };
 use chrono::Duration;
 use hecs::World;
@@ -123,13 +123,13 @@ pub fn update_maps(world: &mut World, storage: &Storage) -> Result<()> {
                         storage_mapitem.insert(data.pos, Entity(id));
                         DataTaskToken::ItemLoad(data.pos.map).add_task(
                             storage,
-                            &MapItemPacket::new(
+                            map_item_packet(
                                 Entity(id),
                                 map_item.pos,
                                 map_item.item,
                                 map_item.ownerid,
                                 true,
-                            ),
+                            )?,
                         )?;
                         add_items.push(Entity(id));
                     }

@@ -248,7 +248,7 @@ pub fn player_set_dir(
             player_dir.0 = dir;
 
             DataTaskToken::PlayerDir(player_position.map)
-                .add_task(storage, &DirPacket::new(*entity, dir))?;
+                .add_task(storage, dir_packet(*entity, dir)?)?;
         }
     }
 
@@ -345,7 +345,7 @@ pub fn player_set_vital(
         {
             let vitals = world.get_or_err::<Vitals>(entity)?;
 
-            &VitalsPacket::new(*entity, vitals.vital, vitals.vitalmax)
+            vitals_packet(*entity, vitals.vital, vitals.vitalmax)?
         },
     )?;
 

@@ -89,7 +89,7 @@ pub fn update_npcs(world: &mut World, storage: &Storage) -> Result<()> {
                             .add_entity_to_grid(world.get_or_err::<Spawn>(id)?.pos);
 
                         DataTaskToken::NpcSpawn(world.get_or_err::<Spawn>(id)?.pos.map)
-                            .add_task(storage, &NpcSpawnPacket::new(world, id, true)?)?;
+                            .add_task(storage, npc_spawn_packet(world, id, true)?)?;
                     }
                 }
             }
@@ -110,7 +110,7 @@ pub fn update_npcs(world: &mut World, storage: &Storage) -> Result<()> {
                 data.zones[zone] = data.zones[zone].saturating_sub(1);
             }
         }
-        DataTaskToken::EntityUnload(pos.map).add_task(storage, &(i))?;
+        DataTaskToken::EntityUnload(pos.map).add_task(storage, unload_entity_packet(i)?)?;
     }
 
     Ok(())

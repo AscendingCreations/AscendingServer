@@ -178,11 +178,11 @@ pub fn player_earn_exp(
     send_level(world, storage, entity)?;
     DataTaskToken::PlayerVitals(world.get_or_err::<Position>(entity)?.map).add_task(
         storage,
-        &VitalsPacket::new(
+        vitals_packet(
             *entity,
             world.get_or_err::<Vitals>(entity)?.vital,
             world.get_or_err::<Vitals>(entity)?.vitalmax,
-        ),
+        )?,
     )?;
     update_level(storage, world, entity)
 }
@@ -371,7 +371,7 @@ pub fn joingame(world: &mut World, storage: &Storage, entity: &Entity) -> Result
 
     DataTaskToken::MapChat(position.map).add_task(
         storage,
-        &MessagePacket::new(
+        message_packet(
             MessageChannel::Map,
             String::new(),
             format!(
@@ -379,7 +379,7 @@ pub fn joingame(world: &mut World, storage: &Storage, entity: &Entity) -> Result
                 world.cloned_get_or_err::<Account>(entity)?.username
             ),
             None,
-        ),
+        )?,
     )?;
 
     debug!("Login Ok");
@@ -404,7 +404,7 @@ pub fn left_game(world: &mut World, storage: &Storage, entity: &Entity) -> Resul
     let position = world.get_or_err::<Position>(entity)?;
     DataTaskToken::MapChat(position.map).add_task(
         storage,
-        &MessagePacket::new(
+        message_packet(
             MessageChannel::Map,
             String::new(),
             format!(
@@ -412,7 +412,7 @@ pub fn left_game(world: &mut World, storage: &Storage, entity: &Entity) -> Resul
                 world.cloned_get_or_err::<Account>(entity)?.username
             ),
             None,
-        ),
+        )?,
     )?;
 
     update_playerdata(storage, world, entity)?;

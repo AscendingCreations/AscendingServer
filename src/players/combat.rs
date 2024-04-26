@@ -5,7 +5,7 @@ use crate::{
     npcs::{damage_npc, kill_npc, try_target_entity, NpcIndex},
     players::*,
     socket::send_floattextdamage,
-    tasks::{init_data_lists, DataTaskToken, VitalsPacket},
+    tasks::{attack_packet, init_data_lists, vitals_packet, DataTaskToken},
 };
 use hecs::World;
 use rand::*;
@@ -75,13 +75,13 @@ pub fn player_combat(
                 )?;
 
                 DataTaskToken::PlayerAttack(world.get_or_default::<Position>(entity).map)
-                    .add_task(storage, entity)?;
+                    .add_task(storage, attack_packet(*entity)?)?;
 
                 let vitals = world.get_or_err::<Vitals>(target_entity)?;
                 if vitals.vital[0] > 0 {
                     DataTaskToken::PlayerVitals(world.get_or_default::<Position>(entity).map)
                         .add_task(storage, {
-                            &VitalsPacket::new(*target_entity, vitals.vital, vitals.vitalmax)
+                            vitals_packet(*target_entity, vitals.vital, vitals.vitalmax)?
                         })?;
                 } else {
                     kill_player(world, storage, target_entity)?;
@@ -99,13 +99,13 @@ pub fn player_combat(
                 )?;
 
                 DataTaskToken::PlayerAttack(world.get_or_default::<Position>(entity).map)
-                    .add_task(storage, entity)?;
+                    .add_task(storage, attack_packet(*entity)?)?;
 
                 let vitals = world.get_or_err::<Vitals>(target_entity)?;
                 if vitals.vital[0] > 0 {
                     DataTaskToken::NpcVitals(world.get_or_default::<Position>(entity).map)
                         .add_task(storage, {
-                            &VitalsPacket::new(*target_entity, vitals.vital, vitals.vitalmax)
+                            vitals_packet(*target_entity, vitals.vital, vitals.vitalmax)?
                         })?;
 
                     let acc_id = world.cloned_get_or_default::<Account>(entity).id;
@@ -194,7 +194,7 @@ pub fn kill_player(world: &mut World, storage: &Storage, entity: &Entity) -> Res
         {
             let vitals = world.get_or_err::<Vitals>(entity)?;
 
-            &VitalsPacket::new(*entity, vitals.vital, vitals.vitalmax)
+            vitals_packet(*entity, vitals.vital, vitals.vitalmax)?
         },
     )?;
     let spawn = world.get_or_err::<Spawn>(entity)?;

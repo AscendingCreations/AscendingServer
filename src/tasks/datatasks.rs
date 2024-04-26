@@ -45,12 +45,12 @@ pub enum DataTaskToken {
 pub const PACKET_DATA_LIMIT: usize = 1400;
 
 impl DataTaskToken {
-    pub fn add_task<T: ByteBufferWrite>(self, storage: &Storage, data: &T) -> Result<()> {
+    pub fn add_task(self, storage: &Storage, mut data: ByteBuffer) -> Result<()> {
         //Newer packets get pushed to the back.
         match storage.packet_cache.borrow_mut().entry(self) {
             Entry::Vacant(v) => {
                 let mut buffer = new_cache(self.packet_id())?;
-                data.write_to_buffer(&mut buffer)?;
+                buffer.write_slice(data.as_slice())?;
                 if buffer.length() > PACKET_DATA_LIMIT {
                     warn!(
                         "Buffer Length for single write of {:?} Exceeded PACKET_DATA_LIMIT",
@@ -65,26 +65,20 @@ impl DataTaskToken {
 
                 if buffers.is_empty() {
                     let mut buffer = new_cache(self.packet_id())?;
-                    data.write_to_buffer(&mut buffer)?;
+                    buffer.write_slice(data.as_slice())?;
                     buffers.push_back((1, buffer, false));
                 } else {
-                    //try to get the size but if its a internal Vec thsi migth be wrong.
-                    let size = std::mem::size_of::<T>();
                     let (count, buffer, is_finished) = buffers
                         .back_mut()
                         .ok_or(AscendingError::PacketCacheNotFound(self))?;
 
-                    //build a initial packet to get the true size.
-                    let mut packet = ByteBuffer::with_capacity(size)?;
-                    data.write_to_buffer(&mut packet)?;
-
-                    if packet.length() + buffer.length() > PACKET_DATA_LIMIT {
+                    if data.length() + buffer.length() > PACKET_DATA_LIMIT {
                         *is_finished = true;
                         finish_cache(buffer, *count, false)?;
 
                         let mut buffer = new_cache(self.packet_id())?;
 
-                        buffer.write_slice(packet.as_slice())?;
+                        buffer.write_slice(data.as_slice())?;
 
                         if buffer.length() > PACKET_DATA_LIMIT {
                             warn!(
@@ -94,7 +88,7 @@ impl DataTaskToken {
                         }
                         buffers.push_back((1, buffer, false));
                     } else {
-                        buffer.write_slice(packet.as_slice())?;
+                        buffer.write_slice(data.as_slice())?;
                         *count += 1;
                     }
                 }

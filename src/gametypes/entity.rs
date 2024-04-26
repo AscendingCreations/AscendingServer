@@ -146,6 +146,20 @@ impl ByteBufferWrite for Entity {
     }
 }
 
+impl ByteBufferWrite for &Entity {
+    fn write_to_buffer(&self, buffer: &mut bytey::ByteBuffer) -> bytey::Result<()> {
+        self.0.to_bits().write_to_buffer(buffer)
+    }
+
+    fn write_to_buffer_le(&self, buffer: &mut bytey::ByteBuffer) -> bytey::Result<()> {
+        self.0.to_bits().write_to_buffer_le(buffer)
+    }
+
+    fn write_to_buffer_be(&self, buffer: &mut bytey::ByteBuffer) -> bytey::Result<()> {
+        self.0.to_bits().write_to_buffer_be(buffer)
+    }
+}
+
 impl ByteBufferRead for Entity {
     fn read_from_buffer(buffer: &mut bytey::ByteBuffer) -> bytey::Result<Self>
     where

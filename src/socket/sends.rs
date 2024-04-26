@@ -1,7 +1,6 @@
-use std::backtrace::Backtrace;
-
 use crate::{containers::Storage, gametypes::*, maps::*, players::*, socket::*, tasks::*};
 use hecs::World;
+use std::backtrace::Backtrace;
 
 #[inline]
 pub fn send_infomsg(
@@ -487,9 +486,9 @@ pub fn send_message(
 
     match chan {
         MessageChannel::Map => DataTaskToken::MapChat(world.get_or_err::<Position>(entity)?.map)
-            .add_task(storage, &MessagePacket::new(chan, head, msg, Some(access)))?,
+            .add_task(storage, message_packet(chan, head, msg, Some(access))?)?,
         MessageChannel::Global => DataTaskToken::GlobalChat
-            .add_task(storage, &MessagePacket::new(chan, head, msg, Some(access)))?,
+            .add_task(storage, message_packet(chan, head, msg, Some(access))?)?,
         MessageChannel::Party | MessageChannel::Trade | MessageChannel::Help => {}
         MessageChannel::Private => {
             let mut buf = ByteBuffer::new_packet_with(msg.len() + head.len() + 32)?;

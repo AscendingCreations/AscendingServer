@@ -205,22 +205,16 @@ pub fn npc_movement(
             if next.0.map != old_map {
                 npc_switch_maps(world, storage, entity, next.0)?;
                 //Send this Twice one to the old map and one to the new. Just in case people in outermaps did not get it yet.
-                DataTaskToken::NpcMove(old_map).add_task(
-                    storage,
-                    &MovePacket::new(*entity, next.0, false, true, next.1),
-                )?;
-                DataTaskToken::NpcMove(next.0.map).add_task(
-                    storage,
-                    &MovePacket::new(*entity, next.0, false, true, next.1),
-                )?;
+                DataTaskToken::NpcMove(old_map)
+                    .add_task(storage, move_packet(*entity, next.0, false, true, next.1)?)?;
+                DataTaskToken::NpcMove(next.0.map)
+                    .add_task(storage, move_packet(*entity, next.0, false, true, next.1)?)?;
                 DataTaskToken::NpcSpawn(next.0.map)
-                    .add_task(storage, &NpcSpawnPacket::new(world, entity, true)?)?;
+                    .add_task(storage, npc_spawn_packet(world, entity, true)?)?;
             } else {
                 npc_swap_pos(world, storage, entity, next.0)?;
-                DataTaskToken::NpcMove(next.0.map).add_task(
-                    storage,
-                    &MovePacket::new(*entity, next.0, false, false, next.1),
-                )?;
+                DataTaskToken::NpcMove(next.0.map)
+                    .add_task(storage, move_packet(*entity, next.0, false, false, next.1)?)?;
             }
         }
     }

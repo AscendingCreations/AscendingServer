@@ -1,6 +1,12 @@
 use crate::{
-    containers::Storage, gametypes::*, handle_data, maps::*, players::*, socket::*,
-    tasks::DataTaskToken, PacketRouter,
+    containers::Storage,
+    gametypes::*,
+    handle_data,
+    maps::*,
+    players::*,
+    socket::*,
+    tasks::{unload_entity_packet, DataTaskToken},
+    PacketRouter,
 };
 use hecs::World;
 use log::{error, warn};
@@ -470,7 +476,8 @@ pub fn disconnect(playerid: Entity, world: &mut World, storage: &Storage) -> Res
         if let Some(map) = storage.maps.get(&pos.map) {
             map.borrow_mut().remove_player(storage, playerid);
             map.borrow_mut().remove_entity_from_grid(pos);
-            DataTaskToken::EntityUnload(pos.map).add_task(storage, &(playerid))?;
+            DataTaskToken::EntityUnload(pos.map)
+                .add_task(storage, unload_entity_packet(playerid)?)?;
         }
     }
 

@@ -5,7 +5,7 @@ use crate::{
     gametypes::*,
     maps::*,
     players::*,
-    tasks::{DataTaskToken, MapItemPacket, NpcSpawnPacket, PlayerSpawnPacket},
+    tasks::{map_item_packet, npc_spawn_packet, player_spawn_packet, DataTaskToken},
 };
 use hecs::World;
 
@@ -145,10 +145,8 @@ pub fn process_data_lists(world: &mut World, storage: &Storage) -> Result<()> {
 
                         for entity in entities.drain(cursor..) {
                             if world.contains(entity.0) {
-                                DataTaskToken::NpcSpawnToEntity(socket_id).add_task(
-                                    storage,
-                                    &NpcSpawnPacket::new(world, &entity, false)?,
-                                )?;
+                                DataTaskToken::NpcSpawnToEntity(socket_id)
+                                    .add_task(storage, npc_spawn_packet(world, &entity, false)?)?;
                             }
                         }
 
@@ -161,7 +159,7 @@ pub fn process_data_lists(world: &mut World, storage: &Storage) -> Result<()> {
                             if world.contains(entity.0) {
                                 DataTaskToken::PlayerSpawnToEntity(socket_id).add_task(
                                     storage,
-                                    &PlayerSpawnPacket::new(world, &entity, false)?,
+                                    player_spawn_packet(world, &entity, false)?,
                                 )?;
                             }
                         }
@@ -175,13 +173,13 @@ pub fn process_data_lists(world: &mut World, storage: &Storage) -> Result<()> {
                             if let Ok(map_item) = world.get::<&MapItem>(entity.0) {
                                 DataTaskToken::ItemLoadToEntity(socket_id).add_task(
                                     storage,
-                                    &MapItemPacket::new(
+                                    map_item_packet(
                                         entity,
                                         map_item.pos,
                                         map_item.item,
                                         map_item.ownerid,
                                         false,
-                                    ),
+                                    )?,
                                 )?;
                             }
                         }

@@ -662,7 +662,8 @@ pub fn handle_pickup(
                     storage_mapitems.swap_remove(&pos);
                 }
                 map.borrow_mut().remove_item(*entity);
-                DataTaskToken::EntityUnload(*mappos).add_task(storage, &(*entity))?;
+                DataTaskToken::EntityUnload(*mappos)
+                    .add_task(storage, unload_entity_packet(*entity)?)?;
             }
         }
         {

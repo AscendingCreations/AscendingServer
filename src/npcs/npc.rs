@@ -84,7 +84,7 @@ pub fn set_npc_dir(
         world.get::<&mut Dir>(entity.0)?.0 = dir;
 
         DataTaskToken::NpcDir(world.get_or_err::<Position>(entity)?.map)
-            .add_task(storage, &DirPacket::new(*entity, dir))?;
+            .add_task(storage, dir_packet(*entity, dir)?)?;
     }
 
     Ok(())

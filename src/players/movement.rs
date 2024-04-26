@@ -16,21 +16,21 @@ pub fn player_warp(
             println!("Failed to switch map");
         }
         DataTaskToken::PlayerWarp(old_pos.0.map)
-            .add_task(storage, &WarpPacket::new(*entity, *new_pos))?;
+            .add_task(storage, warp_packet(*entity, *new_pos)?)?;
         DataTaskToken::PlayerWarp(new_pos.map)
-            .add_task(storage, &WarpPacket::new(*entity, *new_pos))?;
+            .add_task(storage, warp_packet(*entity, *new_pos)?)?;
         DataTaskToken::PlayerSpawn(new_pos.map)
-            .add_task(storage, &PlayerSpawnPacket::new(world, entity, true)?)?;
+            .add_task(storage, player_spawn_packet(world, entity, true)?)?;
         init_data_lists(world, storage, entity, Some(old_pos.0.map))?;
     } else {
         player_swap_pos(world, storage, entity, *new_pos)?;
         if spawn {
             DataTaskToken::PlayerSpawn(new_pos.map)
-                .add_task(storage, &PlayerSpawnPacket::new(world, entity, true)?)?;
+                .add_task(storage, player_spawn_packet(world, entity, true)?)?;
             init_data_lists(world, storage, entity, None)?;
         } else {
             DataTaskToken::PlayerWarp(new_pos.map)
-                .add_task(storage, &WarpPacket::new(*entity, *new_pos))?;
+                .add_task(storage, warp_packet(*entity, *new_pos)?)?;
         }
     }
 
@@ -131,23 +131,23 @@ pub fn player_movement(
         }
         DataTaskToken::PlayerMove(oldpos.0.map).add_task(
             storage,
-            &MovePacket::new(*entity, new_pos, false, true, player_dir.0),
+            move_packet(*entity, new_pos, false, true, player_dir.0)?,
         )?;
         DataTaskToken::PlayerMove(new_pos.map).add_task(
             storage,
-            &MovePacket::new(*entity, new_pos, false, true, player_dir.0),
+            move_packet(*entity, new_pos, false, true, player_dir.0)?,
         )?;
         //send_move(world, storage, entity, new_pos, false, true, player_dir.0, Some(oldpos));
         //send_move(world, storage, entity, new_pos, false, true, player_dir.0, None);
         DataTaskToken::PlayerSpawn(new_pos.map)
-            .add_task(storage, &PlayerSpawnPacket::new(world, entity, true)?)?;
+            .add_task(storage, player_spawn_packet(world, entity, true)?)?;
 
         init_data_lists(world, storage, entity, Some(oldpos.0.map))?;
     } else {
         player_swap_pos(world, storage, entity, new_pos)?;
         DataTaskToken::PlayerMove(new_pos.map).add_task(
             storage,
-            &MovePacket::new(*entity, new_pos, false, false, player_dir.0),
+            move_packet(*entity, new_pos, false, false, player_dir.0)?,
         )?;
         //send_move(world, storage, entity, new_pos, false, false, player_dir.0, None);
     }

@@ -3,7 +3,7 @@ use crate::{
     gametypes::*,
     items::Item,
     socket::*,
-    tasks::{DataTaskToken, MapItemPacket},
+    tasks::{map_item_packet, unload_entity_packet, DataTaskToken},
     time_ext::MyInstant,
 };
 use bytey::{ByteBufferRead, ByteBufferWrite};
@@ -59,7 +59,8 @@ pub fn update_map_items(world: &mut World, storage: &Storage) -> Result<()> {
                 storage_mapitems.swap_remove(&pos);
             }
             map.borrow_mut().remove_item(*entity);
-            DataTaskToken::EntityUnload(e_pos.map).add_task(storage, &(*entity))?;
+            DataTaskToken::EntityUnload(e_pos.map)
+                .add_task(storage, unload_entity_packet(*entity)?)?;
         }
     }
 
@@ -233,13 +234,13 @@ pub fn try_drop_item(
                 storage_mapitem.insert(found_pos.0, Entity(id));
                 DataTaskToken::ItemLoad(found_pos.0.map).add_task(
                     storage,
-                    &MapItemPacket::new(
+                    map_item_packet(
                         Entity(id),
                         map_item.pos,
                         map_item.item,
                         map_item.ownerid,
                         true,
-                    ),
+                    )?,
                 )?;
             }
             break;
