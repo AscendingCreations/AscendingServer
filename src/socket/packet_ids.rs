@@ -68,6 +68,7 @@ pub enum ServerPackets {
     PlayItemSfx,
     FloatTextDamage,
     FloatTextHeal,
+    Ping,
     ServerPacketCount,
 }
 

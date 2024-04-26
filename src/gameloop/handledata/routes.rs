@@ -11,12 +11,12 @@ use rand::distributions::{Alphanumeric, DistString};
 use regex::Regex;
 
 pub fn handle_ping(
-    _world: &mut World,
-    _storage: &Storage,
+    world: &mut World,
+    storage: &Storage,
     _data: &mut ByteBuffer,
-    _entity: &Entity,
+    entity: &Entity,
 ) -> Result<()> {
-    Ok(())
+    send_gameping(world, storage, entity)
 }
 
 pub fn handle_register(
