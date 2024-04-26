@@ -53,6 +53,13 @@ impl SocketPollState {
             (_, _) => {}
         }
     }
+
+    pub fn contains(&mut self, state: SocketPollState) -> bool {
+        ((*self == SocketPollState::Read || *self == SocketPollState::ReadWrite)
+            && (state == SocketPollState::Read || state == SocketPollState::ReadWrite))
+            || ((*self == SocketPollState::Write || *self == SocketPollState::ReadWrite)
+                && (state == SocketPollState::Write || state == SocketPollState::ReadWrite))
+    }
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -426,15 +433,29 @@ impl Client {
     #[inline]
     pub fn send(&mut self, poll: &mio::Poll, buf: ByteBuffer) -> Result<()> {
         self.sends.push_back(buf);
-        self.poll_state.add(SocketPollState::Write);
-        self.reregister(poll)
+        self.add_write_state(poll)
+    }
+
+    #[inline]
+    pub fn send_first(&mut self, poll: &mio::Poll, buf: ByteBuffer) -> Result<()> {
+        self.sends.push_front(buf);
+        self.add_write_state(poll)
     }
 
     #[inline]
     pub fn tls_send(&mut self, poll: &mio::Poll, buf: ByteBuffer) -> Result<()> {
         self.tls_sends.push_back(buf);
-        self.poll_state.add(SocketPollState::Write);
-        self.reregister(poll)
+        self.add_write_state(poll)
+    }
+
+    #[inline]
+    pub fn add_write_state(&mut self, poll: &mio::Poll) -> Result<()> {
+        if !self.poll_state.contains(SocketPollState::Write) {
+            self.poll_state.add(SocketPollState::Write);
+            self.reregister(poll)?;
+        }
+
+        Ok(())
     }
 }
 
@@ -484,11 +505,25 @@ pub fn set_encryption_status(
 #[inline]
 pub fn send_to(storage: &Storage, socket_id: usize, buf: ByteBuffer) -> Result<()> {
     if let Some(client) = storage.server.borrow().clients.get(&mio::Token(socket_id)) {
-        if client.borrow().encrypt_state != EncryptionState::None {
-            client.borrow_mut().tls_send(&storage.poll.borrow(), buf)
-        } else {
-            client.borrow_mut().send(&storage.poll.borrow(), buf)
-        }
+        client.borrow_mut().send(&storage.poll.borrow(), buf)
+    } else {
+        Ok(())
+    }
+}
+
+#[inline]
+pub fn tls_send_to(storage: &Storage, socket_id: usize, buf: ByteBuffer) -> Result<()> {
+    if let Some(client) = storage.server.borrow().clients.get(&mio::Token(socket_id)) {
+        client.borrow_mut().tls_send(&storage.poll.borrow(), buf)
+    } else {
+        Ok(())
+    }
+}
+
+#[inline]
+pub fn send_to_front(storage: &Storage, socket_id: usize, buf: ByteBuffer) -> Result<()> {
+    if let Some(client) = storage.server.borrow().clients.get(&mio::Token(socket_id)) {
+        client.borrow_mut().send_first(&storage.poll.borrow(), buf)
     } else {
         Ok(())
     }

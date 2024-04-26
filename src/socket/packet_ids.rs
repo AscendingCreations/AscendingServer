@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 )]
 #[repr(u32)]
 pub enum ServerPackets {
-    Ping,
+    OnlineCheck,
     Status,
     AlertMsg,
     FltAlert,
@@ -19,6 +19,7 @@ pub enum ServerPackets {
     PlayerData,
     PlayerSpawn,
     PlayerMove,
+    MoveOk,
     PlayerWarp,
     PlayerMapSwap,
     Dataremovelist,
@@ -74,7 +75,7 @@ pub enum ServerPackets {
     Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ByteBufferRead, ByteBufferWrite, Hash,
 )]
 pub enum ClientPacket {
-    Ping,
+    OnlineCheck,
     Register,
     Login,
     HandShake,
@@ -105,5 +106,6 @@ pub enum ClientPacket {
     SubmitTrade,
     AcceptTrade,
     DeclineTrade,
+    Ping,
     Size,
 }

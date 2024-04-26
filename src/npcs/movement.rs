@@ -1,19 +1,21 @@
-use crate::{containers::Storage, gametypes::*, maps::*, npcs::*, players::Account, tasks::*};
+use crate::{containers::Storage, gametypes::*, maps::*, npcs::*, tasks::*};
 use chrono::Duration;
 use hecs::World;
 
-pub fn is_next_to_target(entity_pos: Position, target_pos: Position, range: i32) -> bool {
+pub fn is_next_to_target(
+    storage: &Storage,
+    entity_pos: Position,
+    target_pos: Position,
+    range: i32,
+) -> bool {
     let check = check_surrounding(entity_pos.map, target_pos.map, true);
     let pos = target_pos.map_offset(check.into());
 
-    if range < entity_pos.checkdistance(pos) {
-        return false;
+    if let Some(dir) = entity_pos.checkdirection(pos) {
+        !is_dir_blocked(storage, entity_pos, dir as u8) && range >= entity_pos.checkdistance(pos)
+    } else {
+        false
     }
-
-    (target_pos.x == entity_pos.x
-        && (target_pos.y >= entity_pos.y - 1 && target_pos.y <= entity_pos.y + 1))
-        || (target_pos.y == entity_pos.y
-            && (target_pos.x >= entity_pos.x - 1 && target_pos.x <= entity_pos.x + 1))
 }
 
 pub fn get_target_direction(entity_pos: Position, target_pos: Position) -> u8 {
@@ -41,22 +43,21 @@ pub fn npc_movement(
             .get(&world.get_or_err::<Position>(entity)?.map)
             .map(|map| map.borrow().players_on_map())
             .unwrap_or(false)
+        && world.get_or_err::<NpcMoving>(entity)?.0
     {
         let old_pos = world.get_or_err::<Target>(entity)?.targetpos;
         update_target_pos(world, entity)?;
-        if world.get_or_err::<Target>(entity)?.targettype == EntityType::None {
-            return Ok(());
-        }
-
         let pos = world.get_or_err::<Position>(entity)?;
         let target_pos = world.get_or_err::<Target>(entity)?.targetpos;
 
         if old_pos != target_pos {
-            if is_next_to_target(pos, target_pos, 1) {
+            if is_next_to_target(storage, pos, target_pos, 1) {
                 let n_dir = get_target_direction(pos, target_pos);
                 if world.get_or_err::<Dir>(entity)?.0 != n_dir {
                     set_npc_dir(world, storage, entity, n_dir)?;
                 }
+
+                return npc_clear_move_path(world, entity);
             } else if let Some(path) =
                 a_star_path(storage, pos, world.get_or_err::<Dir>(entity)?.0, target_pos)
             {
@@ -84,14 +85,16 @@ pub fn npc_movement(
                 .unwrap_or(false)
         {
             let pos = world.get_or_err::<Position>(entity)?;
+            update_target_pos(world, entity)?;
             let target_pos = world.get_or_err::<Target>(entity)?.targetpos;
 
-            update_target_pos(world, entity)?;
-            if is_next_to_target(pos, target_pos, 1) {
+            if is_next_to_target(storage, pos, target_pos, 1) {
                 let n_dir = get_target_direction(pos, target_pos);
                 if world.get_or_err::<Dir>(entity)?.0 != n_dir {
                     set_npc_dir(world, storage, entity, n_dir)?;
                 }
+
+                return npc_clear_move_path(world, entity);
             } else if let Some(path) =
                 a_star_path(storage, pos, world.get_or_err::<Dir>(entity)?.0, target_pos)
             {
@@ -132,22 +135,7 @@ pub fn npc_movement(
             next.1,
             WorldEntityType::Npc,
         ) {
-            if world.get_or_err::<Target>(entity)?.targettype != EntityType::None {
-                let pos = world.get_or_err::<Position>(entity)?;
-                let target_pos = world.get_or_err::<Target>(entity)?.targetpos;
-
-                update_target_pos(world, entity)?;
-                if is_next_to_target(pos, target_pos, 1) {
-                    let n_dir = get_target_direction(pos, target_pos);
-                    if world.get_or_err::<Dir>(entity)?.0 != n_dir {
-                        set_npc_dir(world, storage, entity, n_dir)?;
-                    }
-                } else if let Some(path) =
-                    a_star_path(storage, pos, world.get_or_err::<Dir>(entity)?.0, target_pos)
-                {
-                    npc_set_move_path(world, entity, path)?;
-                }
-            } else if world.get_or_err::<NpcMovePos>(entity)?.0.is_some() {
+            if world.get_or_err::<NpcMovePos>(entity)?.0.is_some() {
                 //no special movement. Lets wait till we can move again. maybe walkthru upon multi failure here?.
                 world.get::<&mut NpcMoves>(entity.0)?.0.push_front(next);
             } else {
@@ -173,16 +161,14 @@ pub fn npc_movement(
                 }
 
                 match world.get_or_err::<Target>(entity)?.targettype {
-                    EntityType::Player(i, accid) => {
+                    EntityType::Player(i, _) => {
                         if world.contains(i.0) {
                             if world.get_or_err::<DeathType>(&i)?.is_alive()
-                                && world.get::<&Account>(i.0)?.id == accid
+                                && world.get_or_err::<Position>(&i)? == next.0
                             {
-                                if world.get_or_err::<Position>(&i)? == next.0 {
-                                    npc_clear_move_path(world, entity)?;
-                                    set_npc_dir(world, storage, entity, next.1)?;
-                                    return Ok(());
-                                }
+                                npc_clear_move_path(world, entity)?;
+                                set_npc_dir(world, storage, entity, next.1)?;
+                                return Ok(());
                             } else {
                                 npc_clear_move_path(world, entity)?;
                             }
@@ -192,12 +178,12 @@ pub fn npc_movement(
                     }
                     EntityType::Npc(i) => {
                         if world.contains(i.0) {
-                            if world.get_or_err::<DeathType>(&i)?.is_alive() {
-                                if world.get_or_err::<Position>(&i)? == next.0 {
-                                    npc_clear_move_path(world, entity)?;
-                                    set_npc_dir(world, storage, entity, next.1)?;
-                                    return Ok(());
-                                }
+                            if world.get_or_err::<DeathType>(&i)?.is_alive()
+                                && world.get_or_err::<Position>(&i)? == next.0
+                            {
+                                npc_clear_move_path(world, entity)?;
+                                set_npc_dir(world, storage, entity, next.1)?;
+                                return Ok(());
                             } else {
                                 npc_clear_move_path(world, entity)?;
                             }

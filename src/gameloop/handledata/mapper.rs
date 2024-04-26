@@ -10,7 +10,6 @@ pub struct PacketRouter(pub HashMap<ClientPacket, PacketFunction>);
 impl PacketRouter {
     pub fn init() -> Self {
         Self(HashMap::from([
-            (ClientPacket::Ping, routes::handle_ping as PacketFunction),
             (
                 ClientPacket::Register,
                 routes::handle_register as PacketFunction,

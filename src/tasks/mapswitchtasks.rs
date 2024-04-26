@@ -1,12 +1,13 @@
+use std::cmp::max;
+
 use crate::{
-    containers::Storage,
+    containers::{HashSet, Storage},
     gametypes::*,
     maps::*,
     players::*,
     tasks::{DataTaskToken, MapItemPacket, NpcSpawnPacket, PlayerSpawnPacket},
 };
 use hecs::World;
-use indexmap::IndexSet;
 
 //types to buffer load when loading a map.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -23,57 +24,40 @@ pub fn init_data_lists(
     oldmap: Option<MapPosition>,
 ) -> Result<()> {
     let mut map_switch_tasks = storage.map_switch_tasks.borrow_mut();
-    //let socket_id = world.get::<&Socket>(user.0)?.id;
-
-    // Lets remove any lengering Packet Sends if they still Exist.
-    /*{
-        let mut packet_cache = storage.packet_cache.borrow_mut();
-        let mut packet_cache_ids = storage.packet_cache_ids.borrow_mut();
-        for key in [
-            DataTaskToken::NpcSpawnToEntity(socket_id),
-            DataTaskToken::PlayerSpawnToEntity(socket_id),
-            DataTaskToken::ItemLoadToEntity(socket_id),
-        ] {
-            packet_cache.swap_remove(&key);
-            packet_cache_ids.swap_remove(&key);
-        }
-    }*/
 
     let (not_yet_sent_players, not_yet_sent_npcs, not_yet_sent_items) =
         if let Some(tasks) = map_switch_tasks.get_mut(user) {
-            let mut player = IndexSet::with_capacity(32);
-            let mut npcs = IndexSet::with_capacity(32);
-            let mut items = IndexSet::with_capacity(32);
+            let mut player = HashSet::default();
+            let mut npcs = HashSet::default();
+            let mut items = HashSet::default();
 
-            for task in tasks {
+            for task in tasks.drain(..) {
                 match task {
                     MapSwitchTasks::Npc(v) => {
-                        while let Some(entity) = v.pop() {
-                            npcs.insert(entity);
-                        }
+                        npcs = v.into_iter().collect();
                     }
                     MapSwitchTasks::Player(v) => {
-                        while let Some(entity) = v.pop() {
-                            player.insert(entity);
-                        }
+                        player = v.into_iter().collect();
                     }
                     MapSwitchTasks::Items(v) => {
-                        while let Some(entity) = v.pop() {
-                            items.insert(entity);
-                        }
+                        items = v.into_iter().collect();
                     }
                 }
             }
 
             (player, npcs, items)
         } else {
-            (IndexSet::new(), IndexSet::new(), IndexSet::new())
+            (HashSet::default(), HashSet::default(), HashSet::default())
         };
 
     //setup the old and new information so we know what to remove and add for.
-    let mut old_players = IndexSet::with_capacity(32);
-    let mut old_npcs = IndexSet::with_capacity(32);
-    let mut old_items = IndexSet::with_capacity(32);
+    let mut old_players = HashSet::default();
+    let mut old_npcs = HashSet::default();
+    let mut old_items = HashSet::default();
+
+    old_players.reserve(100);
+    old_npcs.reserve(100);
+    old_items.reserve(500);
 
     //create the data tasks to be ran against.
     let mut task_player = Vec::with_capacity(100);
@@ -124,29 +108,30 @@ pub fn init_data_lists(
         }
     }
 
-    //Remove old tasks and replace with new ones during map switching.
-    if let Some(tasks) = map_switch_tasks.get_mut(user) {
-        //If this contains any tasks we will clear them first. as we only want to send whats relevent.
-        tasks.clear();
-    } else {
-        //if the task was removed after processing then we simply add a new one.
-        map_switch_tasks.insert(*user, vec![]);
-    }
-
     if let Some(tasks) = map_switch_tasks.get_mut(user) {
         tasks.push(MapSwitchTasks::Player(task_player));
         tasks.push(MapSwitchTasks::Npc(task_npc));
         tasks.push(MapSwitchTasks::Items(task_item));
+    } else {
+        map_switch_tasks.insert(
+            *user,
+            vec![
+                MapSwitchTasks::Player(task_player),
+                MapSwitchTasks::Npc(task_npc),
+                MapSwitchTasks::Items(task_item),
+            ],
+        );
     }
 
     Ok(())
 }
 
-const PROCESS_LIMIT: usize = 50;
+const PROCESS_LIMIT: usize = 1000;
 
 pub fn process_data_lists(world: &mut World, storage: &Storage) -> Result<()> {
     let mut removals = Vec::new();
     let mut maptasks = storage.map_switch_tasks.borrow_mut();
+    let process_limit = max(PROCESS_LIMIT / (1 + maptasks.len() * 3), 10);
 
     for (entity, tasks) in maptasks.iter_mut() {
         let mut contains_data = false;
@@ -154,66 +139,50 @@ pub fn process_data_lists(world: &mut World, storage: &Storage) -> Result<()> {
         let socket_id = world.get::<&Socket>(entity.0).map(|s| s.id);
         if let Ok(socket_id) = socket_id {
             for task in tasks {
-                let mut count = 0;
-
                 let amount_left = match task {
                     MapSwitchTasks::Npc(entities) => {
-                        while let Some(entity) = entities.pop() {
+                        let cursor = entities.len().saturating_sub(process_limit);
+
+                        for entity in entities.drain(cursor..) {
                             if world.contains(entity.0) {
                                 DataTaskToken::NpcSpawnToEntity(socket_id).add_task(
                                     storage,
                                     &NpcSpawnPacket::new(world, &entity, false)?,
                                 )?;
-
-                                count += 1;
-
-                                if count >= PROCESS_LIMIT {
-                                    break;
-                                }
                             }
                         }
 
                         entities.len()
                     }
                     MapSwitchTasks::Player(entities) => {
-                        while let Some(entity) = entities.pop() {
+                        let cursor = entities.len().saturating_sub(process_limit);
+
+                        for entity in entities.drain(cursor..) {
                             if world.contains(entity.0) {
                                 DataTaskToken::PlayerSpawnToEntity(socket_id).add_task(
                                     storage,
                                     &PlayerSpawnPacket::new(world, &entity, false)?,
                                 )?;
-
-                                count += 1;
-
-                                if count >= PROCESS_LIMIT {
-                                    break;
-                                }
                             }
                         }
 
                         entities.len()
                     }
                     MapSwitchTasks::Items(entities) => {
-                        while let Some(entity) = entities.pop() {
-                            if world.contains(entity.0) {
-                                if let Ok(map_item) = world.get::<&MapItem>(entity.0) {
-                                    DataTaskToken::ItemLoadToEntity(socket_id).add_task(
-                                        storage,
-                                        &MapItemPacket::new(
-                                            entity,
-                                            map_item.pos,
-                                            map_item.item,
-                                            map_item.ownerid,
-                                            false,
-                                        ),
-                                    )?;
+                        let cursor = entities.len().saturating_sub(process_limit);
 
-                                    count += 1;
-
-                                    if count >= PROCESS_LIMIT {
-                                        break;
-                                    }
-                                }
+                        for entity in entities.drain(cursor..) {
+                            if let Ok(map_item) = world.get::<&MapItem>(entity.0) {
+                                DataTaskToken::ItemLoadToEntity(socket_id).add_task(
+                                    storage,
+                                    &MapItemPacket::new(
+                                        entity,
+                                        map_item.pos,
+                                        map_item.item,
+                                        map_item.ownerid,
+                                        false,
+                                    ),
+                                )?;
                             }
                         }
 

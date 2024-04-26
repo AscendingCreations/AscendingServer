@@ -40,7 +40,13 @@ pub fn handle_register(
         };
 
         if APP_MAJOR > appmajor && APP_MINOR > appminior && APP_REVISION > apprevision {
-            return send_infomsg(storage, socket_id, "Client needs to be updated.".into(), 1);
+            return send_infomsg(
+                storage,
+                socket_id,
+                "Client needs to be updated.".into(),
+                1,
+                true,
+            );
         }
 
         let email_regex = Regex::new(
@@ -55,6 +61,7 @@ pub fn handle_register(
                 socket_id,
                 "Username or Password contains unaccepted Characters".into(),
                 0,
+                true,
             );
         }
 
@@ -64,6 +71,7 @@ pub fn handle_register(
                 socket_id,
                 "Username has too many Characters, 64 Characters Max".into(),
                 0,
+                true,
             );
         }
 
@@ -73,6 +81,7 @@ pub fn handle_register(
                 socket_id,
                 "Password has too many Characters, 128 Characters Max".into(),
                 0,
+                true,
             );
         }
 
@@ -82,6 +91,7 @@ pub fn handle_register(
                 socket_id,
                 "Email must be an actual email.".into(),
                 0,
+                true,
             );
         }
 
@@ -94,6 +104,7 @@ pub fn handle_register(
                         socket_id,
                         "Username Exists. Please try Another.".into(),
                         0,
+                        true,
                     )
                 }
                 2 => {
@@ -102,6 +113,7 @@ pub fn handle_register(
                         socket_id,
                         "Email Already Exists. Please Try Another.".into(),
                         0,
+                        true,
                     )
                 }
                 _ => return Err(AscendingError::RegisterFail),
@@ -135,7 +147,6 @@ pub fn handle_register(
                 {
                     world.get::<&mut Account>(entity.0)?.id = uid;
                 }
-                //joingame(world, storage, entity)?;
                 send_myindex(storage, socket_id, entity)?;
                 send_codes(world, storage, entity, code, handshake)
             }
@@ -144,6 +155,7 @@ pub fn handle_register(
                 socket_id,
                 "There was an Issue Creating the player account. Please Contact Support.".into(),
                 0,
+                true,
             ),
         };
     }
@@ -188,7 +200,13 @@ pub fn handle_login(
 
     if !storage.player_ids.borrow().contains(entity) {
         if APP_MAJOR > appmajor && APP_MINOR > appminior && APP_REVISION > apprevision {
-            return send_infomsg(storage, socket_id, "Client needs to be updated.".into(), 1);
+            return send_infomsg(
+                storage,
+                socket_id,
+                "Client needs to be updated.".into(),
+                1,
+                true,
+            );
         }
 
         if username.len() >= 64 || password.len() >= 128 {
@@ -197,6 +215,7 @@ pub fn handle_login(
                 socket_id,
                 "Account does not Exist or Password is not Correct.".into(),
                 0,
+                true,
             );
         }
 
@@ -208,6 +227,7 @@ pub fn handle_login(
                     socket_id,
                     "Account does not Exist or Password is not Correct.".into(),
                     1,
+                    true,
                 )
             }
         };
@@ -239,7 +259,7 @@ pub fn handle_login(
                         }
                     }
                 } else {
-                    return send_infomsg(storage, socket_id, "Error Loading User.".into(), 1);
+                    return send_infomsg(storage, socket_id, "Error Loading User.".into(), 1, true);
                 }
             }
         }
@@ -248,7 +268,7 @@ pub fn handle_login(
         storage.add_player_data(world, entity, code.clone(), handshake.clone(), tick)?;
 
         if let Err(_e) = load_player(storage, world, entity, id) {
-            return send_infomsg(storage, socket_id, "Error Loading User.".into(), 1);
+            return send_infomsg(storage, socket_id, "Error Loading User.".into(), 1, true);
         }
 
         info!("Player {} with IP: {}, Logging in.", &username, address);
@@ -286,9 +306,9 @@ pub fn handle_move(
             player_warp(world, storage, entity, &pos, false)?;
             return Ok(());
         }
+        let id = world.get::<&Socket>(entity.0)?.id;
 
-        player_movement(world, storage, entity, dir)?;
-        return Ok(());
+        return send_move_ok(storage, id, player_movement(world, storage, entity, dir)?);
     }
 
     Err(AscendingError::InvalidSocket)
@@ -1637,6 +1657,7 @@ pub fn handle_submittrade(
                     }
                     close_trade(world, storage, entity)?;
                     close_trade(world, storage, &target_entity)?;
+                    return Ok(());
                 }
             }
             _ => {}

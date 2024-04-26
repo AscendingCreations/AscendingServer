@@ -2,6 +2,7 @@ use crate::{
     containers::Storage,
     gametypes::*,
     items::Item,
+    maps::is_dir_blocked,
     npcs::NpcSpawnedZone,
     tasks::{DataTaskToken, MapItemPacket},
 };
@@ -185,4 +186,20 @@ pub fn can_target(
     let pos = target_pos.map_offset(check.into());
 
     range >= caster_pos.checkdistance(pos) && target_death.is_alive()
+}
+
+pub fn in_dir_attack_zone(
+    storage: &Storage,
+    caster_pos: Position,
+    target_pos: Position,
+    range: i32,
+) -> bool {
+    let check = check_surrounding(caster_pos.map, target_pos.map, true);
+    let pos = target_pos.map_offset(check.into());
+
+    if let Some(dir) = caster_pos.checkdirection(pos) {
+        !is_dir_blocked(storage, caster_pos, dir as u8) && range >= caster_pos.checkdistance(pos)
+    } else {
+        false
+    }
 }

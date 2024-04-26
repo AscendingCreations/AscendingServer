@@ -1,6 +1,6 @@
 use crate::{gametypes::*, items::*, npcs::*, players::*};
 use bytey::{ByteBufferRead, ByteBufferWrite};
-use hecs::World;
+use hecs::{NoSuchEntity, World};
 use serde::{Deserialize, Serialize};
 
 //Only 42 of these can be sent per Packet
@@ -138,22 +138,54 @@ pub struct NpcSpawnPacket {
 
 impl NpcSpawnPacket {
     pub fn new(world: &mut World, entity: &Entity, did_spawn: bool) -> Result<Self> {
-        Ok(Self {
-            dir: world.get_or_err::<Dir>(entity)?.0,
-            hidden: world.get_or_err::<Hidden>(entity)?.0,
-            entity: *entity,
-            level: world.get_or_err::<Level>(entity)?.0,
-            life: world.get_or_err::<DeathType>(entity)?,
-            mode: world.get_or_err::<NpcMode>(entity)?,
-            num: world.get_or_err::<NpcIndex>(entity)?.0,
-            pdamage: world.get_or_err::<Physical>(entity)?.damage,
-            pdefense: world.get_or_err::<Physical>(entity)?.defense,
-            position: world.get_or_err::<Position>(entity)?,
-            sprite: world.get_or_err::<Sprite>(entity)?.id,
-            vital: world.get_or_err::<Vitals>(entity)?.vital,
-            vitalmax: world.get_or_err::<Vitals>(entity)?.vitalmax,
-            did_spawn,
-        })
+        let mut query = world.query_one::<(
+            &Dir,
+            &Hidden,
+            &Level,
+            &DeathType,
+            &Physical,
+            &Position,
+            &Sprite,
+            &Vitals,
+            &NpcMode,
+            &NpcIndex,
+        )>(entity.0)?;
+
+        if let Some((
+            dir,
+            hidden,
+            level,
+            &life,
+            physical,
+            &position,
+            sprite,
+            vitals,
+            &mode,
+            npc_index,
+        )) = query.get()
+        {
+            Ok(Self {
+                dir: dir.0,
+                hidden: hidden.0,
+                entity: *entity,
+                level: level.0,
+                life,
+                mode,
+                num: npc_index.0,
+                pdamage: physical.damage,
+                pdefense: physical.defense,
+                position,
+                sprite: sprite.id,
+                vital: vitals.vital,
+                vitalmax: vitals.vitalmax,
+                did_spawn,
+            })
+        } else {
+            Err(AscendingError::HecNoEntity {
+                error: NoSuchEntity,
+                backtrace: Box::new(std::backtrace::Backtrace::capture()),
+            })
+        }
     }
 }
 
@@ -181,27 +213,63 @@ pub struct PlayerSpawnPacket {
 
 impl PlayerSpawnPacket {
     pub fn new(world: &mut World, entity: &Entity, did_spawn: bool) -> Result<Self> {
-        Ok(Self {
-            username: world.get::<&Account>(entity.0)?.username.clone(),
-            dir: world.get_or_err::<Dir>(entity)?.0,
-            hidden: world.get_or_err::<Hidden>(entity)?.0,
-            entity: *entity,
-            level: world.get_or_err::<Level>(entity)?.0,
-            life: world.get_or_err::<DeathType>(entity)?,
-            pdamage: world.get_or_err::<Physical>(entity)?.damage,
-            pdefense: world.get_or_err::<Physical>(entity)?.defense,
-            position: world.get_or_err::<Position>(entity)?,
-            sprite: world.get_or_err::<Sprite>(entity)?.id as u8,
-            vital: world.get_or_err::<Vitals>(entity)?.vital,
-            vitalmax: world.get_or_err::<Vitals>(entity)?.vitalmax,
-            access: world.get_or_err::<UserAccess>(entity)?,
-            equip: Equipment {
-                items: world.get::<&Equipment>(entity.0)?.items.clone(),
-            },
-            pk: world.get_or_err::<Player>(entity)?.pk,
-            pvpon: world.get_or_err::<Player>(entity)?.pvpon,
-            did_spawn,
-        })
+        let mut query = world.query_one::<(
+            &Account,
+            &Dir,
+            &Hidden,
+            &Level,
+            &DeathType,
+            &Physical,
+            &Position,
+            &Sprite,
+            &Vitals,
+            &UserAccess,
+            &Equipment,
+            &Player,
+        )>(entity.0)?;
+
+        if let Some((
+            account,
+            dir,
+            hidden,
+            level,
+            &life,
+            physical,
+            &position,
+            sprite,
+            vitals,
+            &access,
+            equipment,
+            player,
+        )) = query.get()
+        {
+            Ok(Self {
+                username: account.username.clone(),
+                dir: dir.0,
+                hidden: hidden.0,
+                entity: *entity,
+                level: level.0,
+                life,
+                pdamage: physical.damage,
+                pdefense: physical.defense,
+                position,
+                sprite: sprite.id as u8,
+                vital: vitals.vital,
+                vitalmax: vitals.vitalmax,
+                access,
+                equip: Equipment {
+                    items: equipment.items.clone(),
+                },
+                pk: player.pk,
+                pvpon: player.pvpon,
+                did_spawn,
+            })
+        } else {
+            Err(AscendingError::HecNoEntity {
+                error: NoSuchEntity,
+                backtrace: Box::new(std::backtrace::Backtrace::capture()),
+            })
+        }
     }
 }
 

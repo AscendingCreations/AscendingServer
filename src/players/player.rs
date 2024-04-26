@@ -434,9 +434,16 @@ pub fn send_swap_error(
         old_socket_id,
         "Server Error in player swap".into(),
         1,
+        true,
     )?;
 
-    send_infomsg(storage, socket_id, "Server Error in player swap".into(), 1)
+    send_infomsg(
+        storage,
+        socket_id,
+        "Server Error in player swap".into(),
+        1,
+        true,
+    )
 }
 
 pub fn send_login_info(

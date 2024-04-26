@@ -20,17 +20,21 @@ pub fn handle_data(
             ClientPacket::Login
             | ClientPacket::Register
             | ClientPacket::HandShake
-            | ClientPacket::Ping => return Err(AscendingError::MultiLogin),
+            | ClientPacket::OnlineCheck => return Err(AscendingError::MultiLogin),
             _ => {}
         },
         OnlineType::Accepted => match id {
             ClientPacket::Login
             | ClientPacket::Register
-            | ClientPacket::Ping
+            | ClientPacket::OnlineCheck
             | ClientPacket::HandShake => {}
             _ => return Err(AscendingError::PacketManipulation { name: "".into() }),
         },
         OnlineType::None => return Err(AscendingError::PacketManipulation { name: "".into() }),
+    }
+
+    if id == ClientPacket::OnlineCheck {
+        return Ok(());
     }
 
     let fun = match router.0.get(&id) {

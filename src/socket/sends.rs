@@ -9,16 +9,20 @@ pub fn send_infomsg(
     socket_id: usize,
     message: String,
     close_socket: u8,
+    tls_send: bool,
 ) -> Result<()> {
-    let mut buf = ByteBuffer::new_packet_with(128)?;
+    let mut buf = ByteBuffer::new_packet_with(message.len() + 3)?;
 
     buf.write(ServerPackets::AlertMsg)?;
     buf.write(message)?;
     buf.write(close_socket)?;
     buf.finish()?;
 
-    send_to(storage, socket_id, buf)?;
-    Ok(())
+    if tls_send {
+        tls_send_to(storage, socket_id, buf)
+    } else {
+        send_to(storage, socket_id, buf)
+    }
 }
 
 #[inline]
@@ -59,7 +63,17 @@ pub fn send_myindex(storage: &Storage, socket_id: usize, entity: &Entity) -> Res
     buf.write(*entity)?;
     buf.finish()?;
 
-    send_to(storage, socket_id, buf)
+    tls_send_to(storage, socket_id, buf)
+}
+
+pub fn send_move_ok(storage: &Storage, socket_id: usize, move_ok: bool) -> Result<()> {
+    let mut buf = ByteBuffer::new_packet_with(8)?;
+
+    buf.write(ServerPackets::MoveOk)?;
+    buf.write(move_ok)?;
+    buf.finish()?;
+
+    send_to_front(storage, socket_id, buf)
 }
 
 #[inline]
@@ -174,13 +188,13 @@ pub fn send_codes(
 
     // Once the codes are Sent we need to set this to unencrypted mode as the client will be un unencrypted mode.
     set_encryption_status(storage, id, EncryptionState::WriteTransfering);
-    send_to(storage, id, buf)
+    tls_send_to(storage, id, buf)
 }
 
 pub fn send_ping(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
     let mut buf = ByteBuffer::new_packet_with(10)?;
 
-    buf.write(ServerPackets::Ping)?;
+    buf.write(ServerPackets::OnlineCheck)?;
     buf.write(0u64)?;
     buf.finish()?;
 

@@ -106,7 +106,7 @@ pub fn a_star_path(
         //find a location within a range of 1 regardless if blocked or not.
         if let Some(map) = storage.maps.get(&current_node.pos.map) {
             if map.borrow().is_blocked_tile(stop, WorldEntityType::Npc)
-                && can_target(current_node.pos, stop, DeathType::Alive, 1)
+                && in_dir_attack_zone(storage, current_node.pos, stop, 1)
             {
                 return npc_path_gather(&nodes, &current_node, start);
             }
