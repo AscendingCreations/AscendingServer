@@ -141,6 +141,11 @@ pub fn process_tasks(world: &mut World, storage: &Storage) -> Result<()> {
 
             //lets resize these if they get to unruly.
             if buffers.capacity() > 250 && buffers.len() < 100 {
+                warn!(
+                    "process_tasks: packet_cache Buffer Strink to 100, Current Capacity {}, Current len {}.",
+                    buffers.capacity(),
+                    buffers.len()
+                );
                 buffers.shrink_to(100);
             }
         }

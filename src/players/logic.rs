@@ -30,7 +30,7 @@ pub fn update_players(world: &mut World, storage: &Storage) -> Result<()> {
                         &world.get_or_err::<Spawn>(id)?.pos,
                         false,
                     )?;
-                    init_data_lists(world, storage, id, None)?;
+                    //init_data_lists(world, storage, id, None)?;
 
                     //lets heal them fully on revival.
                     for i in 0..VITALS_MAX {

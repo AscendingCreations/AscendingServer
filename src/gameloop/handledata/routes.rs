@@ -1106,6 +1106,7 @@ pub fn handle_command(
             }
             Command::WarpTo(pos) => {
                 debug!("Warping to {:?}", pos);
+                player_warp(world, storage, entity, &pos, false)?;
             }
             Command::SpawnNpc(index, pos) => {
                 debug!("Spawning NPC {index} on {:?}", pos);

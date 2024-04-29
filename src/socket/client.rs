@@ -278,8 +278,9 @@ impl Client {
         let pos = buffer.cursor();
         buffer.move_cursor_to_end();
 
+        let mut buf: [u8; 4096] = [0; 4096];
+
         loop {
-            let mut buf: [u8; 2048] = [0; 2048];
             match self.stream.read(&mut buf) {
                 Err(ref err) if err.kind() == io::ErrorKind::WouldBlock => break,
                 Err(ref err) if err.kind() == io::ErrorKind::Interrupted => continue,
@@ -324,8 +325,13 @@ impl Client {
             let mut packet = match self.sends.pop_front() {
                 Some(packet) => packet,
                 None => {
-                    if self.sends.capacity() > 50 {
-                        self.sends.shrink_to_fit();
+                    if self.sends.capacity() > 100 && self.sends.len() < 50 {
+                        warn!(
+                            "Socket write: sends Buffer Strink to 100, Current Capacity {}, Current len {}.",
+                            self.sends.capacity(),
+                            self.sends.len()
+                        );
+                        self.sends.shrink_to(100);
                     }
                     return;
                 }
@@ -362,8 +368,13 @@ impl Client {
             let mut packet = match self.tls_sends.pop_front() {
                 Some(packet) => packet,
                 None => {
-                    if self.tls_sends.capacity() > 25 {
-                        self.tls_sends.shrink_to_fit();
+                    if self.tls_sends.capacity() > 100 {
+                        warn!(
+                            "Socket TLSwrite: tls_sends Buffer Strink to 100, Current Capacity {}, Current len {}.",
+                            self.tls_sends.capacity(),
+                            self.tls_sends.len()
+                        );
+                        self.tls_sends.shrink_to(100);
                     }
                     break;
                 }
@@ -727,9 +738,11 @@ pub fn process_packets(world: &mut World, storage: &Storage, router: &PacketRout
             if buffer.cursor() == buffer.length() {
                 buffer.truncate(0)?;
                 if buffer.capacity() > 500000 {
+                    warn!("process_packets: buffer resize to 100000. Buffer Capacity: {}, Buffer len: {}", buffer.capacity(), buffer_len);
                     buffer.resize(100000)?;
                 }
             } else if buffer.capacity() > 500000 && buffer_len <= 100000 {
+                warn!("process_packets: buffer resize to Buffer len. Buffer Capacity: {}, Buffer len: {}", buffer.capacity(), buffer_len);
                 let mut replacement = ByteBuffer::with_capacity(buffer_len)?;
                 replacement.write_slice(buffer.read_slice(buffer_len)?)?;
                 replacement.move_cursor_to_start();

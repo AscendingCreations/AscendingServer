@@ -4,7 +4,7 @@ use crate::{
     maps::{can_target, is_dir_blocked},
     npcs::{damage_npc, kill_npc, try_target_entity, NpcIndex},
     players::*,
-    tasks::{attack_packet, damage_packet, init_data_lists, vitals_packet, DataTaskToken},
+    tasks::{attack_packet, damage_packet, vitals_packet, DataTaskToken},
 };
 use hecs::World;
 use rand::*;
@@ -35,6 +35,12 @@ pub fn try_player_cast(
     target: &Entity,
 ) -> bool {
     if !world.contains(caster.0) || !world.contains(target.0) {
+        return false;
+    }
+
+    if world.get_or_default::<IsUsingType>(caster).inuse()
+        || world.get_or_default::<IsUsingType>(target).inuse()
+    {
         return false;
     }
 
@@ -143,7 +149,7 @@ pub fn player_combat_damage(
 ) -> Result<i32> {
     let def = if world.get_or_err::<WorldEntityType>(target_entity)? == WorldEntityType::Player {
         world.get_or_err::<Physical>(target_entity)?.defense
-            + player_get_armor_defense(world, storage, entity)?.0 as u32
+            + player_get_armor_defense(world, storage, target_entity)?.0 as u32
             + world
                 .get_or_err::<Level>(target_entity)?
                 .0
@@ -191,12 +197,13 @@ pub fn kill_player(world: &mut World, storage: &Storage, entity: &Entity) -> Res
         }
         world.get::<&mut PlayerTarget>(entity.0)?.0 = None;
     }
+    let spawn = world.get_or_err::<Spawn>(entity)?;
+    player_warp(world, storage, entity, &spawn.pos, false)?;
     DataTaskToken::Vitals(world.get_or_default::<Position>(entity).map).add_task(storage, {
         let vitals = world.get_or_err::<Vitals>(entity)?;
 
         vitals_packet(*entity, vitals.vital, vitals.vitalmax)?
-    })?;
-    let spawn = world.get_or_err::<Spawn>(entity)?;
-    player_warp(world, storage, entity, &spawn.pos, false)?;
-    init_data_lists(world, storage, entity, None)
+    })
+    //this should not be needed anymore?
+    //init_data_lists(world, storage, entity, None)
 }
