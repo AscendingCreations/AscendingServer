@@ -441,7 +441,7 @@ pub fn remove_all_npc_target(world: &mut World, entity: &Entity) -> Result<()> {
             if **worldentitytype != WorldEntityType::Npc {
                 can_target = false;
             }
-            if let EntityType::Player(i, _) = target.targettype {
+            if let EntityType::Player(i, _) = target.target_type {
                 if i != *entity {
                     can_target = false;
                 }

@@ -21,6 +21,16 @@ pub struct NpcAITimer(#[educe(Default = MyInstant::now())] pub MyInstant); //for
 
 #[derive(Educe, Debug, Copy, Clone, PartialEq, Eq)]
 #[educe(Default)]
+pub struct NpcPathTimer {
+    #[educe(Default = MyInstant::now())]
+    pub timer: MyInstant,
+    pub tries: usize,
+    //when failing to move due to blocks in movement.
+    pub fails: usize,
+} //for rebuilding the a* paths
+
+#[derive(Educe, Debug, Copy, Clone, PartialEq, Eq)]
+#[educe(Default)]
 pub struct NpcDespawns(#[educe(Default = false)] pub bool);
 
 #[derive(Educe, Debug, Copy, Clone, PartialEq, Eq)]

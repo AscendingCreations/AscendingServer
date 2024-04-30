@@ -382,6 +382,10 @@ pub fn map_offset_range(
         return Some(endpos);
     }
 
+    if start.map.group != endpos.map.group {
+        return None;
+    }
+
     let map_positions = get_surrounding_dir(start.map, false);
     processed.insert(start.map);
     // lets check each surrounding map first to make sure its not here

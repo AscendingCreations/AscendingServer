@@ -22,10 +22,10 @@ pub struct Spawn {
 #[derive(Educe, Debug, Copy, Clone, PartialEq, Eq)]
 #[educe(Default)]
 pub struct Target {
-    pub targettype: EntityType,
-    pub targetpos: Position,
+    pub target_type: EntityType,
+    pub target_pos: Position,
     #[educe(Default = MyInstant::now())]
-    pub targettimer: MyInstant,
+    pub target_timer: MyInstant,
 }
 
 #[derive(Educe, Debug, Copy, Clone, PartialEq, Eq)]

@@ -44,6 +44,7 @@ pub fn update_npcs(world: &mut World, storage: &Storage) -> Result<()> {
 
                     //movement
                     if npcdata.can_move && world.get_or_err::<MoveTimer>(id)?.0 <= tick {
+                        npc_update_path(world, storage, id, npcdata)?;
                         npc_movement(world, storage, id, npcdata)?;
                         world.get::<&mut MoveTimer>(id.0)?.0 = tick
                             + Duration::try_milliseconds(npcdata.movement_wait).unwrap_or_default();

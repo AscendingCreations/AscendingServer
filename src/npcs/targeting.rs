@@ -1,6 +1,7 @@
 use crate::{containers::Storage, gametypes::*, maps::*, npcs::*, players::*};
 use chrono::Duration;
 use hecs::World;
+use rand::{thread_rng, Rng};
 
 pub fn targeting(
     world: &mut World,
@@ -11,7 +12,7 @@ pub fn targeting(
     // Check if we have a current Target and that they are Alive.
     // This way we dont need to change the target if we have one.
     (|| -> Result<()> {
-        match world.get_or_err::<Target>(entity)?.targettype {
+        match world.get_or_err::<Target>(entity)?.target_type {
             EntityType::Player(i, accid) => {
                 if world.contains(i.0)
                     && world.get_or_err::<DeathType>(&i)?.is_alive()
@@ -41,13 +42,13 @@ pub fn targeting(
         }
     })()?;
 
-    if world.get_or_err::<Target>(entity)?.targettype != EntityType::None {
+    if world.get_or_err::<Target>(entity)?.target_type != EntityType::None {
         if (base.target_auto_switch
-            && world.get_or_err::<Target>(entity)?.targettimer < *storage.gettick.borrow())
+            && world.get_or_err::<Target>(entity)?.target_timer < *storage.gettick.borrow())
             || (base.target_range_dropout
                 && world
                     .get_or_err::<Position>(entity)?
-                    .checkdistance(world.get_or_err::<Target>(entity)?.targetpos)
+                    .checkdistance(world.get_or_err::<Target>(entity)?.target_pos)
                     > base.sight)
         {
             *world.get::<&mut Target>(entity.0)? = Target::default();
@@ -106,13 +107,26 @@ pub fn try_target_entity(
 ) -> Result<()> {
     let target = world.get_or_err::<Target>(entity)?;
     let pos = world.get_or_err::<Position>(entity)?;
+    let new_target = match entitytype {
+        EntityType::Player(id, _) | EntityType::Npc(id) => match target.target_type {
+            EntityType::Npc(oldid) | EntityType::Player(oldid, _) => oldid == id,
+            _ => false,
+        },
+        _ => false,
+    };
 
-    let cantarget = match target.targettype {
+    let cantarget = match target.target_type {
         EntityType::Npc(id) | EntityType::Player(id, _) => {
             if world.contains(id.0) {
-                let target_pos = world.get_or_err::<Position>(&id)?;
-                let deathtype = world.get_or_err::<DeathType>(&id)?;
-                !can_target(pos, target_pos, deathtype, 1)
+                let mut rng = thread_rng();
+
+                if rng.gen_range(0..2) == 1 && new_target {
+                    true
+                } else {
+                    let target_pos = world.get_or_err::<Position>(&id)?;
+                    let deathtype = world.get_or_err::<DeathType>(&id)?;
+                    !can_target(pos, target_pos, deathtype, 1)
+                }
             } else {
                 true
             }
@@ -133,11 +147,12 @@ pub fn try_target_entity(
                     let target_pos = world.get_or_err::<Position>(&id)?;
                     let deathtype = world.get_or_err::<DeathType>(&id)?;
                     if can_target(pos, target_pos, deathtype, 1) {
-                        world.get::<&mut Target>(entity.0)?.targetpos = target_pos;
-                        world.get::<&mut Target>(entity.0)?.targettype = entity_copy;
-                        world.get::<&mut Target>(entity.0)?.targettimer = *storage.gettick.borrow()
-                            + Duration::try_milliseconds(base.target_auto_switch_chance)
-                                .unwrap_or_default();
+                        world.get::<&mut Target>(entity.0)?.target_pos = target_pos;
+                        world.get::<&mut Target>(entity.0)?.target_type = entity_copy;
+                        world.get::<&mut Target>(entity.0)?.target_timer =
+                            *storage.gettick.borrow()
+                                + Duration::try_milliseconds(base.target_auto_switch_chance)
+                                    .unwrap_or_default();
                     }
                 }
             }
@@ -148,14 +163,16 @@ pub fn try_target_entity(
     Ok(())
 }
 
-pub fn update_target_pos(world: &mut World, entity: &Entity) -> Result<()> {
+pub fn update_target_pos(world: &mut World, entity: &Entity) -> Result<Target> {
     if !world.contains(entity.0) {
-        return Ok(());
+        return Ok(Target::default());
     }
 
     let pos = world.get_or_err::<Position>(entity)?;
+    let mut target = world.get_or_err::<Target>(entity)?;
+    let target_type = target.target_type;
 
-    match world.get_or_err::<Target>(entity)?.targettype {
+    match target_type {
         EntityType::Npc(id) | EntityType::Player(id, _) => {
             if world.contains(id.0) {
                 let target_pos = world.get_or_err::<Position>(&id)?;
@@ -164,20 +181,20 @@ pub fn update_target_pos(world: &mut World, entity: &Entity) -> Result<()> {
                 if check_surrounding(pos.map, target_pos.map, true) == MapPos::None
                     || !deathtype.is_alive()
                 {
-                    *world.get::<&mut Target>(entity.0)? = Target::default();
-                    npc_clear_move_path(world, entity)?;
+                    target = Target::default();
                 } else {
-                    world.get::<&mut Target>(entity.0)?.targetpos = target_pos;
+                    target.target_pos = target_pos;
                 }
             } else {
-                *world.get::<&mut Target>(entity.0)? = Target::default();
-                npc_clear_move_path(world, entity)?;
+                target = Target::default();
             }
         }
         _ => {}
     }
 
-    Ok(())
+    *world.get::<&mut Target>(entity.0)? = target;
+
+    Ok(target)
 }
 
 pub fn npc_targeting(
@@ -243,9 +260,9 @@ pub fn npc_targeting(
         return Ok(false);
     }
 
-    world.get::<&mut Target>(entity.0)?.targetpos = pos;
-    world.get::<&mut Target>(entity.0)?.targettype = entitytype;
-    world.get::<&mut Target>(entity.0)?.targettimer = *storage.gettick.borrow()
+    world.get::<&mut Target>(entity.0)?.target_pos = pos;
+    world.get::<&mut Target>(entity.0)?.target_type = entitytype;
+    world.get::<&mut Target>(entity.0)?.target_timer = *storage.gettick.borrow()
         + Duration::try_milliseconds(base.target_auto_switch_chance).unwrap_or_default();
     world.get::<&mut AttackTimer>(entity.0)?.0 = *storage.gettick.borrow()
         + Duration::try_milliseconds(base.attack_wait).unwrap_or_default();

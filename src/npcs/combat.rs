@@ -99,7 +99,7 @@ pub fn npc_cast(
         | AIBehavior::ReactiveHealer
         | AIBehavior::HelpReactive
         | AIBehavior::Reactive => {
-            if let Ok(targettype) = world.get::<&Target>(npc.0).map(|t| t.targettype) {
+            if let Ok(targettype) = world.get::<&Target>(npc.0).map(|t| t.target_type) {
                 if try_cast(
                     world,
                     storage,

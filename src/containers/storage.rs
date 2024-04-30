@@ -370,6 +370,7 @@ impl Storage {
                     Target::default(),
                     InCombat::default(),
                     AttackTimer::default(),
+                    NpcPathTimer::default(),
                 ),
             )?;
 

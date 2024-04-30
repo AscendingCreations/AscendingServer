@@ -193,13 +193,6 @@ pub fn a_star_path(
                     continue 'found;
                 }
             }
-            /*for Reverse((_, opened_id)) in &opened {
-                // if we loop in here and one of our last pushed Nodes == one of our new children
-                // we will ignore it and continue with more children as it already exists.
-                if nodes[*opened_id].pos == child.pos && child.g >= nodes[*opened_id].g {
-                    continue 'found;
-                }
-            }*/
 
             //should allow for quicker find than looping backwards.
             contained.insert(child.pos, id);
