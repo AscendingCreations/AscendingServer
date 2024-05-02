@@ -15,7 +15,7 @@ regex = "1.10.3"
 bit_op = "0.1.1"
 rand = "0.8.5"
 bytey = {version = "0.3.0", git = "https://github.com/Stefanowhb/bytey.git"}
-mmap_bytey = "0.1.3"
+mmap_bytey = "0.2.0"
 indexmap = "2.2.6"
 ritehash = "0.2.0" #FXHash for maps
 argon2 = "0.5.3"

@@ -8,10 +8,21 @@ use crate::{
 };
 use bytey::{ByteBufferRead, ByteBufferWrite};
 use hecs::World;
+use mmap_bytey::{MByteBufferRead, MByteBufferWrite};
 
 use super::{create_mapitem, MapAttribute};
 
-#[derive(Copy, Clone, PartialEq, Eq, Default, ByteBufferRead, ByteBufferWrite)]
+#[derive(
+    Copy,
+    Clone,
+    PartialEq,
+    Eq,
+    Default,
+    ByteBufferRead,
+    ByteBufferWrite,
+    MByteBufferRead,
+    MByteBufferWrite,
+)]
 pub struct MapItem {
     pub item: Item,
     #[bytey(skip)]

@@ -1,4 +1,5 @@
 use bytey::{ByteBufferRead, ByteBufferWrite};
+use mmap_bytey::{MByteBufferRead, MByteBufferWrite};
 use serde::{Deserialize, Serialize};
 
 #[derive(
@@ -12,6 +13,8 @@ use serde::{Deserialize, Serialize};
     Serialize,
     ByteBufferRead,
     ByteBufferWrite,
+    MByteBufferRead,
+    MByteBufferWrite,
 )]
 pub struct Rgba {
     pub r: i16,

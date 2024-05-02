@@ -1,6 +1,7 @@
 use bytey::{ByteBufferRead, ByteBufferWrite};
 use chrono::NaiveTime;
 use log::error;
+use mmap_bytey::{MByteBufferRead, MByteBufferWrite};
 use serde::{Deserialize, Serialize};
 
 #[derive(
@@ -14,6 +15,8 @@ use serde::{Deserialize, Serialize};
     Default,
     ByteBufferRead,
     ByteBufferWrite,
+    MByteBufferRead,
+    MByteBufferWrite,
 )]
 pub struct TileBox {
     pub x: u8,
@@ -33,6 +36,8 @@ pub struct TileBox {
     Eq,
     ByteBufferRead,
     ByteBufferWrite,
+    MByteBufferRead,
+    MByteBufferWrite,
 )]
 pub struct GameTime {
     pub hour: u32,
