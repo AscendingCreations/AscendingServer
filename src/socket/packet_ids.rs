@@ -104,5 +104,4 @@ pub enum ClientPacket {
     AcceptTrade,
     DeclineTrade,
     Ping,
-    Size,
 }
