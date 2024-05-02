@@ -1,9 +1,10 @@
 use crate::{gametypes::*, time_ext::MyInstant};
-use bytey::{ByteBufferError, ByteBufferRead, ByteBufferWrite};
+use bytey::ByteBufferError;
 use core::any::type_name;
 use educe::Educe;
 use hecs::{EntityRef, MissingComponent, World};
 use log::{error, warn};
+use mmap_bytey::{MByteBufferError, MByteBufferRead, MByteBufferWrite};
 use serde::{Deserialize, Serialize};
 use std::{
     backtrace::Backtrace,
@@ -44,7 +45,7 @@ pub struct KillCount {
     pub killcounttimer: MyInstant,
 }
 
-#[derive(Educe, Debug, Copy, Clone, PartialEq, Eq, ByteBufferRead, ByteBufferWrite)]
+#[derive(Educe, Debug, Copy, Clone, PartialEq, Eq, MByteBufferWrite, MByteBufferRead)]
 #[educe(Default)]
 pub struct Vitals {
     #[educe(Default = [25, 2, 100])]
@@ -132,35 +133,35 @@ impl DerefMut for Entity {
     }
 }
 
-impl ByteBufferWrite for Entity {
+impl bytey::ByteBufferWrite for Entity {
     fn write_to_buffer(&self, buffer: &mut bytey::ByteBuffer) -> bytey::Result<()> {
-        self.0.to_bits().write_to_buffer(buffer)
+        bytey::ByteBufferWrite::write_to_buffer(&self.0.to_bits(), buffer)
     }
 
     fn write_to_buffer_le(&self, buffer: &mut bytey::ByteBuffer) -> bytey::Result<()> {
-        self.0.to_bits().write_to_buffer_le(buffer)
+        bytey::ByteBufferWrite::write_to_buffer_le(&self.0.to_bits(), buffer)
     }
 
     fn write_to_buffer_be(&self, buffer: &mut bytey::ByteBuffer) -> bytey::Result<()> {
-        self.0.to_bits().write_to_buffer_be(buffer)
+        bytey::ByteBufferWrite::write_to_buffer_be(&self.0.to_bits(), buffer)
     }
 }
 
-impl ByteBufferWrite for &Entity {
+impl bytey::ByteBufferWrite for &Entity {
     fn write_to_buffer(&self, buffer: &mut bytey::ByteBuffer) -> bytey::Result<()> {
-        self.0.to_bits().write_to_buffer(buffer)
+        bytey::ByteBufferWrite::write_to_buffer(&self.0.to_bits(), buffer)
     }
 
     fn write_to_buffer_le(&self, buffer: &mut bytey::ByteBuffer) -> bytey::Result<()> {
-        self.0.to_bits().write_to_buffer_le(buffer)
+        bytey::ByteBufferWrite::write_to_buffer_le(&self.0.to_bits(), buffer)
     }
 
     fn write_to_buffer_be(&self, buffer: &mut bytey::ByteBuffer) -> bytey::Result<()> {
-        self.0.to_bits().write_to_buffer_be(buffer)
+        bytey::ByteBufferWrite::write_to_buffer_be(&self.0.to_bits(), buffer)
     }
 }
 
-impl ByteBufferRead for Entity {
+impl bytey::ByteBufferRead for Entity {
     fn read_from_buffer(buffer: &mut bytey::ByteBuffer) -> bytey::Result<Self>
     where
         Self: Sized,
@@ -194,6 +195,76 @@ impl ByteBufferRead for Entity {
         Ok(Entity(
             hecs::Entity::from_bits(buffer.read_be::<u64>()?).ok_or(
                 ByteBufferError::OtherError {
+                    error: "Bits could nto be converted to hecs Entity. Is your Struct wrong?"
+                        .to_owned(),
+                },
+            )?,
+        ))
+    }
+}
+
+impl MByteBufferWrite for Entity {
+    fn write_to_buffer(&self, buffer: &mut mmap_bytey::MByteBuffer) -> mmap_bytey::Result<()> {
+        MByteBufferWrite::write_to_buffer(&self.0.to_bits(), buffer)
+    }
+
+    fn write_to_buffer_le(&self, buffer: &mut mmap_bytey::MByteBuffer) -> mmap_bytey::Result<()> {
+        MByteBufferWrite::write_to_buffer_le(&self.0.to_bits(), buffer)
+    }
+
+    fn write_to_buffer_be(&self, buffer: &mut mmap_bytey::MByteBuffer) -> mmap_bytey::Result<()> {
+        MByteBufferWrite::write_to_buffer_be(&self.0.to_bits(), buffer)
+    }
+}
+
+impl MByteBufferWrite for &Entity {
+    fn write_to_buffer(&self, buffer: &mut mmap_bytey::MByteBuffer) -> mmap_bytey::Result<()> {
+        MByteBufferWrite::write_to_buffer(&self.0.to_bits(), buffer)
+    }
+
+    fn write_to_buffer_le(&self, buffer: &mut mmap_bytey::MByteBuffer) -> mmap_bytey::Result<()> {
+        MByteBufferWrite::write_to_buffer_le(&self.0.to_bits(), buffer)
+    }
+
+    fn write_to_buffer_be(&self, buffer: &mut mmap_bytey::MByteBuffer) -> mmap_bytey::Result<()> {
+        MByteBufferWrite::write_to_buffer_be(&self.0.to_bits(), buffer)
+    }
+}
+
+impl MByteBufferRead for Entity {
+    fn read_from_buffer(buffer: &mut mmap_bytey::MByteBuffer) -> mmap_bytey::Result<Self>
+    where
+        Self: Sized,
+    {
+        Ok(Entity(
+            hecs::Entity::from_bits(buffer.read::<u64>()?).ok_or(MByteBufferError::OtherError {
+                error: "Bits could nto be converted to hecs Entity. Is your Struct wrong?"
+                    .to_owned(),
+            })?,
+        ))
+    }
+
+    fn read_from_buffer_le(buffer: &mut mmap_bytey::MByteBuffer) -> mmap_bytey::Result<Self>
+    where
+        Self: Sized,
+    {
+        Ok(Entity(
+            hecs::Entity::from_bits(buffer.read_le::<u64>()?).ok_or(
+                MByteBufferError::OtherError {
+                    error: "Bits could nto be converted to hecs Entity. Is your Struct wrong?"
+                        .to_owned(),
+                },
+            )?,
+        ))
+    }
+
+    fn read_from_buffer_be(buffer: &mut mmap_bytey::MByteBuffer) -> mmap_bytey::Result<Self>
+    where
+        Self: Sized,
+    {
+        Ok(Entity(
+            hecs::Entity::from_bits(buffer.read_be::<u64>()?).ok_or(
+                MByteBufferError::OtherError {
                     error: "Bits could nto be converted to hecs Entity. Is your Struct wrong?"
                         .to_owned(),
                 },

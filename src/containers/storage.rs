@@ -11,6 +11,7 @@ use crate::{
 use chrono::Duration;
 use hecs::World;
 use mio::Poll;
+use mmap_bytey::MByteBuffer;
 use rustls::{
     crypto::{ring as provider, CryptoProvider},
     pki_types::{CertificateDer, PrivateKeyDer},
@@ -34,7 +35,7 @@ pub struct Storage {
     pub map_items: RefCell<IndexMap<Position, Entity>>,
     //This is for buffering the specific packets needing to send.
     #[allow(clippy::type_complexity)]
-    pub packet_cache: RefCell<IndexMap<DataTaskToken, VecDeque<(u32, ByteBuffer, bool)>>>,
+    pub packet_cache: RefCell<IndexMap<DataTaskToken, VecDeque<(u32, MByteBuffer, bool)>>>,
     //This keeps track of what Things need sending. So we can leave it loaded and only loop whats needed.
     pub packet_cache_ids: RefCell<IndexSet<DataTaskToken>>,
     pub poll: RefCell<mio::Poll>,

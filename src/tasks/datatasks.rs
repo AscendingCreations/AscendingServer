@@ -6,6 +6,7 @@ use crate::{
 use hecs::World;
 use indexmap::map::Entry;
 use log::warn;
+use mmap_bytey::{MByteBuffer, BUFFER_SIZE};
 use std::collections::VecDeque;
 /* Information Packet Data Portion Worse case is 1400 bytes
 * This means you can fit based on Packet Size: 8bytes + Packet ID: 4bytes  + Data array count: 4bytes
@@ -44,9 +45,9 @@ impl DataTaskToken {
             Entry::Vacant(v) => {
                 let mut buffer = new_cache(self.packet_id())?;
                 buffer.write_slice(data.as_slice())?;
-                if buffer.length() > PACKET_DATA_LIMIT {
+                if buffer.length() > BUFFER_SIZE {
                     warn!(
-                        "Buffer Length for single write of {:?} Exceeded PACKET_DATA_LIMIT",
+                        "Buffer Length for single write of {:?} Exceeded BUFFER_SIZE",
                         self
                     );
                 }
@@ -65,7 +66,7 @@ impl DataTaskToken {
                         .back_mut()
                         .ok_or(AscendingError::PacketCacheNotFound(self))?;
 
-                    if data.length() + buffer.length() > PACKET_DATA_LIMIT {
+                    if data.length() + buffer.length() > BUFFER_SIZE {
                         *is_finished = true;
                         finish_cache(buffer, *count, false)?;
 
@@ -73,9 +74,9 @@ impl DataTaskToken {
 
                         buffer.write_slice(data.as_slice())?;
 
-                        if buffer.length() > PACKET_DATA_LIMIT {
+                        if buffer.length() > BUFFER_SIZE {
                             warn!(
-                                "Buffer Length for single write of {:?} Exceeded PACKET_DATA_LIMIT",
+                                "Buffer Length for single write of {:?} Exceeded BUFFER_SIZE",
                                 self
                             );
                         }
@@ -114,18 +115,18 @@ impl DataTaskToken {
         }
     }
 
-    pub fn send(&self, world: &mut World, storage: &Storage, buf: ByteBuffer) -> Result<()> {
+    pub fn send(&self, world: &mut World, storage: &Storage, buf: MByteBuffer) -> Result<()> {
         use DataTaskToken::*;
         match self {
-            GlobalChat => send_to_all(world, storage, buf),
+            GlobalChat => send_to_all(world, storage, BufferType::MBuffer(buf)),
             Move(mappos) | Warp(mappos) | Death(mappos) | Dir(mappos) | EntityUnload(mappos)
             | Attack(mappos) | NpcSpawn(mappos) | PlayerSpawn(mappos) | MapChat(mappos)
             | ItemLoad(mappos) | Vitals(mappos) | PlayerLevel(mappos) | Damage(mappos) => {
-                send_to_maps(world, storage, *mappos, buf, None)
+                send_to_maps(world, storage, *mappos, BufferType::MBuffer(buf), None)
             }
             PlayerSpawnToEntity(socket_id)
             | NpcSpawnToEntity(socket_id)
-            | ItemLoadToEntity(socket_id) => send_to(storage, *socket_id, buf),
+            | ItemLoadToEntity(socket_id) => send_to(storage, *socket_id, BufferType::MBuffer(buf)),
         }
     }
 }
@@ -154,9 +155,9 @@ pub fn process_tasks(world: &mut World, storage: &Storage) -> Result<()> {
     Ok(())
 }
 
-pub fn new_cache(packet_id: ServerPackets) -> Result<ByteBuffer> {
+pub fn new_cache(packet_id: ServerPackets) -> Result<MByteBuffer> {
     //Set it to the max packet size - the size holder - packet_id - count
-    let mut buffer = ByteBuffer::new_packet_with(PACKET_DATA_LIMIT - 8)?;
+    let mut buffer = MByteBuffer::new()?;
     //Write the packet ID so we know where it goes.
     buffer.write(packet_id)?;
     //preallocate space for count.
@@ -164,7 +165,7 @@ pub fn new_cache(packet_id: ServerPackets) -> Result<ByteBuffer> {
     Ok(buffer)
 }
 
-pub fn finish_cache(buffer: &mut ByteBuffer, count: u32, is_finished: bool) -> Result<()> {
+pub fn finish_cache(buffer: &mut MByteBuffer, count: u32, is_finished: bool) -> Result<()> {
     if !is_finished {
         //Move it 8 bytes for Size + 2 bytes for Packet ID enum to get count location.
         buffer.move_cursor(10)?;

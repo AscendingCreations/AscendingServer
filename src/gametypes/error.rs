@@ -63,6 +63,13 @@ pub enum AscendingError {
         backtrace: Box<Backtrace>,
     },
     #[error("Error: {error}, BackTrace: {backtrace}")]
+    MByteyError {
+        #[from]
+        error: mmap_bytey::MByteBufferError,
+        #[backtrace]
+        backtrace: Box<Backtrace>,
+    },
+    #[error("Error: {error}, BackTrace: {backtrace}")]
     RegexError {
         #[from]
         error: regex::Error,
