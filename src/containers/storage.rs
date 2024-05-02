@@ -11,7 +11,6 @@ use crate::{
 use chrono::Duration;
 use hecs::World;
 use mio::Poll;
-use mmap_bytey::MByteBuffer;
 use rustls::{
     crypto::{ring as provider, CryptoProvider},
     pki_types::{CertificateDer, PrivateKeyDer},

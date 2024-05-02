@@ -13,7 +13,7 @@ use regex::Regex;
 pub fn handle_ping(
     world: &mut World,
     storage: &Storage,
-    _data: &mut ByteBuffer,
+    _data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
     send_gameping(world, storage, entity)
@@ -22,7 +22,7 @@ pub fn handle_ping(
 pub fn handle_register(
     world: &mut World,
     storage: &Storage,
-    data: &mut ByteBuffer,
+    data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
     let username = data.read::<String>()?;
@@ -166,7 +166,7 @@ pub fn handle_register(
 pub fn handle_handshake(
     world: &mut World,
     storage: &Storage,
-    data: &mut ByteBuffer,
+    data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
     let handshake = data.read::<String>()?;
@@ -183,7 +183,7 @@ pub fn handle_handshake(
 pub fn handle_login(
     world: &mut World,
     storage: &Storage,
-    data: &mut ByteBuffer,
+    data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
     let username = data.read::<String>()?;
@@ -281,7 +281,7 @@ pub fn handle_login(
 pub fn handle_move(
     world: &mut World,
     storage: &Storage,
-    data: &mut ByteBuffer,
+    data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
@@ -317,7 +317,7 @@ pub fn handle_move(
 pub fn handle_dir(
     world: &mut World,
     storage: &Storage,
-    data: &mut ByteBuffer,
+    data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
@@ -349,7 +349,7 @@ pub fn handle_dir(
 pub fn handle_attack(
     world: &mut World,
     storage: &Storage,
-    data: &mut ByteBuffer,
+    data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
@@ -398,7 +398,7 @@ pub fn handle_attack(
 pub fn handle_useitem(
     world: &mut World,
     storage: &Storage,
-    data: &mut ByteBuffer,
+    data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
@@ -427,7 +427,7 @@ pub fn handle_useitem(
 pub fn handle_unequip(
     world: &mut World,
     storage: &Storage,
-    data: &mut ByteBuffer,
+    data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
@@ -463,7 +463,7 @@ pub fn handle_unequip(
 pub fn handle_switchinvslot(
     world: &mut World,
     storage: &Storage,
-    data: &mut ByteBuffer,
+    data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
@@ -535,7 +535,7 @@ pub fn handle_switchinvslot(
 pub fn handle_pickup(
     world: &mut World,
     storage: &Storage,
-    _data: &mut ByteBuffer,
+    _data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
@@ -681,7 +681,7 @@ pub fn handle_pickup(
 pub fn handle_dropitem(
     world: &mut World,
     storage: &Storage,
-    data: &mut ByteBuffer,
+    data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
@@ -744,7 +744,7 @@ pub fn handle_dropitem(
 pub fn handle_deleteitem(
     world: &mut World,
     storage: &Storage,
-    data: &mut ByteBuffer,
+    data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
@@ -774,7 +774,7 @@ pub fn handle_deleteitem(
 pub fn handle_switchstorageslot(
     world: &mut World,
     storage: &Storage,
-    data: &mut ByteBuffer,
+    data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
@@ -846,7 +846,7 @@ pub fn handle_switchstorageslot(
 pub fn handle_deletestorageitem(
     world: &mut World,
     storage: &Storage,
-    data: &mut ByteBuffer,
+    data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
@@ -876,7 +876,7 @@ pub fn handle_deletestorageitem(
 pub fn handle_deposititem(
     world: &mut World,
     storage: &Storage,
-    data: &mut ByteBuffer,
+    data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
@@ -940,7 +940,7 @@ pub fn handle_deposititem(
 pub fn handle_withdrawitem(
     world: &mut World,
     storage: &Storage,
-    data: &mut ByteBuffer,
+    data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
@@ -1003,7 +1003,7 @@ pub fn handle_withdrawitem(
 pub fn handle_message(
     world: &mut World,
     storage: &Storage,
-    data: &mut ByteBuffer,
+    data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
@@ -1093,7 +1093,7 @@ pub fn handle_message(
 pub fn handle_command(
     world: &mut World,
     storage: &Storage,
-    data: &mut ByteBuffer,
+    data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
     if let Some(_p) = storage.player_ids.borrow().get(entity) {
@@ -1196,7 +1196,7 @@ pub fn handle_command(
 pub fn handle_settarget(
     world: &mut World,
     storage: &Storage,
-    data: &mut ByteBuffer,
+    data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
     if let Some(_p) = storage.player_ids.borrow().get(entity) {
@@ -1218,7 +1218,7 @@ pub fn handle_settarget(
 pub fn handle_closestorage(
     world: &mut World,
     storage: &Storage,
-    _data: &mut ByteBuffer,
+    _data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
@@ -1242,7 +1242,7 @@ pub fn handle_closestorage(
 pub fn handle_closeshop(
     world: &mut World,
     storage: &Storage,
-    _data: &mut ByteBuffer,
+    _data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
@@ -1266,7 +1266,7 @@ pub fn handle_closeshop(
 pub fn handle_closetrade(
     world: &mut World,
     storage: &Storage,
-    _data: &mut ByteBuffer,
+    _data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
@@ -1314,7 +1314,7 @@ pub fn handle_closetrade(
 pub fn handle_buyitem(
     world: &mut World,
     storage: &Storage,
-    data: &mut ByteBuffer,
+    data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
@@ -1384,7 +1384,7 @@ pub fn handle_buyitem(
 pub fn handle_sellitem(
     world: &mut World,
     storage: &Storage,
-    data: &mut ByteBuffer,
+    data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
@@ -1438,7 +1438,7 @@ pub fn handle_sellitem(
 pub fn handle_addtradeitem(
     world: &mut World,
     storage: &Storage,
-    data: &mut ByteBuffer,
+    data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
@@ -1509,7 +1509,7 @@ pub fn handle_addtradeitem(
 pub fn handle_removetradeitem(
     world: &mut World,
     storage: &Storage,
-    data: &mut ByteBuffer,
+    data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
@@ -1563,7 +1563,7 @@ pub fn handle_removetradeitem(
 pub fn handle_updatetrademoney(
     world: &mut World,
     storage: &Storage,
-    data: &mut ByteBuffer,
+    data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
@@ -1603,7 +1603,7 @@ pub fn handle_updatetrademoney(
 pub fn handle_submittrade(
     world: &mut World,
     storage: &Storage,
-    _data: &mut ByteBuffer,
+    _data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
@@ -1690,7 +1690,7 @@ pub fn handle_submittrade(
 pub fn handle_accepttrade(
     world: &mut World,
     storage: &Storage,
-    _data: &mut ByteBuffer,
+    _data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
@@ -1753,7 +1753,7 @@ pub fn handle_accepttrade(
 pub fn handle_declinetrade(
     world: &mut World,
     storage: &Storage,
-    _data: &mut ByteBuffer,
+    _data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {

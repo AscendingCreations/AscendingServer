@@ -1,5 +1,4 @@
-use crate::{gametypes::*, items::*, npcs::*, players::*};
-use bytey::ByteBuffer;
+use crate::{gametypes::*, items::*, npcs::*, players::*, socket::MByteBuffer};
 use hecs::{NoSuchEntity, World};
 
 pub fn move_packet(
@@ -8,8 +7,8 @@ pub fn move_packet(
     warp: bool,
     switch: bool,
     dir: u8,
-) -> Result<ByteBuffer> {
-    let mut buffer = ByteBuffer::with_capacity(32)?;
+) -> Result<MByteBuffer> {
+    let mut buffer = MByteBuffer::new()?;
     buffer
         .write(entity)?
         .write(position)?
@@ -20,28 +19,32 @@ pub fn move_packet(
     Ok(buffer)
 }
 
-pub fn warp_packet(entity: Entity, position: Position) -> Result<ByteBuffer> {
-    let mut buffer = ByteBuffer::with_capacity(28)?;
+pub fn warp_packet(entity: Entity, position: Position) -> Result<MByteBuffer> {
+    let mut buffer = MByteBuffer::new()?;
     buffer.write(entity)?.write(position)?;
 
     Ok(buffer)
 }
 
-pub fn dir_packet(entity: Entity, dir: u8) -> Result<ByteBuffer> {
-    let mut buffer = ByteBuffer::with_capacity(9)?;
+pub fn dir_packet(entity: Entity, dir: u8) -> Result<MByteBuffer> {
+    let mut buffer = MByteBuffer::new()?;
     buffer.write(entity)?.write(dir)?;
 
     Ok(buffer)
 }
 
-pub fn death_packet(entity: Entity, life: DeathType) -> Result<ByteBuffer> {
-    let mut buffer = ByteBuffer::with_capacity(10)?;
+pub fn death_packet(entity: Entity, life: DeathType) -> Result<MByteBuffer> {
+    let mut buffer = MByteBuffer::new()?;
     buffer.write(entity)?.write(life)?;
 
     Ok(buffer)
 }
 
-pub fn npc_spawn_packet(world: &mut World, entity: &Entity, did_spawn: bool) -> Result<ByteBuffer> {
+pub fn npc_spawn_packet(
+    world: &mut World,
+    entity: &Entity,
+    did_spawn: bool,
+) -> Result<MByteBuffer> {
     let mut query = world.query_one::<(
         &Dir,
         &Hidden,
@@ -58,7 +61,7 @@ pub fn npc_spawn_packet(world: &mut World, entity: &Entity, did_spawn: bool) -> 
     if let Some((dir, hidden, level, life, physical, position, sprite, vitals, mode, npc_index)) =
         query.get()
     {
-        let mut buffer = ByteBuffer::with_capacity(93)?;
+        let mut buffer = MByteBuffer::new()?;
         buffer
             .write(dir.0)?
             .write(hidden.0)?
@@ -88,7 +91,7 @@ pub fn player_spawn_packet(
     world: &mut World,
     entity: &Entity,
     did_spawn: bool,
-) -> Result<ByteBuffer> {
+) -> Result<MByteBuffer> {
     let mut query = world.query_one::<(
         &Account,
         &Dir,
@@ -119,7 +122,7 @@ pub fn player_spawn_packet(
         player,
     )) = query.get()
     {
-        let mut buffer = ByteBuffer::with_capacity(account.username.len() + 226)?;
+        let mut buffer = MByteBuffer::new()?;
         buffer
             .write(&account.username)?
             .write(dir.0)?
@@ -153,8 +156,8 @@ pub fn message_packet(
     head: String,
     msg: String,
     access: Option<UserAccess>,
-) -> Result<ByteBuffer> {
-    let mut buffer = ByteBuffer::with_capacity(head.len() + msg.len() + 5)?;
+) -> Result<MByteBuffer> {
+    let mut buffer = MByteBuffer::new()?;
     buffer
         .write(channel)?
         .write(head)?
@@ -170,8 +173,8 @@ pub fn map_item_packet(
     item: Item,
     owner: Option<Entity>,
     did_spawn: bool,
-) -> Result<ByteBuffer> {
-    let mut buffer = ByteBuffer::with_capacity(55)?;
+) -> Result<MByteBuffer> {
+    let mut buffer = MByteBuffer::new()?;
     buffer
         .write(id)?
         .write(position)?
@@ -186,8 +189,8 @@ pub fn vitals_packet(
     entity: Entity,
     vital: [i32; VITALS_MAX],
     vitalmax: [i32; VITALS_MAX],
-) -> Result<ByteBuffer> {
-    let mut buffer = ByteBuffer::with_capacity(32)?;
+) -> Result<MByteBuffer> {
+    let mut buffer = MByteBuffer::new()?;
     buffer.write(entity)?.write(vital)?.write(vitalmax)?;
 
     Ok(buffer)
@@ -198,8 +201,8 @@ pub fn damage_packet(
     damage: u16,
     pos: Position,
     is_damage: bool,
-) -> Result<ByteBuffer> {
-    let mut buffer = ByteBuffer::with_capacity(32)?;
+) -> Result<MByteBuffer> {
+    let mut buffer = MByteBuffer::new()?;
     buffer
         .write(entity)?
         .write(damage)?
@@ -209,22 +212,22 @@ pub fn damage_packet(
     Ok(buffer)
 }
 
-pub fn level_packet(entity: Entity, level: i32, levelexp: u64) -> Result<ByteBuffer> {
-    let mut buffer = ByteBuffer::with_capacity(20)?;
+pub fn level_packet(entity: Entity, level: i32, levelexp: u64) -> Result<MByteBuffer> {
+    let mut buffer = MByteBuffer::new()?;
     buffer.write(entity)?.write(level)?.write(levelexp)?;
 
     Ok(buffer)
 }
 
-pub fn unload_entity_packet(entity: Entity) -> Result<ByteBuffer> {
-    let mut buffer = ByteBuffer::with_capacity(8)?;
+pub fn unload_entity_packet(entity: Entity) -> Result<MByteBuffer> {
+    let mut buffer = MByteBuffer::new()?;
     buffer.write(entity)?;
 
     Ok(buffer)
 }
 
-pub fn attack_packet(entity: Entity) -> Result<ByteBuffer> {
-    let mut buffer = ByteBuffer::with_capacity(8)?;
+pub fn attack_packet(entity: Entity) -> Result<MByteBuffer> {
+    let mut buffer = MByteBuffer::new()?;
     buffer.write(entity)?;
 
     Ok(buffer)

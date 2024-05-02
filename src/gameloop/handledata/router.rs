@@ -8,7 +8,7 @@ pub fn handle_data(
     router: &PacketRouter,
     world: &mut World,
     storage: &Storage,
-    data: &mut ByteBuffer,
+    data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
     let id: ClientPacket = data.read()?;

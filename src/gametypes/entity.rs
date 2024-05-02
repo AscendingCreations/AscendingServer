@@ -1,10 +1,8 @@
-use crate::{gametypes::*, time_ext::MyInstant};
-use bytey::{ByteBufferError, ByteBufferRead, ByteBufferWrite};
+use crate::{gametypes::*, socket::*, time_ext::MyInstant};
 use core::any::type_name;
 use educe::Educe;
 use hecs::{EntityRef, MissingComponent, World};
 use log::{error, warn};
-use mmap_bytey::{MByteBufferError, MByteBufferRead, MByteBufferWrite};
 use serde::{Deserialize, Serialize};
 use std::{
     backtrace::Backtrace,
@@ -144,36 +142,36 @@ impl DerefMut for Entity {
     }
 }
 
-impl bytey::ByteBufferWrite for Entity {
-    fn write_to_buffer(&self, buffer: &mut bytey::ByteBuffer) -> bytey::Result<()> {
-        bytey::ByteBufferWrite::write_to_buffer(&self.0.to_bits(), buffer)
+impl ByteBufferWrite for Entity {
+    fn write_to_buffer(&self, buffer: &mut ByteBuffer) -> bytey::Result<()> {
+        ByteBufferWrite::write_to_buffer(&self.0.to_bits(), buffer)
     }
 
-    fn write_to_buffer_le(&self, buffer: &mut bytey::ByteBuffer) -> bytey::Result<()> {
-        bytey::ByteBufferWrite::write_to_buffer_le(&self.0.to_bits(), buffer)
+    fn write_to_buffer_le(&self, buffer: &mut ByteBuffer) -> bytey::Result<()> {
+        ByteBufferWrite::write_to_buffer_le(&self.0.to_bits(), buffer)
     }
 
-    fn write_to_buffer_be(&self, buffer: &mut bytey::ByteBuffer) -> bytey::Result<()> {
-        bytey::ByteBufferWrite::write_to_buffer_be(&self.0.to_bits(), buffer)
-    }
-}
-
-impl bytey::ByteBufferWrite for &Entity {
-    fn write_to_buffer(&self, buffer: &mut bytey::ByteBuffer) -> bytey::Result<()> {
-        bytey::ByteBufferWrite::write_to_buffer(&self.0.to_bits(), buffer)
-    }
-
-    fn write_to_buffer_le(&self, buffer: &mut bytey::ByteBuffer) -> bytey::Result<()> {
-        bytey::ByteBufferWrite::write_to_buffer_le(&self.0.to_bits(), buffer)
-    }
-
-    fn write_to_buffer_be(&self, buffer: &mut bytey::ByteBuffer) -> bytey::Result<()> {
-        bytey::ByteBufferWrite::write_to_buffer_be(&self.0.to_bits(), buffer)
+    fn write_to_buffer_be(&self, buffer: &mut ByteBuffer) -> bytey::Result<()> {
+        ByteBufferWrite::write_to_buffer_be(&self.0.to_bits(), buffer)
     }
 }
 
-impl bytey::ByteBufferRead for Entity {
-    fn read_from_buffer(buffer: &mut bytey::ByteBuffer) -> bytey::Result<Self>
+impl ByteBufferWrite for &Entity {
+    fn write_to_buffer(&self, buffer: &mut ByteBuffer) -> bytey::Result<()> {
+        ByteBufferWrite::write_to_buffer(&self.0.to_bits(), buffer)
+    }
+
+    fn write_to_buffer_le(&self, buffer: &mut ByteBuffer) -> bytey::Result<()> {
+        ByteBufferWrite::write_to_buffer_le(&self.0.to_bits(), buffer)
+    }
+
+    fn write_to_buffer_be(&self, buffer: &mut ByteBuffer) -> bytey::Result<()> {
+        ByteBufferWrite::write_to_buffer_be(&self.0.to_bits(), buffer)
+    }
+}
+
+impl ByteBufferRead for Entity {
+    fn read_from_buffer(buffer: &mut ByteBuffer) -> bytey::Result<Self>
     where
         Self: Sized,
     {
@@ -185,7 +183,7 @@ impl bytey::ByteBufferRead for Entity {
         ))
     }
 
-    fn read_from_buffer_le(buffer: &mut bytey::ByteBuffer) -> bytey::Result<Self>
+    fn read_from_buffer_le(buffer: &mut ByteBuffer) -> bytey::Result<Self>
     where
         Self: Sized,
     {
@@ -199,7 +197,7 @@ impl bytey::ByteBufferRead for Entity {
         ))
     }
 
-    fn read_from_buffer_be(buffer: &mut bytey::ByteBuffer) -> bytey::Result<Self>
+    fn read_from_buffer_be(buffer: &mut ByteBuffer) -> bytey::Result<Self>
     where
         Self: Sized,
     {
@@ -215,35 +213,35 @@ impl bytey::ByteBufferRead for Entity {
 }
 
 impl MByteBufferWrite for Entity {
-    fn write_to_mbuffer(&self, buffer: &mut mmap_bytey::MByteBuffer) -> mmap_bytey::Result<()> {
+    fn write_to_mbuffer(&self, buffer: &mut MByteBuffer) -> mmap_bytey::Result<()> {
         MByteBufferWrite::write_to_mbuffer(&self.0.to_bits(), buffer)
     }
 
-    fn write_to_mbuffer_le(&self, buffer: &mut mmap_bytey::MByteBuffer) -> mmap_bytey::Result<()> {
+    fn write_to_mbuffer_le(&self, buffer: &mut MByteBuffer) -> mmap_bytey::Result<()> {
         MByteBufferWrite::write_to_mbuffer_le(&self.0.to_bits(), buffer)
     }
 
-    fn write_to_mbuffer_be(&self, buffer: &mut mmap_bytey::MByteBuffer) -> mmap_bytey::Result<()> {
+    fn write_to_mbuffer_be(&self, buffer: &mut MByteBuffer) -> mmap_bytey::Result<()> {
         MByteBufferWrite::write_to_mbuffer_be(&self.0.to_bits(), buffer)
     }
 }
 
 impl MByteBufferWrite for &Entity {
-    fn write_to_mbuffer(&self, buffer: &mut mmap_bytey::MByteBuffer) -> mmap_bytey::Result<()> {
+    fn write_to_mbuffer(&self, buffer: &mut MByteBuffer) -> mmap_bytey::Result<()> {
         MByteBufferWrite::write_to_mbuffer(&self.0.to_bits(), buffer)
     }
 
-    fn write_to_mbuffer_le(&self, buffer: &mut mmap_bytey::MByteBuffer) -> mmap_bytey::Result<()> {
+    fn write_to_mbuffer_le(&self, buffer: &mut MByteBuffer) -> mmap_bytey::Result<()> {
         MByteBufferWrite::write_to_mbuffer_le(&self.0.to_bits(), buffer)
     }
 
-    fn write_to_mbuffer_be(&self, buffer: &mut mmap_bytey::MByteBuffer) -> mmap_bytey::Result<()> {
+    fn write_to_mbuffer_be(&self, buffer: &mut MByteBuffer) -> mmap_bytey::Result<()> {
         MByteBufferWrite::write_to_mbuffer_be(&self.0.to_bits(), buffer)
     }
 }
 
 impl MByteBufferRead for Entity {
-    fn read_from_mbuffer(buffer: &mut mmap_bytey::MByteBuffer) -> mmap_bytey::Result<Self>
+    fn read_from_mbuffer(buffer: &mut MByteBuffer) -> mmap_bytey::Result<Self>
     where
         Self: Sized,
     {
@@ -255,7 +253,7 @@ impl MByteBufferRead for Entity {
         ))
     }
 
-    fn read_from_mbuffer_le(buffer: &mut mmap_bytey::MByteBuffer) -> mmap_bytey::Result<Self>
+    fn read_from_mbuffer_le(buffer: &mut MByteBuffer) -> mmap_bytey::Result<Self>
     where
         Self: Sized,
     {
@@ -269,7 +267,7 @@ impl MByteBufferRead for Entity {
         ))
     }
 
-    fn read_from_mbuffer_be(buffer: &mut mmap_bytey::MByteBuffer) -> mmap_bytey::Result<Self>
+    fn read_from_mbuffer_be(buffer: &mut MByteBuffer) -> mmap_bytey::Result<Self>
     where
         Self: Sized,
     {

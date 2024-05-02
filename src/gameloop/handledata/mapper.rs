@@ -3,7 +3,7 @@ use crate::{containers::Storage, gametypes::*, socket::*};
 use hecs::World;
 use std::collections::HashMap;
 
-type PacketFunction = fn(&mut World, &Storage, &mut ByteBuffer, &Entity) -> Result<()>;
+type PacketFunction = fn(&mut World, &Storage, &mut MByteBuffer, &Entity) -> Result<()>;
 
 pub struct PacketRouter(pub HashMap<ClientPacket, PacketFunction>);
 

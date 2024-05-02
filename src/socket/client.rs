@@ -11,7 +11,7 @@ use crate::{
 use hecs::World;
 use log::{error, warn};
 use mio::{net::TcpStream, Interest};
-use mmap_bytey::MByteBuffer;
+use mmap_bytey::BUFFER_SIZE;
 use std::{
     collections::VecDeque,
     io::{self, Read, Write},
@@ -81,35 +81,13 @@ pub enum EncryptionState {
 }
 
 #[derive(Debug)]
-pub enum BufferType {
-    MBuffer(MByteBuffer),
-    Buffer(ByteBuffer),
-}
-
-impl BufferType {
-    pub fn try_clone(&self) -> Result<BufferType> {
-        match self {
-            BufferType::MBuffer(buffer) => Ok(BufferType::MBuffer(buffer.try_clone()?)),
-            BufferType::Buffer(buffer) => Ok(BufferType::Buffer(buffer.clone())),
-        }
-    }
-
-    pub fn as_slice(&mut self) -> &[u8] {
-        match self {
-            BufferType::MBuffer(buffer) => buffer.as_slice(),
-            BufferType::Buffer(buffer) => buffer.as_slice(),
-        }
-    }
-}
-
-#[derive(Debug)]
 pub struct Client {
     pub stream: TcpStream,
     pub token: mio::Token,
     pub entity: Entity,
     pub state: ClientState,
-    pub sends: VecDeque<BufferType>,
-    pub tls_sends: VecDeque<BufferType>,
+    pub sends: VecDeque<MByteBuffer>,
+    pub tls_sends: VecDeque<MByteBuffer>,
     pub poll_state: SocketPollState,
     // used for sending encrypted Data.
     pub tls: rustls::ServerConnection,
@@ -470,19 +448,19 @@ impl Client {
     }
 
     #[inline]
-    pub fn send(&mut self, poll: &mio::Poll, buf: BufferType) -> Result<()> {
+    pub fn send(&mut self, poll: &mio::Poll, buf: MByteBuffer) -> Result<()> {
         self.sends.push_back(buf);
         self.add_write_state(poll)
     }
 
     #[inline]
-    pub fn send_first(&mut self, poll: &mio::Poll, buf: BufferType) -> Result<()> {
+    pub fn send_first(&mut self, poll: &mio::Poll, buf: MByteBuffer) -> Result<()> {
         self.sends.push_front(buf);
         self.add_write_state(poll)
     }
 
     #[inline]
-    pub fn tls_send(&mut self, poll: &mio::Poll, buf: BufferType) -> Result<()> {
+    pub fn tls_send(&mut self, poll: &mio::Poll, buf: MByteBuffer) -> Result<()> {
         self.tls_sends.push_back(buf);
         self.add_write_state(poll)
     }
@@ -543,7 +521,7 @@ pub fn set_encryption_status(
 }
 
 #[inline]
-pub fn send_to(storage: &Storage, socket_id: usize, buf: BufferType) -> Result<()> {
+pub fn send_to(storage: &Storage, socket_id: usize, buf: MByteBuffer) -> Result<()> {
     if let Some(client) = storage.server.borrow().clients.get(&mio::Token(socket_id)) {
         client.borrow_mut().send(&storage.poll.borrow(), buf)
     } else {
@@ -552,16 +530,7 @@ pub fn send_to(storage: &Storage, socket_id: usize, buf: BufferType) -> Result<(
 }
 
 #[inline]
-pub fn send_message_to(storage: &Storage, socket_id: usize, buf: BufferType) -> Result<()> {
-    if let Some(client) = storage.server.borrow().clients.get(&mio::Token(socket_id)) {
-        client.borrow_mut().send(&storage.poll.borrow(), buf)
-    } else {
-        Ok(())
-    }
-}
-
-#[inline]
-pub fn tls_send_to(storage: &Storage, socket_id: usize, buf: BufferType) -> Result<()> {
+pub fn tls_send_to(storage: &Storage, socket_id: usize, buf: MByteBuffer) -> Result<()> {
     if let Some(client) = storage.server.borrow().clients.get(&mio::Token(socket_id)) {
         client.borrow_mut().tls_send(&storage.poll.borrow(), buf)
     } else {
@@ -570,7 +539,7 @@ pub fn tls_send_to(storage: &Storage, socket_id: usize, buf: BufferType) -> Resu
 }
 
 #[inline]
-pub fn send_to_front(storage: &Storage, socket_id: usize, buf: BufferType) -> Result<()> {
+pub fn send_to_front(storage: &Storage, socket_id: usize, buf: MByteBuffer) -> Result<()> {
     if let Some(client) = storage.server.borrow().clients.get(&mio::Token(socket_id)) {
         client.borrow_mut().send_first(&storage.poll.borrow(), buf)
     } else {
@@ -579,7 +548,7 @@ pub fn send_to_front(storage: &Storage, socket_id: usize, buf: BufferType) -> Re
 }
 
 #[inline]
-pub fn send_to_all(world: &mut World, storage: &Storage, buf: BufferType) -> Result<()> {
+pub fn send_to_all(world: &mut World, storage: &Storage, buf: MByteBuffer) -> Result<()> {
     for (_entity, (_, socket)) in world
         .query::<((&WorldEntityType, &OnlineType), &Socket)>()
         .iter()
@@ -602,7 +571,7 @@ pub fn send_to_maps(
     world: &mut World,
     storage: &Storage,
     position: MapPosition,
-    buf: BufferType,
+    buf: MByteBuffer,
     avoidindex: Option<Entity>,
 ) -> Result<()> {
     for m in get_surrounding(position, true) {
@@ -637,7 +606,7 @@ pub fn send_to_entities(
     world: &mut World,
     storage: &Storage,
     entities: &[Entity],
-    buf: BufferType,
+    buf: MByteBuffer,
 ) -> Result<()> {
     for entity in entities {
         let (status, socket) = world.query_one_mut::<(&OnlineType, &Socket)>(entity.0)?;
@@ -681,7 +650,7 @@ pub const MAX_PROCESSED_PACKETS: i32 = 25;
 
 pub fn process_packets(world: &mut World, storage: &Storage, router: &PacketRouter) -> Result<()> {
     let mut rem_arr: Vec<(Entity, usize, bool)> = Vec::with_capacity(64);
-    let mut packet = ByteBuffer::with_capacity(4096)?;
+    let mut packet = MByteBuffer::new()?;
 
     'user_loop: for entity in &*storage.recv_ids.borrow() {
         let mut count = 0;
@@ -717,6 +686,18 @@ pub fn process_packets(world: &mut World, storage: &Storage, router: &PacketRout
                     warn!(
                         "Length was Zero. Bad or malformed packet from IP: {}",
                         address
+                    );
+
+                    rem_arr.push((*entity, socket_id, true));
+                    continue 'user_loop;
+                }
+
+                if length > BUFFER_SIZE as u64 {
+                    warn!(
+                        "Length was {} greater than the max packet size of {}. Bad or malformed packet from IP: {}",
+                        length,
+                        address,
+                        BUFFER_SIZE
                     );
 
                     rem_arr.push((*entity, socket_id, true));
