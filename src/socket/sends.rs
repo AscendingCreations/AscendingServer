@@ -9,7 +9,7 @@ pub fn send_infomsg(
     close_socket: u8,
     tls_send: bool,
 ) -> Result<()> {
-    let mut buf = MByteBuffer::new()?;
+    let mut buf = MByteBuffer::new_packet()?;
 
     buf.write(ServerPackets::AlertMsg)?;
     buf.write(message)?;
@@ -30,7 +30,7 @@ pub fn send_fltalert(
     message: String,
     ftltype: FtlType,
 ) -> Result<()> {
-    let mut buf = MByteBuffer::new()?;
+    let mut buf = MByteBuffer::new_packet()?;
 
     buf.write(ServerPackets::FltAlert)?;
     buf.write(ftltype)?;
@@ -42,7 +42,7 @@ pub fn send_fltalert(
 
 #[inline]
 pub fn send_loginok(storage: &Storage, socket_id: usize) -> Result<()> {
-    let mut buf = MByteBuffer::new()?;
+    let mut buf = MByteBuffer::new_packet()?;
 
     buf.write(ServerPackets::LoginOk)?;
     buf.write(storage.time.borrow().hour)?;
@@ -54,7 +54,7 @@ pub fn send_loginok(storage: &Storage, socket_id: usize) -> Result<()> {
 
 #[inline]
 pub fn send_myindex(storage: &Storage, socket_id: usize, entity: &Entity) -> Result<()> {
-    let mut buf = MByteBuffer::new()?;
+    let mut buf = MByteBuffer::new_packet()?;
 
     buf.write(ServerPackets::MyIndex)?;
     buf.write(*entity)?;
@@ -65,7 +65,7 @@ pub fn send_myindex(storage: &Storage, socket_id: usize, entity: &Entity) -> Res
 }
 
 pub fn send_move_ok(storage: &Storage, socket_id: usize, move_ok: bool) -> Result<()> {
-    let mut buf = MByteBuffer::new()?;
+    let mut buf = MByteBuffer::new_packet()?;
 
     buf.write(ServerPackets::MoveOk)?;
     buf.write(move_ok)?;
@@ -81,7 +81,7 @@ pub fn send_playerdata(
     socket_id: usize,
     entity: &Entity,
 ) -> Result<()> {
-    let mut buf = MByteBuffer::new()?;
+    let mut buf = MByteBuffer::new_packet()?;
 
     buf.write(ServerPackets::PlayerData)?;
     buf.write(world.get::<&Account>(entity.0)?.username.clone())?;
@@ -112,7 +112,7 @@ pub fn send_codes(
     code: String,
     handshake: String,
 ) -> Result<()> {
-    let mut buf = MByteBuffer::new()?;
+    let mut buf = MByteBuffer::new_packet()?;
 
     buf.write(ServerPackets::HandShake)?;
     buf.write(&code)?;
@@ -127,7 +127,7 @@ pub fn send_codes(
 }
 
 pub fn send_ping(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
-    let mut buf = MByteBuffer::new()?;
+    let mut buf = MByteBuffer::new_packet()?;
 
     buf.write(ServerPackets::OnlineCheck)?;
     buf.write(0u64)?;
@@ -140,7 +140,7 @@ pub fn send_ping(world: &mut World, storage: &Storage, entity: &Entity) -> Resul
 
 #[inline]
 pub fn send_inv(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
-    let mut buf = MByteBuffer::new()?;
+    let mut buf = MByteBuffer::new_packet()?;
 
     buf.write(ServerPackets::PlayerInv)?;
     buf.write(&world.get::<&Inventory>(entity.0)?.items)?;
@@ -156,7 +156,7 @@ pub fn send_invslot(
     entity: &Entity,
     id: usize,
 ) -> Result<()> {
-    let mut buf = MByteBuffer::new()?;
+    let mut buf = MByteBuffer::new_packet()?;
 
     buf.write(ServerPackets::PlayerInvSlot)?;
     buf.write(id)?;
@@ -168,7 +168,7 @@ pub fn send_invslot(
 
 #[inline]
 pub fn send_storage(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
-    let mut buf = MByteBuffer::new()?;
+    let mut buf = MByteBuffer::new_packet()?;
 
     buf.write(ServerPackets::PlayerStorage)?;
     buf.write(&world.get::<&PlayerStorage>(entity.0)?.items)?;
@@ -184,7 +184,7 @@ pub fn send_storageslot(
     entity: &Entity,
     id: usize,
 ) -> Result<()> {
-    let mut buf = MByteBuffer::new()?;
+    let mut buf = MByteBuffer::new_packet()?;
 
     buf.write(ServerPackets::PlayerStorageSlot)?;
     buf.write(id)?;
@@ -196,7 +196,7 @@ pub fn send_storageslot(
 
 #[inline]
 pub fn send_equipment(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
-    let mut buf = MByteBuffer::new()?;
+    let mut buf = MByteBuffer::new_packet()?;
 
     buf.write(ServerPackets::PlayerEquipment)?;
     buf.write(*entity)?;
@@ -214,7 +214,7 @@ pub fn send_equipment(world: &mut World, storage: &Storage, entity: &Entity) -> 
 
 #[inline]
 pub fn send_level(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
-    let mut buf = MByteBuffer::new()?;
+    let mut buf = MByteBuffer::new_packet()?;
 
     buf.write(ServerPackets::PlayerLevel)?;
     buf.write(world.get_or_err::<Level>(entity)?.0)?;
@@ -226,7 +226,7 @@ pub fn send_level(world: &mut World, storage: &Storage, entity: &Entity) -> Resu
 
 #[inline]
 pub fn send_money(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
-    let mut buf = MByteBuffer::new()?;
+    let mut buf = MByteBuffer::new_packet()?;
 
     buf.write(ServerPackets::PlayerMoney)?;
     buf.write(world.get_or_err::<Money>(entity)?.vals)?;
@@ -237,7 +237,7 @@ pub fn send_money(world: &mut World, storage: &Storage, entity: &Entity) -> Resu
 
 #[inline]
 pub fn send_pk(world: &mut World, storage: &Storage, entity: &Entity, toself: bool) -> Result<()> {
-    let mut buf = MByteBuffer::new()?;
+    let mut buf = MByteBuffer::new_packet()?;
     let closure = |toself, id| if toself { Some(id) } else { None };
 
     buf.write(ServerPackets::PlayerPk)?;
@@ -272,7 +272,7 @@ pub fn send_message(
             .add_task(storage, message_packet(chan, head, msg, Some(access))?)?,
         MessageChannel::Party | MessageChannel::Trade | MessageChannel::Help => {}
         MessageChannel::Private => {
-            let mut buf = MByteBuffer::new()?;
+            let mut buf = MByteBuffer::new_packet()?;
             buf.write(ServerPackets::ChatMsg)?;
             buf.write(1_u32)?;
             buf.write(chan)?;
@@ -288,7 +288,7 @@ pub fn send_message(
         }
         MessageChannel::Guild => {}
         MessageChannel::Quest | MessageChannel::Npc => {
-            let mut buf = MByteBuffer::new()?;
+            let mut buf = MByteBuffer::new_packet()?;
 
             buf.write(ServerPackets::ChatMsg)?;
             buf.write(1_u32)?;
@@ -306,7 +306,7 @@ pub fn send_message(
 
 #[inline]
 pub fn send_openstorage(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
-    let mut buf = MByteBuffer::new()?;
+    let mut buf = MByteBuffer::new_packet()?;
 
     buf.write(ServerPackets::OpenStorage)?;
     buf.write(1_u32)?;
@@ -322,7 +322,7 @@ pub fn send_openshop(
     entity: &Entity,
     shop_index: u16,
 ) -> Result<()> {
-    let mut buf = MByteBuffer::new()?;
+    let mut buf = MByteBuffer::new_packet()?;
 
     buf.write(ServerPackets::OpenShop)?;
     buf.write(shop_index)?;
@@ -333,7 +333,7 @@ pub fn send_openshop(
 
 #[inline]
 pub fn send_clearisusingtype(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
-    let mut buf = MByteBuffer::new()?;
+    let mut buf = MByteBuffer::new_packet()?;
 
     buf.write(ServerPackets::ClearIsUsingType)?;
     buf.write(1_u16)?;
@@ -350,7 +350,7 @@ pub fn send_updatetradeitem(
     send_entity: &Entity,
     trade_slot: u16,
 ) -> Result<()> {
-    let mut buf = MByteBuffer::new()?;
+    let mut buf = MByteBuffer::new_packet()?;
 
     buf.write(ServerPackets::UpdateTradeItem)?;
     buf.write(target_entity == send_entity)?;
@@ -368,7 +368,7 @@ pub fn send_updatetrademoney(
     target_entity: &Entity,
     send_entity: &Entity,
 ) -> Result<()> {
-    let mut buf = MByteBuffer::new()?;
+    let mut buf = MByteBuffer::new_packet()?;
 
     buf.write(ServerPackets::UpdateTradeMoney)?;
     buf.write(world.get::<&TradeMoney>(target_entity.0)?.vals)?;
@@ -384,7 +384,7 @@ pub fn send_inittrade(
     entity: &Entity,
     target_entity: &Entity,
 ) -> Result<()> {
-    let mut buf = MByteBuffer::new()?;
+    let mut buf = MByteBuffer::new_packet()?;
 
     buf.write(ServerPackets::InitTrade)?;
     buf.write(*target_entity)?;
@@ -401,7 +401,7 @@ pub fn send_tradestatus(
     my_status: &TradeStatus,
     their_status: &TradeStatus,
 ) -> Result<()> {
-    let mut buf = MByteBuffer::new()?;
+    let mut buf = MByteBuffer::new_packet()?;
 
     buf.write(ServerPackets::TradeStatus)?;
     buf.write(*my_status)?;
@@ -418,7 +418,7 @@ pub fn send_traderequest(
     entity: &Entity,
     target_entity: &Entity,
 ) -> Result<()> {
-    let mut buf = MByteBuffer::new()?;
+    let mut buf = MByteBuffer::new_packet()?;
 
     buf.write(ServerPackets::TradeRequest)?;
     buf.write(*entity)?;
@@ -434,7 +434,7 @@ pub fn send_playitemsfx(
     entity: &Entity,
     item_index: u16,
 ) -> Result<()> {
-    let mut buf = MByteBuffer::new()?;
+    let mut buf = MByteBuffer::new_packet()?;
 
     buf.write(ServerPackets::PlayItemSfx)?;
     buf.write(item_index)?;
@@ -445,7 +445,7 @@ pub fn send_playitemsfx(
 
 #[inline]
 pub fn send_gameping(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
-    let mut buf = MByteBuffer::new()?;
+    let mut buf = MByteBuffer::new_packet()?;
 
     buf.write(ServerPackets::Ping)?;
     buf.write(0u64)?;

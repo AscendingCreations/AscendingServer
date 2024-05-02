@@ -14,8 +14,8 @@ use serde::{Deserialize, Serialize};
     ByteBufferWrite,
     MByteBufferRead,
     MByteBufferWrite,
+    Hash,
 )]
-#[repr(u32)]
 pub enum ServerPackets {
     OnlineCheck,
     AlertMsg,

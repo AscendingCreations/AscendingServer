@@ -143,7 +143,7 @@ pub fn process_tasks(world: &mut World, storage: &Storage) -> Result<()> {
 
 pub fn new_cache(packet_id: ServerPackets) -> Result<MByteBuffer> {
     //Set it to the max packet size - the size holder - packet_id - count
-    let mut buffer = MByteBuffer::new()?;
+    let mut buffer = MByteBuffer::new_packet()?;
     //Write the packet ID so we know where it goes.
     buffer.write(packet_id)?;
     //preallocate space for count.

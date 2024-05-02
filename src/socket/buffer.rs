@@ -20,7 +20,9 @@ pub trait ByteBufferExt {
 
 impl MByteBufferExt for MByteBuffer {
     fn new_packet() -> Result<MByteBuffer> {
-        Ok(MByteBuffer::new()?)
+        let mut buffer = MByteBuffer::new()?;
+        buffer.write(0u64)?;
+        Ok(buffer)
     }
 
     #[inline]
