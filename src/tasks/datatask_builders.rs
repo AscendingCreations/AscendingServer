@@ -8,7 +8,7 @@ pub fn move_packet(
     switch: bool,
     dir: u8,
 ) -> Result<MByteBuffer> {
-    let mut buffer = MByteBuffer::new_packet()?;
+    let mut buffer = MByteBuffer::new()?;
     buffer
         .write(entity)?
         .write(position)?
@@ -20,21 +20,21 @@ pub fn move_packet(
 }
 
 pub fn warp_packet(entity: Entity, position: Position) -> Result<MByteBuffer> {
-    let mut buffer = MByteBuffer::new_packet()?;
+    let mut buffer = MByteBuffer::new()?;
     buffer.write(entity)?.write(position)?;
 
     Ok(buffer)
 }
 
 pub fn dir_packet(entity: Entity, dir: u8) -> Result<MByteBuffer> {
-    let mut buffer = MByteBuffer::new_packet()?;
+    let mut buffer = MByteBuffer::new()?;
     buffer.write(entity)?.write(dir)?;
 
     Ok(buffer)
 }
 
 pub fn death_packet(entity: Entity, life: DeathType) -> Result<MByteBuffer> {
-    let mut buffer = MByteBuffer::new_packet()?;
+    let mut buffer = MByteBuffer::new()?;
     buffer.write(entity)?.write(life)?;
 
     Ok(buffer)
@@ -61,7 +61,7 @@ pub fn npc_spawn_packet(
     if let Some((dir, hidden, level, life, physical, position, sprite, vitals, mode, npc_index)) =
         query.get()
     {
-        let mut buffer = MByteBuffer::new_packet()?;
+        let mut buffer = MByteBuffer::new()?;
         buffer
             .write(dir.0)?
             .write(hidden.0)?
@@ -122,7 +122,7 @@ pub fn player_spawn_packet(
         player,
     )) = query.get()
     {
-        let mut buffer = MByteBuffer::new_packet()?;
+        let mut buffer = MByteBuffer::new()?;
         buffer
             .write(&account.username)?
             .write(dir.0)?
@@ -157,7 +157,7 @@ pub fn message_packet(
     msg: String,
     access: Option<UserAccess>,
 ) -> Result<MByteBuffer> {
-    let mut buffer = MByteBuffer::new_packet()?;
+    let mut buffer = MByteBuffer::new()?;
     buffer
         .write(channel)?
         .write(head)?
@@ -174,7 +174,7 @@ pub fn map_item_packet(
     owner: Option<Entity>,
     did_spawn: bool,
 ) -> Result<MByteBuffer> {
-    let mut buffer = MByteBuffer::new_packet()?;
+    let mut buffer = MByteBuffer::new()?;
     buffer
         .write(id)?
         .write(position)?
@@ -190,7 +190,7 @@ pub fn vitals_packet(
     vital: [i32; VITALS_MAX],
     vitalmax: [i32; VITALS_MAX],
 ) -> Result<MByteBuffer> {
-    let mut buffer = MByteBuffer::new_packet()?;
+    let mut buffer = MByteBuffer::new()?;
     buffer.write(entity)?.write(vital)?.write(vitalmax)?;
 
     Ok(buffer)
@@ -202,7 +202,7 @@ pub fn damage_packet(
     pos: Position,
     is_damage: bool,
 ) -> Result<MByteBuffer> {
-    let mut buffer = MByteBuffer::new_packet()?;
+    let mut buffer = MByteBuffer::new()?;
     buffer
         .write(entity)?
         .write(damage)?
@@ -213,21 +213,21 @@ pub fn damage_packet(
 }
 
 pub fn level_packet(entity: Entity, level: i32, levelexp: u64) -> Result<MByteBuffer> {
-    let mut buffer = MByteBuffer::new_packet()?;
+    let mut buffer = MByteBuffer::new()?;
     buffer.write(entity)?.write(level)?.write(levelexp)?;
 
     Ok(buffer)
 }
 
 pub fn unload_entity_packet(entity: Entity) -> Result<MByteBuffer> {
-    let mut buffer = MByteBuffer::new_packet()?;
+    let mut buffer = MByteBuffer::new()?;
     buffer.write(entity)?;
 
     Ok(buffer)
 }
 
 pub fn attack_packet(entity: Entity) -> Result<MByteBuffer> {
-    let mut buffer = MByteBuffer::new_packet()?;
+    let mut buffer = MByteBuffer::new()?;
     buffer.write(entity)?;
 
     Ok(buffer)
