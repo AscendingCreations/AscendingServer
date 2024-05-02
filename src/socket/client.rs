@@ -321,6 +321,7 @@ impl Client {
             return;
         }
 
+        //info!("Player sends count: {}", self.sends.len());
         // lets only send 25 packets per socket each loop.
         while count < 25 {
             let mut packet = match self.sends.pop_front() {

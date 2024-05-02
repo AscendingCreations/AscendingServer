@@ -1,3 +1,5 @@
+use std::ops::Range;
+
 use crate::{containers::Storage, gametypes::*, players::*, socket::*, tasks::*};
 use hecs::World;
 
@@ -167,11 +169,18 @@ pub fn send_invslot(
 }
 
 #[inline]
-pub fn send_storage(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
+pub fn send_storage(
+    world: &mut World,
+    storage: &Storage,
+    entity: &Entity,
+    range: Range<usize>,
+) -> Result<()> {
     let mut buf = MByteBuffer::new_packet()?;
+    let storage_slots = world.get::<&PlayerStorage>(entity.0)?;
 
     buf.write(ServerPackets::PlayerStorage)?;
-    buf.write(&world.get::<&PlayerStorage>(entity.0)?.items)?;
+    buf.write(range.clone())?;
+    buf.write(&storage_slots.items[range])?;
     buf.finish()?;
 
     send_to(storage, world.get::<&Socket>(entity.0)?.id, buf)
