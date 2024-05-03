@@ -46,7 +46,7 @@ pub fn get_item() -> Vec<ItemData> {
 }
 
 fn load_file(id: usize) -> Option<ItemData> {
-    let name = format!("./data/items/{}.json", id);
+    let name = format!("./data/items/{}.bin", id);
 
     match OpenOptions::new().read(true).open(name) {
         Ok(mut file) => {

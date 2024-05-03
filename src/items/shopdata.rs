@@ -41,7 +41,7 @@ pub fn get_shop() -> Vec<ShopData> {
 }
 
 fn load_file(id: usize) -> Option<ShopData> {
-    let name = format!("./data/shops/{}.json", id);
+    let name = format!("./data/shops/{}.bin", id);
 
     match OpenOptions::new().read(true).open(name) {
         Ok(mut file) => {
