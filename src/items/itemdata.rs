@@ -1,10 +1,11 @@
 use crate::gametypes::{ItemTypes, Rgba};
 use educe::Educe;
 use serde::{Deserialize, Serialize};
+use speedy::{Readable, Writable};
 use std::fs::OpenOptions;
-use std::io::BufReader;
+use std::io::Read;
 
-#[derive(Clone, Debug, Deserialize, Serialize, Educe)]
+#[derive(Clone, Debug, Deserialize, Serialize, Educe, Readable, Writable)]
 #[educe(Default(new))]
 pub struct ItemData {
     pub name: String,
@@ -48,11 +49,10 @@ fn load_file(id: usize) -> Option<ItemData> {
     let name = format!("./data/items/{}.json", id);
 
     match OpenOptions::new().read(true).open(name) {
-        Ok(file) => {
-            let reader = BufReader::new(file);
-
-            match serde_json::from_reader(reader) {
-                Ok(v) => Some(v),
+        Ok(mut file) => {
+            let mut bytes = Vec::new();
+            match file.read_to_end(&mut bytes) {
+                Ok(_) => Some(ItemData::read_from_buffer(&bytes).unwrap()),
                 Err(_) => None,
             }
         }

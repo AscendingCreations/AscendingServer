@@ -2,10 +2,11 @@ use crate::containers::Storage;
 use crate::gametypes::*;
 use educe::Educe;
 use serde::{Deserialize, Serialize};
+use speedy::{Readable, Writable};
 use std::fs::OpenOptions;
-use std::io::BufReader;
+use std::io::Read;
 
-#[derive(Educe, Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Educe, Clone, Debug, Default, Serialize, Deserialize, Readable, Writable)]
 #[educe(PartialEq)]
 pub struct NpcData {
     pub name: String,
@@ -104,11 +105,10 @@ fn load_file(id: u64) -> Option<NpcData> {
     let name = format!("./data/npcs/{}.json", id);
 
     match OpenOptions::new().read(true).open(name) {
-        Ok(file) => {
-            let reader = BufReader::new(file);
-
-            match serde_json::from_reader(reader) {
-                Ok(v) => Some(v),
+        Ok(mut file) => {
+            let mut bytes = Vec::new();
+            match file.read_to_end(&mut bytes) {
+                Ok(_) => Some(NpcData::read_from_buffer(&bytes).unwrap()),
                 Err(_) => None,
             }
         }

@@ -1,8 +1,8 @@
 use crate::{containers::*, gametypes::*, maps::MapItem};
-use bytey::{ByteBufferRead, ByteBufferWrite};
 use hecs::World;
 use mmap_bytey::{MByteBufferRead, MByteBufferWrite};
 use serde::{Deserialize, Serialize};
+use speedy::{Readable, Writable};
 
 #[derive(
     Copy,
@@ -13,8 +13,6 @@ use serde::{Deserialize, Serialize};
     Serialize,
     Deserialize,
     Default,
-    ByteBufferRead,
-    ByteBufferWrite,
     MByteBufferRead,
     MByteBufferWrite,
     sqlx::Type,
@@ -35,8 +33,6 @@ pub enum UserAccess {
     Eq,
     Serialize,
     Deserialize,
-    ByteBufferRead,
-    ByteBufferWrite,
     MByteBufferRead,
     MByteBufferWrite,
     Default,
@@ -60,8 +56,8 @@ pub enum ChatChannel {
     Serialize,
     Deserialize,
     Default,
-    ByteBufferRead,
-    ByteBufferWrite,
+    Readable,
+    Writable,
     MByteBufferRead,
     MByteBufferWrite,
 )]
@@ -85,8 +81,6 @@ pub enum AIBehavior {
     Serialize,
     Deserialize,
     Default,
-    ByteBufferRead,
-    ByteBufferWrite,
     MByteBufferRead,
     MByteBufferWrite,
 )]
@@ -130,8 +124,6 @@ impl AIBehavior {
     Default,
     Deserialize,
     Serialize,
-    ByteBufferRead,
-    ByteBufferWrite,
     MByteBufferRead,
     MByteBufferWrite,
 )]
@@ -155,8 +147,6 @@ pub enum WorldEntityType {
     Default,
     Deserialize,
     Serialize,
-    ByteBufferRead,
-    ByteBufferWrite,
     MByteBufferRead,
     MByteBufferWrite,
 )]
@@ -220,8 +210,8 @@ impl EntityType {
     Serialize,
     Deserialize,
     Default,
-    ByteBufferRead,
-    ByteBufferWrite,
+    Readable,
+    Writable,
     MByteBufferRead,
     MByteBufferWrite,
 )]
@@ -247,17 +237,7 @@ pub enum ItemTypes {
 }
 
 #[derive(
-    Copy,
-    Clone,
-    Debug,
-    PartialEq,
-    Eq,
-    Serialize,
-    Deserialize,
-    ByteBufferRead,
-    ByteBufferWrite,
-    MByteBufferRead,
-    MByteBufferWrite,
+    Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, MByteBufferRead, MByteBufferWrite,
 )]
 pub enum EquipmentType {
     Weapon,
@@ -277,8 +257,6 @@ pub enum EquipmentType {
     Serialize,
     Deserialize,
     Default,
-    ByteBufferRead,
-    ByteBufferWrite,
     MByteBufferRead,
     MByteBufferWrite,
 )]
@@ -298,8 +276,8 @@ pub enum VitalTypes {
     PartialEq,
     Eq,
     Default,
-    ByteBufferRead,
-    ByteBufferWrite,
+    Readable,
+    Writable,
     MByteBufferRead,
     MByteBufferWrite,
 )]
@@ -341,8 +319,6 @@ pub enum MapLayers {
     Serialize,
     Deserialize,
     Default,
-    ByteBufferRead,
-    ByteBufferWrite,
     MByteBufferRead,
     MByteBufferWrite,
 )]
@@ -374,8 +350,6 @@ pub enum OnlineType {
     PartialEq,
     Eq,
     Default,
-    ByteBufferRead,
-    ByteBufferWrite,
     MByteBufferRead,
     MByteBufferWrite,
 )]
@@ -396,8 +370,6 @@ pub enum NpcMode {
     Eq,
     Serialize,
     Deserialize,
-    ByteBufferRead,
-    ByteBufferWrite,
     MByteBufferRead,
     MByteBufferWrite,
     sqlx::Type,
@@ -420,8 +392,6 @@ pub enum LogType {
     Deserialize,
     Serialize,
     Default,
-    ByteBufferRead,
-    ByteBufferWrite,
     MByteBufferRead,
     MByteBufferWrite,
 )]
@@ -481,8 +451,6 @@ impl IsUsingType {
     Default,
     Serialize,
     Deserialize,
-    ByteBufferRead,
-    ByteBufferWrite,
     MByteBufferRead,
     MByteBufferWrite,
 )]
@@ -513,17 +481,7 @@ impl DeathType {
 }
 
 #[derive(
-    Copy,
-    Clone,
-    Debug,
-    PartialEq,
-    Eq,
-    Serialize,
-    Deserialize,
-    ByteBufferRead,
-    ByteBufferWrite,
-    MByteBufferRead,
-    MByteBufferWrite,
+    Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, MByteBufferRead, MByteBufferWrite,
 )]
 pub enum FtlType {
     Message,
@@ -636,8 +594,6 @@ impl From<&MapPos> for MapPosDir {
     Eq,
     Serialize,
     Deserialize,
-    ByteBufferRead,
-    ByteBufferWrite,
     MByteBufferRead,
     MByteBufferWrite,
 )]
@@ -654,9 +610,7 @@ pub enum MessageChannel {
     Npc,
 }
 
-#[derive(
-    Clone, Debug, PartialEq, Eq, ByteBufferRead, ByteBufferWrite, MByteBufferRead, MByteBufferWrite,
-)]
+#[derive(Clone, Debug, PartialEq, Eq, MByteBufferRead, MByteBufferWrite)]
 pub enum Command {
     KickPlayer,
     KickPlayerByName(String),

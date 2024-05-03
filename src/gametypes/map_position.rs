@@ -1,7 +1,7 @@
 use crate::gametypes::*;
-use bytey::{ByteBufferRead, ByteBufferWrite};
 use mmap_bytey::{MByteBufferRead, MByteBufferWrite};
 use serde::{Deserialize, Serialize};
+use speedy::{Readable, Writable};
 use sqlx::Postgres;
 
 #[derive(
@@ -14,8 +14,8 @@ use sqlx::Postgres;
     Deserialize,
     Serialize,
     Hash,
-    ByteBufferRead,
-    ByteBufferWrite,
+    Readable,
+    Writable,
     MByteBufferRead,
     MByteBufferWrite,
 )]

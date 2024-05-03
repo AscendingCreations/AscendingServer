@@ -1,8 +1,8 @@
-use bytey::{ByteBufferRead, ByteBufferWrite};
 use chrono::NaiveTime;
 use log::error;
 use mmap_bytey::{MByteBufferRead, MByteBufferWrite};
 use serde::{Deserialize, Serialize};
+use speedy::{Readable, Writable};
 
 #[derive(
     Clone,
@@ -13,8 +13,8 @@ use serde::{Deserialize, Serialize};
     Deserialize,
     Serialize,
     Default,
-    ByteBufferRead,
-    ByteBufferWrite,
+    Readable,
+    Writable,
     MByteBufferRead,
     MByteBufferWrite,
 )]
@@ -34,8 +34,8 @@ pub struct TileBox {
     Default,
     PartialEq,
     Eq,
-    ByteBufferRead,
-    ByteBufferWrite,
+    Readable,
+    Writable,
     MByteBufferRead,
     MByteBufferWrite,
 )]

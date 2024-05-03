@@ -6,30 +6,16 @@ use crate::{
     tasks::{map_item_packet, unload_entity_packet, DataTaskToken},
     time_ext::MyInstant,
 };
-use bytey::{ByteBufferRead, ByteBufferWrite};
 use hecs::World;
 use mmap_bytey::{MByteBufferRead, MByteBufferWrite};
 
 use super::{create_mapitem, MapAttribute};
 
-#[derive(
-    Copy,
-    Clone,
-    PartialEq,
-    Eq,
-    Default,
-    ByteBufferRead,
-    ByteBufferWrite,
-    MByteBufferRead,
-    MByteBufferWrite,
-)]
+#[derive(Copy, Clone, PartialEq, Eq, Default, MByteBufferRead, MByteBufferWrite)]
 pub struct MapItem {
     pub item: Item,
-    #[bytey(skip)]
     pub despawn: Option<MyInstant>,
-    #[bytey(skip)]
     pub ownertimer: Option<MyInstant>,
-    #[bytey(skip)]
     pub ownerid: Option<Entity>,
     pub pos: Position,
 }

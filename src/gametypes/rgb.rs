@@ -1,6 +1,6 @@
-use bytey::{ByteBufferRead, ByteBufferWrite};
 use mmap_bytey::{MByteBufferRead, MByteBufferWrite};
 use serde::{Deserialize, Serialize};
+use speedy::{Readable, Writable};
 
 #[derive(
     Copy,
@@ -11,8 +11,8 @@ use serde::{Deserialize, Serialize};
     Default,
     Deserialize,
     Serialize,
-    ByteBufferRead,
-    ByteBufferWrite,
+    Readable,
+    Writable,
     MByteBufferRead,
     MByteBufferWrite,
 )]

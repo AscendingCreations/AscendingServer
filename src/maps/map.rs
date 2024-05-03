@@ -6,13 +6,14 @@ use crate::{
 use bit_op::{bit_u8::*, BitOp};
 use educe::Educe;
 use serde::{Deserialize, Serialize};
+use speedy::{Readable, Writable};
 use std::fs::{self, OpenOptions};
 use std::io::BufReader;
 use std::path::Path;
 
 const MAP_PATH: &str = "./data/maps/";
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Default, Readable, Writable)]
 pub struct WarpData {
     pub map_x: i32,
     pub map_y: i32,
@@ -21,14 +22,14 @@ pub struct WarpData {
     pub tile_y: u32,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Default, Readable, Writable)]
 pub struct ItemSpawnData {
     pub index: u32,
     pub amount: u16,
     pub timer: u64,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Default, Readable, Writable)]
 pub enum MapAttribute {
     #[default]
     Walkable,
@@ -63,7 +64,7 @@ pub struct GridTile {
 }
 
 //TODO: Update to use MAP (x,y,group) for map locations and Remove map links?
-#[derive(Clone, Educe, Serialize, Deserialize)]
+#[derive(Clone, Educe, Serialize, Deserialize, Readable, Writable)]
 #[educe(Default(new))]
 pub struct Map {
     pub position: MapPosition,
