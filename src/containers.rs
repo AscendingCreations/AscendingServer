@@ -12,4 +12,5 @@ pub type IndexSet<T> = indexmap::IndexSet<T, FxBuildHasher>;
 pub type HashSet<T> = std::collections::HashSet<T, FxBuildHasher>;
 pub type HashMap<K, V> = std::collections::HashMap<K, V, FxBuildHasher>;
 
+// Salt used for encrypting passwords within database.
 pub const SALT: &[u8] = b"ThisIsMySalt";

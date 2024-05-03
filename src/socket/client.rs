@@ -9,7 +9,7 @@ use crate::{
     PacketRouter,
 };
 use hecs::World;
-use log::{error, warn};
+use log::{error, trace, warn};
 use mio::{net::TcpStream, Interest};
 use mmap_bytey::BUFFER_SIZE;
 use std::{
@@ -211,11 +211,12 @@ impl Client {
                     continue;
                 }
                 Err(error) => {
-                    log::error!("TLS read error: {:?}", error);
+                    error!("TLS read error: {:?}", error);
                     self.state = ClientState::Closing;
                     return Ok(());
                 }
                 Ok(0) => {
+                    trace!("Client side socket closed");
                     self.state = ClientState::Closing;
                     return Ok(());
                 }
@@ -225,7 +226,7 @@ impl Client {
             let io_state = match self.tls.process_new_packets() {
                 Ok(io_state) => io_state,
                 Err(err) => {
-                    log::error!("TLS error: {:?}", err);
+                    error!("TLS error: {:?}", err);
                     self.state = ClientState::Closing;
                     return Ok(());
                 }
@@ -233,18 +234,21 @@ impl Client {
 
             if io_state.plaintext_bytes_to_read() > 0 {
                 let mut buf = vec![0u8; io_state.plaintext_bytes_to_read()];
-                if self.tls.reader().read_exact(&mut buf).is_err() {
+                if let Err(e) = self.tls.reader().read_exact(&mut buf) {
+                    trace!("TLS read error: {}", e);
                     self.state = ClientState::Closing;
                     return Ok(());
                 }
 
-                if buffer.write_slice(&buf).is_err() {
+                if let Err(e) = buffer.write_slice(&buf) {
+                    trace!("TLS read error: {}", e);
                     self.state = ClientState::Closing;
                     return Ok(());
                 }
             }
 
             if io_state.peer_has_closed() {
+                trace!("TLS peer has closed");
                 self.state = ClientState::Closing;
             }
 
@@ -268,7 +272,8 @@ impl Client {
     pub fn read(&mut self, world: &mut World, storage: &Storage) -> Result<()> {
         let socket = match world.get::<&mut Socket>(self.entity.0) {
             Ok(v) => v,
-            Err(_) => {
+            Err(e) => {
+                trace!("World get, error in socket read: {}", e);
                 self.state = ClientState::Closing;
                 return Ok(());
             }
@@ -280,21 +285,29 @@ impl Client {
         buffer.move_cursor_to_end();
 
         let mut buf: [u8; 4096] = [0; 4096];
+        let mut closing = false;
 
         loop {
             match self.stream.read(&mut buf) {
                 Err(ref err) if err.kind() == io::ErrorKind::WouldBlock => break,
                 Err(ref err) if err.kind() == io::ErrorKind::Interrupted => continue,
-                Ok(0) | Err(_) => {
-                    self.state = ClientState::Closing;
-                    return Ok(());
+                Ok(0) => closing = true,
+                Err(e) => {
+                    trace!("stream.read, error in socket read: {}", e);
+                    closing = true;
                 }
                 Ok(n) => {
-                    if buffer.write_slice(&buf[0..n]).is_err() {
-                        self.state = ClientState::Closing;
-                        return Ok(());
+                    if let Err(e) = buffer.write_slice(&buf[0..n]) {
+                        trace!("buffer.write_slice, error in socket read: {}", e);
+                        closing = true;
                     }
                 }
+            }
+
+            if closing {
+                // We are closing the socket so we dont need to handle it again.
+                self.state = ClientState::Closing;
+                return Ok(());
             }
         }
 
@@ -317,6 +330,10 @@ impl Client {
 
         //make sure the player exists if nto we have a socket closing
         if !world.contains(self.entity.0) {
+            trace!(
+                "write, world does not contain entity: {:?}. Closing socket.",
+                self.entity.0
+            );
             self.state = ClientState::Closing;
             return;
         }
@@ -346,7 +363,8 @@ impl Client {
                     self.sends.push_front(packet);
                     break;
                 }
-                Err(_) => {
+                Err(e) => {
+                    trace!("stream.write_all error in socket write: {}", e);
                     self.state = ClientState::Closing;
                     return;
                 }
@@ -361,6 +379,10 @@ impl Client {
     pub fn tls_write(&mut self, world: &mut World) {
         //make sure the player exists if not we have a socket closing
         if !world.contains(self.entity.0) {
+            trace!(
+                "tls_write, world does not contain entity: {:?}. Closing socket.",
+                self.entity.0
+            );
             self.state = ClientState::Closing;
             return;
         }
@@ -387,7 +409,8 @@ impl Client {
                     self.tls_sends.push_front(packet);
                     break;
                 }
-                Err(_) => {
+                Err(e) => {
+                    trace!("tls write, error in write_all: {}", e);
                     self.state = ClientState::Closing;
                     return;
                 }
@@ -404,7 +427,8 @@ impl Client {
                     Err(ref err) if err.kind() == io::ErrorKind::Interrupted => {
                         continue;
                     }
-                    Err(_) => {
+                    Err(e) => {
+                        trace!("tls write, error in write_tls: {}", e);
                         self.state = ClientState::Closing;
                         return;
                     }
@@ -483,7 +507,7 @@ pub fn disconnect(playerid: Entity, world: &mut World, storage: &Storage) -> Res
 
     let (socket, position) = storage.remove_player(world, playerid)?;
 
-    println!("Players Disconnected IP: {} ", &socket.addr);
+    trace!("Players Disconnected IP: {} ", &socket.addr);
     if let Some(pos) = position {
         if let Some(map) = storage.maps.get(&pos.map) {
             map.borrow_mut().remove_player(storage, playerid);
@@ -505,6 +529,10 @@ pub fn accept_connection(
     storage: &Storage,
 ) -> Option<Entity> {
     if server.clients.len() + 1 >= MAX_SOCKET_PLAYERS {
+        warn!(
+            "Server is full. has reached MAX_SOCKET_PLAYERS: {} ",
+            MAX_SOCKET_PLAYERS
+        );
         return None;
     }
 
@@ -630,7 +658,7 @@ pub fn get_length(storage: &Storage, buffer: &mut ByteBuffer, id: usize) -> Resu
 
         if !(1..=8192).contains(&length) {
             if let Some(client) = storage.server.borrow().clients.get(&mio::Token(id)) {
-                warn!("Player was disconnected on get_length LENGTH: {:?}", length);
+                trace!("Player was disconnected on get_length LENGTH: {:?}", length);
                 client.borrow_mut().set_to_closing(storage)?;
                 return Ok(None);
             }
@@ -659,10 +687,10 @@ pub fn process_packets(world: &mut World, storage: &Storage, router: &PacketRout
         let (lock, socket_id, address) = {
             let socket = match world.get::<&Socket>(entity.0) {
                 Ok(s) => s,
-                Err(_) => {
+                Err(e) => {
                     error!(
-                        "Entity: {:?}, did not get fully unloaded. recv_id buffer still existed.",
-                        entity
+                        "world.get::<&Socket> error: {}. Entity: {:?}, did not get fully unloaded? recv_id buffer still existed.",
+                        e, entity
                     );
                     rem_arr.push((*entity, 0, false));
                     continue 'user_loop;
@@ -684,7 +712,7 @@ pub fn process_packets(world: &mut World, storage: &Storage, router: &PacketRout
                 };
 
                 if length == 0 {
-                    warn!(
+                    trace!(
                         "Length was Zero. Bad or malformed packet from IP: {}",
                         address
                     );
@@ -694,7 +722,7 @@ pub fn process_packets(world: &mut World, storage: &Storage, router: &PacketRout
                 }
 
                 if length > BUFFER_SIZE as u64 {
-                    warn!(
+                    trace!(
                         "Length was {} greater than the max packet size of {}. Bad or malformed packet from IP: {}",
                         length,
                         address,

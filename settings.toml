@@ -8,3 +8,5 @@ host = '127.0.0.1'
 port = 5432
 username = 'server'
 password = 'test'
+level_filter = "Info"
+enable_backtrace = false
