@@ -1,4 +1,3 @@
-# AscendingServer
 <h1 align="center">
  AscendingServer
 </h1>
