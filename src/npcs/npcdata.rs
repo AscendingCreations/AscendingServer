@@ -8,6 +8,20 @@ use std::io::Read;
 
 #[derive(Educe, Clone, Debug, Default, Serialize, Deserialize, Readable, Writable)]
 #[educe(PartialEq)]
+pub struct DropItem {
+    pub item: u32,
+    pub amount: u32,
+}
+
+#[derive(Educe, Clone, Debug, Default, Serialize, Deserialize, Readable, Writable)]
+#[educe(PartialEq)]
+pub struct NpcDrop {
+    pub items: [DropItem; 5],
+    pub shares: u32,
+}
+
+#[derive(Educe, Clone, Debug, Default, Serialize, Deserialize, Readable, Writable)]
+#[educe(PartialEq)]
 pub struct NpcData {
     pub name: String,
     pub level: i32,
@@ -49,8 +63,8 @@ pub struct NpcData {
     pub spawntime: (GameTime, GameTime),
     pub range: i32,        //attack range. How far they need to be to hit their target.
     pub enemies: Vec<u64>, //list of enemies the npcs can attack of other npc's... WAR!
-    pub drops: [(u32, u32, u32); 10], //item dropped on death, chance, amount
-    pub drops_max: u16, //number of Different items that will be picked  0..=drops_max. that we can cycle thru and drop at random.
+    pub drops: [NpcDrop; 10],
+    pub free_shares: u32,
     pub exp: i64,
 }
 

@@ -371,7 +371,7 @@ impl Storage {
             let identity = world.spawn((
                 WorldEntityType::Npc,
                 Position::default(),
-                NpcIndex::default(),
+                NpcIndex(npc_id),
                 NpcTimer {
                     spawntimer: *self.gettick.borrow()
                         + Duration::try_milliseconds(npcdata.spawn_wait).unwrap_or_default(),

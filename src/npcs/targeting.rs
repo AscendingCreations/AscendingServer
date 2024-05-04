@@ -208,7 +208,7 @@ pub fn npc_targeting(
         EntityType::Player(i, accid) => {
             if world.contains(i.0) {
                 if world.get_or_err::<DeathType>(&i)?.is_alive()
-                    && world.get::<&Account>(entity.0)?.id == accid
+                    && world.get::<&Account>(i.0)?.id == accid
                 {
                     let check = check_surrounding(
                         world.get_or_err::<Position>(entity)?.map,

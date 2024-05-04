@@ -119,6 +119,20 @@ pub fn npc_cast(
     }
 }
 
+pub fn can_attack_npc(world: &mut World, storage: &Storage, npc: &Entity) -> Result<bool> {
+    let npc_index = world.get_or_err::<NpcIndex>(npc)?.0;
+    let base = &storage.bases.npcs[npc_index as usize];
+
+    match base.behaviour {
+        AIBehavior::Agressive
+        | AIBehavior::AgressiveHealer
+        | AIBehavior::ReactiveHealer
+        | AIBehavior::HelpReactive
+        | AIBehavior::Reactive => Ok(true),
+        AIBehavior::Healer | AIBehavior::Friendly => Ok(false),
+    }
+}
+
 pub fn npc_combat(
     world: &mut World,
     storage: &Storage,
@@ -249,9 +263,9 @@ pub fn kill_npc(world: &mut World, storage: &Storage, entity: &Entity) -> Result
 
     let mut rng = thread_rng();
 
-    let mut count = 0;
+    /*let mut count = 0;
     for index in 0..10 {
-        if npcbase.drops[index].0 > 0 && rng.gen_range(1..=npcbase.drops[index].2) == 1 {
+        if npcbase.drops[index].0 > 0 && rng.gen_ratio(1, npcbase.drops[index].2) {
             if !try_drop_item(
                 world,
                 storage,
@@ -272,7 +286,7 @@ pub fn kill_npc(world: &mut World, storage: &Storage, entity: &Entity) -> Result
                 break;
             }
         }
-    }
+    }*/
 
     *world.get::<&mut DeathType>(entity.0)? = DeathType::Dead;
     Ok(())
