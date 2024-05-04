@@ -1,7 +1,7 @@
 listen = '0.0.0.0:7010'
-server_cert = 'keys/scaleway_server.crt'
-server_key = 'keys/scaleway_server-key.pem'
-ca_root = 'keys/scaleway_ca-crt.pem'
+server_cert = 'keys/server.crt'
+server_key = 'keys/server-key.pem'
+ca_root = 'keys/ca-crt.pem'
 maxconnections = 500
 database = 'ascending'
 host = '127.0.0.1'
