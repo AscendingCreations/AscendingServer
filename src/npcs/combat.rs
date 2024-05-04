@@ -263,30 +263,30 @@ pub fn kill_npc(world: &mut World, storage: &Storage, entity: &Entity) -> Result
 
     let mut rng = thread_rng();
 
-    /*let mut count = 0;
-    for index in 0..10 {
-        if npcbase.drops[index].0 > 0 && rng.gen_ratio(1, npcbase.drops[index].2) {
-            if !try_drop_item(
-                world,
-                storage,
-                DropItem {
-                    index: npcbase.drops[index].0,
-                    amount: npcbase.drops[index].1 as u16,
-                    pos: npc_pos,
-                },
-                None,
-                None,
-                None,
-            )? {
-                break;
-            }
-
-            count += 1;
-            if count >= npcbase.drops_max {
-                break;
+    let r = rng.gen_range(0..npcbase.max_shares);
+    if let Some(&drop_id) = npcbase.drop_ranges.get(&r) {
+        //do item drops here for this drop.
+        if let Some(drop_data) = npcbase.drops.get(drop_id) {
+            for drop in drop_data.items.iter() {
+                if drop.item > 0
+                    && !try_drop_item(
+                        world,
+                        storage,
+                        DropItem {
+                            index: drop.item,
+                            amount: drop.amount as u16,
+                            pos: npc_pos,
+                        },
+                        None,
+                        None,
+                        None,
+                    )?
+                {
+                    break;
+                }
             }
         }
-    }*/
+    }
 
     *world.get::<&mut DeathType>(entity.0)? = DeathType::Dead;
     Ok(())

@@ -57,6 +57,7 @@ educe = { version = "0.5.11", default-features = false, features = [
     "Default",
 ] }
 speedy = "=0.8.7"
+rangemap = { version = "1.5.1", features = ["serde1"] }
 
 [profile.dev]
 opt-level = 0

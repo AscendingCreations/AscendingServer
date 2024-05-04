@@ -1,6 +1,7 @@
 use crate::containers::Storage;
 use crate::gametypes::*;
 use educe::Educe;
+use rangemap::RangeMap;
 use serde::{Deserialize, Serialize};
 use speedy::{Readable, Writable};
 use std::fs::OpenOptions;
@@ -8,7 +9,7 @@ use std::io::Read;
 
 #[derive(Educe, Clone, Debug, Default, Serialize, Deserialize, Readable, Writable)]
 #[educe(PartialEq)]
-pub struct DropItem {
+pub struct DropItemData {
     pub item: u32,
     pub amount: u32,
 }
@@ -16,7 +17,7 @@ pub struct DropItem {
 #[derive(Educe, Clone, Debug, Default, Serialize, Deserialize, Readable, Writable)]
 #[educe(PartialEq)]
 pub struct NpcDrop {
-    pub items: [DropItem; 5],
+    pub items: [DropItemData; 5],
     pub shares: u32,
 }
 
@@ -66,6 +67,11 @@ pub struct NpcData {
     pub drops: [NpcDrop; 10],
     pub free_shares: u32,
     pub exp: i64,
+    // Drop Data
+    #[speedy(skip)]
+    pub drop_ranges: RangeMap<u32, usize>,
+    #[speedy(skip)]
+    pub max_shares: u32,
 }
 
 impl NpcData {
@@ -103,7 +109,24 @@ pub fn get_npc() -> Vec<NpcData> {
     let mut got_data = true;
 
     while got_data {
-        if let Some(data) = load_file(count) {
+        if let Some(mut data) = load_file(count) {
+            // Setup drop
+            let mut pos = 0;
+            let mut max_shares = 0;
+            for (slot_id, drops) in data.drops.iter().enumerate() {
+                if drops.shares == 0 {
+                    continue;
+                }
+
+                max_shares += drops.shares;
+
+                let range = pos..pos + drops.shares;
+                pos += drops.shares;
+                data.drop_ranges.insert(range, slot_id);
+            }
+            max_shares += data.free_shares;
+            data.max_shares = max_shares;
+
             npc_data.push(data);
             count += 1;
             got_data = true;
