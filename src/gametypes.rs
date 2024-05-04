@@ -17,10 +17,7 @@ pub use sharedstructs::*;
 pub const EQUIPMENT_TYPE_MAX: usize = EquipmentType::Count as usize;
 pub const VITALS_MAX: usize = VitalTypes::Count as usize;
 
-pub const SERVERCONNECTION: &str = "0.0.0.0:7010";
 pub const MAXCONNECTIONS: usize = 500;
-pub const DATABASE: &str =
-    "user=MainServer hostaddr=127.0.0.1 port=5432 password=testy dbname=test";
 pub const APP_MAJOR: usize = 1;
 pub const APP_MINOR: usize = 1;
 pub const APP_REVISION: usize = 1;

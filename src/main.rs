@@ -20,8 +20,10 @@ use containers::Storage;
 use gameloop::*;
 use gametypes::*;
 use hecs::World;
-use log::{error, info, Level, LevelFilter, Metadata, Record};
+use log::{error, info, Level, Metadata, Record};
 use std::{env, fs::File, io::Write, panic};
+
+use crate::containers::read_config;
 
 // used to get string input when we add a command console to control the game.
 // until then we will just not use this.
@@ -68,11 +70,14 @@ impl log::Log for MyLogger {
 }
 
 fn main() {
+    let config = read_config("settings.toml");
     log::set_logger(&MY_LOGGER).unwrap();
     // Set the Max level we accept logging to the file for.
-    log::set_max_level(LevelFilter::Info);
+    log::set_max_level(config.level_filter.parse_enum());
 
-    env::set_var("RUST_BACKTRACE", "1");
+    if config.enable_backtrace {
+        env::set_var("RUST_BACKTRACE", "1");
+    }
 
     panic::set_hook(Box::new(|panic_info| {
         let bt = Backtrace::new();
@@ -90,7 +95,7 @@ fn main() {
 
     info!("Starting up");
     info!("Initializing Storage");
-    let storage = Storage::new().unwrap();
+    let storage = Storage::new(config).unwrap();
     info!("Initializing PacketRouter");
     let router = PacketRouter::init();
     info!("Initializing World");

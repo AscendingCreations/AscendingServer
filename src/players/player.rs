@@ -1,6 +1,7 @@
 use crate::{containers::*, gametypes::*, items::*, socket::*, sql::*, tasks::*, time_ext::*};
 use educe::Educe;
 use hecs::{Bundle, World};
+use mmap_bytey::{MByteBufferRead, MByteBufferWrite};
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
 
@@ -47,7 +48,17 @@ pub struct PlayerMapTimer {
 }
 
 #[derive(
-    PartialEq, Eq, Clone, Debug, Educe, Deserialize, Serialize, ByteBufferRead, ByteBufferWrite,
+    PartialEq,
+    Eq,
+    Clone,
+    Debug,
+    Educe,
+    Deserialize,
+    Serialize,
+    ByteBufferRead,
+    ByteBufferWrite,
+    MByteBufferRead,
+    MByteBufferWrite,
 )]
 #[educe(Default)]
 pub struct Inventory {
@@ -56,7 +67,17 @@ pub struct Inventory {
 }
 
 #[derive(
-    PartialEq, Eq, Clone, Debug, Educe, Deserialize, Serialize, ByteBufferRead, ByteBufferWrite,
+    PartialEq,
+    Eq,
+    Clone,
+    Debug,
+    Educe,
+    Deserialize,
+    Serialize,
+    ByteBufferRead,
+    ByteBufferWrite,
+    MByteBufferRead,
+    MByteBufferWrite,
 )]
 #[educe(Default)]
 pub struct TradeItem {
@@ -80,6 +101,8 @@ pub struct TradeMoney {
     Serialize,
     ByteBufferRead,
     ByteBufferWrite,
+    MByteBufferRead,
+    MByteBufferWrite,
 )]
 pub enum TradeStatus {
     #[default]
@@ -98,7 +121,17 @@ pub struct TradeRequestEntity {
 }
 
 #[derive(
-    PartialEq, Eq, Clone, Debug, Educe, Deserialize, Serialize, ByteBufferRead, ByteBufferWrite,
+    PartialEq,
+    Eq,
+    Clone,
+    Debug,
+    Educe,
+    Deserialize,
+    Serialize,
+    ByteBufferRead,
+    ByteBufferWrite,
+    MByteBufferRead,
+    MByteBufferWrite,
 )]
 #[educe(Default)]
 pub struct PlayerStorage {
@@ -107,7 +140,17 @@ pub struct PlayerStorage {
 }
 
 #[derive(
-    PartialEq, Eq, Clone, Debug, Educe, Deserialize, Serialize, ByteBufferRead, ByteBufferWrite,
+    PartialEq,
+    Eq,
+    Clone,
+    Debug,
+    Educe,
+    Deserialize,
+    Serialize,
+    ByteBufferRead,
+    ByteBufferWrite,
+    MByteBufferRead,
+    MByteBufferWrite,
 )]
 #[educe(Default)]
 pub struct Equipment {

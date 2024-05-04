@@ -6,19 +6,16 @@ use crate::{
     tasks::{map_item_packet, unload_entity_packet, DataTaskToken},
     time_ext::MyInstant,
 };
-use bytey::{ByteBufferRead, ByteBufferWrite};
 use hecs::World;
+use mmap_bytey::{MByteBufferRead, MByteBufferWrite};
 
 use super::{create_mapitem, MapAttribute};
 
-#[derive(Copy, Clone, PartialEq, Eq, Default, ByteBufferRead, ByteBufferWrite)]
+#[derive(Copy, Clone, PartialEq, Eq, Default, MByteBufferRead, MByteBufferWrite)]
 pub struct MapItem {
     pub item: Item,
-    #[bytey(skip)]
     pub despawn: Option<MyInstant>,
-    #[bytey(skip)]
     pub ownertimer: Option<MyInstant>,
-    #[bytey(skip)]
     pub ownerid: Option<Entity>,
     pub pos: Position,
 }
@@ -300,7 +297,8 @@ pub fn player_interact_object(world: &mut World, storage: &Storage, entity: &Ent
         match mapdata.attribute[target_pos.as_tile()] {
             MapAttribute::Storage => {
                 *world.get::<&mut IsUsingType>(entity.0)? = IsUsingType::Bank;
-                send_storage(world, storage, entity)?;
+                send_storage(world, storage, entity, 0..35)?;
+                send_storage(world, storage, entity, 35..MAX_STORAGE)?;
                 send_openstorage(world, storage, entity)
             }
             MapAttribute::Shop(shop_index) => {

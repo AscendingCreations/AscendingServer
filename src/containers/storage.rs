@@ -10,13 +10,14 @@ use crate::{
 };
 use chrono::Duration;
 use hecs::World;
+use log::LevelFilter;
 use mio::Poll;
 use rustls::{
     crypto::{ring as provider, CryptoProvider},
     pki_types::{CertificateDer, PrivateKeyDer},
     ServerConfig,
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use sqlx::{
     postgres::{PgConnectOptions, PgPoolOptions},
     ConnectOptions, PgPool,
@@ -34,7 +35,7 @@ pub struct Storage {
     pub map_items: RefCell<IndexMap<Position, Entity>>,
     //This is for buffering the specific packets needing to send.
     #[allow(clippy::type_complexity)]
-    pub packet_cache: RefCell<IndexMap<DataTaskToken, VecDeque<(u32, ByteBuffer, bool)>>>,
+    pub packet_cache: RefCell<IndexMap<DataTaskToken, VecDeque<(u32, MByteBuffer, bool)>>>,
     //This keeps track of what Things need sending. So we can leave it loaded and only loop whats needed.
     pub packet_cache_ids: RefCell<IndexSet<DataTaskToken>>,
     pub poll: RefCell<mio::Poll>,
@@ -46,6 +47,7 @@ pub struct Storage {
     pub bases: Bases,
     pub rt: RefCell<Runtime>,
     pub local: RefCell<task::LocalSet>,
+    pub config: Config,
 }
 
 fn establish_connection(
@@ -71,21 +73,52 @@ fn establish_connection(
     Ok(pool)
 }
 
-#[derive(Deserialize)]
-struct Config {
-    listen: String,
-    server_cert: String,
-    server_key: String,
-    ca_root: String,
-    maxconnections: usize,
-    database: String,
-    username: String,
-    password: String,
-    host: String,
-    port: u16,
+#[derive(Serialize, Deserialize, Debug)]
+pub enum ServerLevelFilter {
+    /// A level lower than all log levels.
+    Off,
+    /// Corresponds to the `Error` log level.
+    Error,
+    /// Corresponds to the `Warn` log level.
+    Warn,
+    /// Corresponds to the `Info` log level.
+    Info,
+    /// Corresponds to the `Debug` log level.
+    Debug,
+    /// Corresponds to the `Trace` log level.
+    Trace,
 }
 
-fn read_config(path: &str) -> Config {
+impl ServerLevelFilter {
+    pub fn parse_enum(&self) -> LevelFilter {
+        match self {
+            ServerLevelFilter::Off => LevelFilter::Off,
+            ServerLevelFilter::Error => LevelFilter::Error,
+            ServerLevelFilter::Warn => LevelFilter::Warn,
+            ServerLevelFilter::Info => LevelFilter::Info,
+            ServerLevelFilter::Debug => LevelFilter::Debug,
+            ServerLevelFilter::Trace => LevelFilter::Trace,
+        }
+    }
+}
+
+#[derive(Deserialize)]
+pub struct Config {
+    pub listen: String,
+    pub server_cert: String,
+    pub server_key: String,
+    pub ca_root: String,
+    pub maxconnections: usize,
+    pub database: String,
+    pub username: String,
+    pub password: String,
+    pub host: String,
+    pub port: u16,
+    pub enable_backtrace: bool,
+    pub level_filter: ServerLevelFilter,
+}
+
+pub fn read_config(path: &str) -> Config {
     let data = fs::read_to_string(path).unwrap();
     toml::from_str(&data).unwrap()
 }
@@ -142,9 +175,8 @@ fn build_tls_config(
 }
 
 impl Storage {
-    pub fn new() -> Option<Self> {
+    pub fn new(config: Config) -> Option<Self> {
         let mut poll = Poll::new().ok()?;
-        let config = read_config("settings.toml");
         let tls_config =
             build_tls_config(&config.server_cert, &config.server_key, &config.ca_root).unwrap();
         let server =
@@ -173,6 +205,7 @@ impl Storage {
             bases: Bases::new()?,
             rt: RefCell::new(rt),
             local: RefCell::new(local),
+            config,
         };
 
         let mut map_data_entry = crate::maps::get_maps();
@@ -338,7 +371,7 @@ impl Storage {
             let identity = world.spawn((
                 WorldEntityType::Npc,
                 Position::default(),
-                NpcIndex::default(),
+                NpcIndex(npc_id),
                 NpcTimer {
                     spawntimer: *self.gettick.borrow()
                         + Duration::try_milliseconds(npcdata.spawn_wait).unwrap_or_default(),

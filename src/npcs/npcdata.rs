@@ -1,11 +1,27 @@
 use crate::containers::Storage;
 use crate::gametypes::*;
 use educe::Educe;
+use rangemap::RangeMap;
 use serde::{Deserialize, Serialize};
+use speedy::{Readable, Writable};
 use std::fs::OpenOptions;
-use std::io::BufReader;
+use std::io::Read;
 
-#[derive(Educe, Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Educe, Clone, Debug, Default, Serialize, Deserialize, Readable, Writable)]
+#[educe(PartialEq)]
+pub struct DropItemData {
+    pub item: u32,
+    pub amount: u32,
+}
+
+#[derive(Educe, Clone, Debug, Default, Serialize, Deserialize, Readable, Writable)]
+#[educe(PartialEq)]
+pub struct NpcDrop {
+    pub items: [DropItemData; 5],
+    pub shares: u32,
+}
+
+#[derive(Educe, Clone, Debug, Default, Serialize, Deserialize, Readable, Writable)]
 #[educe(PartialEq)]
 pub struct NpcData {
     pub name: String,
@@ -48,9 +64,14 @@ pub struct NpcData {
     pub spawntime: (GameTime, GameTime),
     pub range: i32,        //attack range. How far they need to be to hit their target.
     pub enemies: Vec<u64>, //list of enemies the npcs can attack of other npc's... WAR!
-    pub drops: [(u32, u32, u32); 10], //item dropped on death, chance, amount
-    pub drops_max: u16, //number of Different items that will be picked  0..=drops_max. that we can cycle thru and drop at random.
+    pub drops: [NpcDrop; 10],
+    pub free_shares: u32,
     pub exp: i64,
+    // Drop Data
+    #[speedy(skip)]
+    pub drop_ranges: RangeMap<u32, usize>,
+    #[speedy(skip)]
+    pub max_shares: u32,
 }
 
 impl NpcData {
@@ -88,7 +109,24 @@ pub fn get_npc() -> Vec<NpcData> {
     let mut got_data = true;
 
     while got_data {
-        if let Some(data) = load_file(count) {
+        if let Some(mut data) = load_file(count) {
+            // Setup drop
+            let mut pos = 0;
+            let mut max_shares = 0;
+            for (slot_id, drops) in data.drops.iter().enumerate() {
+                if drops.shares == 0 {
+                    continue;
+                }
+
+                max_shares += drops.shares;
+
+                let range = pos..pos + drops.shares;
+                pos += drops.shares;
+                data.drop_ranges.insert(range, slot_id);
+            }
+            max_shares += data.free_shares;
+            data.max_shares = max_shares;
+
             npc_data.push(data);
             count += 1;
             got_data = true;
@@ -101,14 +139,13 @@ pub fn get_npc() -> Vec<NpcData> {
 }
 
 fn load_file(id: u64) -> Option<NpcData> {
-    let name = format!("./data/npcs/{}.json", id);
+    let name = format!("./data/npcs/{}.bin", id);
 
     match OpenOptions::new().read(true).open(name) {
-        Ok(file) => {
-            let reader = BufReader::new(file);
-
-            match serde_json::from_reader(reader) {
-                Ok(v) => Some(v),
+        Ok(mut file) => {
+            let mut bytes = Vec::new();
+            match file.read_to_end(&mut bytes) {
+                Ok(_) => Some(NpcData::read_from_buffer(&bytes).unwrap()),
                 Err(_) => None,
             }
         }

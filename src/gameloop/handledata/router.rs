@@ -8,7 +8,7 @@ pub fn handle_data(
     router: &PacketRouter,
     world: &mut World,
     storage: &Storage,
-    data: &mut ByteBuffer,
+    data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
     let id: ClientPacket = data.read()?;
@@ -27,7 +27,8 @@ pub fn handle_data(
             ClientPacket::Login
             | ClientPacket::Register
             | ClientPacket::OnlineCheck
-            | ClientPacket::HandShake => {}
+            | ClientPacket::HandShake
+            | ClientPacket::Ping => {}
             _ => return Err(AscendingError::PacketManipulation { name: "".into() }),
         },
         OnlineType::None => return Err(AscendingError::PacketManipulation { name: "".into() }),

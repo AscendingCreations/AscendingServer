@@ -4,6 +4,7 @@ use crate::{
     socket::{accept_connection, Client, ClientState},
 };
 use hecs::World;
+use log::{trace, warn};
 use mio::{net::TcpListener, Events, Poll};
 use std::{cell::RefCell, collections::VecDeque, io, sync::Arc, time::Duration};
 
@@ -52,7 +53,10 @@ impl Server {
             let (stream, addr) = match self.listener.accept() {
                 Ok((stream, addr)) => (stream, addr),
                 Err(ref err) if err.kind() == io::ErrorKind::WouldBlock => break,
-                Err(e) => return Err(e.into()),
+                Err(e) => {
+                    trace!("listener.accept error: {}", e);
+                    return Err(e.into());
+                }
             };
 
             stream.set_nodelay(true)?;
@@ -77,6 +81,7 @@ impl Server {
                 // insert client into handled list.
                 self.clients.insert(token, RefCell::new(client));
             } else {
+                warn!("listener.accept No tokens left to give out.");
                 drop(stream);
             }
         }
@@ -117,6 +122,7 @@ pub fn poll_events(world: &mut World, storage: &Storage) -> Result<()> {
                     a.borrow_mut().process(event, world, storage)?;
                     a.borrow().state
                 } else {
+                    trace!("a token no longer exists within clients.");
                     ClientState::Closed
                 };
 

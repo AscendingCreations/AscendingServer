@@ -2,7 +2,7 @@ use crate::{
     containers::Storage,
     gametypes::*,
     maps::{can_target, is_dir_blocked},
-    npcs::{damage_npc, kill_npc, try_target_entity, NpcIndex},
+    npcs::{can_attack_npc, damage_npc, kill_npc, try_target_entity, NpcIndex},
     players::*,
     tasks::{attack_packet, damage_packet, vitals_packet, DataTaskToken},
 };
@@ -94,44 +94,48 @@ pub fn player_combat(
                 }
             }
             WorldEntityType::Npc => {
-                let damage = player_combat_damage(world, storage, entity, target_entity)?;
-                damage_npc(world, target_entity, damage)?;
+                if can_attack_npc(world, storage, target_entity)? {
+                    let damage = player_combat_damage(world, storage, entity, target_entity)?;
+                    damage_npc(world, target_entity, damage)?;
 
-                DataTaskToken::Damage(world.get_or_default::<Position>(entity).map).add_task(
-                    storage,
-                    damage_packet(
-                        *target_entity,
-                        damage as u16,
-                        world.get_or_default::<Position>(target_entity),
-                        true,
-                    )?,
-                )?;
-                DataTaskToken::Attack(world.get_or_default::<Position>(entity).map)
-                    .add_task(storage, attack_packet(*entity)?)?;
-
-                let vitals = world.get_or_err::<Vitals>(target_entity)?;
-                if vitals.vital[0] > 0 {
-                    DataTaskToken::Vitals(world.get_or_default::<Position>(entity).map)
-                        .add_task(storage, {
-                            vitals_packet(*target_entity, vitals.vital, vitals.vitalmax)?
-                        })?;
-
-                    let acc_id = world.cloned_get_or_default::<Account>(entity).id;
-                    try_target_entity(
-                        world,
+                    DataTaskToken::Damage(world.get_or_default::<Position>(entity).map).add_task(
                         storage,
-                        target_entity,
-                        EntityType::Player(*entity, acc_id),
+                        damage_packet(
+                            *target_entity,
+                            damage as u16,
+                            world.get_or_default::<Position>(target_entity),
+                            true,
+                        )?,
                     )?;
+                    DataTaskToken::Attack(world.get_or_default::<Position>(entity).map)
+                        .add_task(storage, attack_packet(*entity)?)?;
+
+                    let vitals = world.get_or_err::<Vitals>(target_entity)?;
+                    if vitals.vital[0] > 0 {
+                        DataTaskToken::Vitals(world.get_or_default::<Position>(entity).map)
+                            .add_task(storage, {
+                                vitals_packet(*target_entity, vitals.vital, vitals.vitalmax)?
+                            })?;
+
+                        let acc_id = world.cloned_get_or_default::<Account>(entity).id;
+                        try_target_entity(
+                            world,
+                            storage,
+                            target_entity,
+                            EntityType::Player(*entity, acc_id),
+                        )?;
+                    } else {
+                        let npc_index = world.get_or_err::<NpcIndex>(target_entity)?.0;
+                        let base = &storage.bases.npcs[npc_index as usize];
+
+                        let level = world.get_or_err::<Level>(target_entity)?.0;
+                        let exp = base.exp;
+
+                        player_earn_exp(world, storage, entity, level, exp, 1.0)?;
+                        kill_npc(world, storage, target_entity)?;
+                    }
                 } else {
-                    let npc_index = world.get_or_err::<NpcIndex>(target_entity)?.0;
-                    let base = &storage.bases.npcs[npc_index as usize];
-
-                    let level = world.get_or_err::<Level>(target_entity)?.0;
-                    let exp = base.exp;
-
-                    player_earn_exp(world, storage, entity, level, exp, 1.0)?;
-                    kill_npc(world, storage, target_entity)?;
+                    return Ok(false);
                 }
             }
             _ => {}

@@ -1,10 +1,21 @@
 use bytey::{ByteBufferRead, ByteBufferWrite};
+use mmap_bytey::{MByteBufferRead, MByteBufferWrite};
 use serde::{Deserialize, Serialize};
 
 #[derive(
-    Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ByteBufferRead, ByteBufferWrite,
+    Copy,
+    Clone,
+    Debug,
+    PartialEq,
+    Eq,
+    Serialize,
+    Deserialize,
+    ByteBufferRead,
+    ByteBufferWrite,
+    MByteBufferRead,
+    MByteBufferWrite,
+    Hash,
 )]
-#[repr(u32)]
 pub enum ServerPackets {
     OnlineCheck,
     AlertMsg,
@@ -47,7 +58,18 @@ pub enum ServerPackets {
 }
 
 #[derive(
-    Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ByteBufferRead, ByteBufferWrite, Hash,
+    Copy,
+    Clone,
+    Debug,
+    PartialEq,
+    Eq,
+    Serialize,
+    Deserialize,
+    ByteBufferRead,
+    ByteBufferWrite,
+    Hash,
+    MByteBufferRead,
+    MByteBufferWrite,
 )]
 pub enum ClientPacket {
     OnlineCheck,
@@ -82,5 +104,4 @@ pub enum ClientPacket {
     AcceptTrade,
     DeclineTrade,
     Ping,
-    Size,
 }

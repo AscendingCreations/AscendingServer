@@ -6,6 +6,7 @@ use crate::{
 use hecs::World;
 use indexmap::map::Entry;
 use log::warn;
+use mmap_bytey::BUFFER_SIZE;
 use std::collections::VecDeque;
 /* Information Packet Data Portion Worse case is 1400 bytes
 * This means you can fit based on Packet Size: 8bytes + Packet ID: 4bytes  + Data array count: 4bytes
@@ -38,19 +39,12 @@ pub enum DataTaskToken {
 pub const PACKET_DATA_LIMIT: usize = 1400;
 
 impl DataTaskToken {
-    pub fn add_task(self, storage: &Storage, mut data: ByteBuffer) -> Result<()> {
+    pub fn add_task(self, storage: &Storage, mut data: MByteBuffer) -> Result<()> {
         //Newer packets get pushed to the back.
         match storage.packet_cache.borrow_mut().entry(self) {
             Entry::Vacant(v) => {
                 let mut buffer = new_cache(self.packet_id())?;
                 buffer.write_slice(data.as_slice())?;
-                if buffer.length() > PACKET_DATA_LIMIT {
-                    warn!(
-                        "Buffer Length for single write of {:?} Exceeded PACKET_DATA_LIMIT",
-                        self
-                    );
-                }
-
                 v.insert(VecDeque::from_iter([(1, buffer, false)]));
             }
             Entry::Occupied(mut o) => {
@@ -65,20 +59,13 @@ impl DataTaskToken {
                         .back_mut()
                         .ok_or(AscendingError::PacketCacheNotFound(self))?;
 
-                    if data.length() + buffer.length() > PACKET_DATA_LIMIT {
+                    if data.length() + buffer.length() > BUFFER_SIZE {
                         *is_finished = true;
                         finish_cache(buffer, *count, false)?;
 
                         let mut buffer = new_cache(self.packet_id())?;
 
                         buffer.write_slice(data.as_slice())?;
-
-                        if buffer.length() > PACKET_DATA_LIMIT {
-                            warn!(
-                                "Buffer Length for single write of {:?} Exceeded PACKET_DATA_LIMIT",
-                                self
-                            );
-                        }
                         buffers.push_back((1, buffer, false));
                     } else {
                         buffer.write_slice(data.as_slice())?;
@@ -114,7 +101,7 @@ impl DataTaskToken {
         }
     }
 
-    pub fn send(&self, world: &mut World, storage: &Storage, buf: ByteBuffer) -> Result<()> {
+    pub fn send(&self, world: &mut World, storage: &Storage, buf: MByteBuffer) -> Result<()> {
         use DataTaskToken::*;
         match self {
             GlobalChat => send_to_all(world, storage, buf),
@@ -154,9 +141,9 @@ pub fn process_tasks(world: &mut World, storage: &Storage) -> Result<()> {
     Ok(())
 }
 
-pub fn new_cache(packet_id: ServerPackets) -> Result<ByteBuffer> {
+pub fn new_cache(packet_id: ServerPackets) -> Result<MByteBuffer> {
     //Set it to the max packet size - the size holder - packet_id - count
-    let mut buffer = ByteBuffer::new_packet_with(PACKET_DATA_LIMIT - 8)?;
+    let mut buffer = MByteBuffer::new_packet()?;
     //Write the packet ID so we know where it goes.
     buffer.write(packet_id)?;
     //preallocate space for count.
@@ -164,7 +151,7 @@ pub fn new_cache(packet_id: ServerPackets) -> Result<ByteBuffer> {
     Ok(buffer)
 }
 
-pub fn finish_cache(buffer: &mut ByteBuffer, count: u32, is_finished: bool) -> Result<()> {
+pub fn finish_cache(buffer: &mut MByteBuffer, count: u32, is_finished: bool) -> Result<()> {
     if !is_finished {
         //Move it 8 bytes for Size + 2 bytes for Packet ID enum to get count location.
         buffer.move_cursor(10)?;

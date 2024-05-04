@@ -208,7 +208,7 @@ pub fn npc_targeting(
         EntityType::Player(i, accid) => {
             if world.contains(i.0) {
                 if world.get_or_err::<DeathType>(&i)?.is_alive()
-                    && world.get::<&Account>(entity.0)?.id == accid
+                    && world.get::<&Account>(i.0)?.id == accid
                 {
                     let check = check_surrounding(
                         world.get_or_err::<Position>(entity)?.map,
@@ -227,17 +227,17 @@ pub fn npc_targeting(
         }
         EntityType::Npc(i) => {
             if world.contains(i.0) {
-                let newbase = &storage.bases.npcs[world.get_or_err::<NpcIndex>(&i)?.0 as usize];
+                //let newbase = &storage.bases.npcs[world.get_or_err::<NpcIndex>(&i)?.0 as usize];
                 let mut is_enemy = false;
 
-                if newbase.has_enemies {
-                    is_enemy = newbase
+                if base.has_enemies {
+                    is_enemy = base
                         .enemies
                         .iter()
                         .any(|&x| world.get_or_default::<NpcIndex>(&i).0 == x);
                 }
 
-                if world.get_or_err::<DeathType>(&i)?.is_alive() || !is_enemy {
+                if world.get_or_err::<DeathType>(&i)?.is_alive() && is_enemy {
                     let check = check_surrounding(
                         world.get_or_err::<Position>(entity)?.map,
                         world.get_or_err::<Position>(&i)?.map,
@@ -256,7 +256,8 @@ pub fn npc_targeting(
         EntityType::Map(_) | EntityType::None | EntityType::MapItem(_) => return Ok(false),
     };
 
-    if world.get_or_err::<Position>(entity)?.checkdistance(pos) <= base.sight {
+    let distance = world.get_or_err::<Position>(entity)?.checkdistance(pos);
+    if distance > base.sight {
         return Ok(false);
     }
 

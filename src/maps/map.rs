@@ -6,13 +6,16 @@ use crate::{
 use bit_op::{bit_u8::*, BitOp};
 use educe::Educe;
 use serde::{Deserialize, Serialize};
-use std::fs::{self, OpenOptions};
-use std::io::BufReader;
+use speedy::{Readable, Writable};
 use std::path::Path;
+use std::{
+    fs::{self, OpenOptions},
+    io::Read,
+};
 
 const MAP_PATH: &str = "./data/maps/";
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Default, Readable, Writable)]
 pub struct WarpData {
     pub map_x: i32,
     pub map_y: i32,
@@ -21,14 +24,14 @@ pub struct WarpData {
     pub tile_y: u32,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Default, Readable, Writable)]
 pub struct ItemSpawnData {
     pub index: u32,
     pub amount: u16,
     pub timer: u64,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Default, Readable, Writable)]
 pub enum MapAttribute {
     #[default]
     Walkable,
@@ -62,11 +65,17 @@ pub struct GridTile {
     pub dir_block: u8,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize, Readable, Writable)]
+pub struct Tile {
+    pub id: Vec<u32>,
+}
+
 //TODO: Update to use MAP (x,y,group) for map locations and Remove map links?
-#[derive(Clone, Educe, Serialize, Deserialize)]
+#[derive(Clone, Educe, Serialize, Deserialize, Readable, Writable)]
 #[educe(Default(new))]
 pub struct Map {
     pub position: MapPosition,
+    pub tile: Vec<Tile>,
     pub dir_block: Vec<u8>,
     pub attribute: Vec<MapAttribute>,
     // Tiles for zone spawning. (x, y) using u8 to cut down the size and since maps should never Exceed 64x64
@@ -109,11 +118,10 @@ fn load_map(filename: String) -> Option<Map> {
     }
 
     match OpenOptions::new().read(true).open(&name) {
-        Ok(file) => {
-            let reader = BufReader::new(file);
-
-            match serde_json::from_reader(reader) {
-                Ok(data) => Some(data),
+        Ok(mut file) => {
+            let mut bytes = Vec::new();
+            match file.read_to_end(&mut bytes) {
+                Ok(_) => Some(Map::read_from_buffer(&bytes).unwrap()),
                 Err(e) => {
                     println!("Failed to load {}, Err {:?}", name, e);
                     None

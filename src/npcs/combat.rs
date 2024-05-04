@@ -119,6 +119,20 @@ pub fn npc_cast(
     }
 }
 
+pub fn can_attack_npc(world: &mut World, storage: &Storage, npc: &Entity) -> Result<bool> {
+    let npc_index = world.get_or_err::<NpcIndex>(npc)?.0;
+    let base = &storage.bases.npcs[npc_index as usize];
+
+    match base.behaviour {
+        AIBehavior::Agressive
+        | AIBehavior::AgressiveHealer
+        | AIBehavior::ReactiveHealer
+        | AIBehavior::HelpReactive
+        | AIBehavior::Reactive => Ok(true),
+        AIBehavior::Healer | AIBehavior::Friendly => Ok(false),
+    }
+}
+
 pub fn npc_combat(
     world: &mut World,
     storage: &Storage,
@@ -173,14 +187,17 @@ pub fn npc_combat(
                 )?;
                 DataTaskToken::Attack(world.get_or_default::<Position>(entity).map)
                     .add_task(storage, attack_packet(*entity)?)?;
-                DataTaskToken::Vitals(world.get_or_default::<Position>(entity).map).add_task(
-                    storage,
-                    {
-                        let vitals = world.get_or_err::<Vitals>(&i)?;
 
-                        vitals_packet(i, vitals.vital, vitals.vitalmax)?
-                    },
-                )?;
+                let vitals = world.get_or_err::<Vitals>(&i)?;
+                if vitals.vital[0] > 0 {
+                    DataTaskToken::Vitals(world.get_or_default::<Position>(entity).map)
+                        .add_task(storage, {
+                            vitals_packet(i, vitals.vital, vitals.vitalmax)?
+                        })?;
+                    try_target_entity(world, storage, &i, EntityType::Npc(*entity))?;
+                } else {
+                    kill_npc(world, storage, &i)?;
+                }
             }
         }
         EntityType::Map(_) | EntityType::None | EntityType::MapItem(_) => {}
@@ -249,27 +266,29 @@ pub fn kill_npc(world: &mut World, storage: &Storage, entity: &Entity) -> Result
 
     let mut rng = thread_rng();
 
-    let mut count = 0;
-    for index in 0..10 {
-        if npcbase.drops[index].0 > 0 && rng.gen_range(1..=npcbase.drops[index].2) == 1 {
-            if !try_drop_item(
-                world,
-                storage,
-                DropItem {
-                    index: npcbase.drops[index].0,
-                    amount: npcbase.drops[index].1 as u16,
-                    pos: npc_pos,
-                },
-                None,
-                None,
-                None,
-            )? {
-                break;
-            }
-
-            count += 1;
-            if count >= npcbase.drops_max {
-                break;
+    if npcbase.max_shares > 0 {
+        let r = rng.gen_range(0..npcbase.max_shares);
+        if let Some(&drop_id) = npcbase.drop_ranges.get(&r) {
+            //do item drops here for this drop.
+            if let Some(drop_data) = npcbase.drops.get(drop_id) {
+                for drop in drop_data.items.iter() {
+                    if drop.item > 0
+                        && !try_drop_item(
+                            world,
+                            storage,
+                            DropItem {
+                                index: drop.item,
+                                amount: drop.amount as u16,
+                                pos: npc_pos,
+                            },
+                            None,
+                            None,
+                            None,
+                        )?
+                    {
+                        break;
+                    }
+                }
             }
         }
     }

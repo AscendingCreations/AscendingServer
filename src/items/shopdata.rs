@@ -1,10 +1,11 @@
 use crate::gametypes::MAX_SHOP_ITEM;
 use educe::Educe;
 use serde::{Deserialize, Serialize};
+use speedy::{Readable, Writable};
 use std::fs::OpenOptions;
-use std::io::BufReader;
+use std::io::Read;
 
-#[derive(Clone, Copy, Debug, Deserialize, Serialize, Educe)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, Educe, Readable, Writable)]
 #[educe(Default)]
 pub struct ShopItem {
     pub index: u16,
@@ -12,7 +13,7 @@ pub struct ShopItem {
     pub price: u64,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, Educe)]
+#[derive(Clone, Debug, Deserialize, Serialize, Educe, Readable, Writable)]
 #[educe(Default)]
 pub struct ShopData {
     pub name: String,
@@ -40,14 +41,13 @@ pub fn get_shop() -> Vec<ShopData> {
 }
 
 fn load_file(id: usize) -> Option<ShopData> {
-    let name = format!("./data/shops/{}.json", id);
+    let name = format!("./data/shops/{}.bin", id);
 
     match OpenOptions::new().read(true).open(name) {
-        Ok(file) => {
-            let reader = BufReader::new(file);
-
-            match serde_json::from_reader(reader) {
-                Ok(v) => Some(v),
+        Ok(mut file) => {
+            let mut bytes = Vec::new();
+            match file.read_to_end(&mut bytes) {
+                Ok(_) => Some(ShopData::read_from_buffer(&bytes).unwrap()),
                 Err(_) => None,
             }
         }

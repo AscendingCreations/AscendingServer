@@ -1,5 +1,6 @@
 use bytey::{ByteBufferRead, ByteBufferWrite};
 use educe::Educe;
+use mmap_bytey::{MByteBufferRead, MByteBufferWrite};
 use serde::{Deserialize, Serialize};
 
 #[derive(
@@ -13,6 +14,8 @@ use serde::{Deserialize, Serialize};
     Educe,
     ByteBufferWrite,
     ByteBufferRead,
+    MByteBufferRead,
+    MByteBufferWrite,
 )]
 #[educe(Default)]
 pub struct Item {
