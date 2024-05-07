@@ -62,3 +62,4 @@ and will be hosted here just in case this site ever does die.
 [`Ascending Server`](https://github.com/AscendingCreations/AscendingServer)
 [`Ascending Client`](https://github.com/AscendingCreations/AscendingClient)
 [`Ascending Editors`](https://github.com/AscendingCreations/AscendingEditors)
+[`Ascending Map Editor`](https://github.com/AscendingCreations/AscendingMapEditor)
