@@ -6,3 +6,5 @@ out/
 *.txt
 /ServerLog.txt
 .VSCodeCounter/
+
+settings.toml
