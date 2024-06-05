@@ -7,6 +7,9 @@ Open Source Game Server written in rust. Part of Ascending Source.
 
 If you need help with this library or have suggestions please go to our [Discord Group](https://discord.gg/gVXNDwpS3Z)
 
+## Creating settings.toml
+In order to use the sever you need to create a file called settings.toml and copy the contents of settings.toml.default to it. Then you can make any changes to the settings and they will not get overwritten by or saved to the repository.
+
 ## Generate TLS Keys for client and Server.
 
 Server needs server.crt, server-key.pem and ca-crt.pem.
