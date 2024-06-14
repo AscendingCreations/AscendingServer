@@ -7,17 +7,16 @@ license = "MIT OR Apache-2.0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-thiserror = "1.0.56"
-serde = { version = "1.0.196", features = ["derive"] }
-mio = { version = "0.8.11", features = ["os-poll", "net"] }
-chrono = { version = "0.4.37", features = ["serde"] }
-regex = "1.10.3"
+thiserror = "1.0.61"
+serde = { version = "1.0.203", features = ["derive"] }
+mio = { version = "1.0.0", features = ["os-poll", "net"] }
+chrono = { version = "0.4.38", features = ["serde"] }
+regex = "1.10.5"
 bit_op = "0.1.1"
 rand = "0.8.5"
 bytey = { version = "0.3.0", git = "https://github.com/Stefanowhb/bytey.git" }
 mmap_bytey = "0.2.0"
 indexmap = "2.2.6"
-ritehash = "0.2.0" #FXHash for maps
 argon2 = "0.5.3"
 password-hash = { version = "0.5.0", features = ["rand_core"] }
 hecs = { version = "0.10.4", features = [
@@ -58,6 +57,7 @@ educe = { version = "0.5.11", default-features = false, features = [
 ] }
 speedy = "=0.8.7"
 rangemap = { version = "1.5.1", features = ["serde1"] }
+ahash = "0.8.11"
 
 [profile.dev]
 opt-level = 0
