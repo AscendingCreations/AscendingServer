@@ -48,15 +48,18 @@ impl<'r> sqlx::Decode<'r, Postgres> for MapPosition {
 }
 
 impl<'q> sqlx::Encode<'q, Postgres> for MapPosition {
-    fn encode_by_ref(&self, buf: &mut sqlx::postgres::PgArgumentBuffer) -> sqlx::encode::IsNull {
+    fn encode_by_ref(
+        &self,
+        buf: &mut sqlx::postgres::PgArgumentBuffer,
+    ) -> std::result::Result<sqlx::encode::IsNull, sqlx::error::BoxDynError> {
         let mut encoder = sqlx::postgres::types::PgRecordEncoder::new(buf);
         encoder
-            .encode(self.x)
-            .encode(self.y)
-            .encode(self.group)
+            .encode(self.x)?
+            .encode(self.y)?
+            .encode(self.group)?
             .finish();
 
-        sqlx::encode::IsNull::No
+        Ok(sqlx::encode::IsNull::No)
     }
 }
 

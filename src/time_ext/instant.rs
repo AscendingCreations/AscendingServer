@@ -78,7 +78,10 @@ impl<'r> sqlx::Decode<'r, Postgres> for MyInstant {
 }
 
 impl<'q> sqlx::Encode<'q, Postgres> for MyInstant {
-    fn encode_by_ref(&self, buf: &mut sqlx::postgres::PgArgumentBuffer) -> sqlx::encode::IsNull {
+    fn encode_by_ref(
+        &self,
+        buf: &mut sqlx::postgres::PgArgumentBuffer,
+    ) -> std::result::Result<sqlx::encode::IsNull, sqlx::error::BoxDynError> {
         <i64 as sqlx::Encode<Postgres>>::encode(self.to_dur(), buf)
     }
 }
