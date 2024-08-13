@@ -271,8 +271,10 @@ pub fn handle_login(
             return send_infomsg(storage, socket_id, "Error Loading User.".into(), 1, true);
         }
 
-        info!("Player {} with IP: {}, Logging in.", &username, address);
-        return send_login_info(world, storage, entity, code, handshake, socket_id, username);
+        let name = world.cloned_get_or_err::<Account>(entity)?.username;
+
+        info!("Player {} with IP: {}, Logging in.", &name, address);
+        return send_login_info(world, storage, entity, code, handshake, socket_id, name);
     }
 
     Err(AscendingError::InvalidSocket)
