@@ -8,7 +8,7 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 thiserror = "1.0.63"
-serde = { version = "1.0.207", features = ["derive"] }
+serde = { version = "1.0.208", features = ["derive"] }
 mio = { version = "1.0.2", features = ["os-poll", "net"] }
 chrono = { version = "0.4.38", features = ["serde"] }
 regex = "1.10.6"
@@ -16,7 +16,7 @@ bit_op = "0.1.1"
 rand = "0.8.5"
 bytey = { version = "0.3.0", git = "https://github.com/Stefanowhb/bytey.git" }
 mmap_bytey = "0.2.0"
-indexmap = "2.3.0"
+indexmap = "2.4.0"
 argon2 = "0.5.3"
 password-hash = { version = "0.5.0", features = ["rand_core"] }
 hecs = { version = "0.10.5", features = [
