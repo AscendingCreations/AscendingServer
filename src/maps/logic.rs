@@ -13,7 +13,7 @@ use std::cmp::min;
 
 use super::{check_surrounding, MapItem};
 
-pub fn update_maps(world: &mut World, storage: &Storage) -> Result<()> {
+pub async fn update_maps(world: &mut World, storage: &Storage) -> Result<()> {
     let mut rng = thread_rng();
     let mut spawnable = Vec::new();
     let mut len = storage.npc_ids.borrow().len();
@@ -103,7 +103,7 @@ pub fn update_maps(world: &mut World, storage: &Storage) -> Result<()> {
                     if let Ok(Some(id)) = storage.add_npc(world, npc_id) {
                         data.add_npc(id);
                         data.zones[zone] = data.zones[zone].saturating_add(1);
-                        spawn_npc(world, spawn, Some(zone), id)?;
+                        spawn_npc(world, spawn, Some(zone), id).await?;
                     }
                 }
             }
@@ -121,16 +121,18 @@ pub fn update_maps(world: &mut World, storage: &Storage) -> Result<()> {
                             (EntityType::MapItem(Entity(id)), DespawnTimer::default()),
                         )?;
                         storage_mapitem.insert(data.pos, Entity(id));
-                        DataTaskToken::ItemLoad(data.pos.map).add_task(
-                            storage,
-                            map_item_packet(
-                                Entity(id),
-                                map_item.pos,
-                                map_item.item,
-                                map_item.ownerid,
-                                true,
-                            )?,
-                        )?;
+                        DataTaskToken::ItemLoad(data.pos.map)
+                            .add_task(
+                                storage,
+                                map_item_packet(
+                                    Entity(id),
+                                    map_item.pos,
+                                    map_item.item,
+                                    map_item.ownerid,
+                                    true,
+                                )?,
+                            )
+                            .await?;
                         add_items.push(Entity(id));
                     }
                 } else {
@@ -162,7 +164,7 @@ pub fn create_mapitem(index: u32, value: u16, pos: Position) -> MapItem {
     }
 }
 
-pub fn spawn_npc(
+pub async fn spawn_npc(
     world: &mut World,
     pos: Position,
     zone: Option<usize>,

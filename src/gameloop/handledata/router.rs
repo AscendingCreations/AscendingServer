@@ -1,11 +1,11 @@
+use super::packet_mapper;
 use crate::{
     containers::Storage, gametypes::Result, socket::*, AscendingError, Entity, OnlineType,
-    PacketRouter, WorldExtras,
+    WorldExtras,
 };
 use hecs::World;
 
-pub fn handle_data(
-    router: &PacketRouter,
+pub async fn handle_data(
     world: &mut World,
     storage: &Storage,
     data: &mut MByteBuffer,
@@ -34,14 +34,5 @@ pub fn handle_data(
         OnlineType::None => return Err(AscendingError::PacketManipulation { name: "".into() }),
     }
 
-    if id == ClientPacket::OnlineCheck {
-        return Ok(());
-    }
-
-    let fun = match router.0.get(&id) {
-        Some(fun) => fun,
-        None => return Err(AscendingError::InvalidPacket),
-    };
-
-    fun(world, storage, data, entity)
+    packet_mapper(world, storage, data, entity, id).await
 }

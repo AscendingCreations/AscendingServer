@@ -47,7 +47,7 @@ impl Server {
         })
     }
 
-    pub fn accept(&mut self, world: &mut World, storage: &Storage) -> Result<()> {
+    pub async fn accept(&mut self, world: &mut World, storage: &Storage) -> Result<()> {
         /* Wait for a new connection to accept and try to grab a token from the bag. */
         loop {
             let (stream, addr) = match self.listener.accept() {
@@ -63,14 +63,21 @@ impl Server {
 
             if let Some(token) = self.tokens.pop_front() {
                 // Attempt to Create a Empty Player Entity.
-                let entity =
-                    match accept_connection(self, token.0, addr.to_string(), world, storage) {
-                        Some(e) => e,
-                        None => {
-                            drop(stream);
-                            return Ok(());
-                        }
-                    };
+                let entity = match accept_connection(
+                    self,
+                    token.0,
+                    addr.to_string(),
+                    world,
+                    storage,
+                )
+                .await
+                {
+                    Some(e) => e,
+                    None => {
+                        drop(stream);
+                        return Ok(());
+                    }
+                };
 
                 let tls_conn = rustls::ServerConnection::new(Arc::clone(&self.tls_config))?;
                 // Lets make the Client to handle hwo we send packets.
@@ -98,7 +105,7 @@ impl Server {
     }
 }
 
-pub fn poll_events(world: &mut World, storage: &Storage) -> Result<()> {
+pub async fn poll_events(world: &mut World, storage: &Storage) -> Result<()> {
     let mut events = Events::with_capacity(1024);
 
     storage
@@ -109,7 +116,7 @@ pub fn poll_events(world: &mut World, storage: &Storage) -> Result<()> {
     for event in events.iter() {
         match event.token() {
             SERVER => {
-                storage.server.borrow_mut().accept(world, storage)?;
+                storage.server.borrow_mut().accept(world, storage).await?;
                 storage.poll.borrow_mut().registry().reregister(
                     &mut storage.server.borrow_mut().listener,
                     SERVER,
@@ -119,7 +126,7 @@ pub fn poll_events(world: &mut World, storage: &Storage) -> Result<()> {
             token => {
                 let mut server = storage.server.borrow_mut();
                 let state = if let Some(a) = server.clients.get(&token) {
-                    a.borrow_mut().process(event, world, storage)?;
+                    a.borrow_mut().process(event, world, storage).await?;
                     a.borrow().state
                 } else {
                     trace!("a token no longer exists within clients.");

@@ -6,12 +6,11 @@ use crate::{
     socket::*,
     tasks::{process_data_lists, process_tasks},
     time_ext::MyInstant,
-    PacketRouter,
 };
 use chrono::Duration;
 use hecs::World;
 
-pub fn game_loop(world: &mut World, storage: &Storage, router: &PacketRouter) {
+pub async fn game_loop(world: &mut World, storage: &Storage) {
     let mut tick: MyInstant;
     let mut tmr100: MyInstant = MyInstant::now();
     let mut tmr500: MyInstant = MyInstant::now();
@@ -24,15 +23,15 @@ pub fn game_loop(world: &mut World, storage: &Storage, router: &PacketRouter) {
         tick = *storage.gettick.borrow();
 
         if tick > tmr100 {
-            update_npcs(world, storage).unwrap();
-            update_players(world, storage).unwrap();
-            update_map_items(world, storage).unwrap();
-            check_player_connection(world, storage).unwrap();
+            update_npcs(world, storage).await.unwrap();
+            update_players(world, storage).await.unwrap();
+            update_map_items(world, storage).await.unwrap();
+            check_player_connection(world, storage).await.unwrap();
             tmr100 = tick + Duration::try_milliseconds(100).unwrap_or_default();
         }
 
         if tick > tmr500 {
-            update_maps(world, storage).unwrap();
+            update_maps(world, storage).await.unwrap();
             tmr500 = tick + Duration::try_milliseconds(500).unwrap_or_default();
         }
 
@@ -55,14 +54,14 @@ pub fn game_loop(world: &mut World, storage: &Storage, router: &PacketRouter) {
 
         //to ping sockets to ensure they are still connected. we will then unload those who are not.
         if tick > ping_timer {
-            send_connection_pings(world, storage).unwrap();
+            send_connection_pings(world, storage).await.unwrap();
             ping_timer = tick + Duration::try_hours(2).unwrap_or_default();
         }
 
-        poll_events(world, storage).unwrap();
-        process_packets(world, storage, router).unwrap();
-        process_data_lists(world, storage).unwrap();
-        process_tasks(world, storage).unwrap();
+        poll_events(world, storage).await.unwrap();
+        process_packets(world, storage).await.unwrap();
+        process_data_lists(world, storage).await.unwrap();
+        process_tasks(world, storage).await.unwrap();
         std::thread::sleep(std::time::Duration::from_millis(1));
     }
 }

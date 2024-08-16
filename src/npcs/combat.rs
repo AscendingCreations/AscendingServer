@@ -5,7 +5,7 @@ use hecs::World;
 use rand::{thread_rng, Rng};
 
 #[inline(always)]
-pub fn damage_npc(world: &mut World, entity: &crate::Entity, damage: i32) -> Result<()> {
+pub async fn damage_npc(world: &mut World, entity: &crate::Entity, damage: i32) -> Result<()> {
     world.get::<&mut Vitals>(entity.0)?.vital[VitalTypes::Hp as usize] =
         world.get_or_err::<Vitals>(entity)?.vital[VitalTypes::Hp as usize].saturating_sub(damage);
     Ok(())
@@ -23,7 +23,7 @@ fn entity_cast_check(
     range >= caster_pos.checkdistance(pos) && target_death.is_alive()
 }
 
-pub fn try_cast(
+pub async fn try_cast(
     world: &mut World,
     storage: &Storage,
     caster: &Entity,
@@ -87,7 +87,7 @@ pub fn try_cast(
     Ok(false)
 }
 
-pub fn npc_cast(
+pub async fn npc_cast(
     world: &mut World,
     storage: &Storage,
     npc: &Entity,
@@ -108,7 +108,9 @@ pub fn npc_cast(
                     targettype,
                     base.range,
                     NpcCastType::Enemy,
-                )? {
+                )
+                .await?
+                {
                     return Ok(targettype);
                 }
             }
@@ -119,7 +121,7 @@ pub fn npc_cast(
     }
 }
 
-pub fn can_attack_npc(world: &mut World, storage: &Storage, npc: &Entity) -> Result<bool> {
+pub async fn can_attack_npc(world: &mut World, storage: &Storage, npc: &Entity) -> Result<bool> {
     let npc_index = world.get_or_err::<NpcIndex>(npc)?.0;
     let base = &storage.bases.npcs[npc_index as usize];
 
@@ -133,70 +135,76 @@ pub fn can_attack_npc(world: &mut World, storage: &Storage, npc: &Entity) -> Res
     }
 }
 
-pub fn npc_combat(
+pub async fn npc_combat(
     world: &mut World,
     storage: &Storage,
     entity: &Entity,
     base: &NpcData,
 ) -> Result<()> {
-    match npc_cast(world, storage, entity, base)? {
+    match npc_cast(world, storage, entity, base).await? {
         EntityType::Player(i, _accid) => {
             if world.contains(i.0) {
-                let damage = npc_combat_damage(world, storage, entity, &i, base)?;
-                damage_player(world, &i, damage)?;
-                DataTaskToken::Damage(world.get_or_default::<Position>(entity).map).add_task(
-                    storage,
-                    damage_packet(
-                        *entity,
-                        damage as u16,
-                        world.get_or_default::<Position>(&i),
-                        true,
-                    )?,
-                )?;
+                let damage = npc_combat_damage(world, storage, entity, &i, base).await?;
+                damage_player(world, &i, damage).await?;
+                DataTaskToken::Damage(world.get_or_default::<Position>(entity).map)
+                    .add_task(
+                        storage,
+                        damage_packet(
+                            *entity,
+                            damage as u16,
+                            world.get_or_default::<Position>(&i),
+                            true,
+                        )?,
+                    )
+                    .await?;
                 DataTaskToken::Attack(world.get_or_default::<Position>(entity).map)
-                    .add_task(storage, attack_packet(*entity)?)?;
+                    .add_task(storage, attack_packet(*entity)?)
+                    .await?;
                 let vitals = world.get_or_err::<Vitals>(&i)?;
                 if vitals.vital[0] > 0 {
-                    DataTaskToken::Vitals(world.get_or_default::<Position>(entity).map).add_task(
-                        storage,
-                        {
+                    DataTaskToken::Vitals(world.get_or_default::<Position>(entity).map)
+                        .add_task(storage, {
                             let vitals = world.get_or_err::<Vitals>(&i)?;
 
                             vitals_packet(i, vitals.vital, vitals.vitalmax)?
-                        },
-                    )?;
+                        })
+                        .await?;
                 } else {
-                    remove_all_npc_target(world, &i)?;
-                    kill_player(world, storage, &i)?;
+                    remove_all_npc_target(world, &i).await?;
+                    kill_player(world, storage, &i).await?;
                 }
             }
         }
         EntityType::Npc(i) => {
             if world.contains(i.0) {
-                let damage = npc_combat_damage(world, storage, entity, &i, base)?;
-                damage_npc(world, &i, damage)?;
+                let damage = npc_combat_damage(world, storage, entity, &i, base).await?;
+                damage_npc(world, &i, damage).await?;
 
-                DataTaskToken::Damage(world.get_or_default::<Position>(entity).map).add_task(
-                    storage,
-                    damage_packet(
-                        *entity,
-                        damage as u16,
-                        world.get_or_default::<Position>(&i),
-                        true,
-                    )?,
-                )?;
+                DataTaskToken::Damage(world.get_or_default::<Position>(entity).map)
+                    .add_task(
+                        storage,
+                        damage_packet(
+                            *entity,
+                            damage as u16,
+                            world.get_or_default::<Position>(&i),
+                            true,
+                        )?,
+                    )
+                    .await?;
                 DataTaskToken::Attack(world.get_or_default::<Position>(entity).map)
-                    .add_task(storage, attack_packet(*entity)?)?;
+                    .add_task(storage, attack_packet(*entity)?)
+                    .await?;
 
                 let vitals = world.get_or_err::<Vitals>(&i)?;
                 if vitals.vital[0] > 0 {
                     DataTaskToken::Vitals(world.get_or_default::<Position>(entity).map)
                         .add_task(storage, {
                             vitals_packet(i, vitals.vital, vitals.vitalmax)?
-                        })?;
-                    try_target_entity(world, storage, &i, EntityType::Npc(*entity))?;
+                        })
+                        .await?;
+                    try_target_entity(world, storage, &i, EntityType::Npc(*entity)).await?;
                 } else {
-                    kill_npc(world, storage, &i)?;
+                    kill_npc(world, storage, &i).await?;
                 }
             }
         }
@@ -206,7 +214,7 @@ pub fn npc_combat(
     Ok(())
 }
 
-pub fn npc_combat_damage(
+pub async fn npc_combat_damage(
     world: &mut World,
     storage: &Storage,
     entity: &Entity,
@@ -215,7 +223,7 @@ pub fn npc_combat_damage(
 ) -> Result<i32> {
     let def = if world.get_or_err::<WorldEntityType>(enemy_entity)? == WorldEntityType::Player {
         world.get_or_err::<Physical>(enemy_entity)?.defense
-            + player_get_armor_defense(world, storage, entity)?.0 as u32
+            + player_get_armor_defense(world, storage, entity).await?.0 as u32
             + world.get_or_err::<Level>(enemy_entity)?.0.saturating_div(5) as u32
     } else {
         world.get_or_err::<Physical>(enemy_entity)?.defense
@@ -259,7 +267,7 @@ pub fn npc_combat_damage(
     Ok(damage as i32)
 }
 
-pub fn kill_npc(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
+pub async fn kill_npc(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
     let npc_index = world.get_or_err::<NpcIndex>(entity)?.0;
     let npc_pos = world.get_or_err::<Position>(entity)?;
     let npcbase = storage.bases.npcs[npc_index as usize].borrow();
@@ -284,7 +292,8 @@ pub fn kill_npc(world: &mut World, storage: &Storage, entity: &Entity) -> Result
                             None,
                             None,
                             None,
-                        )?
+                        )
+                        .await?
                     {
                         break;
                     }

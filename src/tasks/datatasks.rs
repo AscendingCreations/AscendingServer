@@ -39,7 +39,7 @@ pub enum DataTaskToken {
 pub const PACKET_DATA_LIMIT: usize = 1400;
 
 impl DataTaskToken {
-    pub fn add_task(self, storage: &Storage, mut data: MByteBuffer) -> Result<()> {
+    pub async fn add_task(self, storage: &Storage, mut data: MByteBuffer) -> Result<()> {
         //Newer packets get pushed to the back.
         match storage.packet_cache.borrow_mut().entry(self) {
             Entry::Vacant(v) => {
@@ -101,29 +101,29 @@ impl DataTaskToken {
         }
     }
 
-    pub fn send(&self, world: &mut World, storage: &Storage, buf: MByteBuffer) -> Result<()> {
+    pub async fn send(&self, world: &mut World, storage: &Storage, buf: MByteBuffer) -> Result<()> {
         use DataTaskToken::*;
         match self {
-            GlobalChat => send_to_all(world, storage, buf),
+            GlobalChat => send_to_all(world, storage, buf).await,
             Move(mappos) | Warp(mappos) | Death(mappos) | Dir(mappos) | EntityUnload(mappos)
             | Attack(mappos) | NpcSpawn(mappos) | PlayerSpawn(mappos) | MapChat(mappos)
             | ItemLoad(mappos) | Vitals(mappos) | PlayerLevel(mappos) | Damage(mappos) => {
-                send_to_maps(world, storage, *mappos, buf, None)
+                send_to_maps(world, storage, *mappos, buf, None).await
             }
             PlayerSpawnToEntity(socket_id)
             | NpcSpawnToEntity(socket_id)
-            | ItemLoadToEntity(socket_id) => send_to(storage, *socket_id, buf),
+            | ItemLoadToEntity(socket_id) => send_to(storage, *socket_id, buf).await,
         }
     }
 }
 
-pub fn process_tasks(world: &mut World, storage: &Storage) -> Result<()> {
+pub async fn process_tasks(world: &mut World, storage: &Storage) -> Result<()> {
     for id in storage.packet_cache_ids.borrow_mut().drain(..) {
         if let Some(buffers) = storage.packet_cache.borrow_mut().get_mut(&id) {
             //We send the older packets first hence pop front as they are the oldest.
             for (count, mut buffer, is_finished) in buffers.drain(..) {
                 finish_cache(&mut buffer, count, is_finished)?;
-                id.send(world, storage, buffer)?;
+                id.send(world, storage, buffer).await?;
             }
 
             //lets resize these if they get to unruly.

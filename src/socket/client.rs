@@ -6,7 +6,6 @@ use crate::{
     players::*,
     socket::*,
     tasks::{unload_entity_packet, DataTaskToken},
-    PacketRouter,
 };
 use hecs::World;
 use log::{error, trace, warn};
@@ -115,7 +114,7 @@ impl Client {
         }
     }
 
-    pub fn process(
+    pub async fn process(
         &mut self,
         event: &mio::event::Event,
         world: &mut World,
@@ -127,9 +126,9 @@ impl Client {
         // Check if the Event has some readable Data from the Poll State.
         if event.is_readable() {
             if matches!(self.encrypt_state, EncryptionState::ReadWrite) {
-                self.tls_read(world, storage)?;
+                self.tls_read(world, storage).await?;
             } else {
-                self.read(world, storage)?;
+                self.read(world, storage).await?;
             }
         }
 
@@ -155,7 +154,7 @@ impl Client {
         // Check if the Socket is closing if not lets reregister the poll event for it.
         // if `SocketPollState::None` is registers as the poll event we will not get data.
         match self.state {
-            ClientState::Closing => self.close_socket(world, storage)?,
+            ClientState::Closing => self.close_socket(world, storage).await?,
             _ => self.reregister(&storage.poll.borrow_mut())?,
         }
 
@@ -175,7 +174,7 @@ impl Client {
     }
 
     #[inline]
-    pub fn close_socket(&mut self, world: &mut World, storage: &Storage) -> Result<()> {
+    pub async fn close_socket(&mut self, world: &mut World, storage: &Storage) -> Result<()> {
         match self.state {
             ClientState::Closed => Ok(()),
             _ => {
@@ -183,12 +182,12 @@ impl Client {
                 self.deregister(&storage.poll.borrow_mut())?;
                 let _ = self.stream.shutdown(std::net::Shutdown::Both);
                 self.state = ClientState::Closed;
-                disconnect(self.entity, world, storage)
+                disconnect(self.entity, world, storage).await
             }
         }
     }
 
-    pub fn tls_read(&mut self, world: &mut World, storage: &Storage) -> Result<()> {
+    pub async fn tls_read(&mut self, world: &mut World, storage: &Storage) -> Result<()> {
         let socket = match world.get::<&mut Socket>(self.entity.0) {
             Ok(v) => v,
             Err(_) => {
@@ -269,7 +268,7 @@ impl Client {
         Ok(())
     }
 
-    pub fn read(&mut self, world: &mut World, storage: &Storage) -> Result<()> {
+    pub async fn read(&mut self, world: &mut World, storage: &Storage) -> Result<()> {
         let socket = match world.get::<&mut Socket>(self.entity.0) {
             Ok(v) => v,
             Err(e) => {
@@ -325,7 +324,7 @@ impl Client {
         Ok(())
     }
 
-    pub fn write(&mut self, world: &mut World) {
+    pub async fn write(&mut self, world: &mut World) {
         let mut count: usize = 0;
 
         //make sure the player exists if nto we have a socket closing
@@ -376,7 +375,7 @@ impl Client {
         }
     }
 
-    pub fn tls_write(&mut self, world: &mut World) {
+    pub async fn tls_write(&mut self, world: &mut World) {
         //make sure the player exists if not we have a socket closing
         if !world.contains(self.entity.0) {
             trace!(
@@ -502,8 +501,8 @@ impl Client {
 }
 
 #[inline]
-pub fn disconnect(playerid: Entity, world: &mut World, storage: &Storage) -> Result<()> {
-    left_game(world, storage, &playerid)?;
+pub async fn disconnect(playerid: Entity, world: &mut World, storage: &Storage) -> Result<()> {
+    left_game(world, storage, &playerid).await?;
 
     let (socket, position) = storage.remove_player(world, playerid)?;
 
@@ -513,7 +512,8 @@ pub fn disconnect(playerid: Entity, world: &mut World, storage: &Storage) -> Res
             map.borrow_mut().remove_player(storage, playerid);
             map.borrow_mut().remove_entity_from_grid(pos);
             DataTaskToken::EntityUnload(pos.map)
-                .add_task(storage, unload_entity_packet(playerid)?)?;
+                .add_task(storage, unload_entity_packet(playerid)?)
+                .await?;
         }
     }
 
@@ -521,7 +521,7 @@ pub fn disconnect(playerid: Entity, world: &mut World, storage: &Storage) -> Res
 }
 
 #[inline]
-pub fn accept_connection(
+pub async fn accept_connection(
     server: &Server,
     socketid: usize,
     addr: String,
@@ -536,7 +536,7 @@ pub fn accept_connection(
         return None;
     }
 
-    storage.add_empty_player(world, socketid, addr).ok()
+    storage.add_empty_player(world, socketid, addr).await.ok()
 }
 
 pub fn set_encryption_status(
@@ -550,7 +550,7 @@ pub fn set_encryption_status(
 }
 
 #[inline]
-pub fn send_to(storage: &Storage, socket_id: usize, buf: MByteBuffer) -> Result<()> {
+pub async fn send_to(storage: &Storage, socket_id: usize, buf: MByteBuffer) -> Result<()> {
     if let Some(client) = storage.server.borrow().clients.get(&mio::Token(socket_id)) {
         client.borrow_mut().send(&storage.poll.borrow(), buf)
     } else {
@@ -559,7 +559,7 @@ pub fn send_to(storage: &Storage, socket_id: usize, buf: MByteBuffer) -> Result<
 }
 
 #[inline]
-pub fn tls_send_to(storage: &Storage, socket_id: usize, buf: MByteBuffer) -> Result<()> {
+pub async fn tls_send_to(storage: &Storage, socket_id: usize, buf: MByteBuffer) -> Result<()> {
     if let Some(client) = storage.server.borrow().clients.get(&mio::Token(socket_id)) {
         client.borrow_mut().tls_send(&storage.poll.borrow(), buf)
     } else {
@@ -568,7 +568,7 @@ pub fn tls_send_to(storage: &Storage, socket_id: usize, buf: MByteBuffer) -> Res
 }
 
 #[inline]
-pub fn send_to_front(storage: &Storage, socket_id: usize, buf: MByteBuffer) -> Result<()> {
+pub async fn send_to_front(storage: &Storage, socket_id: usize, buf: MByteBuffer) -> Result<()> {
     if let Some(client) = storage.server.borrow().clients.get(&mio::Token(socket_id)) {
         client.borrow_mut().send_first(&storage.poll.borrow(), buf)
     } else {
@@ -577,7 +577,7 @@ pub fn send_to_front(storage: &Storage, socket_id: usize, buf: MByteBuffer) -> R
 }
 
 #[inline]
-pub fn send_to_all(world: &mut World, storage: &Storage, buf: MByteBuffer) -> Result<()> {
+pub async fn send_to_all(world: &mut World, storage: &Storage, buf: MByteBuffer) -> Result<()> {
     for (_entity, (_, socket)) in world
         .query::<((&WorldEntityType, &OnlineType), &Socket)>()
         .iter()
@@ -596,7 +596,7 @@ pub fn send_to_all(world: &mut World, storage: &Storage, buf: MByteBuffer) -> Re
 }
 
 #[inline]
-pub fn send_to_maps(
+pub async fn send_to_maps(
     world: &mut World,
     storage: &Storage,
     position: MapPosition,
@@ -631,7 +631,7 @@ pub fn send_to_maps(
 }
 
 #[inline]
-pub fn send_to_entities(
+pub async fn send_to_entities(
     world: &mut World,
     storage: &Storage,
     entities: &[Entity],
@@ -652,7 +652,11 @@ pub fn send_to_entities(
     Ok(())
 }
 
-pub fn get_length(storage: &Storage, buffer: &mut ByteBuffer, id: usize) -> Result<Option<u64>> {
+pub async fn get_length(
+    storage: &Storage,
+    buffer: &mut ByteBuffer,
+    id: usize,
+) -> Result<Option<u64>> {
     if buffer.length() - buffer.cursor() >= 8 {
         let length = buffer.read::<u64>()?;
 
@@ -677,7 +681,7 @@ pub fn get_length(storage: &Storage, buffer: &mut ByteBuffer, id: usize) -> Resu
 
 pub const MAX_PROCESSED_PACKETS: i32 = 25;
 
-pub fn process_packets(world: &mut World, storage: &Storage, router: &PacketRouter) -> Result<()> {
+pub async fn process_packets(world: &mut World, storage: &Storage) -> Result<()> {
     let mut rem_arr: Vec<(Entity, usize, bool)> = Vec::with_capacity(64);
     let mut packet = MByteBuffer::new()?;
 
@@ -703,7 +707,7 @@ pub fn process_packets(world: &mut World, storage: &Storage, router: &PacketRout
         if let Ok(mut buffer) = lock.lock() {
             loop {
                 packet.move_cursor_to_start();
-                let length = match get_length(storage, &mut buffer, socket_id)? {
+                let length = match get_length(storage, &mut buffer, socket_id).await? {
                     Some(n) => n,
                     None => {
                         rem_arr.push((*entity, 0, false));
@@ -755,7 +759,10 @@ pub fn process_packets(world: &mut World, storage: &Storage, router: &PacketRout
                         continue 'user_loop;
                     }
 
-                    if handle_data(router, world, storage, &mut packet, entity).is_err() {
+                    if handle_data(world, storage, &mut packet, entity)
+                        .await
+                        .is_err()
+                    {
                         warn!("IP: {} was disconnected due to invalid packets", address);
                         rem_arr.push((*entity, socket_id, true));
                         continue 'user_loop;

@@ -2,7 +2,7 @@ use crate::{containers::Storage, gametypes::*, npcs::*, tasks::*};
 use chrono::Duration;
 use hecs::World;
 
-pub fn update_npcs(world: &mut World, storage: &Storage) -> Result<()> {
+pub async fn update_npcs(world: &mut World, storage: &Storage) -> Result<()> {
     let tick = *storage.gettick.borrow();
     let mut unloadnpcs = Vec::new();
 
@@ -39,13 +39,13 @@ pub fn update_npcs(world: &mut World, storage: &Storage) -> Result<()> {
                             None => continue,
                         }
                     {
-                        targeting(world, storage, id, npcdata)?;
+                        targeting(world, storage, id, npcdata).await?;
                     }
 
                     //movement
                     if npcdata.can_move && world.get_or_err::<MoveTimer>(id)?.0 <= tick {
-                        npc_update_path(world, storage, id, npcdata)?;
-                        npc_movement(world, storage, id, npcdata)?;
+                        npc_update_path(world, storage, id, npcdata).await?;
+                        npc_movement(world, storage, id, npcdata).await?;
                         world.get::<&mut MoveTimer>(id.0)?.0 = tick
                             + Duration::try_milliseconds(npcdata.movement_wait).unwrap_or_default();
                     }
@@ -58,7 +58,7 @@ pub fn update_npcs(world: &mut World, storage: &Storage) -> Result<()> {
                         }
                         && world.get_or_err::<AttackTimer>(id)?.0 <= tick
                     {
-                        npc_combat(world, storage, id, npcdata)?;
+                        npc_combat(world, storage, id, npcdata).await?;
 
                         world.get::<&mut AttackTimer>(id.0)?.0 = tick
                             + Duration::try_milliseconds(npcdata.attack_wait).unwrap_or_default();
@@ -90,7 +90,8 @@ pub fn update_npcs(world: &mut World, storage: &Storage) -> Result<()> {
                             .add_entity_to_grid(world.get_or_err::<Spawn>(id)?.pos);
 
                         DataTaskToken::NpcSpawn(world.get_or_err::<Spawn>(id)?.pos.map)
-                            .add_task(storage, npc_spawn_packet(world, id, true)?)?;
+                            .add_task(storage, npc_spawn_packet(world, id, true)?)
+                            .await?;
                     }
                 }
             }
@@ -111,7 +112,10 @@ pub fn update_npcs(world: &mut World, storage: &Storage) -> Result<()> {
                 data.zones[zone] = data.zones[zone].saturating_sub(1);
             }
         }
-        DataTaskToken::EntityUnload(pos.map).add_task(storage, unload_entity_packet(i)?)?;
+
+        DataTaskToken::EntityUnload(pos.map)
+            .add_task(storage, unload_entity_packet(i)?)
+            .await?;
     }
 
     Ok(())

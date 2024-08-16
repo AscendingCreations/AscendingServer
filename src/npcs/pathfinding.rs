@@ -65,7 +65,7 @@ pub fn path_map_switch(
     true
 }
 
-pub fn a_star_path(
+pub async fn a_star_path(
     storage: &Storage,
     start: Position,
     dir: u8,
@@ -108,12 +108,12 @@ pub fn a_star_path(
             if map.borrow().is_blocked_tile(stop, WorldEntityType::Npc)
                 && in_dir_attack_zone(storage, current_node.pos, stop, 1)
             {
-                return npc_path_gather(&nodes, &current_node, start);
+                return npc_path_gather(&nodes, &current_node, start).await;
             }
         }
 
         if current_node.pos == stop {
-            return npc_path_gather(&nodes, &current_node, start);
+            return npc_path_gather(&nodes, &current_node, start).await;
         }
 
         //Cycle each direction to get a Rated path ontop of each current location.
@@ -210,7 +210,7 @@ pub fn a_star_path(
     None
 }
 
-pub fn npc_path_gather(
+pub async fn npc_path_gather(
     nodes: &[PathNode],
     current_node: &PathNode,
     start: Position,
@@ -235,7 +235,7 @@ pub fn npc_path_gather(
     }
 }
 
-pub fn npc_rand_movement(storage: &Storage, pos: Position) -> VecDeque<(Position, u8)> {
+pub async fn npc_rand_movement(storage: &Storage, pos: Position) -> VecDeque<(Position, u8)> {
     let mut rng = thread_rng();
     //down, right, up, left
     let adjacent = [(0, -1), (1, 0), (0, 1), (-1, 0)];

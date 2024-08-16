@@ -3,14 +3,14 @@ use hecs::World;
 use crate::{containers::*, gametypes::*, items::*, players::*, socket::*, sql::*};
 
 #[inline]
-pub fn save_storage_item(
+pub async fn save_storage_item(
     world: &mut World,
     storage: &Storage,
     entity: &Entity,
     slot: usize,
 ) -> Result<()> {
-    update_storage(storage, world, entity, slot)?;
-    send_storageslot(world, storage, entity, slot)
+    update_storage(storage, world, entity, slot).await?;
+    send_storageslot(world, storage, entity, slot).await
 }
 
 #[inline]
@@ -48,7 +48,7 @@ pub fn find_storage_slot(item: &Item, storage: &[Item], base: &ItemData) -> Opti
 
 #[inline]
 //This should always be successful unless an error occurs since we check for space ahead of time.
-pub fn auto_set_storage_item(
+pub async fn auto_set_storage_item(
     world: &mut World,
     storage: &Storage,
     entity: &crate::Entity,
@@ -97,13 +97,13 @@ pub fn auto_set_storage_item(
     }
 
     for slot in save_item_list.iter() {
-        save_storage_item(world, storage, entity, *slot)?;
+        save_storage_item(world, storage, entity, *slot).await?;
     }
 
     Ok(())
 }
 
-pub fn check_storage_space(
+pub async fn check_storage_space(
     world: &mut World,
     entity: &crate::Entity,
     item: &mut Item,
@@ -137,7 +137,7 @@ pub fn check_storage_space(
     Ok(empty_space_count > 0)
 }
 
-pub fn check_storage_item_partial_space(
+pub async fn check_storage_item_partial_space(
     world: &mut World,
     entity: &crate::Entity,
     item: &mut Item,
@@ -174,7 +174,7 @@ pub fn check_storage_item_partial_space(
 
 //checks if we only got partial or not if so returns how many we got.
 //Returns is_less, amount removed, amount it started with.
-pub fn check_storage_partial_space(
+pub async fn check_storage_partial_space(
     world: &mut World,
     storage: &Storage,
     entity: &crate::Entity,
@@ -182,7 +182,7 @@ pub fn check_storage_partial_space(
 ) -> Result<(bool, u16, u16)> {
     let base = &storage.bases.items[item.num as usize];
 
-    let (left, start) = check_storage_item_partial_space(world, entity, item, base)?;
+    let (left, start) = check_storage_item_partial_space(world, entity, item, base).await?;
 
     if left < start {
         Ok((true, start - left, start))
@@ -193,7 +193,7 @@ pub fn check_storage_partial_space(
 
 #[allow(clippy::too_many_arguments)]
 #[inline]
-pub fn set_storage_item(
+pub async fn set_storage_item(
     world: &mut World,
     storage: &Storage,
     entity: &crate::Entity,
@@ -213,7 +213,7 @@ pub fn set_storage_item(
             storage.items[slot] = *item;
             storage.items[slot].val = item_min;
         }
-        save_storage_item(world, storage, entity, slot)?;
+        save_storage_item(world, storage, entity, slot).await?;
         return Ok(0);
     } else if player_storage.items[slot].num == item.num {
         {
@@ -225,14 +225,14 @@ pub fn set_storage_item(
             );
         }
 
-        save_storage_item(world, storage, entity, slot)?;
+        save_storage_item(world, storage, entity, slot).await?;
     }
 
     Ok(rem)
 }
 
 #[inline]
-pub fn give_storage_item(
+pub async fn give_storage_item(
     world: &mut World,
     storage: &Storage,
     entity: &crate::Entity,
@@ -240,11 +240,11 @@ pub fn give_storage_item(
 ) -> Result<()> {
     let base = &storage.bases.items[item.num as usize];
 
-    auto_set_storage_item(world, storage, entity, item, base)
+    auto_set_storage_item(world, storage, entity, item, base).await
 }
 
 #[inline]
-pub fn check_storage_item_fits(
+pub async fn check_storage_item_fits(
     world: &mut World,
     storage: &Storage,
     entity: &crate::Entity,
@@ -252,11 +252,11 @@ pub fn check_storage_item_fits(
 ) -> Result<bool> {
     let base = &storage.bases.items[item.num as usize];
 
-    check_storage_space(world, entity, item, base)
+    check_storage_space(world, entity, item, base).await
 }
 
 #[inline]
-pub fn set_storage_slot(
+pub async fn set_storage_slot(
     world: &mut World,
     storage: &Storage,
     entity: &crate::Entity,
@@ -266,11 +266,11 @@ pub fn set_storage_slot(
 ) -> Result<u16> {
     let base = &storage.bases.items[item.num as usize];
 
-    set_storage_item(world, storage, entity, item, base, slot, amount)
+    set_storage_item(world, storage, entity, item, base, slot, amount).await
 }
 
 #[inline]
-pub fn take_storage_items(
+pub async fn take_storage_items(
     world: &mut World,
     storage: &Storage,
     entity: &crate::Entity,
@@ -287,7 +287,7 @@ pub fn take_storage_items(
             }
             amount = player_storage.items[slot].val;
 
-            save_storage_item(world, storage, entity, slot)?;
+            save_storage_item(world, storage, entity, slot).await?;
 
             if amount == 0 {
                 return Ok(0);
@@ -299,7 +299,7 @@ pub fn take_storage_items(
 }
 
 #[inline]
-pub fn take_storage_itemslot(
+pub async fn take_storage_itemslot(
     world: &mut World,
     storage: &Storage,
     entity: &crate::Entity,
@@ -316,7 +316,7 @@ pub fn take_storage_itemslot(
             }
         }
     }
-    save_storage_item(world, storage, entity, slot)?;
+    save_storage_item(world, storage, entity, slot).await?;
 
     Ok(world.get::<&PlayerStorage>(entity.0)?.items[slot].val)
 }

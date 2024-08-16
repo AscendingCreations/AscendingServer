@@ -66,7 +66,7 @@ pub fn is_npc_same(from_entity: &crate::Entity, to_entity: &crate::Entity) -> bo
 }
 
 #[inline(always)]
-pub fn npc_set_move_path(
+pub async fn npc_set_move_path(
     world: &mut World,
     entity: &crate::Entity,
     path: VecDeque<(Position, u8)>,
@@ -77,14 +77,14 @@ pub fn npc_set_move_path(
 }
 
 #[inline(always)]
-pub fn npc_clear_move_path(world: &mut World, entity: &crate::Entity) -> Result<()> {
+pub async fn npc_clear_move_path(world: &mut World, entity: &crate::Entity) -> Result<()> {
     world.get::<&mut NpcMoves>(entity.0)?.0.clear();
     world.get::<&mut NpcMoving>(entity.0)?.0 = false;
     Ok(())
 }
 
 #[inline(always)]
-pub fn set_npc_dir(
+pub async fn set_npc_dir(
     world: &mut World,
     storage: &Storage,
     entity: &crate::Entity,
@@ -94,14 +94,15 @@ pub fn set_npc_dir(
         world.get::<&mut Dir>(entity.0)?.0 = dir;
 
         DataTaskToken::Dir(world.get_or_err::<Position>(entity)?.map)
-            .add_task(storage, dir_packet(*entity, dir)?)?;
+            .add_task(storage, dir_packet(*entity, dir)?)
+            .await?;
     }
 
     Ok(())
 }
 
 #[inline(always)]
-pub fn npc_switch_maps(
+pub async fn npc_switch_maps(
     world: &mut World,
     storage: &Storage,
     entity: &crate::Entity,
@@ -131,7 +132,7 @@ pub fn npc_switch_maps(
 }
 
 #[inline(always)]
-pub fn npc_swap_pos(
+pub async fn npc_swap_pos(
     world: &mut World,
     storage: &Storage,
     entity: &crate::Entity,
@@ -153,38 +154,38 @@ pub fn npc_swap_pos(
     Ok(oldpos)
 }
 
-pub fn npc_getx(world: &mut World, entity: &crate::Entity) -> Result<i32> {
+pub async fn npc_getx(world: &mut World, entity: &crate::Entity) -> Result<i32> {
     Ok(world.get_or_err::<Position>(entity)?.x)
 }
 
-pub fn npc_gety(world: &mut World, entity: &crate::Entity) -> Result<i32> {
+pub async fn npc_gety(world: &mut World, entity: &crate::Entity) -> Result<i32> {
     Ok(world.get_or_err::<Position>(entity)?.y)
 }
 
-pub fn npc_getmap(world: &mut World, entity: &crate::Entity) -> Result<MapPosition> {
+pub async fn npc_getmap(world: &mut World, entity: &crate::Entity) -> Result<MapPosition> {
     Ok(world.get_or_err::<Position>(entity)?.map)
 }
 
-pub fn npc_gethp(world: &mut World, entity: &crate::Entity) -> Result<i32> {
+pub async fn npc_gethp(world: &mut World, entity: &crate::Entity) -> Result<i32> {
     Ok(world.get_or_err::<Vitals>(entity)?.vital[VitalTypes::Hp as usize])
 }
 
-pub fn npc_setx(world: &mut World, entity: &crate::Entity, x: i32) -> Result<()> {
+pub async fn npc_setx(world: &mut World, entity: &crate::Entity, x: i32) -> Result<()> {
     world.get::<&mut Position>(entity.0)?.x = x;
     Ok(())
 }
 
-pub fn npc_sety(world: &mut World, entity: &crate::Entity, y: i32) -> Result<()> {
+pub async fn npc_sety(world: &mut World, entity: &crate::Entity, y: i32) -> Result<()> {
     world.get::<&mut Position>(entity.0)?.y = y;
     Ok(())
 }
 
-pub fn npc_setmap(world: &mut World, entity: &crate::Entity, map: MapPosition) -> Result<()> {
+pub async fn npc_setmap(world: &mut World, entity: &crate::Entity, map: MapPosition) -> Result<()> {
     world.get::<&mut Position>(entity.0)?.map = map;
     Ok(())
 }
 
-pub fn npc_sethp(world: &mut World, entity: &crate::Entity, hp: i32) -> Result<()> {
+pub async fn npc_sethp(world: &mut World, entity: &crate::Entity, hp: i32) -> Result<()> {
     world.get::<&mut Vitals>(entity.0)?.vital[VitalTypes::Hp as usize] = hp;
     Ok(())
 }

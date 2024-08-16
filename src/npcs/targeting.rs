@@ -3,7 +3,7 @@ use chrono::Duration;
 use hecs::World;
 use rand::{thread_rng, Rng};
 
-pub fn targeting(
+pub async fn targeting(
     world: &mut World,
     storage: &Storage,
     entity: &Entity,
@@ -11,7 +11,7 @@ pub fn targeting(
 ) -> Result<()> {
     // Check if we have a current Target and that they are Alive.
     // This way we dont need to change the target if we have one.
-    (|| -> Result<()> {
+    (async || -> Result<()> {
         match world.get_or_err::<Target>(entity)?.target_type {
             EntityType::Player(i, accid) => {
                 if world.contains(i.0)
@@ -22,7 +22,7 @@ pub fn targeting(
                 }
 
                 *world.get::<&mut Target>(entity.0)? = Target::default();
-                npc_clear_move_path(world, entity)?;
+                npc_clear_move_path(world, entity).await?;
                 Ok(())
             }
             EntityType::Npc(i) => {
@@ -35,12 +35,13 @@ pub fn targeting(
                 }
 
                 *world.get::<&mut Target>(entity.0)? = Target::default();
-                npc_clear_move_path(world, entity)?;
+                npc_clear_move_path(world, entity).await?;
                 Ok(())
             }
             _ => Ok(()),
         }
-    })()?;
+    })()
+    .await?;
 
     if world.get_or_err::<Target>(entity)?.target_type != EntityType::None {
         if (base.target_auto_switch
@@ -52,7 +53,7 @@ pub fn targeting(
                     > base.sight)
         {
             *world.get::<&mut Target>(entity.0)? = Target::default();
-            npc_clear_move_path(world, entity)?;
+            npc_clear_move_path(world, entity).await?;
         } else {
             return Ok(());
         }
@@ -78,7 +79,7 @@ pub fn targeting(
                 continue;
             };
 
-            if npc_targeting(world, storage, entity, base, EntityType::Player(*x, accid))? {
+            if npc_targeting(world, storage, entity, base, EntityType::Player(*x, accid)).await? {
                 return Ok(());
             }
         }
@@ -89,7 +90,7 @@ pub fn targeting(
                     continue;
                 }
 
-                if npc_targeting(world, storage, entity, base, EntityType::Npc(*x))? {
+                if npc_targeting(world, storage, entity, base, EntityType::Npc(*x)).await? {
                     return Ok(());
                 }
             }
@@ -99,7 +100,7 @@ pub fn targeting(
     Ok(())
 }
 
-pub fn try_target_entity(
+pub async fn try_target_entity(
     world: &mut World,
     storage: &Storage,
     entity: &Entity,
@@ -163,7 +164,7 @@ pub fn try_target_entity(
     Ok(())
 }
 
-pub fn update_target_pos(world: &mut World, entity: &Entity) -> Result<Target> {
+pub async fn update_target_pos(world: &mut World, entity: &Entity) -> Result<Target> {
     if !world.contains(entity.0) {
         return Ok(Target::default());
     }
@@ -197,7 +198,7 @@ pub fn update_target_pos(world: &mut World, entity: &Entity) -> Result<Target> {
     Ok(target)
 }
 
-pub fn npc_targeting(
+pub async fn npc_targeting(
     world: &mut World,
     storage: &Storage,
     entity: &Entity,

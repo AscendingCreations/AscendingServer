@@ -175,7 +175,7 @@ fn build_tls_config(
 }
 
 impl Storage {
-    pub fn new(config: Config) -> Option<Self> {
+    pub async fn new(config: Config) -> Option<Self> {
         let mut poll = Poll::new().ok()?;
         let tls_config =
             build_tls_config(&config.server_cert, &config.server_key, &config.ca_root).unwrap();
@@ -185,7 +185,9 @@ impl Storage {
         let mut rt: Runtime = Runtime::new().unwrap();
         let local = task::LocalSet::new();
         let pgconn = establish_connection(&config, &mut rt, &local).unwrap();
-        crate::sql::initiate(&pgconn, &mut rt, &local).unwrap();
+        crate::sql::initiate(&pgconn, &mut rt, &local)
+            .await
+            .unwrap();
 
         let mut storage = Self {
             player_ids: RefCell::new(IndexSet::default()),
@@ -273,7 +275,12 @@ impl Storage {
         Some(storage)
     }
 
-    pub fn add_empty_player(&self, world: &mut World, id: usize, addr: String) -> Result<Entity> {
+    pub async fn add_empty_player(
+        &self,
+        world: &mut World,
+        id: usize,
+        addr: String,
+    ) -> Result<Entity> {
         let socket = Socket::new(id, addr)?;
 
         let identity = world.spawn((WorldEntityType::Player, socket, OnlineType::Accepted));

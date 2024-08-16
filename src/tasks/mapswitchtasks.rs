@@ -17,7 +17,7 @@ pub enum MapSwitchTasks {
     Items(Vec<Entity>),  //2
 }
 
-pub fn init_data_lists(
+pub async fn init_data_lists(
     world: &mut World,
     storage: &Storage,
     user: &crate::Entity,
@@ -128,7 +128,7 @@ pub fn init_data_lists(
 
 const PROCESS_LIMIT: usize = 1000;
 
-pub fn process_data_lists(world: &mut World, storage: &Storage) -> Result<()> {
+pub async fn process_data_lists(world: &mut World, storage: &Storage) -> Result<()> {
     let mut removals = Vec::new();
     let mut maptasks = storage.map_switch_tasks.borrow_mut();
     let process_limit = max(PROCESS_LIMIT / (1 + maptasks.len() * 3), 10);
@@ -146,7 +146,8 @@ pub fn process_data_lists(world: &mut World, storage: &Storage) -> Result<()> {
                         for entity in entities.drain(cursor..) {
                             if world.contains(entity.0) {
                                 DataTaskToken::NpcSpawnToEntity(socket_id)
-                                    .add_task(storage, npc_spawn_packet(world, &entity, false)?)?;
+                                    .add_task(storage, npc_spawn_packet(world, &entity, false)?)
+                                    .await?;
                             }
                         }
 
@@ -157,10 +158,9 @@ pub fn process_data_lists(world: &mut World, storage: &Storage) -> Result<()> {
 
                         for entity in entities.drain(cursor..) {
                             if world.contains(entity.0) {
-                                DataTaskToken::PlayerSpawnToEntity(socket_id).add_task(
-                                    storage,
-                                    player_spawn_packet(world, &entity, false)?,
-                                )?;
+                                DataTaskToken::PlayerSpawnToEntity(socket_id)
+                                    .add_task(storage, player_spawn_packet(world, &entity, false)?)
+                                    .await?;
                             }
                         }
 
@@ -171,16 +171,18 @@ pub fn process_data_lists(world: &mut World, storage: &Storage) -> Result<()> {
 
                         for entity in entities.drain(cursor..) {
                             if let Ok(map_item) = world.get::<&MapItem>(entity.0) {
-                                DataTaskToken::ItemLoadToEntity(socket_id).add_task(
-                                    storage,
-                                    map_item_packet(
-                                        entity,
-                                        map_item.pos,
-                                        map_item.item,
-                                        map_item.ownerid,
-                                        false,
-                                    )?,
-                                )?;
+                                DataTaskToken::ItemLoadToEntity(socket_id)
+                                    .add_task(
+                                        storage,
+                                        map_item_packet(
+                                            entity,
+                                            map_item.pos,
+                                            map_item.item,
+                                            map_item.ownerid,
+                                            false,
+                                        )?,
+                                    )
+                                    .await?;
                             }
                         }
 

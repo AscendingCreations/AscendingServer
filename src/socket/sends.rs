@@ -4,7 +4,7 @@ use crate::{containers::Storage, gametypes::*, players::*, socket::*, tasks::*};
 use hecs::World;
 
 #[inline]
-pub fn send_infomsg(
+pub async fn send_infomsg(
     storage: &Storage,
     socket_id: usize,
     message: String,
@@ -19,14 +19,14 @@ pub fn send_infomsg(
     buf.finish()?;
 
     if tls_send {
-        tls_send_to(storage, socket_id, buf)
+        tls_send_to(storage, socket_id, buf).await
     } else {
-        send_to(storage, socket_id, buf)
+        send_to(storage, socket_id, buf).await
     }
 }
 
 #[inline]
-pub fn send_fltalert(
+pub async fn send_fltalert(
     storage: &Storage,
     socket_id: usize,
     message: String,
@@ -39,11 +39,11 @@ pub fn send_fltalert(
     buf.write(message)?;
     buf.finish()?;
 
-    send_to(storage, socket_id, buf)
+    send_to(storage, socket_id, buf).await
 }
 
 #[inline]
-pub fn send_loginok(storage: &Storage, socket_id: usize) -> Result<()> {
+pub async fn send_loginok(storage: &Storage, socket_id: usize) -> Result<()> {
     let mut buf = MByteBuffer::new_packet()?;
 
     buf.write(ServerPackets::LoginOk)?;
@@ -51,11 +51,11 @@ pub fn send_loginok(storage: &Storage, socket_id: usize) -> Result<()> {
     buf.write(storage.time.borrow().min)?;
     buf.finish()?;
 
-    send_to(storage, socket_id, buf)
+    send_to(storage, socket_id, buf).await
 }
 
 #[inline]
-pub fn send_myindex(storage: &Storage, socket_id: usize, entity: &Entity) -> Result<()> {
+pub async fn send_myindex(storage: &Storage, socket_id: usize, entity: &Entity) -> Result<()> {
     let mut buf = MByteBuffer::new_packet()?;
 
     buf.write(ServerPackets::MyIndex)?;
@@ -63,21 +63,21 @@ pub fn send_myindex(storage: &Storage, socket_id: usize, entity: &Entity) -> Res
     buf.write(*entity)?;
     buf.finish()?;
 
-    tls_send_to(storage, socket_id, buf)
+    tls_send_to(storage, socket_id, buf).await
 }
 
-pub fn send_move_ok(storage: &Storage, socket_id: usize, move_ok: bool) -> Result<()> {
+pub async fn send_move_ok(storage: &Storage, socket_id: usize, move_ok: bool) -> Result<()> {
     let mut buf = MByteBuffer::new_packet()?;
 
     buf.write(ServerPackets::MoveOk)?;
     buf.write(move_ok)?;
     buf.finish()?;
 
-    send_to_front(storage, socket_id, buf)
+    send_to_front(storage, socket_id, buf).await
 }
 
 #[inline]
-pub fn send_playerdata(
+pub async fn send_playerdata(
     world: &mut World,
     storage: &Storage,
     socket_id: usize,
@@ -104,10 +104,10 @@ pub fn send_playerdata(
     buf.write(world.get_or_err::<Vitals>(entity)?.vitalmax)?;
     buf.finish()?;
 
-    send_to(storage, socket_id, buf)
+    send_to(storage, socket_id, buf).await
 }
 
-pub fn send_codes(
+pub async fn send_codes(
     world: &mut World,
     storage: &Storage,
     entity: &Entity,
@@ -125,10 +125,10 @@ pub fn send_codes(
 
     // Once the codes are Sent we need to set this to unencrypted mode as the client will be un unencrypted mode.
     set_encryption_status(storage, id, EncryptionState::WriteTransfering);
-    tls_send_to(storage, id, buf)
+    tls_send_to(storage, id, buf).await
 }
 
-pub fn send_ping(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
+pub async fn send_ping(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
     let mut buf = MByteBuffer::new_packet()?;
 
     buf.write(ServerPackets::OnlineCheck)?;
@@ -137,22 +137,22 @@ pub fn send_ping(world: &mut World, storage: &Storage, entity: &Entity) -> Resul
 
     let id: usize = world.get::<&Socket>(entity.0)?.id;
 
-    send_to(storage, id, buf)
+    send_to(storage, id, buf).await
 }
 
 #[inline]
-pub fn send_inv(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
+pub async fn send_inv(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
     let mut buf = MByteBuffer::new_packet()?;
 
     buf.write(ServerPackets::PlayerInv)?;
     buf.write(&world.get::<&Inventory>(entity.0)?.items)?;
     buf.finish()?;
 
-    send_to(storage, world.get::<&Socket>(entity.0)?.id, buf)
+    send_to(storage, world.get::<&Socket>(entity.0)?.id, buf).await
 }
 
 #[inline]
-pub fn send_invslot(
+pub async fn send_invslot(
     world: &mut World,
     storage: &Storage,
     entity: &Entity,
@@ -165,11 +165,11 @@ pub fn send_invslot(
     buf.write(world.get::<&Inventory>(entity.0)?.items[id])?;
     buf.finish()?;
 
-    send_to(storage, world.get::<&Socket>(entity.0)?.id, buf)
+    send_to(storage, world.get::<&Socket>(entity.0)?.id, buf).await
 }
 
 #[inline]
-pub fn send_storage(
+pub async fn send_storage(
     world: &mut World,
     storage: &Storage,
     entity: &Entity,
@@ -183,11 +183,11 @@ pub fn send_storage(
     buf.write(&storage_slots.items[range])?;
     buf.finish()?;
 
-    send_to(storage, world.get::<&Socket>(entity.0)?.id, buf)
+    send_to(storage, world.get::<&Socket>(entity.0)?.id, buf).await
 }
 
 #[inline]
-pub fn send_storageslot(
+pub async fn send_storageslot(
     world: &mut World,
     storage: &Storage,
     entity: &Entity,
@@ -200,11 +200,11 @@ pub fn send_storageslot(
     buf.write(world.get::<&PlayerStorage>(entity.0)?.items[id])?;
     buf.finish()?;
 
-    send_to(storage, world.get::<&Socket>(entity.0)?.id, buf)
+    send_to(storage, world.get::<&Socket>(entity.0)?.id, buf).await
 }
 
 #[inline]
-pub fn send_equipment(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
+pub async fn send_equipment(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
     let mut buf = MByteBuffer::new_packet()?;
 
     buf.write(ServerPackets::PlayerEquipment)?;
@@ -219,10 +219,11 @@ pub fn send_equipment(world: &mut World, storage: &Storage, entity: &Entity) -> 
         buf,
         None,
     )
+    .await
 }
 
 #[inline]
-pub fn send_level(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
+pub async fn send_level(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
     let mut buf = MByteBuffer::new_packet()?;
 
     buf.write(ServerPackets::PlayerLevel)?;
@@ -230,22 +231,27 @@ pub fn send_level(world: &mut World, storage: &Storage, entity: &Entity) -> Resu
     buf.write(world.get_or_err::<Player>(entity)?.levelexp)?;
     buf.finish()?;
 
-    send_to(storage, world.get::<&Socket>(entity.0)?.id, buf)
+    send_to(storage, world.get::<&Socket>(entity.0)?.id, buf).await
 }
 
 #[inline]
-pub fn send_money(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
+pub async fn send_money(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
     let mut buf = MByteBuffer::new_packet()?;
 
     buf.write(ServerPackets::PlayerMoney)?;
     buf.write(world.get_or_err::<Money>(entity)?.vals)?;
     buf.finish()?;
 
-    send_to(storage, world.get::<&Socket>(entity.0)?.id, buf)
+    send_to(storage, world.get::<&Socket>(entity.0)?.id, buf).await
 }
 
 #[inline]
-pub fn send_pk(world: &mut World, storage: &Storage, entity: &Entity, toself: bool) -> Result<()> {
+pub async fn send_pk(
+    world: &mut World,
+    storage: &Storage,
+    entity: &Entity,
+    toself: bool,
+) -> Result<()> {
     let mut buf = MByteBuffer::new_packet()?;
     let closure = |toself, id| if toself { Some(id) } else { None };
 
@@ -260,10 +266,11 @@ pub fn send_pk(world: &mut World, storage: &Storage, entity: &Entity, toself: bo
         buf,
         closure(toself, *entity),
     )
+    .await
 }
 
 #[inline]
-pub fn send_message(
+pub async fn send_message(
     world: &mut World,
     storage: &Storage,
     entity: &Entity,
@@ -275,10 +282,16 @@ pub fn send_message(
     let access = world.get_or_err::<UserAccess>(entity)?;
 
     match chan {
-        MessageChannel::Map => DataTaskToken::MapChat(world.get_or_err::<Position>(entity)?.map)
-            .add_task(storage, message_packet(chan, head, msg, Some(access))?)?,
-        MessageChannel::Global => DataTaskToken::GlobalChat
-            .add_task(storage, message_packet(chan, head, msg, Some(access))?)?,
+        MessageChannel::Map => {
+            DataTaskToken::MapChat(world.get_or_err::<Position>(entity)?.map)
+                .add_task(storage, message_packet(chan, head, msg, Some(access))?)
+                .await?
+        }
+        MessageChannel::Global => {
+            DataTaskToken::GlobalChat
+                .add_task(storage, message_packet(chan, head, msg, Some(access))?)
+                .await?
+        }
         MessageChannel::Party | MessageChannel::Trade | MessageChannel::Help => {}
         MessageChannel::Private => {
             let mut buf = MByteBuffer::new_packet()?;
@@ -291,9 +304,9 @@ pub fn send_message(
             buf.finish()?;
 
             if let Some(i) = id {
-                send_to(storage, i, buf.try_clone()?)?;
+                send_to(storage, i, buf.try_clone()?).await?;
             }
-            send_to(storage, world.get::<&Socket>(entity.0)?.id, buf)?;
+            send_to(storage, world.get::<&Socket>(entity.0)?.id, buf).await?;
         }
         MessageChannel::Guild => {}
         MessageChannel::Quest | MessageChannel::Npc => {
@@ -306,7 +319,7 @@ pub fn send_message(
             buf.write(msg)?;
             buf.write(Some(access))?;
             buf.finish()?;
-            send_to(storage, world.get::<&Socket>(entity.0)?.id, buf)?;
+            send_to(storage, world.get::<&Socket>(entity.0)?.id, buf).await?;
         }
     }
 
@@ -314,18 +327,18 @@ pub fn send_message(
 }
 
 #[inline]
-pub fn send_openstorage(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
+pub async fn send_openstorage(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
     let mut buf = MByteBuffer::new_packet()?;
 
     buf.write(ServerPackets::OpenStorage)?;
     buf.write(1_u32)?;
     buf.finish()?;
 
-    send_to(storage, world.get::<&Socket>(entity.0)?.id, buf)
+    send_to(storage, world.get::<&Socket>(entity.0)?.id, buf).await
 }
 
 #[inline]
-pub fn send_openshop(
+pub async fn send_openshop(
     world: &mut World,
     storage: &Storage,
     entity: &Entity,
@@ -337,22 +350,26 @@ pub fn send_openshop(
     buf.write(shop_index)?;
     buf.finish()?;
 
-    send_to(storage, world.get::<&Socket>(entity.0)?.id, buf)
+    send_to(storage, world.get::<&Socket>(entity.0)?.id, buf).await
 }
 
 #[inline]
-pub fn send_clearisusingtype(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
+pub async fn send_clearisusingtype(
+    world: &mut World,
+    storage: &Storage,
+    entity: &Entity,
+) -> Result<()> {
     let mut buf = MByteBuffer::new_packet()?;
 
     buf.write(ServerPackets::ClearIsUsingType)?;
     buf.write(1_u16)?;
     buf.finish()?;
 
-    send_to(storage, world.get::<&Socket>(entity.0)?.id, buf)
+    send_to(storage, world.get::<&Socket>(entity.0)?.id, buf).await
 }
 
 #[inline]
-pub fn send_updatetradeitem(
+pub async fn send_updatetradeitem(
     world: &mut World,
     storage: &Storage,
     target_entity: &Entity,
@@ -367,11 +384,11 @@ pub fn send_updatetradeitem(
     buf.write(world.get::<&TradeItem>(target_entity.0)?.items[trade_slot as usize])?;
     buf.finish()?;
 
-    send_to(storage, world.get::<&Socket>(send_entity.0)?.id, buf)
+    send_to(storage, world.get::<&Socket>(send_entity.0)?.id, buf).await
 }
 
 #[inline]
-pub fn send_updatetrademoney(
+pub async fn send_updatetrademoney(
     world: &mut World,
     storage: &Storage,
     target_entity: &Entity,
@@ -383,11 +400,11 @@ pub fn send_updatetrademoney(
     buf.write(world.get::<&TradeMoney>(target_entity.0)?.vals)?;
     buf.finish()?;
 
-    send_to(storage, world.get::<&Socket>(send_entity.0)?.id, buf)
+    send_to(storage, world.get::<&Socket>(send_entity.0)?.id, buf).await
 }
 
 #[inline]
-pub fn send_inittrade(
+pub async fn send_inittrade(
     world: &mut World,
     storage: &Storage,
     entity: &Entity,
@@ -399,11 +416,11 @@ pub fn send_inittrade(
     buf.write(*target_entity)?;
     buf.finish()?;
 
-    send_to(storage, world.get::<&Socket>(entity.0)?.id, buf)
+    send_to(storage, world.get::<&Socket>(entity.0)?.id, buf).await
 }
 
 #[inline]
-pub fn send_tradestatus(
+pub async fn send_tradestatus(
     world: &mut World,
     storage: &Storage,
     entity: &Entity,
@@ -417,11 +434,11 @@ pub fn send_tradestatus(
     buf.write(*their_status)?;
     buf.finish()?;
 
-    send_to(storage, world.get::<&Socket>(entity.0)?.id, buf)
+    send_to(storage, world.get::<&Socket>(entity.0)?.id, buf).await
 }
 
 #[inline]
-pub fn send_traderequest(
+pub async fn send_traderequest(
     world: &mut World,
     storage: &Storage,
     entity: &Entity,
@@ -433,11 +450,11 @@ pub fn send_traderequest(
     buf.write(*entity)?;
     buf.finish()?;
 
-    send_to(storage, world.get::<&Socket>(target_entity.0)?.id, buf)
+    send_to(storage, world.get::<&Socket>(target_entity.0)?.id, buf).await
 }
 
 #[inline]
-pub fn send_playitemsfx(
+pub async fn send_playitemsfx(
     world: &mut World,
     storage: &Storage,
     entity: &Entity,
@@ -449,16 +466,16 @@ pub fn send_playitemsfx(
     buf.write(item_index)?;
     buf.finish()?;
 
-    send_to(storage, world.get::<&Socket>(entity.0)?.id, buf)
+    send_to(storage, world.get::<&Socket>(entity.0)?.id, buf).await
 }
 
 #[inline]
-pub fn send_gameping(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
+pub async fn send_gameping(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
     let mut buf = MByteBuffer::new_packet()?;
 
     buf.write(ServerPackets::Ping)?;
     buf.write(0u64)?;
     buf.finish()?;
 
-    send_to(storage, world.get::<&Socket>(entity.0)?.id, buf)
+    send_to(storage, world.get::<&Socket>(entity.0)?.id, buf).await
 }

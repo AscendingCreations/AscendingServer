@@ -69,7 +69,7 @@ pub struct PGPlayerWithID {
 }
 
 impl PGPlayerWithID {
-    pub fn into_player(self, world: &mut World, entity: &Entity) -> Result<()> {
+    pub async fn into_player(self, world: &mut World, entity: &Entity) -> Result<()> {
         let mut query = world.query_one::<PlayerQueryMut>(entity.0)?;
 
         if let Some((

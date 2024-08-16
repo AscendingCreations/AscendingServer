@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 #![recursion_limit = "256"]
 #![feature(let_chains, error_generic_member_access)]
+#![feature(async_closure)]
 
 mod containers;
 mod gameloop;
@@ -69,7 +70,8 @@ impl log::Log for MyLogger {
     fn flush(&self) {}
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let config = read_config("settings.toml");
     log::set_logger(&MY_LOGGER).unwrap();
     // Set the Max level we accept logging to the file for.
@@ -95,12 +97,10 @@ fn main() {
 
     info!("Starting up");
     info!("Initializing Storage");
-    let storage = Storage::new(config).unwrap();
-    info!("Initializing PacketRouter");
-    let router = PacketRouter::init();
+    let storage = Storage::new(config).await.unwrap();
     info!("Initializing World");
     let mut world = World::new();
 
     info!("Game Server is Running.");
-    game_loop(&mut world, &storage, &router);
+    game_loop(&mut world, &storage).await;
 }

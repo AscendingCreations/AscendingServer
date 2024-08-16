@@ -11,14 +11,14 @@ use crate::{
 };
 
 #[inline]
-pub fn save_inv_item(
+pub async fn save_inv_item(
     world: &mut World,
     storage: &Storage,
     entity: &Entity,
     slot: usize,
 ) -> Result<()> {
-    update_inv(storage, world, entity, slot)?;
-    send_invslot(world, storage, entity, slot)
+    update_inv(storage, world, entity, slot).await?;
+    send_invslot(world, storage, entity, slot).await
 }
 
 #[inline]
@@ -53,7 +53,7 @@ pub fn find_inv_slot(item: &Item, inv: &[Item], base: &ItemData) -> Option<usize
 }
 
 #[inline]
-pub fn auto_set_inv_item(
+pub async fn auto_set_inv_item(
     world: &mut World,
     storage: &Storage,
     entity: &crate::Entity,
@@ -102,13 +102,13 @@ pub fn auto_set_inv_item(
     }
 
     for slot in save_item_list.iter() {
-        save_inv_item(world, storage, entity, *slot)?;
+        save_inv_item(world, storage, entity, *slot).await?;
     }
 
     Ok(())
 }
 
-pub fn check_inv_item_space(
+pub async fn check_inv_item_space(
     world: &mut World,
     entity: &crate::Entity,
     item: &mut Item,
@@ -142,7 +142,7 @@ pub fn check_inv_item_space(
     Ok(empty_space_count > 0)
 }
 
-pub fn check_inv_item_partial_space(
+pub async fn check_inv_item_partial_space(
     world: &mut World,
     entity: &crate::Entity,
     item: &mut Item,
@@ -179,7 +179,7 @@ pub fn check_inv_item_partial_space(
 
 #[allow(clippy::too_many_arguments)]
 #[inline]
-pub fn set_inv_item(
+pub async fn set_inv_item(
     world: &mut World,
     storage: &Storage,
     entity: &crate::Entity,
@@ -200,7 +200,7 @@ pub fn set_inv_item(
             inv.items[slot].val = item_min;
         }
 
-        save_inv_item(world, storage, entity, slot)?;
+        save_inv_item(world, storage, entity, slot).await?;
         return Ok(0);
     } else if player_inv.items[slot].num == item.num {
         {
@@ -212,14 +212,14 @@ pub fn set_inv_item(
             );
         }
 
-        save_inv_item(world, storage, entity, slot)?;
+        save_inv_item(world, storage, entity, slot).await?;
     }
 
     Ok(rem)
 }
 
 #[inline]
-pub fn give_inv_item(
+pub async fn give_inv_item(
     world: &mut World,
     storage: &Storage,
     entity: &crate::Entity,
@@ -227,10 +227,10 @@ pub fn give_inv_item(
 ) -> Result<()> {
     let base = &storage.bases.items[item.num as usize];
 
-    auto_set_inv_item(world, storage, entity, item, base)
+    auto_set_inv_item(world, storage, entity, item, base).await
 }
 
-pub fn check_inv_space(
+pub async fn check_inv_space(
     world: &mut World,
     storage: &Storage,
     entity: &crate::Entity,
@@ -238,12 +238,12 @@ pub fn check_inv_space(
 ) -> Result<bool> {
     let base = &storage.bases.items[item.num as usize];
 
-    check_inv_item_space(world, entity, item, base)
+    check_inv_item_space(world, entity, item, base).await
 }
 
 //checks if we only got partial or not if so returns how many we got.
 //Returns is_less, amount removed, amount it started with.
-pub fn check_inv_partial_space(
+pub async fn check_inv_partial_space(
     world: &mut World,
     storage: &Storage,
     entity: &crate::Entity,
@@ -251,7 +251,7 @@ pub fn check_inv_partial_space(
 ) -> Result<(bool, u16, u16)> {
     let base = &storage.bases.items[item.num as usize];
 
-    let (left, start) = check_inv_item_partial_space(world, entity, item, base)?;
+    let (left, start) = check_inv_item_partial_space(world, entity, item, base).await?;
 
     if left < start {
         Ok((true, start - left, start))
@@ -261,7 +261,7 @@ pub fn check_inv_partial_space(
 }
 
 #[inline]
-pub fn set_inv_slot(
+pub async fn set_inv_slot(
     world: &mut World,
     storage: &Storage,
     entity: &crate::Entity,
@@ -271,11 +271,11 @@ pub fn set_inv_slot(
 ) -> Result<u16> {
     let base = &storage.bases.items[item.num as usize];
 
-    set_inv_item(world, storage, entity, item, base, slot, amount)
+    set_inv_item(world, storage, entity, item, base, slot, amount).await
 }
 
 #[inline]
-pub fn take_inv_items(
+pub async fn take_inv_items(
     world: &mut World,
     storage: &Storage,
     entity: &crate::Entity,
@@ -295,7 +295,7 @@ pub fn take_inv_items(
             }
             amount = amount.saturating_sub(take_amount);
 
-            save_inv_item(world, storage, entity, slot)?;
+            save_inv_item(world, storage, entity, slot).await?;
 
             if amount == 0 {
                 return Ok(0);
@@ -307,7 +307,7 @@ pub fn take_inv_items(
 }
 
 #[inline]
-pub fn take_inv_itemslot(
+pub async fn take_inv_itemslot(
     world: &mut World,
     storage: &Storage,
     entity: &crate::Entity,
@@ -324,7 +324,7 @@ pub fn take_inv_itemslot(
             }
         }
     }
-    save_inv_item(world, storage, entity, slot)?;
+    save_inv_item(world, storage, entity, slot).await?;
 
     Ok(world.get::<&Inventory>(entity.0)?.items[slot].val)
 }
@@ -358,7 +358,7 @@ pub fn find_trade_slot(item: &Item, trade_slot: &[Item], base: &ItemData) -> Opt
 }
 
 #[inline]
-pub fn auto_set_trade_item(
+pub async fn auto_set_trade_item(
     world: &mut World,
     entity: &crate::Entity,
     item: &mut Item,
@@ -393,7 +393,7 @@ pub fn auto_set_trade_item(
 }
 
 #[inline]
-pub fn give_trade_item(
+pub async fn give_trade_item(
     world: &mut World,
     storage: &Storage,
     entity: &crate::Entity,
@@ -401,20 +401,20 @@ pub fn give_trade_item(
 ) -> Result<Vec<usize>> {
     let base = &storage.bases.items[item.num as usize];
 
-    auto_set_trade_item(world, entity, item, base)
+    auto_set_trade_item(world, entity, item, base).await
 }
 
-pub fn check_temp_inv_space(
+pub async fn check_temp_inv_space(
     storage: &Storage,
     item: &mut Item,
     temp_inv: &mut Inventory,
 ) -> Result<bool> {
     let base = &storage.bases.items[item.num as usize];
 
-    check_temp_inv_item_space(item, base, temp_inv)
+    check_temp_inv_item_space(item, base, temp_inv).await
 }
 
-pub fn check_temp_inv_item_space(
+pub async fn check_temp_inv_item_space(
     item: &mut Item,
     base: &ItemData,
     temp_inv: &mut Inventory,
@@ -447,7 +447,7 @@ pub fn check_temp_inv_item_space(
 }
 
 #[inline]
-pub fn auto_set_temp_inv_item(
+pub async fn auto_set_temp_inv_item(
     item: &mut Item,
     base: &ItemData,
     temp_inv: &mut Inventory,
@@ -491,17 +491,17 @@ pub fn auto_set_temp_inv_item(
 }
 
 #[inline]
-pub fn give_temp_inv_item(
+pub async fn give_temp_inv_item(
     storage: &Storage,
     item: &mut Item,
     temp_inv: &mut Inventory,
 ) -> Result<()> {
     let base = &storage.bases.items[item.num as usize];
 
-    auto_set_temp_inv_item(item, base, temp_inv)
+    auto_set_temp_inv_item(item, base, temp_inv).await
 }
 
-pub fn player_unequip(
+pub async fn player_unequip(
     world: &mut World,
     storage: &Storage,
     entity: &crate::Entity,
@@ -513,23 +513,23 @@ pub fn player_unequip(
 
     let mut item = world.get::<&Equipment>(entity.0)?.items[slot];
 
-    if !check_inv_space(world, storage, entity, &mut item)? {
+    if !check_inv_space(world, storage, entity, &mut item).await? {
         return Ok(false);
     }
 
-    give_inv_item(world, storage, entity, &mut item)?;
+    give_inv_item(world, storage, entity, &mut item).await?;
 
     {
         world.get::<&mut Equipment>(entity.0)?.items[slot] = Item::default();
     }
 
-    update_equipment(storage, world, entity, slot)?;
-    send_equipment(world, storage, entity)?;
+    update_equipment(storage, world, entity, slot).await?;
+    send_equipment(world, storage, entity).await?;
 
     Ok(true)
 }
 
-pub fn player_equip(
+pub async fn player_equip(
     world: &mut World,
     storage: &Storage,
     entity: &crate::Entity,
@@ -539,13 +539,13 @@ pub fn player_equip(
     {
         world.get::<&mut Equipment>(entity.0)?.items[slot] = item;
     }
-    update_equipment(storage, world, entity, slot)?;
-    send_equipment(world, storage, entity)?;
+    update_equipment(storage, world, entity, slot).await?;
+    send_equipment(world, storage, entity).await?;
 
     Ok(())
 }
 
-pub fn player_use_item(
+pub async fn player_use_item(
     world: &mut World,
     storage: &Storage,
     entity: &crate::Entity,
@@ -568,17 +568,19 @@ pub fn player_use_item(
                 let set_vital = player_vital.vital[VitalTypes::Hp as usize]
                     .saturating_add(base.data[0] as i32)
                     .min(player_vital.vitalmax[VitalTypes::Hp as usize]);
-                player_set_vital(world, storage, entity, VitalTypes::Hp, set_vital)?;
+                player_set_vital(world, storage, entity, VitalTypes::Hp, set_vital).await?;
 
-                DataTaskToken::Damage(world.get_or_default::<Position>(entity).map).add_task(
-                    storage,
-                    damage_packet(
-                        *entity,
-                        base.data[0] as u16,
-                        world.get_or_default::<Position>(entity),
-                        false,
-                    )?,
-                )?;
+                DataTaskToken::Damage(world.get_or_default::<Position>(entity).map)
+                    .add_task(
+                        storage,
+                        damage_packet(
+                            *entity,
+                            base.data[0] as u16,
+                            world.get_or_default::<Position>(entity),
+                            false,
+                        )?,
+                    )
+                    .await?;
             }
 
             if base.data[1] > 0 {
@@ -586,7 +588,7 @@ pub fn player_use_item(
                 let set_vital = player_vital.vital[VitalTypes::Mp as usize]
                     .saturating_add(base.data[1] as i32)
                     .min(player_vital.vitalmax[VitalTypes::Mp as usize]);
-                player_set_vital(world, storage, entity, VitalTypes::Mp, set_vital)?;
+                player_set_vital(world, storage, entity, VitalTypes::Mp, set_vital).await?;
             }
 
             if base.data[2] > 0 {
@@ -594,7 +596,7 @@ pub fn player_use_item(
                 let set_vital = player_vital.vital[VitalTypes::Sp as usize]
                     .saturating_add(base.data[2] as i32)
                     .min(player_vital.vitalmax[VitalTypes::Sp as usize]);
-                player_set_vital(world, storage, entity, VitalTypes::Sp, set_vital)?;
+                player_set_vital(world, storage, entity, VitalTypes::Sp, set_vital).await?;
             }
         }
         ItemTypes::Weapon
@@ -610,20 +612,20 @@ pub fn player_use_item(
                 _ => EquipmentType::Weapon,
             } as usize;
 
-            if !player_unequip(world, storage, entity, eqslot)? {
+            if !player_unequip(world, storage, entity, eqslot).await? {
                 // ToDo Warning cannot unequip
                 return Ok(());
             }
-            player_equip(world, storage, entity, item, eqslot)?;
+            player_equip(world, storage, entity, item, eqslot).await?;
         }
         _ => return Ok(()),
     }
 
     if let Some(_sfx) = &base.sound_index {
-        send_playitemsfx(world, storage, entity, item.num as u16)?;
+        send_playitemsfx(world, storage, entity, item.num as u16).await?;
     }
 
-    take_inv_itemslot(world, storage, entity, slot as usize, 1)?;
+    take_inv_itemslot(world, storage, entity, slot as usize, 1).await?;
 
     Ok(())
 }

@@ -8,7 +8,7 @@ use std::cmp;
 
 use hecs::World;
 
-pub fn update_players(world: &mut World, storage: &Storage) -> Result<()> {
+pub async fn update_players(world: &mut World, storage: &Storage) -> Result<()> {
     let tick = *storage.gettick.borrow();
 
     for id in &*storage.player_ids.borrow() {
@@ -21,7 +21,8 @@ pub fn update_players(world: &mut World, storage: &Storage) -> Result<()> {
                     }
 
                     DataTaskToken::Death(world.get_or_err::<Position>(id)?.map)
-                        .add_task(storage, death_packet(*id, DeathType::Alive)?)?;
+                        .add_task(storage, death_packet(*id, DeathType::Alive)?)
+                        .await?;
 
                     player_warp(
                         world,
@@ -29,7 +30,8 @@ pub fn update_players(world: &mut World, storage: &Storage) -> Result<()> {
                         id,
                         &world.get_or_err::<Spawn>(id)?.pos,
                         false,
-                    )?;
+                    )
+                    .await?;
                     //init_data_lists(world, storage, id, None)?;
 
                     //lets heal them fully on revival.
@@ -54,7 +56,7 @@ pub fn update_players(world: &mut World, storage: &Storage) -> Result<()> {
             // Check Trade
             if let IsUsingType::Trading(tradeentity) = world.get_or_err::<IsUsingType>(id)? {
                 if !world.contains(tradeentity.0) {
-                    close_trade(world, storage, id)?;
+                    close_trade(world, storage, id).await?;
                     send_message(
                         world,
                         storage,
@@ -63,7 +65,8 @@ pub fn update_players(world: &mut World, storage: &Storage) -> Result<()> {
                         String::new(),
                         MessageChannel::Private,
                         None,
-                    )?;
+                    )
+                    .await?;
 
                     {
                         *world.get::<&mut TradeRequestEntity>(id.0)? =
@@ -77,7 +80,7 @@ pub fn update_players(world: &mut World, storage: &Storage) -> Result<()> {
     Ok(())
 }
 
-pub fn check_player_connection(world: &mut World, storage: &Storage) -> Result<()> {
+pub async fn check_player_connection(world: &mut World, storage: &Storage) -> Result<()> {
     let mut remove_player_list = Vec::new();
 
     for (entity, timer) in world.query::<&ConnectionLoginTimer>().iter() {
@@ -88,23 +91,23 @@ pub fn check_player_connection(world: &mut World, storage: &Storage) -> Result<(
 
     for i in remove_player_list.iter() {
         // Close Socket
-        disconnect(Entity(*i), world, storage)?;
+        disconnect(Entity(*i), world, storage).await?;
     }
     Ok(())
 }
 
 //If they login successfully the remove the timer from world.
-pub fn send_connection_pings(world: &mut World, storage: &Storage) -> Result<()> {
+pub async fn send_connection_pings(world: &mut World, storage: &Storage) -> Result<()> {
     for id in &*storage.player_ids.borrow() {
         if world.get_or_err::<OnlineType>(id)? == OnlineType::Online {
-            send_ping(world, storage, id)?;
+            send_ping(world, storage, id).await?;
         }
     }
 
     Ok(())
 }
 
-pub fn player_earn_exp(
+pub async fn player_earn_exp(
     world: &mut World,
     storage: &Storage,
     entity: &Entity,
@@ -138,7 +141,8 @@ pub fn player_earn_exp(
         world.get::<&mut Player>(entity.0)?.levelexp += cmp::max(giveexp, 1) as u64;
     }
 
-    while world.get_or_err::<Player>(entity)?.levelexp >= player_get_next_lvl_exp(world, entity)?
+    while world.get_or_err::<Player>(entity)?.levelexp
+        >= player_get_next_lvl_exp(world, entity).await?
         && world.get_or_err::<Level>(entity)?.0 != MAX_LVL as i32
     {
         {
@@ -146,11 +150,11 @@ pub fn player_earn_exp(
             world.get::<&mut Player>(entity.0)?.levelexp = world
                 .get_or_err::<Player>(entity)?
                 .levelexp
-                .saturating_sub(player_get_next_lvl_exp(world, entity)?);
+                .saturating_sub(player_get_next_lvl_exp(world, entity).await?);
             world.get::<&mut Vitals>(entity.0)?.vitalmax[VitalTypes::Hp as usize] =
-                player_calc_max_hp(world, entity)?;
+                player_calc_max_hp(world, entity).await?;
             world.get::<&mut Vitals>(entity.0)?.vitalmax[VitalTypes::Mp as usize] =
-                player_calc_max_mp(world, entity)?;
+                player_calc_max_mp(world, entity).await?;
         }
 
         send_message(
@@ -161,12 +165,13 @@ pub fn player_earn_exp(
             String::new(),
             MessageChannel::Private,
             None,
-        )?;
+        )
+        .await?;
 
         for i in 0..VitalTypes::Count as usize {
             {
                 world.get::<&mut Vitals>(entity.0)?.vital[i] =
-                    player_add_up_vital(world, entity, i)?;
+                    player_add_up_vital(world, entity, i).await?;
             }
         }
 
@@ -175,22 +180,25 @@ pub fn player_earn_exp(
             world.get::<&Socket>(entity.0)?.id,
             "Level Up!.".into(),
             FtlType::Level,
-        )?;
+        )
+        .await?;
     }
 
-    send_level(world, storage, entity)?;
-    DataTaskToken::Vitals(world.get_or_err::<Position>(entity)?.map).add_task(
-        storage,
-        vitals_packet(
-            *entity,
-            world.get_or_err::<Vitals>(entity)?.vital,
-            world.get_or_err::<Vitals>(entity)?.vitalmax,
-        )?,
-    )?;
-    update_level(storage, world, entity)
+    send_level(world, storage, entity).await?;
+    DataTaskToken::Vitals(world.get_or_err::<Position>(entity)?.map)
+        .add_task(
+            storage,
+            vitals_packet(
+                *entity,
+                world.get_or_err::<Vitals>(entity)?.vital,
+                world.get_or_err::<Vitals>(entity)?.vitalmax,
+            )?,
+        )
+        .await?;
+    update_level(storage, world, entity).await
 }
 
-pub fn player_get_next_lvl_exp(world: &mut World, entity: &Entity) -> Result<u64> {
+pub async fn player_get_next_lvl_exp(world: &mut World, entity: &Entity) -> Result<u64> {
     let mut query = world.query_one::<&Level>(entity.0)?;
 
     if let Some(player_level) = query.get() {
@@ -217,7 +225,7 @@ pub fn player_get_next_lvl_exp(world: &mut World, entity: &Entity) -> Result<u64
     }
 }
 
-pub fn player_calc_max_hp(world: &mut World, entity: &Entity) -> Result<i32> {
+pub async fn player_calc_max_hp(world: &mut World, entity: &Entity) -> Result<i32> {
     let mut query = world.query_one::<&Level>(entity.0)?;
 
     if let Some(player_level) = query.get() {
@@ -227,7 +235,7 @@ pub fn player_calc_max_hp(world: &mut World, entity: &Entity) -> Result<i32> {
     }
 }
 
-pub fn player_calc_max_mp(world: &mut World, entity: &Entity) -> Result<i32> {
+pub async fn player_calc_max_mp(world: &mut World, entity: &Entity) -> Result<i32> {
     let mut query = world.query_one::<&Level>(entity.0)?;
 
     if let Some(player_level) = query.get() {
@@ -237,7 +245,7 @@ pub fn player_calc_max_mp(world: &mut World, entity: &Entity) -> Result<i32> {
     }
 }
 
-pub fn player_get_weapon_damage(
+pub async fn player_get_weapon_damage(
     world: &mut World,
     storage: &Storage,
     entity: &Entity,
@@ -263,7 +271,7 @@ pub fn player_get_weapon_damage(
     })
 }
 
-pub fn player_get_armor_defense(
+pub async fn player_get_armor_defense(
     world: &mut World,
     storage: &Storage,
     entity: &Entity,
@@ -290,7 +298,7 @@ pub fn player_get_armor_defense(
     })
 }
 
-pub fn player_repair_equipment(
+pub async fn player_repair_equipment(
     world: &mut World,
     storage: &Storage,
     entity: &Entity,
@@ -321,8 +329,8 @@ pub fn player_repair_equipment(
     }
 
     if update {
-        send_equipment(world, storage, entity)?;
-        update_equipment(storage, world, entity, slot)?;
+        send_equipment(world, storage, entity).await?;
+        update_equipment(storage, world, entity, slot).await?;
     }
 
     Ok(())
@@ -346,7 +354,7 @@ pub fn get_next_stat_exp(level: u32) -> u64 {
     level as u64 * exp_per_level as u64
 }
 
-pub fn joingame(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
+pub async fn joingame(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
     let socket_id = world.get::<&Socket>(entity.0)?.id;
 
     {
@@ -355,11 +363,11 @@ pub fn joingame(world: &mut World, storage: &Storage, entity: &Entity) -> Result
 
     // Send player index and data
     //send_myindex(storage, socket_id, entity)?;
-    send_playerdata(world, storage, socket_id, entity)?;
+    send_playerdata(world, storage, socket_id, entity).await?;
 
     // Set player position based on the loaded data
     let position = world.get_or_err::<Position>(entity)?;
-    player_warp(world, storage, entity, &position, true)?;
+    player_warp(world, storage, entity, &position, true).await?;
 
     // Add player on map
     if let Some(mapref) = storage.maps.get(&position.map) {
@@ -368,26 +376,28 @@ pub fn joingame(world: &mut World, storage: &Storage, entity: &Entity) -> Result
         map.add_entity_to_grid(position);
     }
 
-    send_inv(world, storage, entity)?;
-    send_level(world, storage, entity)?;
-    send_money(world, storage, entity)?;
+    send_inv(world, storage, entity).await?;
+    send_level(world, storage, entity).await?;
+    send_money(world, storage, entity).await?;
 
-    DataTaskToken::MapChat(position.map).add_task(
-        storage,
-        message_packet(
-            MessageChannel::Map,
-            String::new(),
-            format!(
-                "{} has joined the game",
-                world.cloned_get_or_err::<Account>(entity)?.username
-            ),
-            None,
-        )?,
-    )?;
+    DataTaskToken::MapChat(position.map)
+        .add_task(
+            storage,
+            message_packet(
+                MessageChannel::Map,
+                String::new(),
+                format!(
+                    "{} has joined the game",
+                    world.cloned_get_or_err::<Account>(entity)?.username
+                ),
+                None,
+            )?,
+        )
+        .await?;
 
     debug!("Login Ok");
     // Finish loading
-    send_loginok(storage, socket_id)?;
+    send_loginok(storage, socket_id).await?;
     send_message(
         world,
         storage,
@@ -397,41 +407,44 @@ pub fn joingame(world: &mut World, storage: &Storage, entity: &Entity) -> Result
         MessageChannel::Private,
         None,
     )
+    .await
 }
 
-pub fn left_game(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
+pub async fn left_game(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
     if world.get_or_err::<OnlineType>(entity)? != OnlineType::Online {
         return Ok(());
     }
 
     let position = world.get_or_err::<Position>(entity)?;
-    DataTaskToken::MapChat(position.map).add_task(
-        storage,
-        message_packet(
-            MessageChannel::Map,
-            String::new(),
-            format!(
-                "{} has left the game",
-                world.cloned_get_or_err::<Account>(entity)?.username
-            ),
-            None,
-        )?,
-    )?;
+    DataTaskToken::MapChat(position.map)
+        .add_task(
+            storage,
+            message_packet(
+                MessageChannel::Map,
+                String::new(),
+                format!(
+                    "{} has left the game",
+                    world.cloned_get_or_err::<Account>(entity)?.username
+                ),
+                None,
+            )?,
+        )
+        .await?;
 
-    update_playerdata(storage, world, entity)?;
-    update_player(storage, world, entity)?;
-    update_level(storage, world, entity)?;
-    update_spawn(storage, world, entity)?;
-    update_pos(storage, world, entity)?;
-    update_currency(storage, world, entity)?;
-    update_resetcount(storage, world, entity)?;
+    update_playerdata(storage, world, entity).await?;
+    update_player(storage, world, entity).await?;
+    update_level(storage, world, entity).await?;
+    update_spawn(storage, world, entity).await?;
+    update_pos(storage, world, entity).await?;
+    update_currency(storage, world, entity).await?;
+    update_resetcount(storage, world, entity).await?;
 
     //todo Add Update Players on map here.
 
     Ok(())
 }
 
-pub fn remove_all_npc_target(world: &mut World, entity: &Entity) -> Result<()> {
+pub async fn remove_all_npc_target(world: &mut World, entity: &Entity) -> Result<()> {
     let mut clear_move_path = Vec::new();
     for (entity, (worldentitytype, target)) in world
         .query::<(&WorldEntityType, &mut Target)>()
@@ -455,13 +468,13 @@ pub fn remove_all_npc_target(world: &mut World, entity: &Entity) -> Result<()> {
 
     for (entity, targettype) in clear_move_path {
         if targettype == WorldEntityType::Npc {
-            npc_clear_move_path(world, &Entity(entity))?;
+            npc_clear_move_path(world, &Entity(entity)).await?;
         }
     }
     Ok(())
 }
 
-pub fn init_trade(
+pub async fn init_trade(
     world: &mut World,
     storage: &Storage,
     entity: &Entity,
@@ -494,15 +507,15 @@ pub fn init_trade(
             *world.get::<&mut TradeStatus>(target_entity.0)? = TradeStatus::default();
         }
 
-        send_inittrade(world, storage, entity, target_entity)?;
-        send_inittrade(world, storage, target_entity, entity)?;
+        send_inittrade(world, storage, entity, target_entity).await?;
+        send_inittrade(world, storage, target_entity, entity).await?;
     } else {
         // ToDo Warning not in range
     }
     Ok(())
 }
 
-pub fn process_player_trade(
+pub async fn process_player_trade(
     world: &mut World,
     storage: &Storage,
     entity: &Entity,
@@ -516,47 +529,55 @@ pub fn process_player_trade(
     //check_temp_inv_space
     let mut entity_clone_inv = world.cloned_get_or_err::<Inventory>(entity)?;
     let mut target_clone_inv = world.cloned_get_or_err::<Inventory>(target_entity)?;
+
     for item in entity_item.items.clone().iter_mut() {
-        if item.val > 0 && !check_temp_inv_space(storage, item, &mut target_clone_inv)? {
+        if item.val > 0 && !check_temp_inv_space(storage, item, &mut target_clone_inv).await? {
             return Ok(false);
         }
     }
+
     for item in target_item.items.clone().iter_mut() {
-        if item.val > 0 && !check_temp_inv_space(storage, item, &mut entity_clone_inv)? {
+        if item.val > 0 && !check_temp_inv_space(storage, item, &mut entity_clone_inv).await? {
             return Ok(false);
         }
     }
 
     for item in entity_item.items.iter() {
         if item.val > 0 {
-            take_inv_items(world, storage, entity, item.num, item.val)?;
+            take_inv_items(world, storage, entity, item.num, item.val).await?;
         }
     }
-    player_take_vals(world, storage, entity, entity_money)?;
+
+    player_take_vals(world, storage, entity, entity_money).await?;
+
     for item in target_item.items.iter() {
         if item.val > 0 {
-            take_inv_items(world, storage, target_entity, item.num, item.val)?;
+            take_inv_items(world, storage, target_entity, item.num, item.val).await?;
         }
     }
-    player_take_vals(world, storage, target_entity, target_money)?;
+
+    player_take_vals(world, storage, target_entity, target_money).await?;
 
     for item in entity_item.items.clone().iter_mut() {
         if item.val > 0 {
-            give_inv_item(world, storage, target_entity, item)?;
+            give_inv_item(world, storage, target_entity, item).await?;
         }
     }
-    player_give_vals(world, storage, target_entity, entity_money)?;
+
+    player_give_vals(world, storage, target_entity, entity_money).await?;
+
     for item in target_item.items.clone().iter_mut() {
         if item.val > 0 {
-            give_inv_item(world, storage, entity, item)?;
+            give_inv_item(world, storage, entity, item).await?;
         }
     }
-    player_give_vals(world, storage, entity, target_money)?;
+
+    player_give_vals(world, storage, entity, target_money).await?;
 
     Ok(true)
 }
 
-pub fn close_trade(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
+pub async fn close_trade(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
     {
         *world.get::<&mut IsUsingType>(entity.0)? = IsUsingType::None;
         *world.get::<&mut TradeItem>(entity.0)? = TradeItem::default();
@@ -564,10 +585,10 @@ pub fn close_trade(world: &mut World, storage: &Storage, entity: &Entity) -> Res
         *world.get::<&mut TradeMoney>(entity.0)? = TradeMoney::default();
         *world.get::<&mut TradeStatus>(entity.0)? = TradeStatus::default();
     }
-    send_clearisusingtype(world, storage, entity)
+    send_clearisusingtype(world, storage, entity).await
 }
 
-pub fn can_trade(world: &mut World, storage: &Storage, entity: &Entity) -> Result<bool> {
+pub async fn can_trade(world: &mut World, storage: &Storage, entity: &Entity) -> Result<bool> {
     Ok(!world.get_or_err::<IsUsingType>(entity)?.inuse()
         && world.get_or_err::<TradeRequestEntity>(entity)?.requesttimer
             <= *storage.gettick.borrow())

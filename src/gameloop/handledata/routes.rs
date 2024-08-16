@@ -10,16 +10,16 @@ use log::{debug, info};
 use rand::distributions::{Alphanumeric, DistString};
 use regex::Regex;
 
-pub fn handle_ping(
+pub async fn handle_ping(
     world: &mut World,
     storage: &Storage,
     _data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
-    send_gameping(world, storage, entity)
+    send_gameping(world, storage, entity).await
 }
 
-pub fn handle_register(
+pub async fn handle_register(
     world: &mut World,
     storage: &Storage,
     data: &mut MByteBuffer,
@@ -46,7 +46,8 @@ pub fn handle_register(
                 "Client needs to be updated.".into(),
                 1,
                 true,
-            );
+            )
+            .await;
         }
 
         let email_regex = Regex::new(
@@ -62,7 +63,8 @@ pub fn handle_register(
                 "Username or Password contains unaccepted Characters".into(),
                 0,
                 true,
-            );
+            )
+            .await;
         }
 
         if username.len() >= 64 {
@@ -72,7 +74,8 @@ pub fn handle_register(
                 "Username has too many Characters, 64 Characters Max".into(),
                 0,
                 true,
-            );
+            )
+            .await;
         }
 
         if password.len() >= 128 {
@@ -82,7 +85,8 @@ pub fn handle_register(
                 "Password has too many Characters, 128 Characters Max".into(),
                 0,
                 true,
-            );
+            )
+            .await;
         }
 
         if !email_regex.is_match(&email) || sprite_id >= 6 {
@@ -92,10 +96,11 @@ pub fn handle_register(
                 "Email must be an actual email.".into(),
                 0,
                 true,
-            );
+            )
+            .await;
         }
 
-        match check_existance(storage, &username, &email) {
+        match check_existance(storage, &username, &email).await {
             Ok(i) => match i {
                 0 => {}
                 1 => {
@@ -106,6 +111,7 @@ pub fn handle_register(
                         0,
                         true,
                     )
+                    .await;
                 }
                 2 => {
                     return send_infomsg(
@@ -115,6 +121,7 @@ pub fn handle_register(
                         0,
                         true,
                     )
+                    .await;
                 }
                 _ => return Err(AscendingError::RegisterFail),
             },
@@ -142,28 +149,32 @@ pub fn handle_register(
 
         info!("New Player {} with IP {}, Logging in.", &username, &address);
 
-        return match new_player(storage, world, entity, username, email, password) {
+        return match new_player(storage, world, entity, username, email, password).await {
             Ok(uid) => {
                 {
                     world.get::<&mut Account>(entity.0)?.id = uid;
                 }
-                send_myindex(storage, socket_id, entity)?;
-                send_codes(world, storage, entity, code, handshake)
+                send_myindex(storage, socket_id, entity).await?;
+                send_codes(world, storage, entity, code, handshake).await
             }
-            Err(_) => send_infomsg(
-                storage,
-                socket_id,
-                "There was an Issue Creating the player account. Please Contact Support.".into(),
-                0,
-                true,
-            ),
+            Err(_) => {
+                send_infomsg(
+                    storage,
+                    socket_id,
+                    "There was an Issue Creating the player account. Please Contact Support."
+                        .into(),
+                    0,
+                    true,
+                )
+                .await
+            }
         };
     }
 
     Err(AscendingError::InvalidSocket)
 }
 
-pub fn handle_handshake(
+pub async fn handle_handshake(
     world: &mut World,
     storage: &Storage,
     data: &mut MByteBuffer,
@@ -174,13 +185,13 @@ pub fn handle_handshake(
     if world.get::<&LoginHandShake>(entity.0)?.handshake == handshake {
         world.remove_one::<LoginHandShake>(entity.0)?;
         world.remove_one::<ConnectionLoginTimer>(entity.0)?;
-        return joingame(world, storage, entity);
+        return joingame(world, storage, entity).await;
     }
 
     Err(AscendingError::InvalidSocket)
 }
 
-pub fn handle_login(
+pub async fn handle_login(
     world: &mut World,
     storage: &Storage,
     data: &mut MByteBuffer,
@@ -206,7 +217,8 @@ pub fn handle_login(
                 "Client needs to be updated.".into(),
                 1,
                 true,
-            );
+            )
+            .await;
         }
 
         if username.len() >= 64 || password.len() >= 128 {
@@ -216,10 +228,11 @@ pub fn handle_login(
                 "Account does not Exist or Password is not Correct.".into(),
                 0,
                 true,
-            );
+            )
+            .await;
         }
 
-        let id = match find_player(storage, &username, &password)? {
+        let id = match find_player(storage, &username, &password).await? {
             Some(id) => id,
             None => {
                 return send_infomsg(
@@ -229,6 +242,7 @@ pub fn handle_login(
                     1,
                     true,
                 )
+                .await;
             }
         };
 
@@ -250,16 +264,17 @@ pub fn handle_login(
                             if let Some(client) =
                                 storage.server.borrow().clients.get(&mio::Token(socket.id))
                             {
-                                client.borrow_mut().close_socket(world, storage)?;
+                                client.borrow_mut().close_socket(world, storage).await?;
                             } else {
-                                return send_swap_error(world, storage, socket.id, socket_id);
+                                return send_swap_error(world, storage, socket.id, socket_id).await;
                             }
                         } else {
-                            return send_swap_error(world, storage, socket.id, socket_id);
+                            return send_swap_error(world, storage, socket.id, socket_id).await;
                         }
                     }
                 } else {
-                    return send_infomsg(storage, socket_id, "Error Loading User.".into(), 1, true);
+                    return send_infomsg(storage, socket_id, "Error Loading User.".into(), 1, true)
+                        .await;
                 }
             }
         }
@@ -267,20 +282,20 @@ pub fn handle_login(
         let tick = *storage.gettick.borrow();
         storage.add_player_data(world, entity, code.clone(), handshake.clone(), tick)?;
 
-        if let Err(_e) = load_player(storage, world, entity, id) {
-            return send_infomsg(storage, socket_id, "Error Loading User.".into(), 1, true);
+        if let Err(_e) = load_player(storage, world, entity, id).await {
+            return send_infomsg(storage, socket_id, "Error Loading User.".into(), 1, true).await;
         }
 
         let name = world.cloned_get_or_err::<Account>(entity)?.username;
 
         info!("Player {} with IP: {}, Logging in.", &name, address);
-        return send_login_info(world, storage, entity, code, handshake, socket_id, name);
+        return send_login_info(world, storage, entity, code, handshake, socket_id, name).await;
     }
 
     Err(AscendingError::InvalidSocket)
 }
 
-pub fn handle_move(
+pub async fn handle_move(
     world: &mut World,
     storage: &Storage,
     data: &mut MByteBuffer,
@@ -305,18 +320,23 @@ pub fn handle_move(
 
         if data_pos != pos {
             //println!("Desync! {:?} {:?}", data_pos, pos);
-            player_warp(world, storage, entity, &pos, false)?;
+            player_warp(world, storage, entity, &pos, false).await?;
             return Ok(());
         }
         let id = world.get::<&Socket>(entity.0)?.id;
 
-        return send_move_ok(storage, id, player_movement(world, storage, entity, dir)?);
+        return send_move_ok(
+            storage,
+            id,
+            player_movement(world, storage, entity, dir).await?,
+        )
+        .await;
     }
 
     Err(AscendingError::InvalidSocket)
 }
 
-pub fn handle_dir(
+pub async fn handle_dir(
     world: &mut World,
     storage: &Storage,
     data: &mut MByteBuffer,
@@ -340,7 +360,8 @@ pub fn handle_dir(
         }
 
         DataTaskToken::Dir(world.get_or_err::<Position>(entity)?.map)
-            .add_task(storage, dir_packet(*entity, dir)?)?;
+            .add_task(storage, dir_packet(*entity, dir)?)
+            .await?;
 
         return Ok(());
     }
@@ -348,7 +369,7 @@ pub fn handle_dir(
     Err(AscendingError::InvalidSocket)
 }
 
-pub fn handle_attack(
+pub async fn handle_attack(
     world: &mut World,
     storage: &Storage,
     data: &mut MByteBuffer,
@@ -375,13 +396,14 @@ pub fn handle_attack(
                 world.get::<&mut Dir>(entity.0)?.0 = dir;
             }
             DataTaskToken::Dir(world.get_or_err::<Position>(entity)?.map)
-                .add_task(storage, dir_packet(*entity, dir)?)?;
+                .add_task(storage, dir_packet(*entity, dir)?)
+                .await?;
         };
 
         if let Some(target_entity) = target {
             if world.contains(target_entity.0) {
-                if !player_combat(world, storage, entity, &target_entity)? {
-                    player_interact_object(world, storage, entity)?;
+                if !player_combat(world, storage, entity, &target_entity).await? {
+                    player_interact_object(world, storage, entity).await?;
                 }
                 {
                     world.get::<&mut AttackTimer>(entity.0)?.0 = *storage.gettick.borrow()
@@ -389,7 +411,7 @@ pub fn handle_attack(
                 }
             }
         } else {
-            player_interact_object(world, storage, entity)?;
+            player_interact_object(world, storage, entity).await?;
         }
         return Ok(());
     }
@@ -397,7 +419,7 @@ pub fn handle_attack(
     Err(AscendingError::InvalidSocket)
 }
 
-pub fn handle_useitem(
+pub async fn handle_useitem(
     world: &mut World,
     storage: &Storage,
     data: &mut MByteBuffer,
@@ -420,13 +442,13 @@ pub fn handle_useitem(
                 *storage.gettick.borrow() + Duration::try_milliseconds(250).unwrap_or_default();
         }
 
-        return player_use_item(world, storage, entity, slot);
+        return player_use_item(world, storage, entity, slot).await;
     }
 
     Err(AscendingError::InvalidSocket)
 }
 
-pub fn handle_unequip(
+pub async fn handle_unequip(
     world: &mut World,
     storage: &Storage,
     data: &mut MByteBuffer,
@@ -448,13 +470,14 @@ pub fn handle_unequip(
             return Ok(());
         }
 
-        if !player_unequip(world, storage, entity, slot)? {
+        if !player_unequip(world, storage, entity, slot).await? {
             send_fltalert(
                 storage,
                 world.get::<&Socket>(entity.0)?.id,
                 "Could not unequiped. No inventory space.".into(),
                 FtlType::Error,
-            )?;
+            )
+            .await?;
         }
         return Ok(());
     }
@@ -462,7 +485,7 @@ pub fn handle_unequip(
     Err(AscendingError::InvalidSocket)
 }
 
-pub fn handle_switchinvslot(
+pub async fn handle_switchinvslot(
     world: &mut World,
     storage: &Storage,
     data: &mut MByteBuffer,
@@ -496,10 +519,10 @@ pub fn handle_switchinvslot(
             if world.get::<&Inventory>(entity.0)?.items[newslot].num
                 == world.get::<&Inventory>(entity.0)?.items[oldslot].num
             {
-                let take_amount =
-                    amount - set_inv_slot(world, storage, entity, &mut itemold, newslot, amount)?;
+                let take_amount = amount
+                    - set_inv_slot(world, storage, entity, &mut itemold, newslot, amount).await?;
                 if take_amount > 0 {
-                    take_inv_itemslot(world, storage, entity, oldslot, take_amount)?;
+                    take_inv_itemslot(world, storage, entity, oldslot, take_amount).await?;
                 }
             } else if world.get::<&Inventory>(entity.0)?.items[oldslot].val == amount {
                 let itemnew = world.get::<&Inventory>(entity.0)?.items[newslot];
@@ -507,8 +530,8 @@ pub fn handle_switchinvslot(
                     world.get::<&mut Inventory>(entity.0)?.items[newslot] = itemold;
                     world.get::<&mut Inventory>(entity.0)?.items[oldslot] = itemnew;
                 }
-                save_inv_item(world, storage, entity, newslot)?;
-                save_inv_item(world, storage, entity, oldslot)?;
+                save_inv_item(world, storage, entity, newslot).await?;
+                save_inv_item(world, storage, entity, oldslot).await?;
             } else {
                 return send_fltalert(
                         storage,
@@ -516,7 +539,7 @@ pub fn handle_switchinvslot(
                         "Can not swap slots with a different containing items unless you swap everything."
                             .into(),
                         FtlType::Error
-                    );
+                    ).await;
             }
         } else {
             let itemnew = world.get::<&Inventory>(entity.0)?.items[newslot];
@@ -524,8 +547,8 @@ pub fn handle_switchinvslot(
                 world.get::<&mut Inventory>(entity.0)?.items[newslot] = itemold;
                 world.get::<&mut Inventory>(entity.0)?.items[oldslot] = itemnew;
             }
-            save_inv_item(world, storage, entity, newslot)?;
-            save_inv_item(world, storage, entity, oldslot)?;
+            save_inv_item(world, storage, entity, newslot).await?;
+            save_inv_item(world, storage, entity, oldslot).await?;
         }
 
         return Ok(());
@@ -534,7 +557,7 @@ pub fn handle_switchinvslot(
     Err(AscendingError::InvalidSocket)
 }
 
-pub fn handle_pickup(
+pub async fn handle_pickup(
     world: &mut World,
     storage: &Storage,
     _data: &mut MByteBuffer,
@@ -583,7 +606,8 @@ pub fn handle_pickup(
                     {
                         if mapitems.item.num == 0 {
                             let rem =
-                                player_give_vals(world, storage, entity, mapitems.item.val as u64)?;
+                                player_give_vals(world, storage, entity, mapitems.item.val as u64)
+                                    .await?;
                             world.get::<&mut MapItem>(i.0)?.item.val = rem as u16;
 
                             if rem == 0 {
@@ -592,16 +616,13 @@ pub fn handle_pickup(
                         } else {
                             //let amount = mapitems.item.val;
 
-                            let (is_less, amount, start) = check_inv_partial_space(
-                                world,
-                                storage,
-                                entity,
-                                &mut mapitems.item,
-                            )?;
+                            let (is_less, amount, start) =
+                                check_inv_partial_space(world, storage, entity, &mut mapitems.item)
+                                    .await?;
 
                             //if passed then we only get partial of the map item.
                             if is_less {
-                                give_inv_item(world, storage, entity, &mut mapitems.item)?;
+                                give_inv_item(world, storage, entity, &mut mapitems.item).await?;
 
                                 let st = match amount {
                                     0 | 1 => "",
@@ -617,7 +638,7 @@ pub fn handle_pickup(
                                     String::new(),
                                     MessageChannel::Private,
                                     None,
-                                )?;
+                                ).await?;
                                     world.get::<&mut MapItem>(i.0)?.item.val = start - amount;
                                 } else {
                                     send_message(
@@ -633,7 +654,8 @@ pub fn handle_pickup(
                                         String::new(),
                                         MessageChannel::Private,
                                         None,
-                                    )?;
+                                    )
+                                    .await?;
 
                                     remove_id.push((x, i));
                                 }
@@ -655,7 +677,8 @@ pub fn handle_pickup(
                 String::new(),
                 MessageChannel::Private,
                 None,
-            )?;
+            )
+            .await?;
         }
 
         for (mappos, entity) in remove_id.iter_mut() {
@@ -667,7 +690,8 @@ pub fn handle_pickup(
                 }
                 map.borrow_mut().remove_item(*entity);
                 DataTaskToken::EntityUnload(*mappos)
-                    .add_task(storage, unload_entity_packet(*entity)?)?;
+                    .add_task(storage, unload_entity_packet(*entity)?)
+                    .await?;
             }
         }
         {
@@ -680,7 +704,7 @@ pub fn handle_pickup(
     Err(AscendingError::InvalidSocket)
 }
 
-pub fn handle_dropitem(
+pub async fn handle_dropitem(
     world: &mut World,
     storage: &Storage,
     data: &mut MByteBuffer,
@@ -733,8 +757,10 @@ pub fn handle_dropitem(
             },
             Some(*storage.gettick.borrow() + Duration::try_milliseconds(5000).unwrap_or_default()),
             Some(*entity),
-        )? {
-            take_inv_itemslot(world, storage, entity, slot, amount)?;
+        )
+        .await?
+        {
+            take_inv_itemslot(world, storage, entity, slot, amount).await?;
         }
 
         return Ok(());
@@ -743,7 +769,7 @@ pub fn handle_dropitem(
     Err(AscendingError::InvalidSocket)
 }
 
-pub fn handle_deleteitem(
+pub async fn handle_deleteitem(
     world: &mut World,
     storage: &Storage,
     data: &mut MByteBuffer,
@@ -765,7 +791,7 @@ pub fn handle_deleteitem(
         }
 
         let val = world.get::<&Inventory>(entity.0)?.items[slot].val;
-        take_inv_itemslot(world, storage, entity, slot, val)?;
+        take_inv_itemslot(world, storage, entity, slot, val).await?;
 
         return Ok(());
     }
@@ -773,7 +799,7 @@ pub fn handle_deleteitem(
     Err(AscendingError::InvalidSocket)
 }
 
-pub fn handle_switchstorageslot(
+pub async fn handle_switchstorageslot(
     world: &mut World,
     storage: &Storage,
     data: &mut MByteBuffer,
@@ -808,9 +834,10 @@ pub fn handle_switchstorageslot(
                 == world.get::<&PlayerStorage>(entity.0)?.items[oldslot].num
             {
                 let take_amount = amount
-                    - set_storage_slot(world, storage, entity, &mut itemold, newslot, amount)?;
+                    - set_storage_slot(world, storage, entity, &mut itemold, newslot, amount)
+                        .await?;
                 if take_amount > 0 {
-                    take_storage_itemslot(world, storage, entity, oldslot, take_amount)?;
+                    take_storage_itemslot(world, storage, entity, oldslot, take_amount).await?;
                 }
             } else if world.get::<&PlayerStorage>(entity.0)?.items[oldslot].val == amount {
                 let itemnew = world.get::<&PlayerStorage>(entity.0)?.items[newslot];
@@ -818,8 +845,8 @@ pub fn handle_switchstorageslot(
                     world.get::<&mut PlayerStorage>(entity.0)?.items[newslot] = itemold;
                     world.get::<&mut PlayerStorage>(entity.0)?.items[oldslot] = itemnew;
                 }
-                save_storage_item(world, storage, entity, newslot)?;
-                save_storage_item(world, storage, entity, oldslot)?;
+                save_storage_item(world, storage, entity, newslot).await?;
+                save_storage_item(world, storage, entity, oldslot).await?;
             } else {
                 return send_fltalert(
                         storage,
@@ -827,7 +854,7 @@ pub fn handle_switchstorageslot(
                         "Can not swap slots with a different containing items unless you swap everything."
                             .into(),
                         FtlType::Error
-                    );
+                    ).await;
             }
         } else {
             let itemnew = world.get::<&PlayerStorage>(entity.0)?.items[newslot];
@@ -835,8 +862,8 @@ pub fn handle_switchstorageslot(
                 world.get::<&mut PlayerStorage>(entity.0)?.items[newslot] = itemold;
                 world.get::<&mut PlayerStorage>(entity.0)?.items[oldslot] = itemnew;
             }
-            save_storage_item(world, storage, entity, newslot)?;
-            save_storage_item(world, storage, entity, oldslot)?;
+            save_storage_item(world, storage, entity, newslot).await?;
+            save_storage_item(world, storage, entity, oldslot).await?;
         }
 
         return Ok(());
@@ -845,7 +872,7 @@ pub fn handle_switchstorageslot(
     Err(AscendingError::InvalidSocket)
 }
 
-pub fn handle_deletestorageitem(
+pub async fn handle_deletestorageitem(
     world: &mut World,
     storage: &Storage,
     data: &mut MByteBuffer,
@@ -867,7 +894,7 @@ pub fn handle_deletestorageitem(
         }
 
         let val = world.get::<&PlayerStorage>(entity.0)?.items[slot].val;
-        take_storage_itemslot(world, storage, entity, slot, val)?;
+        take_storage_itemslot(world, storage, entity, slot, val).await?;
 
         return Ok(());
     }
@@ -875,7 +902,7 @@ pub fn handle_deletestorageitem(
     Err(AscendingError::InvalidSocket)
 }
 
-pub fn handle_deposititem(
+pub async fn handle_deposititem(
     world: &mut World,
     storage: &Storage,
     data: &mut MByteBuffer,
@@ -911,15 +938,15 @@ pub fn handle_deposititem(
             {
                 world.get::<&mut PlayerStorage>(entity.0)?.items[bank_slot] = item_data;
             }
-            save_storage_item(world, storage, entity, bank_slot)?;
-            take_inv_itemslot(world, storage, entity, inv_slot, amount)?;
+            save_storage_item(world, storage, entity, bank_slot).await?;
+            take_inv_itemslot(world, storage, entity, inv_slot, amount).await?;
         } else {
             let (is_less, amount, _started) =
-                check_storage_partial_space(world, storage, entity, &mut item_data)?;
+                check_storage_partial_space(world, storage, entity, &mut item_data).await?;
 
             if is_less {
-                give_storage_item(world, storage, entity, &mut item_data)?;
-                take_inv_itemslot(world, storage, entity, inv_slot, amount)?;
+                give_storage_item(world, storage, entity, &mut item_data).await?;
+                take_inv_itemslot(world, storage, entity, inv_slot, amount).await?;
             } else {
                 send_message(
                     world,
@@ -929,7 +956,8 @@ pub fn handle_deposititem(
                     String::new(),
                     MessageChannel::Private,
                     None,
-                )?;
+                )
+                .await?;
             }
         }
 
@@ -939,7 +967,7 @@ pub fn handle_deposititem(
     Err(AscendingError::InvalidSocket)
 }
 
-pub fn handle_withdrawitem(
+pub async fn handle_withdrawitem(
     world: &mut World,
     storage: &Storage,
     data: &mut MByteBuffer,
@@ -975,15 +1003,15 @@ pub fn handle_withdrawitem(
             {
                 world.get::<&mut Inventory>(entity.0)?.items[inv_slot] = item_data;
             }
-            save_inv_item(world, storage, entity, inv_slot)?;
-            take_storage_itemslot(world, storage, entity, bank_slot, amount)?;
+            save_inv_item(world, storage, entity, inv_slot).await?;
+            take_storage_itemslot(world, storage, entity, bank_slot, amount).await?;
         } else {
             let (is_less, amount, _started) =
-                check_inv_partial_space(world, storage, entity, &mut item_data)?;
+                check_inv_partial_space(world, storage, entity, &mut item_data).await?;
 
             if is_less {
-                give_inv_item(world, storage, entity, &mut item_data)?;
-                take_storage_itemslot(world, storage, entity, bank_slot, amount)?;
+                give_inv_item(world, storage, entity, &mut item_data).await?;
+                take_storage_itemslot(world, storage, entity, bank_slot, amount).await?;
             } else {
                 send_message(
                     world,
@@ -993,7 +1021,8 @@ pub fn handle_withdrawitem(
                     String::new(),
                     MessageChannel::Private,
                     None,
-                )?;
+                )
+                .await?;
             }
         }
         return Ok(());
@@ -1002,7 +1031,7 @@ pub fn handle_withdrawitem(
     Err(AscendingError::InvalidSocket)
 }
 
-pub fn handle_message(
+pub async fn handle_message(
     world: &mut World,
     storage: &Storage,
     data: &mut MByteBuffer,
@@ -1026,7 +1055,8 @@ pub fn handle_message(
                 world.get::<&Socket>(entity.0)?.id,
                 "Your message is too long. (256 character limit)".into(),
                 FtlType::Error,
-            );
+            )
+            .await;
         }
 
         let head = match channel {
@@ -1053,7 +1083,8 @@ pub fn handle_message(
                         world.get::<&Socket>(entity.0)?.id,
                         "You cannot send messages to yourself".into(),
                         FtlType::Error,
-                    );
+                    )
+                    .await;
                 }
 
                 usersocket = match storage.player_names.borrow().get(&name) {
@@ -1070,7 +1101,8 @@ pub fn handle_message(
                             world.get::<&Socket>(entity.0)?.id,
                             "Player is offline or does not exist".into(),
                             FtlType::Error,
-                        );
+                        )
+                        .await;
                     }
                 };
 
@@ -1086,13 +1118,13 @@ pub fn handle_message(
             MessageChannel::Npc => "".into(),
         };
 
-        return send_message(world, storage, entity, msg, head, channel, usersocket);
+        return send_message(world, storage, entity, msg, head, channel, usersocket).await;
     }
 
     Err(AscendingError::InvalidSocket)
 }
 
-pub fn handle_command(
+pub async fn handle_command(
     world: &mut World,
     storage: &Storage,
     data: &mut MByteBuffer,
@@ -1108,7 +1140,7 @@ pub fn handle_command(
             }
             Command::WarpTo(pos) => {
                 debug!("Warping to {:?}", pos);
-                player_warp(world, storage, entity, &pos, false)?;
+                player_warp(world, storage, entity, &pos, false).await?;
             }
             Command::SpawnNpc(index, pos) => {
                 debug!("Spawning NPC {index} on {:?}", pos);
@@ -1116,7 +1148,7 @@ pub fn handle_command(
                     let mut data = mapdata.borrow_mut();
                     if let Ok(Some(id)) = storage.add_npc(world, index as u64) {
                         data.add_npc(id);
-                        spawn_npc(world, pos, None, id)?;
+                        spawn_npc(world, pos, None, id).await?;
                     }
                 }
             }
@@ -1134,9 +1166,9 @@ pub fn handle_command(
                             world.get_or_err::<DeathType>(&target_entity)?,
                             1,
                         )
-                        && can_trade(world, storage, &target_entity)?
+                        && can_trade(world, storage, &target_entity).await?
                     {
-                        send_traderequest(world, storage, entity, &target_entity)?;
+                        send_traderequest(world, storage, entity, &target_entity).await?;
                         {
                             if let Ok(mut traderequest) =
                                 world.get::<&mut TradeRequestEntity>(entity.0)
@@ -1163,7 +1195,8 @@ pub fn handle_command(
                             String::new(),
                             MessageChannel::Private,
                             None,
-                        )?;
+                        )
+                        .await?;
                     } else {
                         send_message(
                             world,
@@ -1173,7 +1206,8 @@ pub fn handle_command(
                             String::new(),
                             MessageChannel::Private,
                             None,
-                        )?;
+                        )
+                        .await?;
                     }
                 } else {
                     send_message(
@@ -1184,7 +1218,8 @@ pub fn handle_command(
                         String::new(),
                         MessageChannel::Private,
                         None,
-                    )?;
+                    )
+                    .await?;
                 }
             }
         }
@@ -1195,7 +1230,7 @@ pub fn handle_command(
     Err(AscendingError::InvalidSocket)
 }
 
-pub fn handle_settarget(
+pub async fn handle_settarget(
     world: &mut World,
     storage: &Storage,
     data: &mut MByteBuffer,
@@ -1217,7 +1252,7 @@ pub fn handle_settarget(
     Err(AscendingError::InvalidSocket)
 }
 
-pub fn handle_closestorage(
+pub async fn handle_closestorage(
     world: &mut World,
     storage: &Storage,
     _data: &mut MByteBuffer,
@@ -1233,7 +1268,7 @@ pub fn handle_closestorage(
         {
             *world.get::<&mut IsUsingType>(entity.0)? = IsUsingType::None;
         }
-        send_clearisusingtype(world, storage, entity)?;
+        send_clearisusingtype(world, storage, entity).await?;
 
         return Ok(());
     }
@@ -1241,7 +1276,7 @@ pub fn handle_closestorage(
     Err(AscendingError::InvalidSocket)
 }
 
-pub fn handle_closeshop(
+pub async fn handle_closeshop(
     world: &mut World,
     storage: &Storage,
     _data: &mut MByteBuffer,
@@ -1257,7 +1292,7 @@ pub fn handle_closeshop(
         {
             *world.get::<&mut IsUsingType>(entity.0)? = IsUsingType::None;
         }
-        send_clearisusingtype(world, storage, entity)?;
+        send_clearisusingtype(world, storage, entity).await?;
 
         return Ok(());
     }
@@ -1265,7 +1300,7 @@ pub fn handle_closeshop(
     Err(AscendingError::InvalidSocket)
 }
 
-pub fn handle_closetrade(
+pub async fn handle_closetrade(
     world: &mut World,
     storage: &Storage,
     _data: &mut MByteBuffer,
@@ -1288,8 +1323,8 @@ pub fn handle_closetrade(
             return Ok(());
         }
 
-        close_trade(world, storage, entity)?;
-        close_trade(world, storage, &target_entity)?;
+        close_trade(world, storage, entity).await?;
+        close_trade(world, storage, &target_entity).await?;
 
         {
             *world.get::<&mut TradeRequestEntity>(entity.0)? = TradeRequestEntity::default();
@@ -1307,13 +1342,14 @@ pub fn handle_closetrade(
             String::new(),
             MessageChannel::Private,
             None,
-        );
+        )
+        .await;
     }
 
     Err(AscendingError::InvalidSocket)
 }
 
-pub fn handle_buyitem(
+pub async fn handle_buyitem(
     world: &mut World,
     storage: &Storage,
     data: &mut MByteBuffer,
@@ -1345,7 +1381,8 @@ pub fn handle_buyitem(
                 String::new(),
                 MessageChannel::Private,
                 None,
-            );
+            )
+            .await;
         }
 
         let mut item = Item {
@@ -1354,9 +1391,9 @@ pub fn handle_buyitem(
             ..Default::default()
         };
 
-        if check_inv_space(world, storage, entity, &mut item)? {
-            give_inv_item(world, storage, entity, &mut item)?;
-            player_take_vals(world, storage, entity, shopdata.item[slot as usize].price)?;
+        if check_inv_space(world, storage, entity, &mut item).await? {
+            give_inv_item(world, storage, entity, &mut item).await?;
+            player_take_vals(world, storage, entity, shopdata.item[slot as usize].price).await?;
         } else {
             return send_message(
                 world,
@@ -1366,7 +1403,8 @@ pub fn handle_buyitem(
                 String::new(),
                 MessageChannel::Private,
                 None,
-            );
+            )
+            .await;
         }
 
         return send_message(
@@ -1377,13 +1415,14 @@ pub fn handle_buyitem(
             String::new(),
             MessageChannel::Private,
             None,
-        );
+        )
+        .await;
     }
 
     Err(AscendingError::InvalidSocket)
 }
 
-pub fn handle_sellitem(
+pub async fn handle_sellitem(
     world: &mut World,
     storage: &Storage,
     data: &mut MByteBuffer,
@@ -1420,8 +1459,8 @@ pub fn handle_sellitem(
         };
 
         let total_price = price * amount as u64;
-        take_inv_itemslot(world, storage, entity, slot, amount)?;
-        player_give_vals(world, storage, entity, total_price)?;
+        take_inv_itemslot(world, storage, entity, slot, amount).await?;
+        player_give_vals(world, storage, entity, total_price).await?;
 
         return send_message(
             world,
@@ -1431,13 +1470,14 @@ pub fn handle_sellitem(
             String::new(),
             MessageChannel::Private,
             None,
-        );
+        )
+        .await;
     }
 
     Err(AscendingError::InvalidSocket)
 }
 
-pub fn handle_addtradeitem(
+pub async fn handle_addtradeitem(
     world: &mut World,
     storage: &Storage,
     data: &mut MByteBuffer,
@@ -1495,11 +1535,11 @@ pub fn handle_addtradeitem(
         inv_item.val = amount as u16;
 
         // Add the item on trade list
-        let trade_slot_list = give_trade_item(world, storage, entity, &mut inv_item)?;
+        let trade_slot_list = give_trade_item(world, storage, entity, &mut inv_item).await?;
 
         for slot in trade_slot_list.iter() {
-            send_updatetradeitem(world, storage, entity, entity, *slot as u16)?;
-            send_updatetradeitem(world, storage, entity, &target_entity, *slot as u16)?;
+            send_updatetradeitem(world, storage, entity, entity, *slot as u16).await?;
+            send_updatetradeitem(world, storage, entity, &target_entity, *slot as u16).await?;
         }
 
         return Ok(());
@@ -1508,7 +1548,7 @@ pub fn handle_addtradeitem(
     Err(AscendingError::InvalidSocket)
 }
 
-pub fn handle_removetradeitem(
+pub async fn handle_removetradeitem(
     world: &mut World,
     storage: &Storage,
     data: &mut MByteBuffer,
@@ -1553,8 +1593,8 @@ pub fn handle_removetradeitem(
             }
         }
 
-        send_updatetradeitem(world, storage, entity, entity, slot as u16)?;
-        send_updatetradeitem(world, storage, entity, &target_entity, slot as u16)?;
+        send_updatetradeitem(world, storage, entity, entity, slot as u16).await?;
+        send_updatetradeitem(world, storage, entity, &target_entity, slot as u16).await?;
 
         return Ok(());
     }
@@ -1562,7 +1602,7 @@ pub fn handle_removetradeitem(
     Err(AscendingError::InvalidSocket)
 }
 
-pub fn handle_updatetrademoney(
+pub async fn handle_updatetrademoney(
     world: &mut World,
     storage: &Storage,
     data: &mut MByteBuffer,
@@ -1594,7 +1634,7 @@ pub fn handle_updatetrademoney(
         {
             world.get::<&mut TradeMoney>(entity.0)?.vals = amount;
         }
-        send_updatetrademoney(world, storage, entity, &target_entity)?;
+        send_updatetrademoney(world, storage, entity, &target_entity).await?;
 
         return Ok(());
     }
@@ -1602,7 +1642,7 @@ pub fn handle_updatetrademoney(
     Err(AscendingError::InvalidSocket)
 }
 
-pub fn handle_submittrade(
+pub async fn handle_submittrade(
     world: &mut World,
     storage: &Storage,
     _data: &mut MByteBuffer,
@@ -1641,7 +1681,7 @@ pub fn handle_submittrade(
                     {
                         *world.get::<&mut TradeStatus>(entity.0)? = TradeStatus::Submitted;
                     }
-                    if !process_player_trade(world, storage, entity, &target_entity)? {
+                    if !process_player_trade(world, storage, entity, &target_entity).await? {
                         send_message(
                             world,
                             storage,
@@ -1650,7 +1690,7 @@ pub fn handle_submittrade(
                             String::new(),
                             MessageChannel::Private,
                             None,
-                        )?;
+                        ).await?;
                         send_message(
                             world,
                             storage,
@@ -1659,10 +1699,10 @@ pub fn handle_submittrade(
                             String::new(),
                             MessageChannel::Private,
                             None,
-                        )?;
+                        ).await?;
                     }
-                    close_trade(world, storage, entity)?;
-                    close_trade(world, storage, &target_entity)?;
+                    close_trade(world, storage, entity).await?;
+                    close_trade(world, storage, &target_entity).await?;
                     return Ok(());
                 }
             }
@@ -1674,14 +1714,16 @@ pub fn handle_submittrade(
             entity,
             &world.get_or_err::<TradeStatus>(entity)?,
             &target_status,
-        )?;
+        )
+        .await?;
         send_tradestatus(
             world,
             storage,
             &target_entity,
             &target_status,
             &world.get_or_err::<TradeStatus>(entity)?,
-        )?;
+        )
+        .await?;
 
         return Ok(());
     }
@@ -1689,7 +1731,7 @@ pub fn handle_submittrade(
     Err(AscendingError::InvalidSocket)
 }
 
-pub fn handle_accepttrade(
+pub async fn handle_accepttrade(
     world: &mut World,
     storage: &Storage,
     _data: &mut MByteBuffer,
@@ -1737,22 +1779,24 @@ pub fn handle_accepttrade(
             entity,
             &world.get_or_err::<TradeStatus>(entity)?,
             &world.get_or_err::<TradeStatus>(&trade_entity)?,
-        )?;
+        )
+        .await?;
         send_tradestatus(
             world,
             storage,
             &trade_entity,
             &world.get_or_err::<TradeStatus>(&trade_entity)?,
             &world.get_or_err::<TradeStatus>(entity)?,
-        )?;
+        )
+        .await?;
 
-        return init_trade(world, storage, entity, &target_entity);
+        return init_trade(world, storage, entity, &target_entity).await;
     }
 
     Err(AscendingError::InvalidSocket)
 }
 
-pub fn handle_declinetrade(
+pub async fn handle_declinetrade(
     world: &mut World,
     storage: &Storage,
     _data: &mut MByteBuffer,
@@ -1793,7 +1837,8 @@ pub fn handle_declinetrade(
                 String::new(),
                 MessageChannel::Private,
                 None,
-            )?;
+            )
+            .await?;
         }
 
         return send_message(
@@ -1804,7 +1849,8 @@ pub fn handle_declinetrade(
             String::new(),
             MessageChannel::Private,
             None,
-        );
+        )
+        .await;
     }
 
     Err(AscendingError::InvalidSocket)

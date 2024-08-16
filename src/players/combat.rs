@@ -11,7 +11,7 @@ use rand::*;
 use std::cmp;
 
 #[inline]
-pub fn damage_player(world: &mut World, entity: &crate::Entity, damage: i32) -> Result<()> {
+pub async fn damage_player(world: &mut World, entity: &crate::Entity, damage: i32) -> Result<()> {
     let mut query = world.query_one::<&mut Vitals>(entity.0)?;
 
     if let Some(player_vital) = query.get() {
@@ -28,7 +28,7 @@ pub fn get_damage_percentage(damage: u32, hp: (u32, u32)) -> f64 {
     abs_damage / curhp as f64
 }
 
-pub fn try_player_cast(
+pub async fn try_player_cast(
     world: &mut World,
     storage: &Storage,
     caster: &Entity,
@@ -59,18 +59,18 @@ pub fn try_player_cast(
     can_target(caster_pos, target_pos, life, 1)
 }
 
-pub fn player_combat(
+pub async fn player_combat(
     world: &mut World,
     storage: &Storage,
     entity: &Entity,
     target_entity: &Entity,
 ) -> Result<bool> {
-    if try_player_cast(world, storage, entity, target_entity) {
+    if try_player_cast(world, storage, entity, target_entity).await {
         let world_entity_type = world.get_or_default::<WorldEntityType>(target_entity);
         match world_entity_type {
             WorldEntityType::Player => {
-                let damage = player_combat_damage(world, storage, entity, target_entity)?;
-                damage_player(world, target_entity, damage)?;
+                let damage = player_combat_damage(world, storage, entity, target_entity).await?;
+                damage_player(world, target_entity, damage).await?;
                 DataTaskToken::Damage(world.get_or_default::<Position>(entity).map).add_task(
                     storage,
                     damage_packet(
@@ -79,24 +79,25 @@ pub fn player_combat(
                         world.get_or_default::<Position>(target_entity),
                         true,
                     )?,
-                )?;
+                ).await?;
                 DataTaskToken::Attack(world.get_or_default::<Position>(entity).map)
-                    .add_task(storage, attack_packet(*entity)?)?;
+                    .add_task(storage, attack_packet(*entity)?).await?;
 
                 let vitals = world.get_or_err::<Vitals>(target_entity)?;
                 if vitals.vital[0] > 0 {
                     DataTaskToken::Vitals(world.get_or_default::<Position>(entity).map)
                         .add_task(storage, {
                             vitals_packet(*target_entity, vitals.vital, vitals.vitalmax)?
-                        })?;
+                        }).await?;
                 } else {
-                    kill_player(world, storage, target_entity)?;
+                    kill_player(world, storage, target_entity).await?;
                 }
             }
             WorldEntityType::Npc => {
-                if can_attack_npc(world, storage, target_entity)? {
-                    let damage = player_combat_damage(world, storage, entity, target_entity)?;
-                    damage_npc(world, target_entity, damage)?;
+                if can_attack_npc(world, storage, target_entity).await? {
+                    let damage =
+                        player_combat_damage(world, storage, entity, target_entity).await?;
+                    damage_npc(world, target_entity, damage).await?;
 
                     DataTaskToken::Damage(world.get_or_default::<Position>(entity).map).add_task(
                         storage,
@@ -106,16 +107,16 @@ pub fn player_combat(
                             world.get_or_default::<Position>(target_entity),
                             true,
                         )?,
-                    )?;
+                    ).await?;
                     DataTaskToken::Attack(world.get_or_default::<Position>(entity).map)
-                        .add_task(storage, attack_packet(*entity)?)?;
+                        .add_task(storage, attack_packet(*entity)?).await?;
 
                     let vitals = world.get_or_err::<Vitals>(target_entity)?;
                     if vitals.vital[0] > 0 {
                         DataTaskToken::Vitals(world.get_or_default::<Position>(entity).map)
                             .add_task(storage, {
                                 vitals_packet(*target_entity, vitals.vital, vitals.vitalmax)?
-                            })?;
+                            }).await?;
 
                         let acc_id = world.cloned_get_or_default::<Account>(entity).id;
                         try_target_entity(
@@ -123,7 +124,8 @@ pub fn player_combat(
                             storage,
                             target_entity,
                             EntityType::Player(*entity, acc_id),
-                        )?;
+                        )
+                        .await?;
                     } else {
                         let npc_index = world.get_or_err::<NpcIndex>(target_entity)?.0;
                         let base = &storage.bases.npcs[npc_index as usize];
@@ -131,8 +133,8 @@ pub fn player_combat(
                         let level = world.get_or_err::<Level>(target_entity)?.0;
                         let exp = base.exp;
 
-                        player_earn_exp(world, storage, entity, level, exp, 1.0)?;
-                        kill_npc(world, storage, target_entity)?;
+                        player_earn_exp(world, storage, entity, level, exp, 1.0).await?;
+                        kill_npc(world, storage, target_entity).await?;
                     }
                 } else {
                     return Ok(false);
@@ -145,7 +147,7 @@ pub fn player_combat(
     Ok(false)
 }
 
-pub fn player_combat_damage(
+pub async fn player_combat_damage(
     world: &mut World,
     storage: &Storage,
     entity: &Entity,
@@ -153,7 +155,9 @@ pub fn player_combat_damage(
 ) -> Result<i32> {
     let def = if world.get_or_err::<WorldEntityType>(target_entity)? == WorldEntityType::Player {
         world.get_or_err::<Physical>(target_entity)?.defense
-            + player_get_armor_defense(world, storage, target_entity)?.0 as u32
+            + player_get_armor_defense(world, storage, target_entity)
+                .await?
+                .0 as u32
             + world
                 .get_or_err::<Level>(target_entity)?
                 .0
@@ -172,7 +176,7 @@ pub fn player_combat_damage(
     };
 
     let mut damage = (data.get_or_err::<Physical>()?.damage
-        + player_get_weapon_damage(world, storage, entity)?.0 as u32)
+        + player_get_weapon_damage(world, storage, entity).await?.0 as u32)
         .saturating_sub(def / offset)
         .max(1);
     let mut rng = thread_rng();
@@ -194,7 +198,7 @@ pub fn player_combat_damage(
     Ok(damage as i32)
 }
 
-pub fn kill_player(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
+pub async fn kill_player(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
     {
         if let Ok(mut vitals) = world.get::<&mut Vitals>(entity.0) {
             vitals.vital = vitals.vitalmax;
@@ -202,12 +206,12 @@ pub fn kill_player(world: &mut World, storage: &Storage, entity: &Entity) -> Res
         world.get::<&mut PlayerTarget>(entity.0)?.0 = None;
     }
     let spawn = world.get_or_err::<Spawn>(entity)?;
-    player_warp(world, storage, entity, &spawn.pos, false)?;
+    player_warp(world, storage, entity, &spawn.pos, false).await?;
     DataTaskToken::Vitals(world.get_or_default::<Position>(entity).map).add_task(storage, {
         let vitals = world.get_or_err::<Vitals>(entity)?;
 
         vitals_packet(*entity, vitals.vital, vitals.vitalmax)?
-    })
+    }).await
     //this should not be needed anymore?
     //init_data_lists(world, storage, entity, None)
 }

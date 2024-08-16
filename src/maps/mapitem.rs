@@ -36,7 +36,7 @@ pub struct DropItem {
     pub pos: Position,
 }
 
-pub fn update_map_items(world: &mut World, storage: &Storage) -> Result<()> {
+pub async fn update_map_items(world: &mut World, storage: &Storage) -> Result<()> {
     let tick = *storage.gettick.borrow();
 
     let mut to_remove = Vec::new();
@@ -57,14 +57,15 @@ pub fn update_map_items(world: &mut World, storage: &Storage) -> Result<()> {
             }
             map.borrow_mut().remove_item(*entity);
             DataTaskToken::EntityUnload(e_pos.map)
-                .add_task(storage, unload_entity_packet(*entity)?)?;
+                .add_task(storage, unload_entity_packet(*entity)?)
+                .await?;
         }
     }
 
     Ok(())
 }
 
-pub fn find_drop_pos(
+pub async fn find_drop_pos(
     world: &mut World,
     storage: &Storage,
     drop_item: DropItem,
@@ -179,7 +180,7 @@ pub fn find_drop_pos(
     Ok(result)
 }
 
-pub fn try_drop_item(
+pub async fn try_drop_item(
     world: &mut World,
     storage: &Storage,
     drop_item: DropItem,
@@ -193,7 +194,7 @@ pub fn try_drop_item(
     };
 
     // Find open position
-    let set_pos = find_drop_pos(world, storage, drop_item)?;
+    let set_pos = find_drop_pos(world, storage, drop_item).await?;
     if set_pos.is_empty() {
         return Ok(false);
     }
@@ -229,16 +230,18 @@ pub fn try_drop_item(
                 world.insert(id, (EntityType::MapItem(Entity(id)), despawntimer))?;
                 map_data.borrow_mut().itemids.insert(Entity(id));
                 storage_mapitem.insert(found_pos.0, Entity(id));
-                DataTaskToken::ItemLoad(found_pos.0.map).add_task(
-                    storage,
-                    map_item_packet(
-                        Entity(id),
-                        map_item.pos,
-                        map_item.item,
-                        map_item.ownerid,
-                        true,
-                    )?,
-                )?;
+                DataTaskToken::ItemLoad(found_pos.0.map)
+                    .add_task(
+                        storage,
+                        map_item_packet(
+                            Entity(id),
+                            map_item.pos,
+                            map_item.item,
+                            map_item.ownerid,
+                            true,
+                        )?,
+                    )
+                    .await?;
             }
             break;
         }
@@ -247,7 +250,11 @@ pub fn try_drop_item(
     Ok(true)
 }
 
-pub fn player_interact_object(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
+pub async fn player_interact_object(
+    world: &mut World,
+    storage: &Storage,
+    entity: &Entity,
+) -> Result<()> {
     if !world.contains(entity.0) {
         return Ok(());
     }
@@ -297,13 +304,13 @@ pub fn player_interact_object(world: &mut World, storage: &Storage, entity: &Ent
         match mapdata.attribute[target_pos.as_tile()] {
             MapAttribute::Storage => {
                 *world.get::<&mut IsUsingType>(entity.0)? = IsUsingType::Bank;
-                send_storage(world, storage, entity, 0..35)?;
-                send_storage(world, storage, entity, 35..MAX_STORAGE)?;
-                send_openstorage(world, storage, entity)
+                send_storage(world, storage, entity, 0..35).await?;
+                send_storage(world, storage, entity, 35..MAX_STORAGE).await?;
+                send_openstorage(world, storage, entity).await
             }
             MapAttribute::Shop(shop_index) => {
                 *world.get::<&mut IsUsingType>(entity.0)? = IsUsingType::Store(shop_index as i64);
-                send_openshop(world, storage, entity, shop_index)
+                send_openshop(world, storage, entity, shop_index).await
             }
             _ => Ok(()),
         }

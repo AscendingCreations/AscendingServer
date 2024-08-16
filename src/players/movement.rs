@@ -3,7 +3,7 @@ use hecs::World;
 use crate::{containers::Storage, gametypes::*, maps::*, players::*, sql::*, tasks::*};
 
 //TODO: Add Result<(), AscendingError> to all Functions that return nothing.
-pub fn player_warp(
+pub async fn player_warp(
     world: &mut World,
     storage: &Storage,
     entity: &Entity,
@@ -11,31 +11,43 @@ pub fn player_warp(
     spawn: bool,
 ) -> Result<()> {
     if world.get_or_err::<Position>(entity)?.map != new_pos.map {
-        let old_pos = player_switch_maps(world, storage, entity, *new_pos)?;
+        let old_pos = player_switch_maps(world, storage, entity, *new_pos).await?;
+
         if !old_pos.1 {
             println!("Failed to switch map");
         }
-        DataTaskToken::Warp(old_pos.0.map).add_task(storage, warp_packet(*entity, *new_pos)?)?;
-        DataTaskToken::Warp(new_pos.map).add_task(storage, warp_packet(*entity, *new_pos)?)?;
+
+        DataTaskToken::Warp(old_pos.0.map)
+            .add_task(storage, warp_packet(*entity, *new_pos)?)
+            .await?;
+        DataTaskToken::Warp(new_pos.map)
+            .add_task(storage, warp_packet(*entity, *new_pos)?)
+            .await?;
         DataTaskToken::PlayerSpawn(new_pos.map)
-            .add_task(storage, player_spawn_packet(world, entity, true)?)?;
-        init_data_lists(world, storage, entity, Some(old_pos.0.map))?;
+            .add_task(storage, player_spawn_packet(world, entity, true)?)
+            .await?;
+        init_data_lists(world, storage, entity, Some(old_pos.0.map)).await?;
     } else {
-        player_swap_pos(world, storage, entity, *new_pos)?;
+        player_swap_pos(world, storage, entity, *new_pos).await?;
+
         if spawn {
             DataTaskToken::PlayerSpawn(new_pos.map)
-                .add_task(storage, player_spawn_packet(world, entity, true)?)?;
-            init_data_lists(world, storage, entity, None)?;
+                .add_task(storage, player_spawn_packet(world, entity, true)?)
+                .await?;
+            init_data_lists(world, storage, entity, None).await?;
         } else {
-            DataTaskToken::Warp(new_pos.map).add_task(storage, warp_packet(*entity, *new_pos)?)?;
+            DataTaskToken::Warp(new_pos.map)
+                .add_task(storage, warp_packet(*entity, *new_pos)?)
+                .await?;
         }
     }
 
     {
         world.get::<&mut Player>(entity.0)?.movesavecount += 1;
     }
+
     if world.get_or_err::<Player>(entity)?.movesavecount >= 25 {
-        update_pos(storage, world, entity)?;
+        update_pos(storage, world, entity).await?;
         {
             world.get::<&mut Player>(entity.0)?.movesavecount = 0;
         }
@@ -44,7 +56,7 @@ pub fn player_warp(
     Ok(())
 }
 
-pub fn player_movement(
+pub async fn player_movement(
     world: &mut World,
     storage: &Storage,
     entity: &Entity,
@@ -89,7 +101,7 @@ pub fn player_movement(
         dir,
         WorldEntityType::Player,
     ) {
-        player_warp(world, storage, entity, &player_position, false)?;
+        player_warp(world, storage, entity, &player_position, false).await?;
         return Ok(false);
     }
 
@@ -98,14 +110,16 @@ pub fn player_movement(
         None => return Ok(false),
     };
     let attribute = &mapdata.attribute[new_pos.as_tile()];
+
     if let MapAttribute::Warp(warpdata) = attribute {
         let warp_pos = Position::new(
             warpdata.tile_x as i32,
             warpdata.tile_y as i32,
             MapPosition::new(warpdata.map_x, warpdata.map_y, warpdata.map_group as i32),
         );
+
         if storage.bases.maps.contains_key(&warp_pos.map) {
-            player_warp(world, storage, entity, &warp_pos, true)?;
+            player_warp(world, storage, entity, &warp_pos, true).await?;
             return Ok(true);
         }
     }
@@ -113,8 +127,9 @@ pub fn player_movement(
     {
         world.get::<&mut Player>(entity.0)?.movesavecount += 1;
     }
+
     if world.get_or_err::<Player>(entity)?.movesavecount >= 25 {
-        update_pos(storage, world, entity)?;
+        update_pos(storage, world, entity).await?;
         {
             world.get::<&mut Player>(entity.0)?.movesavecount = 0;
         }
@@ -122,28 +137,37 @@ pub fn player_movement(
 
     let player_dir = world.get_or_err::<Dir>(entity)?;
     if new_pos.map != player_position.map {
-        let oldpos = player_switch_maps(world, storage, entity, new_pos)?;
+        let oldpos = player_switch_maps(world, storage, entity, new_pos).await?;
+
         if !oldpos.1 {
             println!("Failed to switch map");
         }
-        DataTaskToken::Move(oldpos.0.map).add_task(
-            storage,
-            move_packet(*entity, new_pos, false, true, player_dir.0)?,
-        )?;
-        DataTaskToken::Move(new_pos.map).add_task(
-            storage,
-            move_packet(*entity, new_pos, false, true, player_dir.0)?,
-        )?;
-        DataTaskToken::PlayerSpawn(new_pos.map)
-            .add_task(storage, player_spawn_packet(world, entity, true)?)?;
 
-        init_data_lists(world, storage, entity, Some(oldpos.0.map))?;
+        DataTaskToken::Move(oldpos.0.map)
+            .add_task(
+                storage,
+                move_packet(*entity, new_pos, false, true, player_dir.0)?,
+            )
+            .await?;
+        DataTaskToken::Move(new_pos.map)
+            .add_task(
+                storage,
+                move_packet(*entity, new_pos, false, true, player_dir.0)?,
+            )
+            .await?;
+        DataTaskToken::PlayerSpawn(new_pos.map)
+            .add_task(storage, player_spawn_packet(world, entity, true)?)
+            .await?;
+
+        init_data_lists(world, storage, entity, Some(oldpos.0.map)).await?;
     } else {
-        player_swap_pos(world, storage, entity, new_pos)?;
-        DataTaskToken::Move(new_pos.map).add_task(
-            storage,
-            move_packet(*entity, new_pos, false, false, player_dir.0)?,
-        )?;
+        player_swap_pos(world, storage, entity, new_pos).await?;
+        DataTaskToken::Move(new_pos.map)
+            .add_task(
+                storage,
+                move_packet(*entity, new_pos, false, false, player_dir.0)?,
+            )
+            .await?;
     }
 
     Ok(true)
