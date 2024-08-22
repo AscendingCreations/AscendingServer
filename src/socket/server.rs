@@ -6,13 +6,14 @@ use crate::{
 use hecs::World;
 use log::{trace, warn};
 use mio::{net::TcpListener, Events, Poll};
-use std::{cell::RefCell, collections::VecDeque, io, sync::Arc, time::Duration};
+use std::{collections::VecDeque, io, sync::Arc, time::Duration};
+use tokio::sync::Mutex;
 
 pub const SERVER: mio::Token = mio::Token(0);
 
 pub struct Server {
     pub listener: TcpListener,
-    pub clients: HashMap<mio::Token, RefCell<Client>>,
+    pub clients: HashMap<mio::Token, Mutex<Client>>,
     pub tokens: VecDeque<mio::Token>,
     pub tls_config: Arc<rustls::ServerConfig>,
 }
@@ -83,10 +84,10 @@ impl Server {
                 // Lets make the Client to handle hwo we send packets.
                 let mut client = Client::new(stream, token, entity, tls_conn);
                 //Register the Poll to the client for recv and Sending
-                client.register(&storage.poll.borrow_mut())?;
+                client.register(&*storage.poll.lock().await)?;
 
                 // insert client into handled list.
-                self.clients.insert(token, RefCell::new(client));
+                self.clients.insert(token, Mutex::new(client));
             } else {
                 warn!("listener.accept No tokens left to give out.");
                 drop(stream);
@@ -110,24 +111,26 @@ pub async fn poll_events(world: &mut World, storage: &Storage) -> Result<()> {
 
     storage
         .poll
-        .borrow_mut()
+        .lock()
+        .await
         .poll(&mut events, Some(Duration::from_millis(0)))?;
 
     for event in events.iter() {
         match event.token() {
             SERVER => {
-                storage.server.borrow_mut().accept(world, storage).await?;
-                storage.poll.borrow_mut().registry().reregister(
-                    &mut storage.server.borrow_mut().listener,
+                storage.server.lock().await.accept(world, storage).await?;
+                storage.poll.lock().await.registry().reregister(
+                    &mut storage.server.lock().await.listener,
                     SERVER,
                     mio::Interest::READABLE,
                 )?;
             }
             token => {
-                let mut server = storage.server.borrow_mut();
+                let mut server = storage.server.lock().await;
                 let state = if let Some(a) = server.clients.get(&token) {
-                    a.borrow_mut().process(event, world, storage).await?;
-                    a.borrow().state
+                    let mut client = a.lock().await;
+                    client.process(event, world, storage).await?;
+                    client.state
                 } else {
                     trace!("a token no longer exists within clients.");
                     ClientState::Closed

@@ -3,7 +3,8 @@ use educe::Educe;
 use hecs::{Bundle, World};
 use mmap_bytey::{MByteBufferRead, MByteBufferWrite};
 use serde::{Deserialize, Serialize};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+use tokio::sync::Mutex;
 
 #[derive(Clone, Debug, Bundle)]
 pub struct Socket {
@@ -205,21 +206,21 @@ pub async fn player_switch_maps(
     let old_position = world.get_or_err::<Position>(entity)?;
 
     if let Some(mapref) = storage.maps.get(&old_position.map) {
-        let mut map = mapref.borrow_mut();
-        map.remove_player(storage, *entity);
+        let mut map = mapref.lock().await;
+        map.remove_player(storage, *entity).await;
         map.remove_entity_from_grid(old_position);
     } else {
         return Ok((old_position, false));
     }
 
     if let Some(mapref) = storage.maps.get(&new_pos.map) {
-        let mut map = mapref.borrow_mut();
-        map.add_player(storage, *entity);
+        let mut map = mapref.lock().await;
+        map.add_player(storage, *entity).await;
         map.add_entity_to_grid(new_pos);
     } else {
         if let Some(mapref) = storage.maps.get(&old_position.map) {
-            let mut map = mapref.borrow_mut();
-            map.add_player(storage, *entity);
+            let mut map = mapref.lock().await;
+            map.add_player(storage, *entity).await;
             map.add_entity_to_grid(old_position);
         }
 
@@ -250,7 +251,8 @@ pub async fn player_swap_pos(
                 Some(map) => map,
                 None => return Ok(old_position),
             }
-            .borrow_mut();
+            .lock()
+            .await;
             map.remove_entity_from_grid(old_position);
             map.add_entity_to_grid(pos);
         }
@@ -261,7 +263,11 @@ pub async fn player_swap_pos(
     })
 }
 
-pub async fn player_add_up_vital(world: &mut World, entity: &crate::Entity, vital: usize) -> Result<i32> {
+pub async fn player_add_up_vital(
+    world: &mut World,
+    entity: &crate::Entity,
+    vital: usize,
+) -> Result<i32> {
     let mut query = world.query_one::<&mut Vitals>(entity.0)?;
 
     Ok(if let Some(player_vital) = query.get() {
@@ -290,7 +296,9 @@ pub async fn player_set_dir(
         if player_dir.0 != dir {
             player_dir.0 = dir;
 
-            DataTaskToken::Dir(player_position.map).add_task(storage, dir_packet(*entity, dir)?).await?;
+            DataTaskToken::Dir(player_position.map)
+                .add_task(storage, dir_packet(*entity, dir)?)
+                .await?;
         }
     }
 
@@ -357,7 +365,11 @@ pub async fn player_sety(world: &mut World, entity: &crate::Entity, y: i32) -> R
     Ok(())
 }
 
-pub async fn player_setmap(world: &mut World, entity: &crate::Entity, map: MapPosition) -> Result<()> {
+pub async fn player_setmap(
+    world: &mut World,
+    entity: &crate::Entity,
+    map: MapPosition,
+) -> Result<()> {
     let mut query = world.query_one::<&mut Position>(entity.0)?;
 
     if let Some(player_position) = query.get() {
@@ -382,11 +394,13 @@ pub async fn player_set_vital(
         }
     }
 
-    DataTaskToken::Vitals(world.get_or_default::<Position>(entity).map).add_task(storage, {
-        let vitals = world.get_or_err::<Vitals>(entity)?;
+    DataTaskToken::Vitals(world.get_or_default::<Position>(entity).map)
+        .add_task(storage, {
+            let vitals = world.get_or_err::<Vitals>(entity)?;
 
-        vitals_packet(*entity, vitals.vital, vitals.vitalmax)?
-    }).await?;
+            vitals_packet(*entity, vitals.vital, vitals.vitalmax)?
+        })
+        .await?;
 
     Ok(())
 }
@@ -423,7 +437,8 @@ pub async fn player_give_vals(
             world.get::<&Socket>(entity.0)?.id,
             format!("You Have Received {} Vals.", amount - cur),
             FtlType::Money,
-        ).await?;
+        )
+        .await?;
         return Ok(cur);
     }
 
@@ -459,7 +474,8 @@ pub async fn player_take_vals(
         world.get::<&Socket>(entity.0)?.id,
         format!("You Lost {} Vals.", cur),
         FtlType::Money,
-    ).await
+    )
+    .await
 }
 
 pub async fn send_swap_error(
@@ -474,7 +490,8 @@ pub async fn send_swap_error(
         "Server Error in player swap".into(),
         1,
         true,
-    ).await?;
+    )
+    .await?;
 
     send_infomsg(
         storage,
@@ -482,7 +499,8 @@ pub async fn send_swap_error(
         "Server Error in player swap".into(),
         1,
         true,
-    ).await
+    )
+    .await
 }
 
 pub async fn send_login_info(
@@ -506,7 +524,7 @@ pub async fn send_login_info(
         ),
     )?;
 
-    storage.player_names.borrow_mut().insert(username, *entity);
+    storage.player_names.lock().await.insert(username, *entity);
     send_myindex(storage, socket_id, entity).await?;
     send_codes(world, storage, entity, code, handshake).await
 }

@@ -100,7 +100,9 @@ pub async fn player_movement(
         new_pos,
         dir,
         WorldEntityType::Player,
-    ) {
+    )
+    .await
+    {
         player_warp(world, storage, entity, &player_position, false).await?;
         return Ok(false);
     }

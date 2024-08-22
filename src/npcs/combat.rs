@@ -49,7 +49,7 @@ pub async fn try_cast(
                 let life = world.get_or_default::<DeathType>(&i);
 
                 if let Some(dir) = caster_pos.checkdirection(target_pos) {
-                    if is_dir_blocked(storage, caster_pos, dir as u8) {
+                    if is_dir_blocked(storage, caster_pos, dir as u8).await {
                         return Ok(false);
                     }
                 } else {
@@ -71,7 +71,7 @@ pub async fn try_cast(
                 let life = world.get_or_default::<DeathType>(&i);
 
                 if let Some(dir) = caster_pos.checkdirection(target_pos) {
-                    if is_dir_blocked(storage, caster_pos, dir as u8) {
+                    if is_dir_blocked(storage, caster_pos, dir as u8).await {
                         return Ok(false);
                     }
                 } else {

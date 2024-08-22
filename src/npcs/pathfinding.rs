@@ -105,8 +105,8 @@ pub async fn a_star_path(
         //And follow the Parents till the Start location. if the final location is blocked we will
         //find a location within a range of 1 regardless if blocked or not.
         if let Some(map) = storage.maps.get(&current_node.pos.map) {
-            if map.borrow().is_blocked_tile(stop, WorldEntityType::Npc)
-                && in_dir_attack_zone(storage, current_node.pos, stop, 1)
+            if map.lock().await.is_blocked_tile(stop, WorldEntityType::Npc)
+                && in_dir_attack_zone(storage, current_node.pos, stop, 1).await
             {
                 return npc_path_gather(&nodes, &current_node, start).await;
             }
@@ -157,7 +157,9 @@ pub async fn a_star_path(
                 node_pos,
                 i as u8,
                 WorldEntityType::Npc,
-            ) {
+            )
+            .await
+            {
                 continue;
             }
 
@@ -268,7 +270,9 @@ pub async fn npc_rand_movement(storage: &Storage, pos: Position) -> VecDeque<(Po
             node_pos,
             movedir as u8,
             WorldEntityType::Npc,
-        ) {
+        )
+        .await
+        {
             path.push_back((lastpos, movedir as u8));
         } else {
             path.push_back((node_pos, movedir as u8));

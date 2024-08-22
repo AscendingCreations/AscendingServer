@@ -46,9 +46,11 @@ pub async fn send_fltalert(
 pub async fn send_loginok(storage: &Storage, socket_id: usize) -> Result<()> {
     let mut buf = MByteBuffer::new_packet()?;
 
+    let time = storage.time.lock().await;
+
     buf.write(ServerPackets::LoginOk)?;
-    buf.write(storage.time.borrow().hour)?;
-    buf.write(storage.time.borrow().min)?;
+    buf.write(time.hour)?;
+    buf.write(time.min)?;
     buf.finish()?;
 
     send_to(storage, socket_id, buf).await
@@ -124,7 +126,7 @@ pub async fn send_codes(
     let id: usize = world.get::<&Socket>(entity.0)?.id;
 
     // Once the codes are Sent we need to set this to unencrypted mode as the client will be un unencrypted mode.
-    set_encryption_status(storage, id, EncryptionState::WriteTransfering);
+    set_encryption_status(storage, id, EncryptionState::WriteTransfering).await;
     tls_send_to(storage, id, buf).await
 }
 

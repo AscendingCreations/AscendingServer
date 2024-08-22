@@ -16,12 +16,12 @@ use super::{check_surrounding, MapItem};
 pub async fn update_maps(world: &mut World, storage: &Storage) -> Result<()> {
     let mut rng = thread_rng();
     let mut spawnable = Vec::new();
-    let mut len = storage.npc_ids.borrow().len();
-    let tick = *storage.gettick.borrow();
+    let mut len = storage.npc_ids.lock().await.len();
+    let tick = *storage.gettick.lock().await;
 
     for (position, map_data) in &storage.maps {
         // Only Spawn is a player is on or near a the map.
-        if map_data.borrow().players_on_map() {
+        if map_data.lock().await.players_on_map() {
             //get this so we can Add to it each time without needing to borrow() npcs again.
 
             let mut count = 0;
@@ -35,7 +35,7 @@ pub async fn update_maps(world: &mut World, storage: &Storage) -> Result<()> {
                     .ok_or(AscendingError::MapNotFound(*position))?;
 
                 for (id, (max_npcs, zone_npcs)) in map.zones.iter().enumerate() {
-                    let data = map_data.borrow();
+                    let data = map_data.lock().await;
                     //We want to only allow this many npcs per map to spawn at a time.
                     if count >= NPCS_SPAWNCAP {
                         break;
@@ -52,7 +52,7 @@ pub async fn update_maps(world: &mut World, storage: &Storage) -> Result<()> {
                             .filter(|v| v.is_some())
                             .map(|v| v.unwrap_or_default())
                         {
-                            let game_time = storage.time.borrow();
+                            let game_time = storage.time.lock().await;
                             let (from, to) = storage
                                 .bases
                                 .npcs
@@ -97,10 +97,10 @@ pub async fn update_maps(world: &mut World, storage: &Storage) -> Result<()> {
                     }
                 }
 
-                let mut data = map_data.borrow_mut();
+                let mut data = map_data.lock().await;
                 //Lets Spawn the npcs here;
                 for (spawn, zone, npc_id) in spawnable.drain(..) {
-                    if let Ok(Some(id)) = storage.add_npc(world, npc_id) {
+                    if let Ok(Some(id)) = storage.add_npc(world, npc_id).await {
                         data.add_npc(id);
                         data.zones[zone] = data.zones[zone].saturating_add(1);
                         spawn_npc(world, spawn, Some(zone), id).await?;
@@ -110,8 +110,8 @@ pub async fn update_maps(world: &mut World, storage: &Storage) -> Result<()> {
 
             let mut add_items = Vec::new();
 
-            for data in map_data.borrow_mut().spawnable_item.iter_mut() {
-                let mut storage_mapitem = storage.map_items.borrow_mut();
+            for data in map_data.lock().await.spawnable_item.iter_mut() {
+                let mut storage_mapitem = storage.map_items.lock().await;
                 if !storage_mapitem.contains_key(&data.pos) {
                     if data.timer <= tick {
                         let map_item = create_mapitem(data.index, data.amount, data.pos);
@@ -142,7 +142,7 @@ pub async fn update_maps(world: &mut World, storage: &Storage) -> Result<()> {
             }
 
             for entity in add_items {
-                map_data.borrow_mut().itemids.insert(entity);
+                map_data.lock().await.itemids.insert(entity);
             }
         }
     }
@@ -190,7 +190,7 @@ pub fn can_target(
     range >= caster_pos.checkdistance(pos) && target_death.is_alive()
 }
 
-pub fn in_dir_attack_zone(
+pub async fn in_dir_attack_zone(
     storage: &Storage,
     caster_pos: Position,
     target_pos: Position,
@@ -200,7 +200,8 @@ pub fn in_dir_attack_zone(
     let pos = target_pos.map_offset(check.into());
 
     if let Some(dir) = caster_pos.checkdirection(pos) {
-        !is_dir_blocked(storage, caster_pos, dir as u8) && range >= caster_pos.checkdistance(pos)
+        !is_dir_blocked(storage, caster_pos, dir as u8).await
+            && range >= caster_pos.checkdistance(pos)
     } else {
         false
     }

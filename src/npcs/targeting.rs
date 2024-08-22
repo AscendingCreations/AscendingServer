@@ -46,7 +46,7 @@ pub async fn targeting(
 
     if world.get_or_err::<Target>(entity)?.target_type != EntityType::None {
         if (base.target_auto_switch
-            && world.get_or_err::<Target>(entity)?.target_timer < *storage.gettick.borrow())
+            && world.get_or_err::<Target>(entity)?.target_timer < *storage.gettick.lock().await)
             || (base.target_range_dropout
                 && world
                     .get_or_err::<Position>(entity)?
@@ -71,7 +71,7 @@ pub async fn targeting(
         .filter_map(|i| storage.maps.get(&i));
 
     for map_data_ref in valid_map_data {
-        let map_data = map_data_ref.borrow();
+        let map_data = map_data_ref.lock().await;
 
         for x in &map_data.players {
             let accid = if world.contains(x.0) {
@@ -152,7 +152,7 @@ pub async fn try_target_entity(
                         world.get::<&mut Target>(entity.0)?.target_pos = target_pos;
                         world.get::<&mut Target>(entity.0)?.target_type = entity_copy;
                         world.get::<&mut Target>(entity.0)?.target_timer =
-                            *storage.gettick.borrow()
+                            *storage.gettick.lock().await
                                 + Duration::try_milliseconds(base.target_auto_switch_chance)
                                     .unwrap_or_default();
                     }
@@ -265,9 +265,9 @@ pub async fn npc_targeting(
 
     world.get::<&mut Target>(entity.0)?.target_pos = pos;
     world.get::<&mut Target>(entity.0)?.target_type = entitytype;
-    world.get::<&mut Target>(entity.0)?.target_timer = *storage.gettick.borrow()
+    world.get::<&mut Target>(entity.0)?.target_timer = *storage.gettick.lock().await
         + Duration::try_milliseconds(base.target_auto_switch_chance).unwrap_or_default();
-    world.get::<&mut AttackTimer>(entity.0)?.0 = *storage.gettick.borrow()
+    world.get::<&mut AttackTimer>(entity.0)?.0 = *storage.gettick.lock().await
         + Duration::try_milliseconds(base.attack_wait).unwrap_or_default();
 
     Ok(true)

@@ -111,7 +111,7 @@ pub async fn npc_switch_maps(
     let npc_position = world.get_or_err::<Position>(entity)?;
 
     if let Some(mapref) = storage.maps.get(&npc_position.map) {
-        let mut map = mapref.borrow_mut();
+        let mut map = mapref.lock().await;
         map.remove_npc(*entity);
         map.remove_entity_from_grid(npc_position);
     } else {
@@ -119,7 +119,7 @@ pub async fn npc_switch_maps(
     }
 
     if let Some(mapref) = storage.maps.get(&new_pos.map) {
-        let mut map = mapref.borrow_mut();
+        let mut map = mapref.lock().await;
         map.add_npc(*entity);
         map.add_entity_to_grid(new_pos);
     } else {
@@ -146,7 +146,8 @@ pub async fn npc_swap_pos(
             Some(map) => map,
             None => return Ok(oldpos),
         }
-        .borrow_mut();
+        .lock()
+        .await;
         map.remove_entity_from_grid(oldpos);
         map.add_entity_to_grid(pos);
     }

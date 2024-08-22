@@ -9,9 +9,9 @@ use std::cmp;
 use hecs::World;
 
 pub async fn update_players(world: &mut World, storage: &Storage) -> Result<()> {
-    let tick = *storage.gettick.borrow();
+    let tick = *storage.gettick.lock().await;
 
-    for id in &*storage.player_ids.borrow() {
+    for id in &*storage.player_ids.lock().await {
         if world.get_or_err::<OnlineType>(id)? == OnlineType::Online {
             if world.get_or_err::<DeathType>(id)? == DeathType::Spirit {
                 //timers
@@ -84,7 +84,7 @@ pub async fn check_player_connection(world: &mut World, storage: &Storage) -> Re
     let mut remove_player_list = Vec::new();
 
     for (entity, timer) in world.query::<&ConnectionLoginTimer>().iter() {
-        if timer.0 < *storage.gettick.borrow() {
+        if timer.0 < *storage.gettick.lock().await {
             remove_player_list.push(entity);
         }
     }
@@ -98,7 +98,7 @@ pub async fn check_player_connection(world: &mut World, storage: &Storage) -> Re
 
 //If they login successfully the remove the timer from world.
 pub async fn send_connection_pings(world: &mut World, storage: &Storage) -> Result<()> {
-    for id in &*storage.player_ids.borrow() {
+    for id in &*storage.player_ids.lock().await {
         if world.get_or_err::<OnlineType>(id)? == OnlineType::Online {
             send_ping(world, storage, id).await?;
         }
@@ -126,7 +126,7 @@ pub async fn player_earn_exp(
     {
         world.get::<&mut InCombat>(entity.0)?.0 = true;
         world.get::<&mut Combat>(entity.0)?.0 =
-            *storage.gettick.borrow() + Duration::try_milliseconds(2000).unwrap_or_default();
+            *storage.gettick.lock().await + Duration::try_milliseconds(2000).unwrap_or_default();
     }
 
     let leveldifference = victimlevel - world.get_or_err::<Level>(entity)?.0;
@@ -371,8 +371,8 @@ pub async fn joingame(world: &mut World, storage: &Storage, entity: &Entity) -> 
 
     // Add player on map
     if let Some(mapref) = storage.maps.get(&position.map) {
-        let mut map = mapref.borrow_mut();
-        map.add_player(storage, *entity);
+        let mut map = mapref.lock().await;
+        map.add_player(storage, *entity).await;
         map.add_entity_to_grid(position);
     }
 
@@ -591,5 +591,5 @@ pub async fn close_trade(world: &mut World, storage: &Storage, entity: &Entity) 
 pub async fn can_trade(world: &mut World, storage: &Storage, entity: &Entity) -> Result<bool> {
     Ok(!world.get_or_err::<IsUsingType>(entity)?.inuse()
         && world.get_or_err::<TradeRequestEntity>(entity)?.requesttimer
-            <= *storage.gettick.borrow())
+            <= *storage.gettick.lock().await)
 }

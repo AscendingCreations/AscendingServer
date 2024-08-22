@@ -210,15 +210,15 @@ impl MapData {
         self.move_grid[pos.as_tile()].attr = GridAttribute::Entity;
     }
 
-    pub fn add_player(&mut self, storage: &Storage, id: Entity) {
+    pub async fn add_player(&mut self, storage: &Storage, id: Entity) {
         self.players.insert(id);
 
         for i in self.get_surrounding(true) {
             if i != self.position {
                 match storage.maps.get(&i) {
                     Some(map) => {
-                        let count = map.borrow().players_on_map.saturating_add(1);
-                        map.borrow_mut().players_on_map = count;
+                        let count = map.lock().await.players_on_map.saturating_add(1);
+                        map.lock().await.players_on_map = count;
                     }
                     None => continue,
                 }
@@ -232,7 +232,7 @@ impl MapData {
         self.npcs.insert(id);
     }
 
-    pub fn remove_player(&mut self, storage: &Storage, id: Entity) {
+    pub async fn remove_player(&mut self, storage: &Storage, id: Entity) {
         self.players.swap_remove(&id);
 
         //we set the surrounding maps to have players on them if the player is within 1 map of them.
@@ -240,8 +240,8 @@ impl MapData {
             if i != self.position {
                 match storage.maps.get(&i) {
                     Some(map) => {
-                        let count = map.borrow().players_on_map.saturating_sub(1);
-                        map.borrow_mut().players_on_map = count;
+                        let count = map.lock().await.players_on_map.saturating_sub(1);
+                        map.lock().await.players_on_map = count;
                     }
                     None => continue,
                 }
@@ -505,34 +505,46 @@ pub fn get_maps_in_range(storage: &Storage, pos: &Position, range: i32) -> Vec<M
     arr
 }
 
-pub fn is_dir_blocked(storage: &Storage, cur_pos: Position, movedir: u8) -> bool {
+pub async fn is_dir_blocked(storage: &Storage, cur_pos: Position, movedir: u8) -> bool {
     // Directional blocking might be in the wrong order as it should be.
     // 0 down, 1 right, 2 up, 3 left
     match movedir {
         0 => {
             if let Some(map) = storage.maps.get(&cur_pos.map) {
-                map.borrow().move_grid[cur_pos.as_tile()].dir_block.get(B0) == 0b00000001
+                map.lock().await.move_grid[cur_pos.as_tile()]
+                    .dir_block
+                    .get(B0)
+                    == 0b00000001
             } else {
                 true
             }
         }
         1 => {
             if let Some(map) = storage.maps.get(&cur_pos.map) {
-                map.borrow().move_grid[cur_pos.as_tile()].dir_block.get(B3) == 0b00001000
+                map.lock().await.move_grid[cur_pos.as_tile()]
+                    .dir_block
+                    .get(B3)
+                    == 0b00001000
             } else {
                 true
             }
         }
         2 => {
             if let Some(map) = storage.maps.get(&cur_pos.map) {
-                map.borrow().move_grid[cur_pos.as_tile()].dir_block.get(B1) == 0b00000010
+                map.lock().await.move_grid[cur_pos.as_tile()]
+                    .dir_block
+                    .get(B1)
+                    == 0b00000010
             } else {
                 true
             }
         }
         _ => {
             if let Some(map) = storage.maps.get(&cur_pos.map) {
-                map.borrow().move_grid[cur_pos.as_tile()].dir_block.get(B2) == 0b00000100
+                map.lock().await.move_grid[cur_pos.as_tile()]
+                    .dir_block
+                    .get(B2)
+                    == 0b00000100
             } else {
                 true
             }
@@ -540,7 +552,7 @@ pub fn is_dir_blocked(storage: &Storage, cur_pos: Position, movedir: u8) -> bool
     }
 }
 
-pub fn map_path_blocked(
+pub async fn map_path_blocked(
     storage: &Storage,
     cur_pos: Position,
     next_pos: Position,
@@ -549,11 +561,11 @@ pub fn map_path_blocked(
 ) -> bool {
     // Directional blocking might be in the wrong order as it should be.
     // 0 down, 1 right, 2 up, 3 left
-    let blocked = is_dir_blocked(storage, cur_pos, movedir);
+    let blocked = is_dir_blocked(storage, cur_pos, movedir).await;
 
     if !blocked {
         return match storage.maps.get(&next_pos.map) {
-            Some(map) => map.borrow().is_blocked_tile(next_pos, entity_type),
+            Some(map) => map.lock().await.is_blocked_tile(next_pos, entity_type),
             None => true,
         };
     }

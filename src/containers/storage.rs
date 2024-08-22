@@ -22,26 +22,27 @@ use sqlx::{
     postgres::{PgConnectOptions, PgPoolOptions},
     ConnectOptions, PgPool,
 };
-use std::{cell::RefCell, collections::VecDeque, fs, io::BufReader, sync::Arc};
+use std::{collections::VecDeque, fs, io::BufReader, sync::Arc};
+use tokio::sync::Mutex;
 
 pub struct Storage {
-    pub player_ids: RefCell<IndexSet<Entity>>,
-    pub recv_ids: RefCell<IndexSet<Entity>>,
-    pub npc_ids: RefCell<IndexSet<Entity>>,
-    pub player_names: RefCell<HashMap<String, Entity>>, //for player names to ID's
-    pub maps: IndexMap<MapPosition, RefCell<MapData>>,
-    pub map_items: RefCell<IndexMap<Position, Entity>>,
+    pub player_ids: Mutex<IndexSet<Entity>>,
+    pub recv_ids: Mutex<IndexSet<Entity>>,
+    pub npc_ids: Mutex<IndexSet<Entity>>,
+    pub player_names: Mutex<HashMap<String, Entity>>, //for player names to ID's
+    pub maps: IndexMap<MapPosition, Mutex<MapData>>,
+    pub map_items: Mutex<IndexMap<Position, Entity>>,
     //This is for buffering the specific packets needing to send.
     #[allow(clippy::type_complexity)]
-    pub packet_cache: RefCell<IndexMap<DataTaskToken, VecDeque<(u32, MByteBuffer, bool)>>>,
+    pub packet_cache: Mutex<IndexMap<DataTaskToken, VecDeque<(u32, MByteBuffer, bool)>>>,
     //This keeps track of what Things need sending. So we can leave it loaded and only loop whats needed.
-    pub packet_cache_ids: RefCell<IndexSet<DataTaskToken>>,
-    pub poll: RefCell<mio::Poll>,
-    pub server: RefCell<Server>,
-    pub gettick: RefCell<MyInstant>,
+    pub packet_cache_ids: Mutex<IndexSet<DataTaskToken>>,
+    pub poll: Mutex<mio::Poll>,
+    pub server: Mutex<Server>,
+    pub gettick: Mutex<MyInstant>,
     pub pgconn: PgPool,
-    pub time: RefCell<GameTime>,
-    pub map_switch_tasks: RefCell<IndexMap<Entity, Vec<MapSwitchTasks>>>, //Data Tasks For dealing with Player Warp and MapSwitch
+    pub time: Mutex<GameTime>,
+    pub map_switch_tasks: Mutex<IndexMap<Entity, Vec<MapSwitchTasks>>>, //Data Tasks For dealing with Player Warp and MapSwitch
     pub bases: Bases,
     //pub rt: RefCell<Runtime>,
     // pub local: RefCell<task::LocalSet>,
@@ -178,20 +179,20 @@ impl Storage {
         crate::sql::initiate(&pgconn).await.unwrap();
 
         let mut storage = Self {
-            player_ids: RefCell::new(IndexSet::default()),
-            recv_ids: RefCell::new(IndexSet::default()),
-            npc_ids: RefCell::new(IndexSet::default()),
-            player_names: RefCell::new(HashMap::default()), //for player names to ID's
+            player_ids: Mutex::new(IndexSet::default()),
+            recv_ids: Mutex::new(IndexSet::default()),
+            npc_ids: Mutex::new(IndexSet::default()),
+            player_names: Mutex::new(HashMap::default()), //for player names to ID's
             maps: IndexMap::default(),
-            map_items: RefCell::new(IndexMap::default()),
-            packet_cache: RefCell::new(IndexMap::default()),
-            packet_cache_ids: RefCell::new(IndexSet::default()),
-            poll: RefCell::new(poll),
-            server: RefCell::new(server),
-            gettick: RefCell::new(MyInstant::now()),
+            map_items: Mutex::new(IndexMap::default()),
+            packet_cache: Mutex::new(IndexMap::default()),
+            packet_cache_ids: Mutex::new(IndexSet::default()),
+            poll: Mutex::new(poll),
+            server: Mutex::new(server),
+            gettick: Mutex::new(MyInstant::now()),
             pgconn,
-            time: RefCell::new(GameTime::default()),
-            map_switch_tasks: RefCell::new(IndexMap::default()),
+            time: Mutex::new(GameTime::default()),
+            map_switch_tasks: Mutex::new(IndexMap::default()),
             bases: Bases::new()?,
             //rt: RefCell::new(rt),
             //local: RefCell::new(local),
@@ -232,7 +233,7 @@ impl Storage {
                 map.move_grid[id].dir_block = map_data.dir_block[id];
             }
 
-            storage.maps.insert(position, RefCell::new(map));
+            storage.maps.insert(position, Mutex::new(map));
             storage.bases.maps.insert(position, map_data);
         }
 
@@ -277,7 +278,7 @@ impl Storage {
         Ok(Entity(identity))
     }
 
-    pub fn add_player_data(
+    pub async fn add_player_data(
         &self,
         world: &mut World,
         entity: &Entity,
@@ -338,11 +339,11 @@ impl Storage {
                 ConnectionLoginTimer(time + Duration::try_milliseconds(600000).unwrap_or_default()),
             ),
         )?;
-        self.player_ids.borrow_mut().insert(*entity);
+        self.player_ids.lock().await.insert(*entity);
         Ok(())
     }
 
-    pub fn remove_player(
+    pub async fn remove_player(
         &self,
         world: &mut World,
         id: Entity,
@@ -352,23 +353,23 @@ impl Storage {
         let pos = world.remove::<(Position,)>(id.0).ok().map(|v| v.0);
         if let Ok((account,)) = world.remove::<(Account,)>(id.0) {
             println!("Players Disconnected : {}", &account.username);
-            self.player_names.borrow_mut().remove(&account.username);
+            self.player_names.lock().await.remove(&account.username);
         }
         //Removes Everything related to the Entity.
         world.despawn(id.0)?;
 
-        self.player_ids.borrow_mut().swap_remove(&id);
+        self.player_ids.lock().await.swap_remove(&id);
         Ok((socket, pos))
     }
 
-    pub fn add_npc(&self, world: &mut World, npc_id: u64) -> Result<Option<Entity>> {
+    pub async fn add_npc(&self, world: &mut World, npc_id: u64) -> Result<Option<Entity>> {
         if let Some(npcdata) = NpcData::load_npc(self, npc_id) {
             let identity = world.spawn((
                 WorldEntityType::Npc,
                 Position::default(),
                 NpcIndex(npc_id),
                 NpcTimer {
-                    spawntimer: *self.gettick.borrow()
+                    spawntimer: *self.gettick.lock().await
                         + Duration::try_milliseconds(npcdata.spawn_wait).unwrap_or_default(),
                     ..Default::default()
                 },
@@ -419,7 +420,7 @@ impl Storage {
             }
             world.insert_one(identity, EntityType::Npc(Entity(identity)))?;
 
-            self.npc_ids.borrow_mut().insert(Entity(identity));
+            self.npc_ids.lock().await.insert(Entity(identity));
 
             Ok(Some(Entity(identity)))
         } else {
@@ -427,16 +428,16 @@ impl Storage {
         }
     }
 
-    pub fn remove_npc(&self, world: &mut World, id: Entity) -> Result<Position> {
+    pub async fn remove_npc(&self, world: &mut World, id: Entity) -> Result<Position> {
         let ret: Position = world.get_or_err::<Position>(&id)?;
         //Removes Everything related to the Entity.
         world.despawn(id.0)?;
-        self.npc_ids.borrow_mut().swap_remove(&id);
+        self.npc_ids.lock().await.swap_remove(&id);
 
         //Removes the NPC from the block map.
         //TODO expand this to support larger npc's liek bosses basedon their Block size.
         if let Some(map) = self.maps.get(&ret.map) {
-            map.borrow_mut().remove_entity_from_grid(ret);
+            map.lock().await.remove_entity_from_grid(ret);
         }
 
         Ok(ret)

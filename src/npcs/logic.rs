@@ -3,10 +3,10 @@ use chrono::Duration;
 use hecs::World;
 
 pub async fn update_npcs(world: &mut World, storage: &Storage) -> Result<()> {
-    let tick = *storage.gettick.borrow();
+    let tick = *storage.gettick.lock().await;
     let mut unloadnpcs = Vec::new();
 
-    for id in &*storage.npc_ids.borrow() {
+    for id in &*storage.npc_ids.lock().await {
         match world.get_or_err::<DeathType>(id)? {
             DeathType::Alive => {
                 if world.get_or_err::<NpcDespawns>(id)?.0
@@ -24,7 +24,8 @@ pub async fn update_npcs(world: &mut World, storage: &Storage) -> Result<()> {
                 {
                     if !storage
                         .time
-                        .borrow()
+                        .lock()
+                        .await
                         .in_range(npcdata.spawntime.0, npcdata.spawntime.1)
                     {
                         *world.get::<&mut DeathType>(id.0)? = DeathType::Dead;
@@ -35,7 +36,7 @@ pub async fn update_npcs(world: &mut World, storage: &Storage) -> Result<()> {
                     //targeting
                     if npcdata.can_target
                         && match storage.maps.get(&world.get_or_err::<Position>(id)?.map) {
-                            Some(map) => map.borrow().players_on_map(),
+                            Some(map) => map.lock().await.players_on_map(),
                             None => continue,
                         }
                     {
@@ -53,7 +54,7 @@ pub async fn update_npcs(world: &mut World, storage: &Storage) -> Result<()> {
                     //attacking
                     if npcdata.can_attack
                         && match storage.maps.get(&world.get_or_err::<Position>(id)?.map) {
-                            Some(map) => map.borrow().players_on_map(),
+                            Some(map) => map.lock().await.players_on_map(),
                             None => continue,
                         }
                         && world.get_or_err::<AttackTimer>(id)?.0 <= tick
@@ -79,14 +80,16 @@ pub async fn update_npcs(world: &mut World, storage: &Storage) -> Result<()> {
 
                     //make sure we can spawn here before even spawning them.
                     if !map_data
-                        .borrow()
+                        .lock()
+                        .await
                         .is_blocked_tile(world.get_or_err::<Spawn>(id)?.pos, WorldEntityType::Npc)
                     {
                         {
                             *world.get::<&mut DeathType>(id.0)? = DeathType::Alive;
                         }
                         map_data
-                            .borrow_mut()
+                            .lock()
+                            .await
                             .add_entity_to_grid(world.get_or_err::<Spawn>(id)?.pos);
 
                         DataTaskToken::NpcSpawn(world.get_or_err::<Spawn>(id)?.pos.map)
@@ -102,10 +105,10 @@ pub async fn update_npcs(world: &mut World, storage: &Storage) -> Result<()> {
     for i in unloadnpcs {
         let zone_data = world.get_or_err::<NpcSpawnedZone>(&i)?.0;
         let spawn_pos = world.get_or_err::<Spawn>(&i)?;
-        let pos = storage.remove_npc(world, i)?;
+        let pos = storage.remove_npc(world, i).await?;
 
         if let Some(mapdata) = storage.maps.get(&spawn_pos.pos.map) {
-            let mut data = mapdata.borrow_mut();
+            let mut data = mapdata.lock().await;
 
             data.remove_npc(i);
             if let Some(zone) = zone_data {

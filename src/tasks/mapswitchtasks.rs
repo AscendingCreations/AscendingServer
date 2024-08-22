@@ -23,7 +23,7 @@ pub async fn init_data_lists(
     user: &crate::Entity,
     oldmap: Option<MapPosition>,
 ) -> Result<()> {
-    let mut map_switch_tasks = storage.map_switch_tasks.borrow_mut();
+    let mut map_switch_tasks = storage.map_switch_tasks.lock().await;
 
     let (not_yet_sent_players, not_yet_sent_npcs, not_yet_sent_items) =
         if let Some(tasks) = map_switch_tasks.get_mut(user) {
@@ -68,15 +68,15 @@ pub async fn init_data_lists(
     if let Some(old_map) = oldmap {
         for m in get_surrounding(old_map, true) {
             if let Some(map) = storage.maps.get(&m) {
-                map.borrow().players.iter().for_each(|id| {
+                map.lock().await.players.iter().for_each(|id| {
                     old_players.insert(*id);
                 });
 
-                map.borrow().npcs.iter().for_each(|id| {
+                map.lock().await.npcs.iter().for_each(|id| {
                     old_npcs.insert(*id);
                 });
 
-                map.borrow().itemids.iter().for_each(|id| {
+                map.lock().await.itemids.iter().for_each(|id| {
                     old_items.insert(*id);
                 });
             }
@@ -87,7 +87,7 @@ pub async fn init_data_lists(
     //the users map is always first in the Vec of get_surrounding so it always gets loaded first.
     for m in get_surrounding(world.get_or_err::<Position>(user)?.map, true) {
         if let Some(mapref) = storage.maps.get(&m) {
-            let map = mapref.borrow();
+            let map = mapref.lock().await;
             map.players.iter().for_each(|id| {
                 if !old_players.contains(id) || not_yet_sent_players.contains(id) {
                     task_player.push(*id);
@@ -130,7 +130,7 @@ const PROCESS_LIMIT: usize = 1000;
 
 pub async fn process_data_lists(world: &mut World, storage: &Storage) -> Result<()> {
     let mut removals = Vec::new();
-    let mut maptasks = storage.map_switch_tasks.borrow_mut();
+    let mut maptasks = storage.map_switch_tasks.lock().await;
     let process_limit = max(PROCESS_LIMIT / (1 + maptasks.len() * 3), 10);
 
     for (entity, tasks) in maptasks.iter_mut() {

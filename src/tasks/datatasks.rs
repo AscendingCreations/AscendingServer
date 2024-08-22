@@ -41,7 +41,7 @@ pub const PACKET_DATA_LIMIT: usize = 1400;
 impl DataTaskToken {
     pub async fn add_task(self, storage: &Storage, mut data: MByteBuffer) -> Result<()> {
         //Newer packets get pushed to the back.
-        match storage.packet_cache.borrow_mut().entry(self) {
+        match storage.packet_cache.lock().await.entry(self) {
             Entry::Vacant(v) => {
                 let mut buffer = new_cache(self.packet_id())?;
                 buffer.write_slice(data.as_slice())?;
@@ -75,7 +75,7 @@ impl DataTaskToken {
             }
         }
 
-        storage.packet_cache_ids.borrow_mut().insert(self);
+        storage.packet_cache_ids.lock().await.insert(self);
 
         Ok(())
     }
@@ -118,8 +118,8 @@ impl DataTaskToken {
 }
 
 pub async fn process_tasks(world: &mut World, storage: &Storage) -> Result<()> {
-    for id in storage.packet_cache_ids.borrow_mut().drain(..) {
-        if let Some(buffers) = storage.packet_cache.borrow_mut().get_mut(&id) {
+    for id in storage.packet_cache_ids.lock().await.drain(..) {
+        if let Some(buffers) = storage.packet_cache.lock().await.get_mut(&id) {
             //We send the older packets first hence pop front as they are the oldest.
             for (count, mut buffer, is_finished) in buffers.drain(..) {
                 finish_cache(&mut buffer, count, is_finished)?;

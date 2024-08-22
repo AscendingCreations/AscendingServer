@@ -12,7 +12,8 @@ pub async fn is_next_to_target(
     let pos = target_pos.map_offset(check.into());
 
     if let Some(dir) = entity_pos.checkdirection(pos) {
-        !is_dir_blocked(storage, entity_pos, dir as u8) && range >= entity_pos.checkdistance(pos)
+        !is_dir_blocked(storage, entity_pos, dir as u8).await
+            && range >= entity_pos.checkdistance(pos)
     } else {
         false
     }
@@ -38,18 +39,14 @@ pub async fn npc_update_path(
 ) -> Result<()> {
     let path_timer = world.get_or_err::<NpcPathTimer>(entity)?;
 
-    if path_timer.timer > *storage.gettick.borrow() {
+    if path_timer.timer > *storage.gettick.lock().await {
         return Ok(());
     }
 
     let npc_moving = world.get_or_err::<NpcMoving>(entity)?.0;
     let target = world.get_or_err::<Target>(entity)?;
     let position = world.get_or_err::<Position>(entity)?;
-    let players_on_map = storage
-        .maps
-        .get(&position.map)
-        .map(|map| map.borrow().players_on_map())
-        .unwrap_or(false);
+    let players_on_map = check_players_on_map(world, storage, &position.map).await;
     let mut new_target = target;
 
     if target.target_type != EntityType::None {
@@ -92,8 +89,8 @@ pub async fn npc_update_path(
             {
                 let mut path_tmr = world.get::<&mut NpcPathTimer>(entity.0)?;
                 path_tmr.tries = 0;
-                path_tmr.timer =
-                    *storage.gettick.borrow() + Duration::try_milliseconds(100).unwrap_or_default();
+                path_tmr.timer = *storage.gettick.lock().await
+                    + Duration::try_milliseconds(100).unwrap_or_default();
                 path_tmr.fails = 0;
             }
         }
@@ -121,7 +118,7 @@ pub async fn npc_update_path(
         {
             let mut path_tmr = world.get::<&mut NpcPathTimer>(entity.0)?;
             path_tmr.tries = 0;
-            path_tmr.timer = *storage.gettick.borrow()
+            path_tmr.timer = *storage.gettick.lock().await
                 + Duration::try_milliseconds(base.movement_wait + 750).unwrap_or_default();
             path_tmr.fails = 0;
         }
@@ -143,8 +140,8 @@ pub async fn npc_update_path(
             {
                 let mut path_tmr = world.get::<&mut NpcPathTimer>(entity.0)?;
                 path_tmr.tries = 0;
-                path_tmr.timer =
-                    *storage.gettick.borrow() + Duration::try_milliseconds(100).unwrap_or_default();
+                path_tmr.timer = *storage.gettick.lock().await
+                    + Duration::try_milliseconds(100).unwrap_or_default();
                 path_tmr.fails = 0;
             }
         } else if path_timer.tries + 1 < 10 {
@@ -154,12 +151,12 @@ pub async fn npc_update_path(
             {
                 let mut path_tmr = world.get::<&mut NpcPathTimer>(entity.0)?;
                 path_tmr.tries += 1;
-                path_tmr.timer = *storage.gettick.borrow()
+                path_tmr.timer = *storage.gettick.lock().await
                     + Duration::try_milliseconds(
                         base.movement_wait + ((path_timer.tries + 1) as i64 * 250),
                     )
                     .unwrap_or_default();
-                world.get::<&mut NpcAITimer>(entity.0)?.0 = *storage.gettick.borrow()
+                world.get::<&mut NpcAITimer>(entity.0)?.0 = *storage.gettick.lock().await
                     + Duration::try_milliseconds(3000).unwrap_or_default();
             }
         } else {
@@ -172,22 +169,30 @@ pub async fn npc_update_path(
             npc_clear_move_path(world, entity).await?;
         }
     //no special movement lets give them some if we can;
-    } else if world.get_or_err::<NpcAITimer>(entity)?.0 <= *storage.gettick.borrow()
-        && storage
-            .maps
-            .get(&world.get_or_err::<Position>(entity)?.map)
-            .map(|map| map.borrow().players_on_map())
-            .unwrap_or(false)
+    } else if world.get_or_err::<NpcAITimer>(entity)?.0 <= *storage.gettick.lock().await
+        && check_players_on_map(world, storage, &world.get_or_err::<Position>(entity)?.map).await
     {
         let moves = npc_rand_movement(storage, world.get_or_err::<Position>(entity)?).await;
 
         npc_set_move_path(world, entity, moves).await?;
 
         world.get::<&mut NpcAITimer>(entity.0)?.0 =
-            *storage.gettick.borrow() + Duration::try_milliseconds(3000).unwrap_or_default();
+            *storage.gettick.lock().await + Duration::try_milliseconds(3000).unwrap_or_default();
     }
 
     Ok(())
+}
+
+pub async fn check_players_on_map(
+    _world: &mut World,
+    storage: &Storage,
+    position: &MapPosition,
+) -> bool {
+    if let Some(map) = storage.maps.get(position) {
+        map.lock().await.players_on_map()
+    } else {
+        false
+    }
 }
 
 pub async fn npc_movement(
@@ -207,7 +212,7 @@ pub async fn npc_movement(
             }
         };
 
-        if map_path_blocked(storage, position, next.0, next.1, WorldEntityType::Npc) {
+        if map_path_blocked(storage, position, next.0, next.1, WorldEntityType::Npc).await {
             if world.get_or_err::<NpcMovePos>(entity)?.0.is_some()
                 || world.get_or_err::<Target>(entity)?.target_type != EntityType::None
             {
@@ -236,12 +241,7 @@ pub async fn npc_movement(
         } else {
             if world.get_or_err::<NpcMovePos>(entity)?.0.is_none() {
                 //do any movepos to position first
-                if !storage
-                    .maps
-                    .get(&position.map)
-                    .map(|map| map.borrow().players_on_map())
-                    .unwrap_or(false)
-                {
+                if !check_players_on_map(world, storage, &position.map).await {
                     npc_clear_move_path(world, entity).await?;
                     return Ok(());
                 }

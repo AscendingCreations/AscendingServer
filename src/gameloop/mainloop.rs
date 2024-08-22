@@ -19,8 +19,10 @@ pub async fn game_loop(world: &mut World, storage: &Storage) {
     let mut ping_timer: MyInstant = MyInstant::now();
 
     loop {
-        let _ = storage.gettick.replace(MyInstant::now());
-        tick = *storage.gettick.borrow();
+        {
+            *storage.gettick.lock().await = MyInstant::now();
+        };
+        tick = *storage.gettick.lock().await;
 
         if tick > tmr100 {
             update_npcs(world, storage).await.unwrap();
@@ -40,7 +42,7 @@ pub async fn game_loop(world: &mut World, storage: &Storage) {
         }
 
         if tick > tmr60000 {
-            let mut time = storage.time.borrow_mut();
+            let mut time = storage.time.lock().await;
             time.min += 1;
             if time.min >= 60 {
                 time.min = 0;
