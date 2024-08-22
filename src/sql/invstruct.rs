@@ -42,7 +42,7 @@ impl PGInvItem {
         }
     }
 
-    pub async fn into_item(self, inv: &mut [Item]) {
+    pub fn into_item(self, inv: &mut [Item]) {
         let slot = self.id as usize;
 
         inv[slot].num = self.num.shift_signed();

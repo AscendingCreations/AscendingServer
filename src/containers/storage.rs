@@ -23,8 +23,6 @@ use sqlx::{
     ConnectOptions, PgPool,
 };
 use std::{cell::RefCell, collections::VecDeque, fs, io::BufReader, sync::Arc};
-use tokio::runtime::Runtime;
-use tokio::task;
 
 pub struct Storage {
     pub player_ids: RefCell<IndexSet<Entity>>,
@@ -45,16 +43,12 @@ pub struct Storage {
     pub time: RefCell<GameTime>,
     pub map_switch_tasks: RefCell<IndexMap<Entity, Vec<MapSwitchTasks>>>, //Data Tasks For dealing with Player Warp and MapSwitch
     pub bases: Bases,
-    pub rt: RefCell<Runtime>,
-    pub local: RefCell<task::LocalSet>,
+    //pub rt: RefCell<Runtime>,
+    // pub local: RefCell<task::LocalSet>,
     pub config: Config,
 }
 
-fn establish_connection(
-    config: &Config,
-    rt: &mut Runtime,
-    local: &task::LocalSet,
-) -> Result<PgPool> {
+async fn establish_connection(config: &Config) -> Result<PgPool> {
     let mut connect_opts = PgConnectOptions::new();
     connect_opts = connect_opts.log_statements(log::LevelFilter::Debug);
     connect_opts = connect_opts.database(&config.database);
@@ -63,14 +57,10 @@ fn establish_connection(
     connect_opts = connect_opts.host(&config.host);
     connect_opts = connect_opts.port(config.port);
 
-    let pool = local.block_on(
-        rt,
-        PgPoolOptions::new()
-            .max_connections(5)
-            .connect_with(connect_opts),
-    )?;
-
-    Ok(pool)
+    Ok(PgPoolOptions::new()
+        .max_connections(5)
+        .connect_with(connect_opts)
+        .await?)
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -182,12 +172,10 @@ impl Storage {
         let server =
             Server::new(&mut poll, &config.listen, config.maxconnections, tls_config).ok()?;
 
-        let mut rt: Runtime = Runtime::new().unwrap();
-        let local = task::LocalSet::new();
-        let pgconn = establish_connection(&config, &mut rt, &local).unwrap();
-        crate::sql::initiate(&pgconn, &mut rt, &local)
-            .await
-            .unwrap();
+        //let mut rt: Runtime = Runtime::new().unwrap();
+        //let local = task::LocalSet::new();
+        let pgconn = establish_connection(&config).await.unwrap();
+        crate::sql::initiate(&pgconn).await.unwrap();
 
         let mut storage = Self {
             player_ids: RefCell::new(IndexSet::default()),
@@ -205,8 +193,8 @@ impl Storage {
             time: RefCell::new(GameTime::default()),
             map_switch_tasks: RefCell::new(IndexMap::default()),
             bases: Bases::new()?,
-            rt: RefCell::new(rt),
-            local: RefCell::new(local),
+            //rt: RefCell::new(rt),
+            //local: RefCell::new(local),
             config,
         };
 

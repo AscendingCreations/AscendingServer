@@ -3,6 +3,37 @@ use chrono::Duration;
 use hecs::World;
 use rand::{thread_rng, Rng};
 
+pub async fn check_target(world: &mut World, entity: &Entity) -> Result<()> {
+    match world.get_or_err::<Target>(entity)?.target_type {
+        EntityType::Player(i, accid) => {
+            if world.contains(i.0)
+                && world.get_or_err::<DeathType>(&i)?.is_alive()
+                && world.get::<&Account>(i.0)?.id == accid
+            {
+                return Ok(());
+            }
+
+            *world.get::<&mut Target>(entity.0)? = Target::default();
+            npc_clear_move_path(world, entity).await?;
+            Ok(())
+        }
+        EntityType::Npc(i) => {
+            if is_npc_same(entity, &i) {
+                return Ok(()); //targeting ourselve maybe for healing lets continue.
+            }
+
+            if world.contains(i.0) && world.get_or_err::<DeathType>(&i)?.is_alive() {
+                return Ok(());
+            }
+
+            *world.get::<&mut Target>(entity.0)? = Target::default();
+            npc_clear_move_path(world, entity).await?;
+            Ok(())
+        }
+        _ => Ok(()),
+    }
+}
+
 pub async fn targeting(
     world: &mut World,
     storage: &Storage,
@@ -11,37 +42,7 @@ pub async fn targeting(
 ) -> Result<()> {
     // Check if we have a current Target and that they are Alive.
     // This way we dont need to change the target if we have one.
-    (async || -> Result<()> {
-        match world.get_or_err::<Target>(entity)?.target_type {
-            EntityType::Player(i, accid) => {
-                if world.contains(i.0)
-                    && world.get_or_err::<DeathType>(&i)?.is_alive()
-                    && world.get::<&Account>(i.0)?.id == accid
-                {
-                    return Ok(());
-                }
-
-                *world.get::<&mut Target>(entity.0)? = Target::default();
-                npc_clear_move_path(world, entity).await?;
-                Ok(())
-            }
-            EntityType::Npc(i) => {
-                if is_npc_same(entity, &i) {
-                    return Ok(()); //targeting ourselve maybe for healing lets continue.
-                }
-
-                if world.contains(i.0) && world.get_or_err::<DeathType>(&i)?.is_alive() {
-                    return Ok(());
-                }
-
-                *world.get::<&mut Target>(entity.0)? = Target::default();
-                npc_clear_move_path(world, entity).await?;
-                Ok(())
-            }
-            _ => Ok(()),
-        }
-    })()
-    .await?;
+    check_target(world, entity).await?;
 
     if world.get_or_err::<Target>(entity)?.target_type != EntityType::None {
         if (base.target_auto_switch

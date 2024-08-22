@@ -42,7 +42,7 @@ impl PGStorageItem {
         }
     }
 
-    pub async fn into_item(self, storage_slot: &mut [Item]) {
+    pub fn into_item(self, storage_slot: &mut [Item]) {
         let slot = self.id as usize;
 
         storage_slot[slot].num = self.num.shift_signed();

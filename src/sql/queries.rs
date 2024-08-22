@@ -6,14 +6,13 @@ use hecs::{NoSuchEntity, World};
 use log::error;
 use password_hash::SaltString;
 use sqlx::{FromRow, PgPool};
-use tokio::{runtime::Runtime, task};
 
 #[derive(Debug, PartialEq, Eq, FromRow)]
 pub struct Check {
     pub check: bool,
 }
 
-pub async fn initiate(conn: &PgPool, rt: &mut Runtime, local: &task::LocalSet) -> Result<()> {
+pub async fn initiate(conn: &PgPool) -> Result<()> {
     let queries = [
         LOGTYPE_SCHEMA,
         LOGTYPE_SCHEMA_ALTER,
@@ -38,26 +37,22 @@ pub async fn initiate(conn: &PgPool, rt: &mut Runtime, local: &task::LocalSet) -
     ];
 
     for quere in queries {
-        local.block_on(rt, sqlx::query(quere).execute(conn))?;
+        sqlx::query(quere).execute(conn).await?;
     }
 
     Ok(())
 }
 
 pub async fn find_player(storage: &Storage, email: &str, password: &str) -> Result<Option<i64>> {
-    let rt = storage.rt.borrow_mut();
-    let local = storage.local.borrow();
-    let userdata: Option<PlayerWithPassword> = local.block_on(
-        &rt,
-        sqlx::query_as(
-            r#"
+    let userdata: Option<PlayerWithPassword> = sqlx::query_as(
+        r#"
         SELECT uid, password FROM player
         WHERE email = $1
     "#,
-        )
-        .bind(email)
-        .fetch_optional(&storage.pgconn),
-    )?;
+    )
+    .bind(email)
+    .fetch_optional(&storage.pgconn)
+    .await?;
 
     if let Some(userdata) = userdata {
         let hash = match PasswordHash::new(&userdata.password[..]) {
@@ -79,26 +74,21 @@ pub async fn find_player(storage: &Storage, email: &str, password: &str) -> Resu
 }
 
 pub async fn check_existance(storage: &Storage, username: &str, email: &str) -> Result<i64> {
-    let rt = storage.rt.borrow_mut();
-    let local = storage.local.borrow();
-
-    let check: Check = local.block_on(
-        &rt,
+    let check: Check =
         sqlx::query_as(r#"SELECT EXISTS(SELECT 1 FROM player WHERE username=$1) as check"#)
             .bind(username)
-            .fetch_one(&storage.pgconn),
-    )?;
+            .fetch_one(&storage.pgconn)
+            .await?;
 
     if check.check {
         return Ok(1);
     };
 
-    let check: Check = local.block_on(
-        &rt,
+    let check: Check =
         sqlx::query_as(r#"SELECT EXISTS(SELECT 1 FROM player WHERE email=$1) as check"#)
             .bind(email)
-            .fetch_one(&storage.pgconn),
-    )?;
+            .fetch_one(&storage.pgconn)
+            .await?;
 
     if check.check {
         return Ok(2);
