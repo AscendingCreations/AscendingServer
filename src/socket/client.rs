@@ -8,7 +8,7 @@ use crate::{
     tasks::{unload_entity_packet, DataTaskToken},
 };
 use hecs::World;
-use log::{error, trace, warn};
+use log::{error, info, trace, warn};
 use mio::{net::TcpStream, Interest};
 use mmap_bytey::BUFFER_SIZE;
 use std::{
@@ -198,8 +198,11 @@ impl Client {
 
         // get the current pos so we can reset it back for reading.
         //let mut buffer = socket.buffer.lock().unwrap();
+        info!("Lock first");
         let pos = socket.buffer.lock().await.cursor();
+        info!("Lock second");
         socket.buffer.lock().await.move_cursor_to_end();
+        info!("unlock");
 
         loop {
             match self.tls.read_tls(&mut self.stream) {
@@ -743,6 +746,8 @@ pub async fn process_packets(world: &mut World, storage: &Storage) -> Result<()>
     let mut rem_arr: Vec<(Entity, usize, bool)> = Vec::with_capacity(64);
     let mut packet = MByteBuffer::new()?;
 
+    // let entities = storage.recv_ids.lock().await.clone();
+    // info!("Locking recv in process_packets from loop");
     'user_loop: for entity in &*storage.recv_ids.lock().await {
         let mut count = 0;
 
@@ -762,10 +767,10 @@ pub async fn process_packets(world: &mut World, storage: &Storage) -> Result<()>
             (socket.buffer.clone(), socket.id, socket.addr.clone())
         };
 
-        //let mut buffer = lock.lock().await;
+        let mut buffer = buffer.lock().await;
         loop {
             packet.move_cursor_to_start();
-            let length = match get_length(storage, &mut *buffer.lock().await, socket_id).await? {
+            let length = match get_length(storage, &mut buffer, socket_id).await? {
                 Some(n) => n,
                 None => {
                     rem_arr.push((*entity, 0, false));
@@ -795,10 +800,10 @@ pub async fn process_packets(world: &mut World, storage: &Storage) -> Result<()>
                 continue 'user_loop;
             }
 
-            if length <= (buffer.lock().await.length() - buffer.lock().await.cursor()) as u64 {
+            if length <= (buffer.length() - buffer.cursor()) as u64 {
                 let mut errored = false;
 
-                if let Ok(bytes) = buffer.lock().await.read_slice(length as usize) {
+                if let Ok(bytes) = buffer.read_slice(length as usize) {
                     if packet.write_slice(bytes).is_err() {
                         errored = true;
                     }
@@ -828,8 +833,8 @@ pub async fn process_packets(world: &mut World, storage: &Storage) -> Result<()>
 
                 count += 1
             } else {
-                let cursor = buffer.lock().await.cursor() - 8;
-                buffer.lock().await.move_cursor(cursor)?;
+                let cursor = buffer.cursor() - 8;
+                buffer.move_cursor(cursor)?;
 
                 rem_arr.push((*entity, 0, false));
                 break;
@@ -839,33 +844,35 @@ pub async fn process_packets(world: &mut World, storage: &Storage) -> Result<()>
                 break;
             }
         }
-        let cursor = buffer.lock().await.cursor();
-        let buffer_len = buffer.lock().await.length() - cursor;
+        let cursor = buffer.cursor();
+        let buffer_len = buffer.length() - cursor;
 
-        if cursor == buffer.lock().await.length() {
-            buffer.lock().await.truncate(0)?;
-            if buffer.lock().await.capacity() > 500000 {
+        if cursor == buffer.length() {
+            buffer.truncate(0)?;
+            if buffer.capacity() > 500000 {
                 warn!(
                     "process_packets: buffer resize to 100000. Buffer Capacity: {}, Buffer len: {}",
-                    buffer.lock().await.capacity(),
+                    buffer.capacity(),
                     buffer_len
                 );
-                buffer.lock().await.resize(100000)?;
+                buffer.resize(100000)?;
             }
-        } else if buffer.lock().await.capacity() > 500000 && buffer_len <= 100000 {
+        } else if buffer.capacity() > 500000 && buffer_len <= 100000 {
             warn!(
                 "process_packets: buffer resize to Buffer len. Buffer Capacity: {}, Buffer len: {}",
-                buffer.lock().await.capacity(),
+                buffer.capacity(),
                 buffer_len
             );
             let mut replacement = ByteBuffer::with_capacity(buffer_len)?;
-            replacement.write_slice(buffer.lock().await.read_slice(buffer_len)?)?;
+            replacement.write_slice(buffer.read_slice(buffer_len)?)?;
             replacement.move_cursor_to_start();
-            *buffer.lock().await = replacement;
+            *buffer = replacement;
         }
     }
 
+    //info!("unLocking recv in process_packets from loop");
     for (entity, socket_id, should_close) in rem_arr {
+        //info!("Locking recv in process_packets from swap_remove");
         storage.recv_ids.lock().await.swap_remove(&entity);
 
         if should_close {
@@ -876,9 +883,13 @@ pub async fn process_packets(world: &mut World, storage: &Storage) -> Result<()>
                 .clients
                 .get(&mio::Token(socket_id))
             {
+                //info!("Locking client in process_packets from swap_remove");
                 client.lock().await.set_to_closing(storage).await?;
+                //info!("Locking client in process_packets from swap_remove");
             }
         }
+
+        //info!("unLocking recv in process_packets from swap_remove");
     }
 
     Ok(())

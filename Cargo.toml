@@ -59,6 +59,8 @@ speedy = "0.8.7"
 rangemap = { version = "1.5.1", features = ["serde1"] }
 ahash = "0.8.11"
 futures = "0.3.30"
+tracing = "0.1.40"
+console-subscriber = "0.4.0"
 
 [profile.dev]
 opt-level = 0

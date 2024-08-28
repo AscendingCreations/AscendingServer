@@ -73,6 +73,9 @@ impl log::Log for MyLogger {
 #[tokio::main]
 async fn main() {
     let config = read_config("settings.toml");
+
+    console_subscriber::init();
+
     log::set_logger(&MY_LOGGER).unwrap();
     // Set the Max level we accept logging to the file for.
     log::set_max_level(config.level_filter.parse_enum());
