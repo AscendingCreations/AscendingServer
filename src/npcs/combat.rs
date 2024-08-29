@@ -1,13 +1,21 @@
 use std::borrow::Borrow;
 
-use crate::{containers::{GameStore, GameWorld}, gametypes::*, maps::*, npcs::*, players::*, tasks::*};
-use hecs::World;
+use crate::{
+    containers::{GameStore, GameWorld},
+    gametypes::*,
+    maps::*,
+    npcs::*,
+    players::*,
+    tasks::*,
+};
 use rand::{thread_rng, Rng};
 
 #[inline(always)]
-pub async fn damage_npc(world: &mut World, entity: &crate::Entity, damage: i32) -> Result<()> {
-    world.get::<&mut Vitals>(entity.0)?.vital[VitalTypes::Hp as usize] =
-        world.get_or_err::<Vitals>(entity)?.vital[VitalTypes::Hp as usize].saturating_sub(damage);
+pub async fn damage_npc(world: &GameWorld, entity: &crate::Entity, damage: i32) -> Result<()> {
+    let lock = world.lock().await;
+    let mut vital = lock.get::<&mut Vitals>(entity.0)?;
+    vital.vital[VitalTypes::Hp as usize] =
+        vital.vital[VitalTypes::Hp as usize].saturating_sub(damage);
     Ok(())
 }
 
@@ -24,7 +32,7 @@ fn entity_cast_check(
 }
 
 pub async fn try_cast(
-    world: &mut World,
+    world: &GameWorld,
     storage: &GameStore,
     caster: &Entity,
     base: &NpcData,
@@ -32,21 +40,21 @@ pub async fn try_cast(
     range: i32,
     casttype: NpcCastType,
 ) -> Result<bool> {
-    if !world.contains(caster.0) {
+    if !world.contains(caster).await {
         return Ok(false);
     }
 
-    let caster_pos = world.get_or_default::<Position>(caster);
-    let npc_mode = world.get_or_default::<NpcMode>(caster);
+    let caster_pos = world.get_or_default::<Position>(caster).await;
+    let npc_mode = world.get_or_default::<NpcMode>(caster).await;
 
     match target {
         EntityType::Player(i, _accid) => {
-            if world.contains(i.0)
+            if world.contains(&i).await
                 && (base.can_attack_player || matches!(npc_mode, NpcMode::Pet | NpcMode::Summon))
-                && !world.get_or_err::<IsUsingType>(&i)?.inuse()
+                && !world.get_or_err::<IsUsingType>(&i).await?.inuse()
             {
-                let target_pos = world.get_or_default::<Position>(&i);
-                let life = world.get_or_default::<DeathType>(&i);
+                let target_pos = world.get_or_default::<Position>(&i).await;
+                let life = world.get_or_default::<DeathType>(&i).await;
 
                 if let Some(dir) = caster_pos.checkdirection(target_pos) {
                     if is_dir_blocked(storage, caster_pos, dir as u8).await {
@@ -60,15 +68,13 @@ pub async fn try_cast(
             }
         }
         EntityType::Npc(i) => {
+            let npc_index = world.get_or_default::<NpcIndex>(&i).await.0;
             if base.has_enemies
                 && casttype == NpcCastType::Enemy
-                && base
-                    .enemies
-                    .iter()
-                    .any(|e| *e == world.get_or_default::<NpcIndex>(&i).0)
+                && base.enemies.iter().any(|e| *e == npc_index)
             {
-                let target_pos = world.get_or_default::<Position>(&i);
-                let life = world.get_or_default::<DeathType>(&i);
+                let target_pos = world.get_or_default::<Position>(&i).await;
+                let life = world.get_or_default::<DeathType>(&i).await;
 
                 if let Some(dir) = caster_pos.checkdirection(target_pos) {
                     if is_dir_blocked(storage, caster_pos, dir as u8).await {
@@ -88,7 +94,7 @@ pub async fn try_cast(
 }
 
 pub async fn npc_cast(
-    world: &mut World,
+    world: &GameWorld,
     storage: &GameStore,
     npc: &Entity,
     base: &NpcData,
@@ -99,7 +105,13 @@ pub async fn npc_cast(
         | AIBehavior::ReactiveHealer
         | AIBehavior::HelpReactive
         | AIBehavior::Reactive => {
-            if let Ok(targettype) = world.get::<&Target>(npc.0).map(|t| t.target_type) {
+            let target_type = {
+                let lock = world.lock().await;
+                let target_type = lock.get::<&Target>(npc.0).map(|t| t.target_type);
+                target_type
+            };
+
+            if let Ok(targettype) = target_type {
                 if try_cast(
                     world,
                     storage,
@@ -121,8 +133,8 @@ pub async fn npc_cast(
     }
 }
 
-pub async fn can_attack_npc(world: &mut World, storage: &GameStore, npc: &Entity) -> Result<bool> {
-    let npc_index = world.get_or_err::<NpcIndex>(npc)?.0;
+pub async fn can_attack_npc(world: &GameWorld, storage: &GameStore, npc: &Entity) -> Result<bool> {
+    let npc_index = world.get_or_err::<NpcIndex>(npc).await?.0;
     let base = &storage.bases.npcs[npc_index as usize];
 
     match base.behaviour {
@@ -136,35 +148,35 @@ pub async fn can_attack_npc(world: &mut World, storage: &GameStore, npc: &Entity
 }
 
 pub async fn npc_combat(
-    world: &mut World,
+    world: &GameWorld,
     storage: &GameStore,
     entity: &Entity,
     base: &NpcData,
 ) -> Result<()> {
     match npc_cast(world, storage, entity, base).await? {
         EntityType::Player(i, _accid) => {
-            if world.contains(i.0) {
+            if world.contains(&i).await {
                 let damage = npc_combat_damage(world, storage, entity, &i, base).await?;
                 damage_player(world, &i, damage).await?;
-                DataTaskToken::Damage(world.get_or_default::<Position>(entity).map)
+                DataTaskToken::Damage(world.get_or_default::<Position>(entity).await.map)
                     .add_task(
                         storage,
                         damage_packet(
                             *entity,
                             damage as u16,
-                            world.get_or_default::<Position>(&i),
+                            world.get_or_default::<Position>(&i).await,
                             true,
                         )?,
                     )
                     .await?;
-                DataTaskToken::Attack(world.get_or_default::<Position>(entity).map)
+                DataTaskToken::Attack(world.get_or_default::<Position>(entity).await.map)
                     .add_task(storage, attack_packet(*entity)?)
                     .await?;
-                let vitals = world.get_or_err::<Vitals>(&i)?;
+                let vitals = world.get_or_err::<Vitals>(&i).await?;
                 if vitals.vital[0] > 0 {
-                    DataTaskToken::Vitals(world.get_or_default::<Position>(entity).map)
+                    DataTaskToken::Vitals(world.get_or_default::<Position>(entity).await.map)
                         .add_task(storage, {
-                            let vitals = world.get_or_err::<Vitals>(&i)?;
+                            let vitals = world.get_or_err::<Vitals>(&i).await?;
 
                             vitals_packet(i, vitals.vital, vitals.vitalmax)?
                         })
@@ -176,28 +188,28 @@ pub async fn npc_combat(
             }
         }
         EntityType::Npc(i) => {
-            if world.contains(i.0) {
+            if world.contains(&i).await {
                 let damage = npc_combat_damage(world, storage, entity, &i, base).await?;
                 damage_npc(world, &i, damage).await?;
 
-                DataTaskToken::Damage(world.get_or_default::<Position>(entity).map)
+                DataTaskToken::Damage(world.get_or_default::<Position>(entity).await.map)
                     .add_task(
                         storage,
                         damage_packet(
                             *entity,
                             damage as u16,
-                            world.get_or_default::<Position>(&i),
+                            world.get_or_default::<Position>(&i).await,
                             true,
                         )?,
                     )
                     .await?;
-                DataTaskToken::Attack(world.get_or_default::<Position>(entity).map)
+                DataTaskToken::Attack(world.get_or_default::<Position>(entity).await.map)
                     .add_task(storage, attack_packet(*entity)?)
                     .await?;
 
-                let vitals = world.get_or_err::<Vitals>(&i)?;
+                let vitals = world.get_or_err::<Vitals>(&i).await?;
                 if vitals.vital[0] > 0 {
-                    DataTaskToken::Vitals(world.get_or_default::<Position>(entity).map)
+                    DataTaskToken::Vitals(world.get_or_default::<Position>(entity).await.map)
                         .add_task(storage, {
                             vitals_packet(i, vitals.vital, vitals.vitalmax)?
                         })
@@ -215,22 +227,28 @@ pub async fn npc_combat(
 }
 
 pub async fn npc_combat_damage(
-    world: &mut World,
+    world: &GameWorld,
     storage: &GameStore,
     entity: &Entity,
     enemy_entity: &Entity,
     base: &NpcData,
 ) -> Result<i32> {
-    let def = if world.get_or_err::<WorldEntityType>(enemy_entity)? == WorldEntityType::Player {
-        world.get_or_err::<Physical>(enemy_entity)?.defense
+    let def = if world.get_or_err::<WorldEntityType>(enemy_entity).await? == WorldEntityType::Player
+    {
+        world.get_or_err::<Physical>(enemy_entity).await?.defense
             + player_get_armor_defense(world, storage, entity).await?.0 as u32
-            + world.get_or_err::<Level>(enemy_entity)?.0.saturating_div(5) as u32
+            + world
+                .get_or_err::<Level>(enemy_entity)
+                .await?
+                .0
+                .saturating_div(5) as u32
     } else {
-        world.get_or_err::<Physical>(enemy_entity)?.defense
+        world.get_or_err::<Physical>(enemy_entity).await?.defense
     };
 
-    let data = world.entity(entity.0)?;
-    let edata = world.entity(enemy_entity.0)?;
+    let lock = world.lock().await;
+    let data = lock.entity(entity.0)?;
+    let edata = lock.entity(enemy_entity.0)?;
 
     let offset = if edata.get_or_err::<WorldEntityType>()? == WorldEntityType::Player {
         4
@@ -267,9 +285,9 @@ pub async fn npc_combat_damage(
     Ok(damage as i32)
 }
 
-pub async fn kill_npc(world: &mut World, storage: &GameStore, entity: &Entity) -> Result<()> {
-    let npc_index = world.get_or_err::<NpcIndex>(entity)?.0;
-    let npc_pos = world.get_or_err::<Position>(entity)?;
+pub async fn kill_npc(world: &GameWorld, storage: &GameStore, entity: &Entity) -> Result<()> {
+    let npc_index = world.get_or_err::<NpcIndex>(entity).await?.0;
+    let npc_pos = world.get_or_err::<Position>(entity).await?;
     let npcbase = storage.bases.npcs[npc_index as usize].borrow();
 
     let mut rng = thread_rng();
@@ -302,6 +320,7 @@ pub async fn kill_npc(world: &mut World, storage: &GameStore, entity: &Entity) -
         }
     }
 
-    *world.get::<&mut DeathType>(entity.0)? = DeathType::Dead;
+    let lock = world.lock().await;
+    *lock.get::<&mut DeathType>(entity.0)? = DeathType::Dead;
     Ok(())
 }

@@ -1,4 +1,4 @@
-use crate::{gametypes::*, socket::*, time_ext::MyInstant};
+use crate::{containers::GameWorld, gametypes::*, socket::*, time_ext::MyInstant};
 use core::any::type_name;
 use educe::Educe;
 use hecs::{EntityRef, MissingComponent, World};
@@ -282,6 +282,28 @@ impl MByteBufferRead for Entity {
     }
 }
 
+pub trait WorldExtrasAsync {
+    async fn get_or_default<T>(&self, entity: &Entity) -> T
+    where
+        T: Default + Send + Sync + Copy + 'static;
+    async fn cloned_get_or_default<T>(&self, entity: &Entity) -> T
+    where
+        T: Default + Send + Sync + Clone + 'static;
+    async fn get_or_panic<T>(&self, entity: &Entity) -> T
+    where
+        T: Send + Sync + Copy + 'static;
+    async fn cloned_get_or_panic<T>(&self, entity: &Entity) -> T
+    where
+        T: Send + Sync + Clone + 'static;
+    async fn get_or_err<T>(&self, entity: &Entity) -> Result<T>
+    where
+        T: Send + Sync + Copy + 'static;
+    async fn cloned_get_or_err<T>(&self, entity: &Entity) -> Result<T>
+    where
+        T: Send + Sync + Clone + 'static;
+    async fn contains(&self, entity: &Entity) -> bool;
+}
+
 pub trait WorldExtras {
     fn get_or_default<T>(&self, entity: &Entity) -> T
     where
@@ -475,5 +497,187 @@ impl WorldExtras for World {
                 })
             }
         }
+    }
+}
+
+impl WorldExtrasAsync for GameWorld {
+    async fn get_or_default<T>(&self, entity: &Entity) -> T
+    where
+        T: Default + Send + Sync + Copy + 'static,
+    {
+        let lock = self.lock().await;
+        lock.get::<&T>(entity.0).map(|t| *t).unwrap_or_default()
+    }
+
+    async fn cloned_get_or_default<T>(&self, entity: &Entity) -> T
+    where
+        T: Default + Send + Sync + Clone + 'static,
+    {
+        let lock = self.lock().await;
+        lock.get::<&T>(entity.0)
+            .map(|t| (*t).clone())
+            .unwrap_or_default()
+    }
+
+    async fn get_or_panic<T>(&self, entity: &Entity) -> T
+    where
+        T: Send + Sync + Copy + 'static,
+    {
+        let lock = self.lock().await;
+        let data = match lock.get::<&T>(entity.0) {
+            Ok(t) => *t,
+            Err(e) => {
+                error!("Component error: {:?}", e);
+                panic!("Component error: {:?}", e);
+            }
+        };
+
+        data
+    }
+
+    async fn cloned_get_or_panic<T>(&self, entity: &Entity) -> T
+    where
+        T: Send + Sync + Clone + 'static,
+    {
+        let lock = self.lock().await;
+        let data = match lock.get::<&T>(entity.0) {
+            Ok(t) => (*t).clone(),
+            Err(e) => {
+                error!("Component error: {:?}", e);
+                panic!("Component error: {:?}", e);
+            }
+        };
+
+        data
+    }
+
+    async fn get_or_err<T>(&self, entity: &Entity) -> Result<T>
+    where
+        T: Send + Sync + Copy + 'static,
+    {
+        let lock = self.lock().await;
+        match lock.get::<&T>(entity.0).map(|t| *t) {
+            Ok(t) => Ok(t),
+            Err(e) => {
+                warn!("Component Err: {:?}", e);
+                Err(AscendingError::HecsComponent {
+                    error: e,
+                    backtrace: Box::new(Backtrace::capture()),
+                })
+            }
+        }
+    }
+
+    async fn cloned_get_or_err<T>(&self, entity: &Entity) -> Result<T>
+    where
+        T: Send + Sync + Clone + 'static,
+    {
+        let lock = self.lock().await;
+        match lock.get::<&T>(entity.0).map(|t| (*t).clone()) {
+            Ok(t) => Ok(t),
+            Err(e) => {
+                warn!("Component Err: {:?}", e);
+                Err(AscendingError::HecsComponent {
+                    error: e,
+                    backtrace: Box::new(Backtrace::capture()),
+                })
+            }
+        }
+    }
+
+    async fn contains(&self, entity: &Entity) -> bool {
+        let lock = self.lock().await;
+        lock.contains(entity.0)
+    }
+}
+
+impl WorldExtrasAsync for &GameWorld {
+    async fn get_or_default<T>(&self, entity: &Entity) -> T
+    where
+        T: Default + Send + Sync + Copy + 'static,
+    {
+        let lock = self.lock().await;
+        lock.get::<&T>(entity.0).map(|t| *t).unwrap_or_default()
+    }
+
+    async fn cloned_get_or_default<T>(&self, entity: &Entity) -> T
+    where
+        T: Default + Send + Sync + Clone + 'static,
+    {
+        let lock = self.lock().await;
+        lock.get::<&T>(entity.0)
+            .map(|t| (*t).clone())
+            .unwrap_or_default()
+    }
+
+    async fn get_or_panic<T>(&self, entity: &Entity) -> T
+    where
+        T: Send + Sync + Copy + 'static,
+    {
+        let lock = self.lock().await;
+        let data = match lock.get::<&T>(entity.0) {
+            Ok(t) => *t,
+            Err(e) => {
+                error!("Component error: {:?}", e);
+                panic!("Component error: {:?}", e);
+            }
+        };
+
+        data
+    }
+
+    async fn cloned_get_or_panic<T>(&self, entity: &Entity) -> T
+    where
+        T: Send + Sync + Clone + 'static,
+    {
+        let lock = self.lock().await;
+        let data = match lock.get::<&T>(entity.0) {
+            Ok(t) => (*t).clone(),
+            Err(e) => {
+                error!("Component error: {:?}", e);
+                panic!("Component error: {:?}", e);
+            }
+        };
+
+        data
+    }
+
+    async fn get_or_err<T>(&self, entity: &Entity) -> Result<T>
+    where
+        T: Send + Sync + Copy + 'static,
+    {
+        let lock = self.lock().await;
+        match lock.get::<&T>(entity.0).map(|t| *t) {
+            Ok(t) => Ok(t),
+            Err(e) => {
+                warn!("Component Err: {:?}", e);
+                Err(AscendingError::HecsComponent {
+                    error: e,
+                    backtrace: Box::new(Backtrace::capture()),
+                })
+            }
+        }
+    }
+
+    async fn cloned_get_or_err<T>(&self, entity: &Entity) -> Result<T>
+    where
+        T: Send + Sync + Clone + 'static,
+    {
+        let lock = self.lock().await;
+        match lock.get::<&T>(entity.0).map(|t| (*t).clone()) {
+            Ok(t) => Ok(t),
+            Err(e) => {
+                warn!("Component Err: {:?}", e);
+                Err(AscendingError::HecsComponent {
+                    error: e,
+                    backtrace: Box::new(Backtrace::capture()),
+                })
+            }
+        }
+    }
+
+    async fn contains(&self, entity: &Entity) -> bool {
+        let lock = self.lock().await;
+        lock.contains(entity.0)
     }
 }

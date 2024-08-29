@@ -7,13 +7,12 @@ use crate::{
     tasks::{map_item_packet, DataTaskToken},
 };
 use chrono::Duration;
-use hecs::World;
 use rand::{thread_rng, Rng};
 use std::cmp::min;
 
 use super::{check_surrounding, MapItem};
 
-pub async fn update_maps(world: &mut World, storage: &GameStore) -> Result<()> {
+pub async fn update_maps(world: &GameWorld, storage: &GameStore) -> Result<()> {
     let mut rng = thread_rng();
     let mut spawnable = Vec::new();
     let mut len = storage.npc_ids.lock().await.len();
@@ -115,8 +114,9 @@ pub async fn update_maps(world: &mut World, storage: &GameStore) -> Result<()> {
                 if !storage_mapitem.contains_key(&data.pos) {
                     if data.timer <= tick {
                         let map_item = create_mapitem(data.index, data.amount, data.pos);
-                        let id = world.spawn((WorldEntityType::MapItem, map_item));
-                        world.insert(
+                        let mut lock = world.lock().await;
+                        let id = lock.spawn((WorldEntityType::MapItem, map_item));
+                        lock.insert(
                             id,
                             (EntityType::MapItem(Entity(id)), DespawnTimer::default()),
                         )?;
@@ -165,15 +165,16 @@ pub fn create_mapitem(index: u32, value: u16, pos: Position) -> MapItem {
 }
 
 pub async fn spawn_npc(
-    world: &mut World,
+    world: &GameWorld,
     pos: Position,
     zone: Option<usize>,
     entity: Entity,
 ) -> Result<()> {
-    *world.get::<&mut Position>(entity.0)? = pos;
-    world.get::<&mut Spawn>(entity.0)?.pos = pos;
-    world.get::<&mut NpcSpawnedZone>(entity.0)?.0 = zone;
-    *world.get::<&mut DeathType>(entity.0)? = DeathType::Spawning;
+    let lock = world.lock().await;
+    *lock.get::<&mut Position>(entity.0)? = pos;
+    lock.get::<&mut Spawn>(entity.0)?.pos = pos;
+    lock.get::<&mut NpcSpawnedZone>(entity.0)?.0 = zone;
+    *lock.get::<&mut DeathType>(entity.0)? = DeathType::Spawning;
 
     Ok(())
 }

@@ -1,6 +1,5 @@
 use crate::{containers::*, gametypes::*, tasks::*, time_ext::MyInstant};
 use educe::Educe;
-use hecs::World;
 use std::collections::VecDeque;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Default)]
@@ -67,33 +66,38 @@ pub fn is_npc_same(from_entity: &crate::Entity, to_entity: &crate::Entity) -> bo
 
 #[inline(always)]
 pub async fn npc_set_move_path(
-    world: &mut World,
+    world: &GameWorld,
     entity: &crate::Entity,
     path: VecDeque<(Position, u8)>,
 ) -> Result<()> {
-    world.get::<&mut NpcMoves>(entity.0)?.0 = path;
-    world.get::<&mut NpcMoving>(entity.0)?.0 = true;
+    let lock = world.lock().await;
+    lock.get::<&mut NpcMoves>(entity.0)?.0 = path;
+    lock.get::<&mut NpcMoving>(entity.0)?.0 = true;
     Ok(())
 }
 
 #[inline(always)]
-pub async fn npc_clear_move_path(world: &mut World, entity: &crate::Entity) -> Result<()> {
-    world.get::<&mut NpcMoves>(entity.0)?.0.clear();
-    world.get::<&mut NpcMoving>(entity.0)?.0 = false;
+pub async fn npc_clear_move_path(world: &GameWorld, entity: &crate::Entity) -> Result<()> {
+    let lock = world.lock().await;
+    lock.get::<&mut NpcMoves>(entity.0)?.0.clear();
+    lock.get::<&mut NpcMoving>(entity.0)?.0 = false;
     Ok(())
 }
 
 #[inline(always)]
 pub async fn set_npc_dir(
-    world: &mut World,
+    world: &GameWorld,
     storage: &GameStore,
     entity: &crate::Entity,
     dir: u8,
 ) -> Result<()> {
-    if world.get_or_err::<Dir>(entity)?.0 != dir {
-        world.get::<&mut Dir>(entity.0)?.0 = dir;
+    if world.get_or_err::<Dir>(entity).await?.0 != dir {
+        {
+            let lock = world.lock().await;
+            lock.get::<&mut Dir>(entity.0)?.0 = dir;
+        }
 
-        DataTaskToken::Dir(world.get_or_err::<Position>(entity)?.map)
+        DataTaskToken::Dir(world.get_or_err::<Position>(entity).await?.map)
             .add_task(storage, dir_packet(*entity, dir)?)
             .await?;
     }
@@ -103,12 +107,12 @@ pub async fn set_npc_dir(
 
 #[inline(always)]
 pub async fn npc_switch_maps(
-    world: &mut World,
+    world: &GameWorld,
     storage: &GameStore,
     entity: &crate::Entity,
     new_pos: Position,
 ) -> Result<Position> {
-    let npc_position = world.get_or_err::<Position>(entity)?;
+    let npc_position = world.get_or_err::<Position>(entity).await?;
 
     if let Some(mapref) = storage.maps.get(&npc_position.map) {
         let mut map = mapref.lock().await;
@@ -126,21 +130,23 @@ pub async fn npc_switch_maps(
         return Ok(npc_position);
     }
 
-    *world.get::<&mut Position>(entity.0)? = new_pos;
+    let lock = world.lock().await;
+    *lock.get::<&mut Position>(entity.0)? = new_pos;
 
     Ok(npc_position)
 }
 
 #[inline(always)]
 pub async fn npc_swap_pos(
-    world: &mut World,
+    world: &GameWorld,
     storage: &GameStore,
     entity: &crate::Entity,
     pos: Position,
 ) -> Result<Position> {
-    let oldpos = world.get_or_err::<Position>(entity)?;
+    let oldpos = world.get_or_err::<Position>(entity).await?;
     if oldpos != pos {
-        *world.get::<&mut Position>(entity.0)? = pos;
+        let lock = world.lock().await;
+        *lock.get::<&mut Position>(entity.0)? = pos;
 
         let mut map = match storage.maps.get(&oldpos.map) {
             Some(map) => map,
@@ -155,38 +161,42 @@ pub async fn npc_swap_pos(
     Ok(oldpos)
 }
 
-pub async fn npc_getx(world: &mut World, entity: &crate::Entity) -> Result<i32> {
-    Ok(world.get_or_err::<Position>(entity)?.x)
+pub async fn npc_getx(world: &GameWorld, entity: &crate::Entity) -> Result<i32> {
+    Ok(world.get_or_err::<Position>(entity).await?.x)
 }
 
-pub async fn npc_gety(world: &mut World, entity: &crate::Entity) -> Result<i32> {
-    Ok(world.get_or_err::<Position>(entity)?.y)
+pub async fn npc_gety(world: &GameWorld, entity: &crate::Entity) -> Result<i32> {
+    Ok(world.get_or_err::<Position>(entity).await?.y)
 }
 
-pub async fn npc_getmap(world: &mut World, entity: &crate::Entity) -> Result<MapPosition> {
-    Ok(world.get_or_err::<Position>(entity)?.map)
+pub async fn npc_getmap(world: &GameWorld, entity: &crate::Entity) -> Result<MapPosition> {
+    Ok(world.get_or_err::<Position>(entity).await?.map)
 }
 
-pub async fn npc_gethp(world: &mut World, entity: &crate::Entity) -> Result<i32> {
-    Ok(world.get_or_err::<Vitals>(entity)?.vital[VitalTypes::Hp as usize])
+pub async fn npc_gethp(world: &GameWorld, entity: &crate::Entity) -> Result<i32> {
+    Ok(world.get_or_err::<Vitals>(entity).await?.vital[VitalTypes::Hp as usize])
 }
 
-pub async fn npc_setx(world: &mut World, entity: &crate::Entity, x: i32) -> Result<()> {
-    world.get::<&mut Position>(entity.0)?.x = x;
+pub async fn npc_setx(world: &GameWorld, entity: &crate::Entity, x: i32) -> Result<()> {
+    let lock = world.lock().await;
+    lock.get::<&mut Position>(entity.0)?.x = x;
     Ok(())
 }
 
-pub async fn npc_sety(world: &mut World, entity: &crate::Entity, y: i32) -> Result<()> {
-    world.get::<&mut Position>(entity.0)?.y = y;
+pub async fn npc_sety(world: &GameWorld, entity: &crate::Entity, y: i32) -> Result<()> {
+    let lock = world.lock().await;
+    lock.get::<&mut Position>(entity.0)?.y = y;
     Ok(())
 }
 
-pub async fn npc_setmap(world: &mut World, entity: &crate::Entity, map: MapPosition) -> Result<()> {
-    world.get::<&mut Position>(entity.0)?.map = map;
+pub async fn npc_setmap(world: &GameWorld, entity: &crate::Entity, map: MapPosition) -> Result<()> {
+    let lock = world.lock().await;
+    lock.get::<&mut Position>(entity.0)?.map = map;
     Ok(())
 }
 
-pub async fn npc_sethp(world: &mut World, entity: &crate::Entity, hp: i32) -> Result<()> {
-    world.get::<&mut Vitals>(entity.0)?.vital[VitalTypes::Hp as usize] = hp;
+pub async fn npc_sethp(world: &GameWorld, entity: &crate::Entity, hp: i32) -> Result<()> {
+    let lock = world.lock().await;
+    lock.get::<&mut Vitals>(entity.0)?.vital[VitalTypes::Hp as usize] = hp;
     Ok(())
 }

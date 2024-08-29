@@ -1,16 +1,21 @@
-use hecs::World;
-
-use crate::{containers::{GameStore, GameWorld}, gametypes::*, maps::*, players::*, sql::*, tasks::*};
+use crate::{
+    containers::{GameStore, GameWorld},
+    gametypes::*,
+    maps::*,
+    players::*,
+    sql::*,
+    tasks::*,
+};
 
 //TODO: Add Result<(), AscendingError> to all Functions that return nothing.
 pub async fn player_warp(
-    world: &mut World,
+    world: &GameWorld,
     storage: &GameStore,
     entity: &Entity,
     new_pos: &Position,
     spawn: bool,
 ) -> Result<()> {
-    if world.get_or_err::<Position>(entity)?.map != new_pos.map {
+    if world.get_or_err::<Position>(entity).await?.map != new_pos.map {
         let old_pos = player_switch_maps(world, storage, entity, *new_pos).await?;
 
         if !old_pos.1 {
@@ -24,7 +29,7 @@ pub async fn player_warp(
             .add_task(storage, warp_packet(*entity, *new_pos)?)
             .await?;
         DataTaskToken::PlayerSpawn(new_pos.map)
-            .add_task(storage, player_spawn_packet(world, entity, true)?)
+            .add_task(storage, player_spawn_packet(world, entity, true).await?)
             .await?;
         init_data_lists(world, storage, entity, Some(old_pos.0.map)).await?;
     } else {
@@ -32,7 +37,7 @@ pub async fn player_warp(
 
         if spawn {
             DataTaskToken::PlayerSpawn(new_pos.map)
-                .add_task(storage, player_spawn_packet(world, entity, true)?)
+                .add_task(storage, player_spawn_packet(world, entity, true).await?)
                 .await?;
             init_data_lists(world, storage, entity, None).await?;
         } else {
@@ -43,13 +48,15 @@ pub async fn player_warp(
     }
 
     {
-        world.get::<&mut Player>(entity.0)?.movesavecount += 1;
+        let lock = world.lock().await;
+        lock.get::<&mut Player>(entity.0)?.movesavecount += 1;
     }
 
-    if world.get_or_err::<Player>(entity)?.movesavecount >= 25 {
+    if world.get_or_err::<Player>(entity).await?.movesavecount >= 25 {
         update_pos(storage, world, entity).await?;
         {
-            world.get::<&mut Player>(entity.0)?.movesavecount = 0;
+            let lock = world.lock().await;
+            lock.get::<&mut Player>(entity.0)?.movesavecount = 0;
         }
     }
 
@@ -57,14 +64,14 @@ pub async fn player_warp(
 }
 
 pub async fn player_movement(
-    world: &mut World,
+    world: &GameWorld,
     storage: &GameStore,
     entity: &Entity,
     dir: u8,
 ) -> Result<bool> {
     //Down, Right, Up, Left
     let adj = [(0, -1), (1, 0), (0, 1), (-1, 0)];
-    let player_position = world.get_or_err::<Position>(entity)?;
+    let player_position = world.get_or_err::<Position>(entity).await?;
     let mut new_pos = Position::new(
         player_position.x + adj[dir as usize].0,
         player_position.y + adj[dir as usize].1,
@@ -91,7 +98,8 @@ pub async fn player_movement(
     }
 
     {
-        world.get::<&mut Dir>(entity.0)?.0 = dir;
+        let lock = world.lock().await;
+        lock.get::<&mut Dir>(entity.0)?.0 = dir;
     }
 
     if map_path_blocked(
@@ -127,17 +135,19 @@ pub async fn player_movement(
     }
 
     {
-        world.get::<&mut Player>(entity.0)?.movesavecount += 1;
+        let lock = world.lock().await;
+        lock.get::<&mut Player>(entity.0)?.movesavecount += 1;
     }
 
-    if world.get_or_err::<Player>(entity)?.movesavecount >= 25 {
+    if world.get_or_err::<Player>(entity).await?.movesavecount >= 25 {
         update_pos(storage, world, entity).await?;
         {
-            world.get::<&mut Player>(entity.0)?.movesavecount = 0;
+            let lock = world.lock().await;
+            lock.get::<&mut Player>(entity.0)?.movesavecount = 0;
         }
     }
 
-    let player_dir = world.get_or_err::<Dir>(entity)?;
+    let player_dir = world.get_or_err::<Dir>(entity).await?;
     if new_pos.map != player_position.map {
         let oldpos = player_switch_maps(world, storage, entity, new_pos).await?;
 
@@ -158,7 +168,7 @@ pub async fn player_movement(
             )
             .await?;
         DataTaskToken::PlayerSpawn(new_pos.map)
-            .add_task(storage, player_spawn_packet(world, entity, true)?)
+            .add_task(storage, player_spawn_packet(world, entity, true).await?)
             .await?;
 
         init_data_lists(world, storage, entity, Some(oldpos.0.map)).await?;

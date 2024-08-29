@@ -1,5 +1,4 @@
 use crate::{containers::*, gametypes::*, maps::MapItem};
-use hecs::World;
 use mmap_bytey::{MByteBufferRead, MByteBufferWrite};
 use serde::{Deserialize, Serialize};
 use speedy::{Readable, Writable};
@@ -167,13 +166,14 @@ impl EntityType {
         }
     }
 
-    pub fn get_pos(&self, world: &mut World, _storage: &GameStore) -> Option<Position> {
+    pub async fn get_pos(&self, world: &GameWorld, _storage: &GameStore) -> Option<Position> {
         match self {
             EntityType::Map(position) => Some(*position),
-            EntityType::Player(i, _) => world.get_or_err::<Position>(i).ok(),
-            EntityType::Npc(i) => world.get_or_err::<Position>(i).ok(),
+            EntityType::Player(i, _) => world.get_or_err::<Position>(i).await.ok(),
+            EntityType::Npc(i) => world.get_or_err::<Position>(i).await.ok(),
             EntityType::MapItem(i) => world
                 .get_or_err::<MapItem>(i)
+                .await
                 .map(|mapitem| mapitem.pos)
                 .ok(),
             EntityType::None => None,

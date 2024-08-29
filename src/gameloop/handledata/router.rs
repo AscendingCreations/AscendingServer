@@ -1,19 +1,20 @@
 use super::packet_mapper;
 use crate::{
-    containers::{GameStore, GameWorld}, gametypes::Result, socket::*, AscendingError, Entity, OnlineType,
-    WorldExtras,
+    containers::{GameStore, GameWorld},
+    gametypes::Result,
+    socket::*,
+    AscendingError, Entity, OnlineType, WorldExtrasAsync,
 };
-use hecs::World;
 
 pub async fn handle_data(
-    world: &mut World,
+    world: &GameWorld,
     storage: &GameStore,
     data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
     let id: ClientPacket = data.read()?;
 
-    let onlinetype = world.get_or_err::<OnlineType>(entity)?;
+    let onlinetype = world.get_or_err::<OnlineType>(entity).await?;
 
     match onlinetype {
         OnlineType::Online => match id {

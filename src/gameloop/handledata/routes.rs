@@ -9,15 +9,16 @@ use crate::{
     socket::*,
     sql::*,
     tasks::*,
+    WorldExtrasAsync,
 };
 use chrono::Duration;
-use hecs::World;
+use hecs::MissingComponent;
 use log::{debug, info};
 use rand::distributions::{Alphanumeric, DistString};
 use regex::Regex;
 
 pub async fn handle_ping(
-    world: &mut World,
+    world: &GameWorld,
     storage: &GameStore,
     _data: &mut MByteBuffer,
     entity: &Entity,
@@ -26,7 +27,7 @@ pub async fn handle_ping(
 }
 
 pub async fn handle_register(
-    world: &mut World,
+    world: &GameWorld,
     storage: &GameStore,
     data: &mut MByteBuffer,
     entity: &Entity,
@@ -41,7 +42,8 @@ pub async fn handle_register(
 
     if !storage.player_ids.lock().await.contains(entity) {
         let (socket_id, address) = {
-            let socket = world.get::<&Socket>(entity.0)?;
+            let lock = world.lock().await;
+            let socket = lock.get::<&Socket>(entity.0)?;
             (socket.id, socket.addr.clone())
         };
 
@@ -144,7 +146,15 @@ pub async fn handle_register(
             .await?;
 
         {
-            let (account, sprite) = world.query_one_mut::<(&mut Account, &mut Sprite)>(entity.0)?;
+            let lock = world.lock().await;
+            let mut query = lock.query_one::<(&mut Account, &mut Sprite)>(entity.0)?;
+            let (account, sprite) = query.get().ok_or(AscendingError::HecsComponent {
+                error: hecs::ComponentError::MissingComponent(MissingComponent::new::<(
+                    &mut Account,
+                    &mut Sprite,
+                )>()),
+                backtrace: Box::new(Backtrace::capture()),
+            })?;
 
             account.username.clone_from(&username);
             sprite.id = sprite_id as u16;
@@ -161,7 +171,8 @@ pub async fn handle_register(
         return match new_player(storage, world, entity, username, email, password).await {
             Ok(uid) => {
                 {
-                    world.get::<&mut Account>(entity.0)?.id = uid;
+                    let lock: tokio::sync::MutexGuard<'_, hecs::World> = world.lock().await;
+                    lock.get::<&mut Account>(entity.0)?.id = uid;
                 }
                 send_myindex(storage, socket_id, entity).await?;
                 send_codes(world, storage, entity, code, handshake).await
@@ -184,16 +195,20 @@ pub async fn handle_register(
 }
 
 pub async fn handle_handshake(
-    world: &mut World,
+    world: &GameWorld,
     storage: &GameStore,
     data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
     let handshake = data.read::<String>()?;
+    let user_handshake = world.cloned_get_or_err::<LoginHandShake>(entity).await?;
 
-    if world.get::<&LoginHandShake>(entity.0)?.handshake == handshake {
-        world.remove_one::<LoginHandShake>(entity.0)?;
-        world.remove_one::<ConnectionLoginTimer>(entity.0)?;
+    if user_handshake.handshake == handshake {
+        {
+            let mut lock = world.lock().await;
+            lock.remove_one::<LoginHandShake>(entity.0)?;
+            lock.remove_one::<ConnectionLoginTimer>(entity.0)?;
+        }
         return joingame(world, storage, entity).await;
     }
 
@@ -201,7 +216,7 @@ pub async fn handle_handshake(
 }
 
 pub async fn handle_login(
-    world: &mut World,
+    world: &GameWorld,
     storage: &GameStore,
     data: &mut MByteBuffer,
     entity: &Entity,
@@ -214,7 +229,8 @@ pub async fn handle_login(
     let reconnect_code = data.read::<String>()?;
 
     let (socket_id, address) = {
-        let socket = world.get::<&Socket>(entity.0)?;
+        let lock = world.lock().await;
+        let socket = lock.get::<&Socket>(entity.0)?;
         (socket.id, socket.addr.clone())
     };
 
@@ -262,13 +278,15 @@ pub async fn handle_login(
 
         if let Some(old_entity) = old_entity {
             if old_entity.0 != entity.0 {
-                let old_code = world.cloned_get_or_default::<ReloginCode>(&old_entity);
+                let old_code = world
+                    .cloned_get_or_default::<ReloginCode>(&old_entity)
+                    .await;
 
                 // if old code is empty means they did get unloaded just not all the way for some reason.
                 if old_code.code.is_empty() {
                     let _ = storage.player_names.lock().await.remove(&username);
                 } else if !reconnect_code.is_empty() && reconnect_code == old_code.code {
-                    if let Ok(socket) = world.cloned_get_or_err::<Socket>(&old_entity) {
+                    if let Ok(socket) = world.cloned_get_or_err::<Socket>(&old_entity).await {
                         if socket.id != socket_id {
                             if let Some(client) = storage
                                 .server
@@ -301,7 +319,7 @@ pub async fn handle_login(
             return send_infomsg(storage, socket_id, "Error Loading User.".into(), 1, true).await;
         }
 
-        let name = world.cloned_get_or_err::<Account>(entity)?.username;
+        let name = world.cloned_get_or_err::<Account>(entity).await?.username;
 
         info!("Player {} with IP: {}, Logging in.", &name, address);
         return send_login_info(world, storage, entity, code, handshake, socket_id, name).await;
@@ -311,15 +329,15 @@ pub async fn handle_login(
 }
 
 pub async fn handle_move(
-    world: &mut World,
+    world: &GameWorld,
     storage: &GameStore,
     data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.lock().await.get(entity) {
-        if !world.get_or_err::<DeathType>(entity)?.is_alive()
-            || world.get_or_err::<IsUsingType>(entity)?.inuse()
-            || world.get_or_err::<Stunned>(entity)?.0
+        if !world.get_or_err::<DeathType>(entity).await?.is_alive()
+            || world.get_or_err::<IsUsingType>(entity).await?.inuse()
+            || world.get_or_err::<Stunned>(entity).await?.0
         {
             return Ok(());
         }
@@ -331,14 +349,19 @@ pub async fn handle_move(
             return Err(AscendingError::InvalidPacket);
         }
 
-        let pos = world.get_or_err::<Position>(entity)?;
+        let pos = world.get_or_err::<Position>(entity).await?;
 
         if data_pos != pos {
             //println!("Desync! {:?} {:?}", data_pos, pos);
             player_warp(world, storage, entity, &pos, false).await?;
             return Ok(());
         }
-        let id = world.get::<&Socket>(entity.0)?.id;
+
+        let id = {
+            let lock = world.lock().await;
+            let id = lock.get::<&Socket>(entity.0)?.id;
+            id
+        };
 
         return send_move_ok(
             storage,
@@ -352,14 +375,14 @@ pub async fn handle_move(
 }
 
 pub async fn handle_dir(
-    world: &mut World,
+    world: &GameWorld,
     storage: &GameStore,
     data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.lock().await.get(entity) {
-        if !world.get_or_err::<DeathType>(entity)?.is_alive()
-            || world.get_or_err::<IsUsingType>(entity)?.inuse()
+        if !world.get_or_err::<DeathType>(entity).await?.is_alive()
+            || world.get_or_err::<IsUsingType>(entity).await?.inuse()
         {
             return Ok(());
         }
@@ -371,10 +394,11 @@ pub async fn handle_dir(
         }
 
         {
-            world.get::<&mut Dir>(entity.0)?.0 = dir;
+            let lock = world.lock().await;
+            lock.get::<&mut Dir>(entity.0)?.0 = dir;
         }
 
-        DataTaskToken::Dir(world.get_or_err::<Position>(entity)?.map)
+        DataTaskToken::Dir(world.get_or_err::<Position>(entity).await?.map)
             .add_task(storage, dir_packet(*entity, dir)?)
             .await?;
 
@@ -385,16 +409,16 @@ pub async fn handle_dir(
 }
 
 pub async fn handle_attack(
-    world: &mut World,
+    world: &GameWorld,
     storage: &GameStore,
     data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.lock().await.get(entity) {
-        if !world.get_or_err::<DeathType>(entity)?.is_alive()
-            || world.get_or_err::<IsUsingType>(entity)?.inuse()
-            || world.get_or_err::<Attacking>(entity)?.0
-            || world.get_or_err::<AttackTimer>(entity)?.0 > *storage.gettick.lock().await
+        if !world.get_or_err::<DeathType>(entity).await?.is_alive()
+            || world.get_or_err::<IsUsingType>(entity).await?.inuse()
+            || world.get_or_err::<Attacking>(entity).await?.0
+            || world.get_or_err::<AttackTimer>(entity).await?.0 > *storage.gettick.lock().await
         {
             return Ok(());
         }
@@ -406,22 +430,24 @@ pub async fn handle_attack(
             return Err(AscendingError::InvalidPacket);
         }
 
-        if world.get_or_err::<Dir>(entity)?.0 != dir {
+        if world.get_or_err::<Dir>(entity).await?.0 != dir {
             {
-                world.get::<&mut Dir>(entity.0)?.0 = dir;
+                let lock = world.lock().await;
+                lock.get::<&mut Dir>(entity.0)?.0 = dir;
             }
-            DataTaskToken::Dir(world.get_or_err::<Position>(entity)?.map)
+            DataTaskToken::Dir(world.get_or_err::<Position>(entity).await?.map)
                 .add_task(storage, dir_packet(*entity, dir)?)
                 .await?;
         };
 
         if let Some(target_entity) = target {
-            if world.contains(target_entity.0) {
+            if world.contains(&target_entity).await {
                 if !player_combat(world, storage, entity, &target_entity).await? {
                     player_interact_object(world, storage, entity).await?;
                 }
                 {
-                    world.get::<&mut AttackTimer>(entity.0)?.0 = *storage.gettick.lock().await
+                    let lock = world.lock().await;
+                    lock.get::<&mut AttackTimer>(entity.0)?.0 = *storage.gettick.lock().await
                         + Duration::try_milliseconds(250).unwrap_or_default();
                 }
             }
@@ -435,17 +461,17 @@ pub async fn handle_attack(
 }
 
 pub async fn handle_useitem(
-    world: &mut World,
+    world: &GameWorld,
     storage: &GameStore,
     data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.lock().await.get(entity) {
-        if !world.get_or_err::<DeathType>(entity)?.is_alive()
-            || world.get_or_err::<IsUsingType>(entity)?.inuse()
-            || world.get_or_err::<Attacking>(entity)?.0
-            || world.get_or_err::<Stunned>(entity)?.0
-            || world.get_or_err::<PlayerItemTimer>(entity)?.itemtimer
+        if !world.get_or_err::<DeathType>(entity).await?.is_alive()
+            || world.get_or_err::<IsUsingType>(entity).await?.inuse()
+            || world.get_or_err::<Attacking>(entity).await?.0
+            || world.get_or_err::<Stunned>(entity).await?.0
+            || world.get_or_err::<PlayerItemTimer>(entity).await?.itemtimer
                 > *storage.gettick.lock().await
         {
             return Ok(());
@@ -454,7 +480,8 @@ pub async fn handle_useitem(
         let slot = data.read::<u16>()?;
 
         {
-            world.get::<&mut PlayerItemTimer>(entity.0)?.itemtimer =
+            let lock = world.lock().await;
+            lock.get::<&mut PlayerItemTimer>(entity.0)?.itemtimer =
                 *storage.gettick.lock().await + Duration::try_milliseconds(250).unwrap_or_default();
         }
 
@@ -465,17 +492,17 @@ pub async fn handle_useitem(
 }
 
 pub async fn handle_unequip(
-    world: &mut World,
+    world: &GameWorld,
     storage: &GameStore,
     data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.lock().await.get(entity) {
-        if !world.get_or_err::<DeathType>(entity)?.is_alive()
-            || world.get_or_err::<IsUsingType>(entity)?.inuse()
-            || world.get_or_err::<Attacking>(entity)?.0
-            || world.get_or_err::<Stunned>(entity)?.0
-            || world.get_or_err::<PlayerItemTimer>(entity)?.itemtimer
+        if !world.get_or_err::<DeathType>(entity).await?.is_alive()
+            || world.get_or_err::<IsUsingType>(entity).await?.inuse()
+            || world.get_or_err::<Attacking>(entity).await?.0
+            || world.get_or_err::<Stunned>(entity).await?.0
+            || world.get_or_err::<PlayerItemTimer>(entity).await?.itemtimer
                 > *storage.gettick.lock().await
         {
             return Ok(());
@@ -483,14 +510,23 @@ pub async fn handle_unequip(
 
         let slot = data.read::<u16>()? as usize;
 
-        if slot >= EQUIPMENT_TYPE_MAX || world.get::<&Equipment>(entity.0)?.items[slot].val == 0 {
+        if slot >= EQUIPMENT_TYPE_MAX || {
+            let lock = world.lock().await;
+            let val = lock.get::<&Equipment>(entity.0)?.items[slot].val;
+            val
+        } == 0
+        {
             return Ok(());
         }
 
         if !player_unequip(world, storage, entity, slot).await? {
             send_fltalert(
                 storage,
-                world.get::<&Socket>(entity.0)?.id,
+                {
+                    let lock = world.lock().await;
+                    let id = lock.get::<&Socket>(entity.0)?.id;
+                    id
+                },
                 "Could not unequiped. No inventory space.".into(),
                 FtlType::Error,
             )
@@ -503,16 +539,16 @@ pub async fn handle_unequip(
 }
 
 pub async fn handle_switchinvslot(
-    world: &mut World,
+    world: &GameWorld,
     storage: &GameStore,
     data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.lock().await.get(entity) {
-        if !world.get_or_err::<DeathType>(entity)?.is_alive()
-            || world.get_or_err::<Attacking>(entity)?.0
-            || world.get_or_err::<Stunned>(entity)?.0
-            || world.get_or_err::<PlayerItemTimer>(entity)?.itemtimer
+        if !world.get_or_err::<DeathType>(entity).await?.is_alive()
+            || world.get_or_err::<Attacking>(entity).await?.0
+            || world.get_or_err::<Stunned>(entity).await?.0
+            || world.get_or_err::<PlayerItemTimer>(entity).await?.itemtimer
                 > *storage.gettick.lock().await
         {
             return Ok(());
@@ -522,48 +558,74 @@ pub async fn handle_switchinvslot(
         let newslot = data.read::<u16>()? as usize;
         let mut amount = data.read::<u16>()?;
 
-        if oldslot >= MAX_INV
-            || newslot >= MAX_INV
-            || world.get::<&Inventory>(entity.0)?.items[oldslot].val == 0
-        {
+        if oldslot >= MAX_INV || newslot >= MAX_INV || {
+            let lock = world.lock().await;
+            let val = lock.get::<&Inventory>(entity.0)?.items[oldslot].val;
+            val == 0
+        } {
             return Ok(());
         }
 
-        amount = amount.min(world.get::<&Inventory>(entity.0)?.items[oldslot].val);
+        amount = amount.min({
+            let lock = world.lock().await;
+            let val = lock.get::<&Inventory>(entity.0)?.items[oldslot].val;
+            val
+        });
 
-        let mut itemold = world.get::<&Inventory>(entity.0)?.items[oldslot];
+        let mut itemold = {
+            let lock = world.lock().await;
+            let old = lock.get::<&Inventory>(entity.0)?.items[oldslot];
+            old
+        };
 
-        if world.get::<&Inventory>(entity.0)?.items[newslot].val > 0 {
-            if world.get::<&Inventory>(entity.0)?.items[newslot].num
-                == world.get::<&Inventory>(entity.0)?.items[oldslot].num
-            {
+        let (oldval, oldnum, newval, newnum) = {
+            let lock = world.lock().await;
+            let newval = lock.get::<&Inventory>(entity.0)?.items[newslot].val;
+            let newnum = lock.get::<&Inventory>(entity.0)?.items[newslot].num;
+            let oldval = lock.get::<&Inventory>(entity.0)?.items[oldslot].val;
+            let oldnum = lock.get::<&Inventory>(entity.0)?.items[oldslot].num;
+            (oldval, oldnum, newval, newnum)
+        };
+        if newval > 0 {
+            if newnum == oldnum {
                 let take_amount = amount
                     - set_inv_slot(world, storage, entity, &mut itemold, newslot, amount).await?;
                 if take_amount > 0 {
                     take_inv_itemslot(world, storage, entity, oldslot, take_amount).await?;
                 }
-            } else if world.get::<&Inventory>(entity.0)?.items[oldslot].val == amount {
-                let itemnew = world.get::<&Inventory>(entity.0)?.items[newslot];
+            } else if oldval == amount {
                 {
-                    world.get::<&mut Inventory>(entity.0)?.items[newslot] = itemold;
-                    world.get::<&mut Inventory>(entity.0)?.items[oldslot] = itemnew;
+                    let lock = world.lock().await;
+
+                    let itemnew = lock.get::<&Inventory>(entity.0)?.items[newslot];
+                    {
+                        lock.get::<&mut Inventory>(entity.0)?.items[newslot] = itemold;
+                        lock.get::<&mut Inventory>(entity.0)?.items[oldslot] = itemnew;
+                    }
                 }
                 save_inv_item(world, storage, entity, newslot).await?;
                 save_inv_item(world, storage, entity, oldslot).await?;
             } else {
                 return send_fltalert(
                         storage,
-                        world.get::<&Socket>(entity.0)?.id,
+                        {
+                            let lock = world.lock().await;
+                            let id = lock.get::<&Socket>(entity.0)?.id;
+                            id
+                        },
                         "Can not swap slots with a different containing items unless you swap everything."
                             .into(),
                         FtlType::Error
                     ).await;
             }
         } else {
-            let itemnew = world.get::<&Inventory>(entity.0)?.items[newslot];
             {
-                world.get::<&mut Inventory>(entity.0)?.items[newslot] = itemold;
-                world.get::<&mut Inventory>(entity.0)?.items[oldslot] = itemnew;
+                let lock = world.lock().await;
+                let itemnew = lock.get::<&Inventory>(entity.0)?.items[newslot];
+                {
+                    lock.get::<&mut Inventory>(entity.0)?.items[newslot] = itemold;
+                    lock.get::<&mut Inventory>(entity.0)?.items[oldslot] = itemnew;
+                }
             }
             save_inv_item(world, storage, entity, newslot).await?;
             save_inv_item(world, storage, entity, oldslot).await?;
@@ -576,7 +638,7 @@ pub async fn handle_switchinvslot(
 }
 
 pub async fn handle_pickup(
-    world: &mut World,
+    world: &GameWorld,
     storage: &GameStore,
     _data: &mut MByteBuffer,
     entity: &Entity,
@@ -584,17 +646,20 @@ pub async fn handle_pickup(
     if let Some(entity) = storage.player_ids.lock().await.get(entity) {
         let mut remove_id: Vec<(MapPosition, Entity)> = Vec::new();
 
-        if !world.get_or_err::<DeathType>(entity)?.is_alive()
-            || world.get_or_err::<IsUsingType>(entity)?.inuse()
-            || world.get_or_err::<Attacking>(entity)?.0
-            || world.get_or_err::<Stunned>(entity)?.0
-            || world.get_or_err::<PlayerMapTimer>(entity)?.mapitemtimer
+        if !world.get_or_err::<DeathType>(entity).await?.is_alive()
+            || world.get_or_err::<IsUsingType>(entity).await?.inuse()
+            || world.get_or_err::<Attacking>(entity).await?.0
+            || world.get_or_err::<Stunned>(entity).await?.0
+            || world
+                .get_or_err::<PlayerMapTimer>(entity)
+                .await?
+                .mapitemtimer
                 > *storage.gettick.lock().await
         {
             return Ok(());
         }
 
-        let mapids = get_maps_in_range(storage, &world.get_or_err::<Position>(entity)?, 1);
+        let mapids = get_maps_in_range(storage, &world.get_or_err::<Position>(entity).await?, 1);
         let mut full_message = false;
 
         for id in mapids {
@@ -610,7 +675,7 @@ pub async fn handle_pickup(
                 if storage
                     .bases
                     .maps
-                    .get(&world.get_or_err::<Position>(entity)?.map)
+                    .get(&world.get_or_err::<Position>(entity).await?.map)
                     .is_none()
                 {
                     continue;
@@ -618,9 +683,10 @@ pub async fn handle_pickup(
                 let ids = map.itemids.clone();
 
                 for i in ids {
-                    let mut mapitems = world.get_or_err::<MapItem>(&i)?;
+                    let mut mapitems = world.get_or_err::<MapItem>(&i).await?;
                     if world
-                        .get_or_err::<Position>(entity)?
+                        .get_or_err::<Position>(entity)
+                        .await?
                         .checkdistance(mapitems.pos.map_offset(id.into()))
                         <= 1
                     {
@@ -628,7 +694,11 @@ pub async fn handle_pickup(
                             let rem =
                                 player_give_vals(world, storage, entity, mapitems.item.val as u64)
                                     .await?;
-                            world.get::<&mut MapItem>(i.0)?.item.val = rem as u16;
+
+                            {
+                                let lock = world.lock().await;
+                                lock.get::<&mut MapItem>(i.0)?.item.val = rem as u16;
+                            }
 
                             if rem == 0 {
                                 remove_id.push((x, i));
@@ -651,15 +721,16 @@ pub async fn handle_pickup(
 
                                 if amount != start {
                                     send_message(
-                                    world,
-                                    storage,
-                                    entity,
-                                    format!("You picked up {} {}{}. Your inventory is Full so some items remain.", amount, storage.bases.items[mapitems.item.num as usize].name, st),
-                                    String::new(),
-                                    MessageChannel::Private,
-                                    None,
-                                ).await?;
-                                    world.get::<&mut MapItem>(i.0)?.item.val = start - amount;
+                                        world,
+                                        storage,
+                                        entity,
+                                        format!("You picked up {} {}{}. Your inventory is Full so some items remain.", amount, storage.bases.items[mapitems.item.num as usize].name, st),
+                                        String::new(),
+                                        MessageChannel::Private,
+                                        None,
+                                    ).await?;
+                                    let lock = world.lock().await;
+                                    lock.get::<&mut MapItem>(i.0)?.item.val = start - amount;
                                 } else {
                                     send_message(
                                         world,
@@ -703,7 +774,7 @@ pub async fn handle_pickup(
 
         for (mappos, entity) in remove_id.iter_mut() {
             if let Some(map) = storage.maps.get(mappos) {
-                let pos = world.get_or_err::<MapItem>(entity)?.pos;
+                let pos = world.get_or_err::<MapItem>(entity).await?.pos;
                 let mut storage_mapitems = storage.map_items.lock().await;
                 if storage_mapitems.contains_key(&pos) {
                     storage_mapitems.swap_remove(&pos);
@@ -715,7 +786,8 @@ pub async fn handle_pickup(
             }
         }
         {
-            world.get::<&mut PlayerMapTimer>(entity.0)?.mapitemtimer =
+            let lock = world.lock().await;
+            lock.get::<&mut PlayerMapTimer>(entity.0)?.mapitemtimer =
                 *storage.gettick.lock().await + Duration::try_milliseconds(100).unwrap_or_default();
         }
         return Ok(());
@@ -725,16 +797,16 @@ pub async fn handle_pickup(
 }
 
 pub async fn handle_dropitem(
-    world: &mut World,
+    world: &GameWorld,
     storage: &GameStore,
     data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.lock().await.get(entity) {
-        if !world.get_or_err::<DeathType>(entity)?.is_alive()
-            || world.get_or_err::<IsUsingType>(entity)?.inuse()
-            || world.get_or_err::<Attacking>(entity)?.0
-            || world.get_or_err::<Stunned>(entity)?.0
+        if !world.get_or_err::<DeathType>(entity).await?.is_alive()
+            || world.get_or_err::<IsUsingType>(entity).await?.inuse()
+            || world.get_or_err::<Attacking>(entity).await?.0
+            || world.get_or_err::<Stunned>(entity).await?.0
         {
             return Ok(());
         }
@@ -742,20 +814,33 @@ pub async fn handle_dropitem(
         let slot = data.read::<u16>()? as usize;
         let mut amount = data.read::<u16>()?;
 
-        if slot >= MAX_INV || world.get::<&Inventory>(entity.0)?.items[slot].val == 0 || amount == 0
-        {
+        if slot >= MAX_INV || amount == 0 {
             return Ok(());
         }
 
-        amount = amount.min(world.get::<&Inventory>(entity.0)?.items[slot].val);
+        let slot_val = {
+            let lock = world.lock().await;
+            let val = lock.get::<&Inventory>(entity.0)?.items[slot].val;
+            val
+        };
 
-        let item_data = world.get::<&Inventory>(entity.0)?.items[slot];
+        if slot_val == 0 {
+            return Ok(());
+        }
+
+        amount = amount.min(slot_val);
+
+        let item_data = {
+            let lock = world.lock().await;
+            let item = lock.get::<&Inventory>(entity.0)?.items[slot];
+            item
+        };
 
         //make sure it exists first.
         if !storage
             .bases
             .maps
-            .contains_key(&world.get_or_err::<Position>(entity)?.map)
+            .contains_key(&world.get_or_err::<Position>(entity).await?.map)
         {
             return Err(AscendingError::Unhandled(Box::new(Backtrace::capture())));
         }
@@ -766,9 +851,9 @@ pub async fn handle_dropitem(
             DropItem {
                 index: item_data.num,
                 amount,
-                pos: world.get_or_err::<Position>(entity)?,
+                pos: world.get_or_err::<Position>(entity).await?,
             },
-            match world.get_or_err::<UserAccess>(entity)? {
+            match world.get_or_err::<UserAccess>(entity).await? {
                 UserAccess::Admin => None,
                 _ => Some(
                     *storage.gettick.lock().await
@@ -793,27 +878,37 @@ pub async fn handle_dropitem(
 }
 
 pub async fn handle_deleteitem(
-    world: &mut World,
+    world: &GameWorld,
     storage: &GameStore,
     data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.lock().await.get(entity) {
-        if !world.get_or_err::<DeathType>(entity)?.is_alive()
-            || world.get_or_err::<IsUsingType>(entity)?.inuse()
-            || world.get_or_err::<Attacking>(entity)?.0
-            || world.get_or_err::<Stunned>(entity)?.0
+        if !world.get_or_err::<DeathType>(entity).await?.is_alive()
+            || world.get_or_err::<IsUsingType>(entity).await?.inuse()
+            || world.get_or_err::<Attacking>(entity).await?.0
+            || world.get_or_err::<Stunned>(entity).await?.0
         {
             return Ok(());
         }
 
         let slot = data.read::<u16>()? as usize;
 
-        if slot >= MAX_INV || world.get::<&Inventory>(entity.0)?.items[slot].val == 0 {
+        if slot >= MAX_INV {
             return Ok(());
         }
 
-        let val = world.get::<&Inventory>(entity.0)?.items[slot].val;
+        let slot_val = {
+            let lock = world.lock().await;
+            let val = lock.get::<&Inventory>(entity.0)?.items[slot].val;
+            val
+        };
+
+        if slot_val == 0 {
+            return Ok(());
+        }
+
+        let val = slot_val;
         take_inv_itemslot(world, storage, entity, slot, val).await?;
 
         return Ok(());
@@ -823,16 +918,16 @@ pub async fn handle_deleteitem(
 }
 
 pub async fn handle_switchstorageslot(
-    world: &mut World,
+    world: &GameWorld,
     storage: &GameStore,
     data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.lock().await.get(entity) {
-        if !world.get_or_err::<DeathType>(entity)?.is_alive()
-            || !world.get_or_err::<IsUsingType>(entity)?.is_bank()
-            || world.get_or_err::<Attacking>(entity)?.0
-            || world.get_or_err::<Stunned>(entity)?.0
+        if !world.get_or_err::<DeathType>(entity).await?.is_alive()
+            || !world.get_or_err::<IsUsingType>(entity).await?.is_bank()
+            || world.get_or_err::<Attacking>(entity).await?.0
+            || world.get_or_err::<Stunned>(entity).await?.0
         {
             return Ok(());
         }
@@ -841,49 +936,56 @@ pub async fn handle_switchstorageslot(
         let newslot = data.read::<u16>()? as usize;
         let mut amount = data.read::<u16>()?;
 
-        if oldslot >= MAX_STORAGE
-            || newslot >= MAX_STORAGE
-            || world.get::<&PlayerStorage>(entity.0)?.items[oldslot].val == 0
-        {
+        if oldslot >= MAX_STORAGE || newslot >= MAX_STORAGE {
             return Ok(());
         }
 
-        amount = amount.min(world.get::<&PlayerStorage>(entity.0)?.items[oldslot].val);
+        let (mut olditem, newitem) = {
+            let lock = world.lock().await;
+            let olditem = lock.get::<&PlayerStorage>(entity.0)?.items[oldslot];
+            let newitem = lock.get::<&PlayerStorage>(entity.0)?.items[newslot];
+            (olditem, newitem)
+        };
 
-        let mut itemold = world.get::<&PlayerStorage>(entity.0)?.items[oldslot];
+        if olditem.val == 0 {
+            return Ok(());
+        }
 
-        if world.get::<&PlayerStorage>(entity.0)?.items[newslot].val > 0 {
-            if world.get::<&PlayerStorage>(entity.0)?.items[newslot].num
-                == world.get::<&PlayerStorage>(entity.0)?.items[oldslot].num
-            {
+        amount = amount.min(olditem.val);
+
+        if newitem.val > 0 {
+            if newitem.num == olditem.num {
                 let take_amount = amount
-                    - set_storage_slot(world, storage, entity, &mut itemold, newslot, amount)
+                    - set_storage_slot(world, storage, entity, &mut olditem, newslot, amount)
                         .await?;
                 if take_amount > 0 {
                     take_storage_itemslot(world, storage, entity, oldslot, take_amount).await?;
                 }
-            } else if world.get::<&PlayerStorage>(entity.0)?.items[oldslot].val == amount {
-                let itemnew = world.get::<&PlayerStorage>(entity.0)?.items[newslot];
+            } else if olditem.val == amount {
                 {
-                    world.get::<&mut PlayerStorage>(entity.0)?.items[newslot] = itemold;
-                    world.get::<&mut PlayerStorage>(entity.0)?.items[oldslot] = itemnew;
+                    let lock = world.lock().await;
+                    lock.get::<&mut PlayerStorage>(entity.0)?.items[newslot] = olditem;
+                    lock.get::<&mut PlayerStorage>(entity.0)?.items[oldslot] = newitem;
                 }
                 save_storage_item(world, storage, entity, newslot).await?;
                 save_storage_item(world, storage, entity, oldslot).await?;
             } else {
                 return send_fltalert(
                         storage,
-                        world.get::<&Socket>(entity.0)?.id,
+                        {
+                            let lock = world.lock().await;
+                            let id = lock.get::<&Socket>(entity.0)?.id;
+                            id },
                         "Can not swap slots with a different containing items unless you swap everything."
                             .into(),
                         FtlType::Error
                     ).await;
             }
         } else {
-            let itemnew = world.get::<&PlayerStorage>(entity.0)?.items[newslot];
             {
-                world.get::<&mut PlayerStorage>(entity.0)?.items[newslot] = itemold;
-                world.get::<&mut PlayerStorage>(entity.0)?.items[oldslot] = itemnew;
+                let lock = world.lock().await;
+                lock.get::<&mut PlayerStorage>(entity.0)?.items[newslot] = olditem;
+                lock.get::<&mut PlayerStorage>(entity.0)?.items[oldslot] = newitem;
             }
             save_storage_item(world, storage, entity, newslot).await?;
             save_storage_item(world, storage, entity, oldslot).await?;
@@ -896,28 +998,37 @@ pub async fn handle_switchstorageslot(
 }
 
 pub async fn handle_deletestorageitem(
-    world: &mut World,
+    world: &GameWorld,
     storage: &GameStore,
     data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.lock().await.get(entity) {
-        if !world.get_or_err::<DeathType>(entity)?.is_alive()
-            || !world.get_or_err::<IsUsingType>(entity)?.is_bank()
-            || world.get_or_err::<Attacking>(entity)?.0
-            || world.get_or_err::<Stunned>(entity)?.0
+        if !world.get_or_err::<DeathType>(entity).await?.is_alive()
+            || !world.get_or_err::<IsUsingType>(entity).await?.is_bank()
+            || world.get_or_err::<Attacking>(entity).await?.0
+            || world.get_or_err::<Stunned>(entity).await?.0
         {
             return Ok(());
         }
 
         let slot = data.read::<u16>()? as usize;
 
-        if slot >= MAX_STORAGE || world.get::<&PlayerStorage>(entity.0)?.items[slot].val == 0 {
+        if slot >= MAX_STORAGE {
             return Ok(());
         }
 
-        let val = world.get::<&PlayerStorage>(entity.0)?.items[slot].val;
-        take_storage_itemslot(world, storage, entity, slot, val).await?;
+        let slot_val = {
+            let lock = world.lock().await;
+            let val = lock.get::<&PlayerStorage>(entity.0)?.items[slot].val;
+            val
+        };
+
+        if slot_val == 0 {
+            return Ok(());
+        }
+
+        take_storage_itemslot(world, storage, entity, slot, slot_val).await?;
 
         return Ok(());
     }
@@ -926,16 +1037,16 @@ pub async fn handle_deletestorageitem(
 }
 
 pub async fn handle_deposititem(
-    world: &mut World,
+    world: &GameWorld,
     storage: &GameStore,
     data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.lock().await.get(entity) {
-        if !world.get_or_err::<DeathType>(entity)?.is_alive()
-            || !world.get_or_err::<IsUsingType>(entity)?.is_bank()
-            || world.get_or_err::<Attacking>(entity)?.0
-            || world.get_or_err::<Stunned>(entity)?.0
+        if !world.get_or_err::<DeathType>(entity).await?.is_alive()
+            || !world.get_or_err::<IsUsingType>(entity).await?.is_bank()
+            || world.get_or_err::<Attacking>(entity).await?.0
+            || world.get_or_err::<Stunned>(entity).await?.0
         {
             return Ok(());
         }
@@ -944,31 +1055,38 @@ pub async fn handle_deposititem(
         let bank_slot = data.read::<u16>()? as usize;
         let amount = data.read::<u16>()?;
 
-        if bank_slot >= MAX_STORAGE
-            || inv_slot >= MAX_INV
-            || world.get::<&Inventory>(entity.0)?.items[inv_slot].val == 0
-        {
+        if bank_slot >= MAX_STORAGE || inv_slot >= MAX_INV {
             return Ok(());
         }
 
-        let mut item_data = { world.get::<&Inventory>(entity.0)?.items[inv_slot] };
-
-        if item_data.val > amount {
-            item_data.val = amount;
+        let (mut inv_item, bank_item) = {
+            let lock = world.lock().await;
+            let item_data = lock.get::<&Inventory>(entity.0)?.items[inv_slot];
+            let bank_data = lock.get::<&PlayerStorage>(entity.0)?.items[bank_slot];
+            (item_data, bank_data)
         };
 
-        if { world.get::<&PlayerStorage>(entity.0)?.items[bank_slot].val } == 0 {
+        if inv_item.val == 0 {
+            return Ok(());
+        }
+
+        if inv_item.val > amount {
+            inv_item.val = amount;
+        };
+
+        if bank_item.val == 0 {
             {
-                world.get::<&mut PlayerStorage>(entity.0)?.items[bank_slot] = item_data;
+                let lock = world.lock().await;
+                lock.get::<&mut PlayerStorage>(entity.0)?.items[bank_slot] = inv_item;
             }
             save_storage_item(world, storage, entity, bank_slot).await?;
             take_inv_itemslot(world, storage, entity, inv_slot, amount).await?;
         } else {
             let (is_less, amount, _started) =
-                check_storage_partial_space(world, storage, entity, &mut item_data).await?;
+                check_storage_partial_space(world, storage, entity, &mut inv_item).await?;
 
             if is_less {
-                give_storage_item(world, storage, entity, &mut item_data).await?;
+                give_storage_item(world, storage, entity, &mut inv_item).await?;
                 take_inv_itemslot(world, storage, entity, inv_slot, amount).await?;
             } else {
                 send_message(
@@ -991,16 +1109,16 @@ pub async fn handle_deposititem(
 }
 
 pub async fn handle_withdrawitem(
-    world: &mut World,
+    world: &GameWorld,
     storage: &GameStore,
     data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.lock().await.get(entity) {
-        if !world.get_or_err::<DeathType>(entity)?.is_alive()
-            || !world.get_or_err::<IsUsingType>(entity)?.is_bank()
-            || world.get_or_err::<Attacking>(entity)?.0
-            || world.get_or_err::<Stunned>(entity)?.0
+        if !world.get_or_err::<DeathType>(entity).await?.is_alive()
+            || !world.get_or_err::<IsUsingType>(entity).await?.is_bank()
+            || world.get_or_err::<Attacking>(entity).await?.0
+            || world.get_or_err::<Stunned>(entity).await?.0
         {
             return Ok(());
         }
@@ -1009,31 +1127,38 @@ pub async fn handle_withdrawitem(
         let bank_slot = data.read::<u16>()? as usize;
         let amount = data.read::<u16>()?;
 
-        if bank_slot >= MAX_STORAGE
-            || world.get::<&PlayerStorage>(entity.0)?.items[bank_slot].val == 0
-            || inv_slot >= MAX_INV
-        {
+        if bank_slot >= MAX_STORAGE || inv_slot >= MAX_INV {
             return Ok(());
         }
 
-        let mut item_data = { world.get::<&PlayerStorage>(entity.0)?.items[bank_slot] };
-
-        if item_data.val > amount {
-            item_data.val = amount;
+        let (mut bank_item, inv_item) = {
+            let lock = world.lock().await;
+            let bank_item = lock.get::<&PlayerStorage>(entity.0)?.items[bank_slot];
+            let inv_item = lock.get::<&Inventory>(entity.0)?.items[inv_slot];
+            (bank_item, inv_item)
         };
 
-        if { world.get::<&Inventory>(entity.0)?.items[inv_slot].val } == 0 {
+        if bank_item.val == 0 {
+            return Ok(());
+        }
+
+        if bank_item.val > amount {
+            bank_item.val = amount;
+        };
+
+        if { inv_item.val } == 0 {
             {
-                world.get::<&mut Inventory>(entity.0)?.items[inv_slot] = item_data;
+                let lock = world.lock().await;
+                lock.get::<&mut Inventory>(entity.0)?.items[inv_slot] = bank_item;
             }
             save_inv_item(world, storage, entity, inv_slot).await?;
             take_storage_itemslot(world, storage, entity, bank_slot, amount).await?;
         } else {
             let (is_less, amount, _started) =
-                check_inv_partial_space(world, storage, entity, &mut item_data).await?;
+                check_inv_partial_space(world, storage, entity, &mut bank_item).await?;
 
             if is_less {
-                give_inv_item(world, storage, entity, &mut item_data).await?;
+                give_inv_item(world, storage, entity, &mut bank_item).await?;
                 take_storage_itemslot(world, storage, entity, bank_slot, amount).await?;
             } else {
                 send_message(
@@ -1055,7 +1180,7 @@ pub async fn handle_withdrawitem(
 }
 
 pub async fn handle_message(
-    world: &mut World,
+    world: &GameWorld,
     storage: &GameStore,
     data: &mut MByteBuffer,
     entity: &Entity,
@@ -1063,7 +1188,7 @@ pub async fn handle_message(
     if let Some(entity) = storage.player_ids.lock().await.get(entity) {
         let mut usersocket: Option<usize> = None;
 
-        if !world.get_or_err::<DeathType>(entity)?.is_alive() {
+        if !world.get_or_err::<DeathType>(entity).await?.is_alive() {
             return Ok(());
         }
 
@@ -1072,10 +1197,17 @@ pub async fn handle_message(
         let msg = data.read::<String>()?;
         let name = data.read::<String>()?;
 
+        let (username, socket_id) = {
+            let lock = world.lock().await;
+            let id = lock.get::<&Socket>(entity.0)?.id;
+            let username = lock.get::<&Account>(entity.0)?.username.clone();
+            (username, id)
+        };
+
         if msg.len() >= 256 {
             return send_fltalert(
                 storage,
-                world.get::<&Socket>(entity.0)?.id,
+                socket_id,
                 "Your message is too long. (256 character limit)".into(),
                 FtlType::Error,
             )
@@ -1084,26 +1216,26 @@ pub async fn handle_message(
 
         let head = match channel {
             MessageChannel::Map => {
-                format!("[Map] {}:", world.get::<&Account>(entity.0)?.username)
+                format!("[Map] {}:", username)
             }
             MessageChannel::Global => {
-                format!("[Global] {}:", world.get::<&Account>(entity.0)?.username)
+                format!("[Global] {}:", username)
             }
             MessageChannel::Trade => {
-                format!("[Trade] {}:", world.get::<&Account>(entity.0)?.username)
+                format!("[Trade] {}:", username)
             }
             MessageChannel::Party => {
-                format!("[Party] {}:", world.get::<&Account>(entity.0)?.username)
+                format!("[Party] {}:", username)
             }
             MessageChannel::Private => {
                 if name.is_empty() {
                     return Ok(());
                 }
 
-                if name == world.get::<&Account>(entity.0)?.username {
+                if name == username {
                     return send_fltalert(
                         storage,
-                        world.get::<&Socket>(entity.0)?.id,
+                        socket_id,
                         "You cannot send messages to yourself".into(),
                         FtlType::Error,
                     )
@@ -1112,7 +1244,9 @@ pub async fn handle_message(
 
                 usersocket = match storage.player_names.lock().await.get(&name) {
                     Some(id) => {
-                        if let Ok(socket) = world.get::<&Socket>(id.0) {
+                        let lock = world.lock().await;
+                        let socket_ref = lock.get::<&Socket>(id.0);
+                        if let Ok(socket) = socket_ref {
                             Some(socket.id)
                         } else {
                             return Ok(());
@@ -1121,7 +1255,7 @@ pub async fn handle_message(
                     None => {
                         return send_fltalert(
                             storage,
-                            world.get::<&Socket>(entity.0)?.id,
+                            socket_id,
                             "Player is offline or does not exist".into(),
                             FtlType::Error,
                         )
@@ -1129,13 +1263,13 @@ pub async fn handle_message(
                     }
                 };
 
-                format!("[Private] {}:", world.get::<&Account>(entity.0)?.username)
+                format!("[Private] {}:", username)
             }
             MessageChannel::Guild => {
-                format!("[Guild] {}:", world.get::<&Account>(entity.0)?.username)
+                format!("[Guild] {}:", username)
             }
             MessageChannel::Help => {
-                format!("[Help] {}:", world.get::<&Account>(entity.0)?.username)
+                format!("[Help] {}:", username)
             }
             MessageChannel::Quest => "".into(),
             MessageChannel::Npc => "".into(),
@@ -1148,7 +1282,7 @@ pub async fn handle_message(
 }
 
 pub async fn handle_command(
-    world: &mut World,
+    world: &GameWorld,
     storage: &GameStore,
     data: &mut MByteBuffer,
     entity: &Entity,
@@ -1176,25 +1310,29 @@ pub async fn handle_command(
                 }
             }
             Command::Trade => {
-                let target = world.get_or_err::<PlayerTarget>(entity)?.0;
+                let target = world.get_or_err::<PlayerTarget>(entity).await?.0;
                 if let Some(target_entity) = target
-                    && world.contains(target_entity.0)
+                    && world.contains(&target_entity).await
                 {
                     //init_trade(world, storage, entity, &target_entity)?;
-                    if world.get_or_err::<TradeRequestEntity>(entity)?.requesttimer
+                    if world
+                        .get_or_err::<TradeRequestEntity>(entity)
+                        .await?
+                        .requesttimer
                         <= *storage.gettick.lock().await
                         && can_target(
-                            world.get_or_err::<Position>(entity)?,
-                            world.get_or_err::<Position>(&target_entity)?,
-                            world.get_or_err::<DeathType>(&target_entity)?,
+                            world.get_or_err::<Position>(entity).await?,
+                            world.get_or_err::<Position>(&target_entity).await?,
+                            world.get_or_err::<DeathType>(&target_entity).await?,
                             1,
                         )
                         && can_trade(world, storage, &target_entity).await?
                     {
                         send_traderequest(world, storage, entity, &target_entity).await?;
                         {
+                            let lock = world.lock().await;
                             if let Ok(mut traderequest) =
-                                world.get::<&mut TradeRequestEntity>(entity.0)
+                                lock.get::<&mut TradeRequestEntity>(entity.0)
                             {
                                 traderequest.entity = Some(target_entity);
                                 traderequest.requesttimer = *storage.gettick.lock().await
@@ -1202,13 +1340,15 @@ pub async fn handle_command(
                                 // 1 Minute
                             }
                             if let Ok(mut traderequest) =
-                                world.get::<&mut TradeRequestEntity>(target_entity.0)
+                                lock.get::<&mut TradeRequestEntity>(target_entity.0)
                             {
                                 traderequest.entity = Some(*entity);
                                 traderequest.requesttimer = *storage.gettick.lock().await
                                     + Duration::try_milliseconds(60000).unwrap_or_default();
                                 // 1 Minute
                             }
+
+                            drop(lock);
                         }
                         send_message(
                             world,
@@ -1254,7 +1394,7 @@ pub async fn handle_command(
 }
 
 pub async fn handle_settarget(
-    world: &mut World,
+    world: &GameWorld,
     storage: &GameStore,
     data: &mut MByteBuffer,
     entity: &Entity,
@@ -1263,11 +1403,13 @@ pub async fn handle_settarget(
         let target = data.read::<Option<Entity>>()?;
 
         if let Some(target_entity) = target {
-            if !world.contains(target_entity.0) {
+            if !world.contains(&target_entity).await {
                 return Ok(());
             }
         }
-        world.get::<&mut PlayerTarget>(entity.0)?.0 = target;
+
+        let lock: tokio::sync::MutexGuard<'_, hecs::World> = world.lock().await;
+        lock.get::<&mut PlayerTarget>(entity.0)?.0 = target;
 
         return Ok(());
     }
@@ -1276,20 +1418,21 @@ pub async fn handle_settarget(
 }
 
 pub async fn handle_closestorage(
-    world: &mut World,
+    world: &GameWorld,
     storage: &GameStore,
     _data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.lock().await.get(entity) {
-        if !world.get_or_err::<DeathType>(entity)?.is_alive()
-            || !world.get_or_err::<IsUsingType>(entity)?.is_bank()
+        if !world.get_or_err::<DeathType>(entity).await?.is_alive()
+            || !world.get_or_err::<IsUsingType>(entity).await?.is_bank()
         {
             return Ok(());
         }
 
         {
-            *world.get::<&mut IsUsingType>(entity.0)? = IsUsingType::None;
+            let lock = world.lock().await;
+            *lock.get::<&mut IsUsingType>(entity.0)? = IsUsingType::None;
         }
         send_clearisusingtype(world, storage, entity).await?;
 
@@ -1300,20 +1443,21 @@ pub async fn handle_closestorage(
 }
 
 pub async fn handle_closeshop(
-    world: &mut World,
+    world: &GameWorld,
     storage: &GameStore,
     _data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.lock().await.get(entity) {
-        if !world.get_or_err::<DeathType>(entity)?.is_alive()
-            || !world.get_or_err::<IsUsingType>(entity)?.is_instore()
+        if !world.get_or_err::<DeathType>(entity).await?.is_alive()
+            || !world.get_or_err::<IsUsingType>(entity).await?.is_instore()
         {
             return Ok(());
         }
 
         {
-            *world.get::<&mut IsUsingType>(entity.0)? = IsUsingType::None;
+            let lock = world.lock().await;
+            *lock.get::<&mut IsUsingType>(entity.0)? = IsUsingType::None;
         }
         send_clearisusingtype(world, storage, entity).await?;
 
@@ -1324,25 +1468,25 @@ pub async fn handle_closeshop(
 }
 
 pub async fn handle_closetrade(
-    world: &mut World,
+    world: &GameWorld,
     storage: &GameStore,
     _data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.lock().await.get(entity) {
-        if !world.get_or_err::<DeathType>(entity)?.is_alive()
-            || !world.get_or_err::<IsUsingType>(entity)?.is_trading()
+        if !world.get_or_err::<DeathType>(entity).await?.is_alive()
+            || !world.get_or_err::<IsUsingType>(entity).await?.is_trading()
         {
             return Ok(());
         }
 
         let target_entity =
-            if let IsUsingType::Trading(entity) = world.get_or_err::<IsUsingType>(entity)? {
+            if let IsUsingType::Trading(entity) = world.get_or_err::<IsUsingType>(entity).await? {
                 entity
             } else {
                 return Ok(());
             };
-        if !world.contains(target_entity.0) {
+        if !world.contains(&target_entity).await {
             return Ok(());
         }
 
@@ -1350,8 +1494,9 @@ pub async fn handle_closetrade(
         close_trade(world, storage, &target_entity).await?;
 
         {
-            *world.get::<&mut TradeRequestEntity>(entity.0)? = TradeRequestEntity::default();
-            *world.get::<&mut TradeRequestEntity>(target_entity.0)? = TradeRequestEntity::default();
+            let lock = world.lock().await;
+            *lock.get::<&mut TradeRequestEntity>(entity.0)? = TradeRequestEntity::default();
+            *lock.get::<&mut TradeRequestEntity>(target_entity.0)? = TradeRequestEntity::default();
         }
 
         return send_message(
@@ -1360,7 +1505,7 @@ pub async fn handle_closetrade(
             &target_entity,
             format!(
                 "{} has cancelled the trade",
-                world.cloned_get_or_err::<Account>(entity)?.username
+                world.cloned_get_or_err::<Account>(entity).await?.username
             ),
             String::new(),
             MessageChannel::Private,
@@ -1373,19 +1518,19 @@ pub async fn handle_closetrade(
 }
 
 pub async fn handle_buyitem(
-    world: &mut World,
+    world: &GameWorld,
     storage: &GameStore,
     data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.lock().await.get(entity) {
-        if !world.get_or_err::<DeathType>(entity)?.is_alive()
-            || !world.get_or_err::<IsUsingType>(entity)?.is_instore()
+        if !world.get_or_err::<DeathType>(entity).await?.is_alive()
+            || !world.get_or_err::<IsUsingType>(entity).await?.is_instore()
         {
             return Ok(());
         }
         let shop_index =
-            if let IsUsingType::Store(shop) = world.get_or_err::<IsUsingType>(entity)? {
+            if let IsUsingType::Store(shop) = world.get_or_err::<IsUsingType>(entity).await? {
                 shop
             } else {
                 return Ok(());
@@ -1394,7 +1539,7 @@ pub async fn handle_buyitem(
 
         let shopdata = storage.bases.shops[shop_index as usize].clone();
 
-        let player_money = world.get_or_err::<Money>(entity)?.vals;
+        let player_money = world.get_or_err::<Money>(entity).await?.vals;
         if player_money < shopdata.item[slot as usize].price {
             return send_message(
                 world,
@@ -1446,19 +1591,19 @@ pub async fn handle_buyitem(
 }
 
 pub async fn handle_sellitem(
-    world: &mut World,
+    world: &GameWorld,
     storage: &GameStore,
     data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.lock().await.get(entity) {
-        if !world.get_or_err::<DeathType>(entity)?.is_alive()
-            || !world.get_or_err::<IsUsingType>(entity)?.is_instore()
+        if !world.get_or_err::<DeathType>(entity).await?.is_alive()
+            || !world.get_or_err::<IsUsingType>(entity).await?.is_instore()
         {
             return Ok(());
         }
         let _shop_index =
-            if let IsUsingType::Store(shop) = world.get_or_err::<IsUsingType>(entity)? {
+            if let IsUsingType::Store(shop) = world.get_or_err::<IsUsingType>(entity).await? {
                 shop
             } else {
                 return Ok(());
@@ -1466,11 +1611,19 @@ pub async fn handle_sellitem(
         let slot = data.read::<u16>()? as usize;
         let mut amount = data.read::<u16>()?;
 
-        if slot >= MAX_INV || world.get::<&Inventory>(entity.0)?.items[slot].val == 0 {
+        if slot >= MAX_INV {
             return Ok(());
         }
 
-        let inv_item = world.cloned_get_or_err::<Inventory>(entity)?.items[slot];
+        let inv_item = {
+            let lock = world.lock().await;
+            let inv_item = lock.get::<&Inventory>(entity.0)?.items[slot];
+            inv_item
+        };
+
+        if inv_item.val == 0 {
+            return Ok(());
+        }
         if amount > inv_item.val {
             amount = inv_item.val;
         };
@@ -1501,39 +1654,47 @@ pub async fn handle_sellitem(
 }
 
 pub async fn handle_addtradeitem(
-    world: &mut World,
+    world: &GameWorld,
     storage: &GameStore,
     data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.lock().await.get(entity) {
-        if !world.get_or_err::<DeathType>(entity)?.is_alive()
-            || !world.get_or_err::<IsUsingType>(entity)?.is_trading()
+        if !world.get_or_err::<DeathType>(entity).await?.is_alive()
+            || !world.get_or_err::<IsUsingType>(entity).await?.is_trading()
         {
             return Ok(());
         }
-        if world.get_or_err::<TradeStatus>(entity)? != TradeStatus::None {
+        if world.get_or_err::<TradeStatus>(entity).await? != TradeStatus::None {
             return Ok(());
         }
 
         let target_entity =
-            if let IsUsingType::Trading(entity) = world.get_or_err::<IsUsingType>(entity)? {
+            if let IsUsingType::Trading(entity) = world.get_or_err::<IsUsingType>(entity).await? {
                 entity
             } else {
                 return Ok(());
             };
-        if !world.contains(target_entity.0) {
+        if !world.contains(&target_entity).await {
             return Ok(());
         }
 
         let slot = data.read::<u16>()? as usize;
         let mut amount = data.read::<u16>()? as u64;
 
-        if slot >= MAX_INV || world.get::<&Inventory>(entity.0)?.items[slot].val == 0 {
+        if slot >= MAX_INV {
             return Ok(());
         }
 
-        let mut inv_item = world.cloned_get_or_err::<Inventory>(entity)?.items[slot];
+        let mut inv_item = {
+            let lock = world.lock().await;
+            let inv_item = lock.get::<&Inventory>(entity.0)?.items[slot];
+            inv_item
+        };
+
+        if inv_item.val == 0 {
+            return Ok(());
+        }
 
         let base = &storage.bases.items[inv_item.num as usize];
         if base.stackable && amount > base.stacklimit as u64 {
@@ -1541,14 +1702,17 @@ pub async fn handle_addtradeitem(
         }
 
         // Make sure it does not exceed the amount player have
-        let inv_count = count_inv_item(
-            inv_item.num,
-            &world.cloned_get_or_err::<Inventory>(entity)?.items,
-        );
-        let trade_count = count_trade_item(
-            inv_item.num,
-            &world.cloned_get_or_err::<TradeItem>(entity)?.items,
-        );
+        let (inv_count, trade_count) = {
+            let lock = world.lock().await;
+            let inv = lock.get::<&Inventory>(entity.0)?;
+            let trade = lock.get::<&TradeItem>(entity.0)?;
+
+            (
+                count_inv_item(inv_item.num, &inv.items),
+                count_trade_item(inv_item.num, &trade.items),
+            )
+        };
+
         if trade_count + amount > inv_count {
             amount = inv_count.saturating_sub(trade_count);
         }
@@ -1572,35 +1736,36 @@ pub async fn handle_addtradeitem(
 }
 
 pub async fn handle_removetradeitem(
-    world: &mut World,
+    world: &GameWorld,
     storage: &GameStore,
     data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.lock().await.get(entity) {
-        if !world.get_or_err::<DeathType>(entity)?.is_alive()
-            || !world.get_or_err::<IsUsingType>(entity)?.is_trading()
+        if !world.get_or_err::<DeathType>(entity).await?.is_alive()
+            || !world.get_or_err::<IsUsingType>(entity).await?.is_trading()
         {
             return Ok(());
         }
-        if world.get_or_err::<TradeStatus>(entity)? != TradeStatus::None {
+        if world.get_or_err::<TradeStatus>(entity).await? != TradeStatus::None {
             return Ok(());
         }
 
         let target_entity =
-            if let IsUsingType::Trading(entity) = world.get_or_err::<IsUsingType>(entity)? {
+            if let IsUsingType::Trading(entity) = world.get_or_err::<IsUsingType>(entity).await? {
                 entity
             } else {
                 return Ok(());
             };
-        if !world.contains(target_entity.0) {
+
+        if !world.contains(&target_entity).await {
             return Ok(());
         }
 
         let slot = data.read::<u16>()? as usize;
         let mut amount = data.read::<u64>()?;
 
-        let trade_item = world.cloned_get_or_err::<TradeItem>(entity)?.items[slot];
+        let trade_item = world.cloned_get_or_err::<TradeItem>(entity).await?.items[slot];
 
         if slot >= MAX_TRADE_SLOT || trade_item.val == 0 {
             return Ok(());
@@ -1608,7 +1773,9 @@ pub async fn handle_removetradeitem(
         amount = amount.min(trade_item.val as u64);
 
         {
-            if let Ok(mut tradeitem) = world.get::<&mut TradeItem>(entity.0) {
+            let lock = world.lock().await;
+            let trade_slot = lock.get::<&mut TradeItem>(entity.0);
+            if let Ok(mut tradeitem) = trade_slot {
                 tradeitem.items[slot].val = tradeitem.items[slot].val.saturating_sub(amount as u16);
                 if tradeitem.items[slot].val == 0 {
                     tradeitem.items[slot] = Item::default();
@@ -1626,36 +1793,37 @@ pub async fn handle_removetradeitem(
 }
 
 pub async fn handle_updatetrademoney(
-    world: &mut World,
+    world: &GameWorld,
     storage: &GameStore,
     data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.lock().await.get(entity) {
-        if !world.get_or_err::<DeathType>(entity)?.is_alive()
-            || !world.get_or_err::<IsUsingType>(entity)?.is_trading()
+        if !world.get_or_err::<DeathType>(entity).await?.is_alive()
+            || !world.get_or_err::<IsUsingType>(entity).await?.is_trading()
         {
             return Ok(());
         }
-        if world.get_or_err::<TradeStatus>(entity)? != TradeStatus::None {
+        if world.get_or_err::<TradeStatus>(entity).await? != TradeStatus::None {
             return Ok(());
         }
 
         let target_entity =
-            if let IsUsingType::Trading(entity) = world.get_or_err::<IsUsingType>(entity)? {
+            if let IsUsingType::Trading(entity) = world.get_or_err::<IsUsingType>(entity).await? {
                 entity
             } else {
                 return Ok(());
             };
-        if !world.contains(target_entity.0) {
+        if !world.contains(&target_entity).await {
             return Ok(());
         }
 
-        let money = world.get_or_err::<Money>(entity)?.vals;
+        let money = world.get_or_err::<Money>(entity).await?.vals;
         let amount = data.read::<u64>()?.min(money);
 
         {
-            world.get::<&mut TradeMoney>(entity.0)?.vals = amount;
+            let lock = world.lock().await;
+            lock.get::<&mut TradeMoney>(entity.0)?.vals = amount;
         }
         send_updatetrademoney(world, storage, entity, &target_entity).await?;
 
@@ -1666,43 +1834,46 @@ pub async fn handle_updatetrademoney(
 }
 
 pub async fn handle_submittrade(
-    world: &mut World,
+    world: &GameWorld,
     storage: &GameStore,
     _data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.lock().await.get(entity) {
-        if !world.get_or_err::<DeathType>(entity)?.is_alive()
-            || !world.get_or_err::<IsUsingType>(entity)?.is_trading()
+        if !world.get_or_err::<DeathType>(entity).await?.is_alive()
+            || !world.get_or_err::<IsUsingType>(entity).await?.is_trading()
         {
             return Ok(());
         }
 
         let target_entity =
-            if let IsUsingType::Trading(entity) = world.get_or_err::<IsUsingType>(entity)? {
+            if let IsUsingType::Trading(entity) = world.get_or_err::<IsUsingType>(entity).await? {
                 entity
             } else {
                 return Ok(());
             };
-        if !world.contains(target_entity.0) {
+        if !world.contains(&target_entity).await {
             return Ok(());
         }
 
-        let entity_status = world.get_or_err::<TradeStatus>(entity)?;
-        let target_status = world.get_or_err::<TradeStatus>(&target_entity)?;
+        let entity_status = world.get_or_err::<TradeStatus>(entity).await?;
+        let target_status = world.get_or_err::<TradeStatus>(&target_entity).await?;
 
         match entity_status {
             TradeStatus::None => {
-                *world.get::<&mut TradeStatus>(entity.0)? = TradeStatus::Accepted;
+                let lock = world.lock().await;
+                *lock.get::<&mut TradeStatus>(entity.0)? = TradeStatus::Accepted;
             }
             TradeStatus::Accepted => {
                 if target_status == TradeStatus::Accepted {
                     {
-                        *world.get::<&mut TradeStatus>(entity.0)? = TradeStatus::Submitted;
+                        let lock = world.lock().await;
+                        *lock.get::<&mut TradeStatus>(entity.0)? = TradeStatus::Submitted;
                     }
                 } else if target_status == TradeStatus::Submitted {
                     {
-                        *world.get::<&mut TradeStatus>(entity.0)? = TradeStatus::Submitted;
+                        let lock = world.lock().await;
+                        *lock.get::<&mut TradeStatus>(entity.0)? = TradeStatus::Submitted;
                     }
                     if !process_player_trade(world, storage, entity, &target_entity).await? {
                         send_message(
@@ -1735,7 +1906,7 @@ pub async fn handle_submittrade(
             world,
             storage,
             entity,
-            &world.get_or_err::<TradeStatus>(entity)?,
+            &world.get_or_err::<TradeStatus>(entity).await?,
             &target_status,
         )
         .await?;
@@ -1744,7 +1915,7 @@ pub async fn handle_submittrade(
             storage,
             &target_entity,
             &target_status,
-            &world.get_or_err::<TradeStatus>(entity)?,
+            &world.get_or_err::<TradeStatus>(entity).await?,
         )
         .await?;
 
@@ -1755,61 +1926,69 @@ pub async fn handle_submittrade(
 }
 
 pub async fn handle_accepttrade(
-    world: &mut World,
+    world: &GameWorld,
     storage: &GameStore,
     _data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.lock().await.get(entity) {
-        if !world.get_or_err::<DeathType>(entity)?.is_alive()
-            || world.get_or_err::<IsUsingType>(entity)?.inuse()
+        if !world.get_or_err::<DeathType>(entity).await?.is_alive()
+            || world.get_or_err::<IsUsingType>(entity).await?.inuse()
         {
             return Ok(());
         }
 
-        let target_entity = match world.get_or_err::<TradeRequestEntity>(entity)?.entity {
+        let target_entity = match world.get_or_err::<TradeRequestEntity>(entity).await?.entity {
             Some(entity) => entity,
             None => return Ok(()),
         };
         {
-            *world.get::<&mut TradeRequestEntity>(entity.0)? = TradeRequestEntity::default();
+            let lock = world.lock().await;
+            *lock.get::<&mut TradeRequestEntity>(entity.0)? = TradeRequestEntity::default();
         }
 
-        if !world.contains(target_entity.0) {
+        if !world.contains(&target_entity).await {
             return Ok(());
         }
 
         let trade_entity = match world
-            .get_or_err::<TradeRequestEntity>(&target_entity)?
+            .get_or_err::<TradeRequestEntity>(&target_entity)
+            .await?
             .entity
         {
             Some(entity) => entity,
             None => return Ok(()),
         };
-        if trade_entity != *entity || world.get_or_err::<IsUsingType>(&trade_entity)?.inuse() {
+        if trade_entity != *entity
+            || world
+                .get_or_err::<IsUsingType>(&trade_entity)
+                .await?
+                .inuse()
+        {
             return Ok(());
         }
 
         {
-            *world.get::<&mut TradeStatus>(entity.0)? = TradeStatus::None;
-            *world.get::<&mut TradeStatus>(trade_entity.0)? = TradeStatus::None;
-            *world.get::<&mut TradeRequestEntity>(entity.0)? = TradeRequestEntity::default();
-            *world.get::<&mut TradeRequestEntity>(target_entity.0)? = TradeRequestEntity::default();
+            let lock = world.lock().await;
+            *lock.get::<&mut TradeStatus>(entity.0)? = TradeStatus::None;
+            *lock.get::<&mut TradeStatus>(trade_entity.0)? = TradeStatus::None;
+            *lock.get::<&mut TradeRequestEntity>(entity.0)? = TradeRequestEntity::default();
+            *lock.get::<&mut TradeRequestEntity>(target_entity.0)? = TradeRequestEntity::default();
         }
         send_tradestatus(
             world,
             storage,
             entity,
-            &world.get_or_err::<TradeStatus>(entity)?,
-            &world.get_or_err::<TradeStatus>(&trade_entity)?,
+            &world.get_or_err::<TradeStatus>(entity).await?,
+            &world.get_or_err::<TradeStatus>(&trade_entity).await?,
         )
         .await?;
         send_tradestatus(
             world,
             storage,
             &trade_entity,
-            &world.get_or_err::<TradeStatus>(&trade_entity)?,
-            &world.get_or_err::<TradeStatus>(entity)?,
+            &world.get_or_err::<TradeStatus>(&trade_entity).await?,
+            &world.get_or_err::<TradeStatus>(entity).await?,
         )
         .await?;
 
@@ -1820,36 +1999,39 @@ pub async fn handle_accepttrade(
 }
 
 pub async fn handle_declinetrade(
-    world: &mut World,
+    world: &GameWorld,
     storage: &GameStore,
     _data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.lock().await.get(entity) {
-        if !world.get_or_err::<DeathType>(entity)?.is_alive()
-            || world.get_or_err::<IsUsingType>(entity)?.inuse()
+        if !world.get_or_err::<DeathType>(entity).await?.is_alive()
+            || world.get_or_err::<IsUsingType>(entity).await?.inuse()
         {
             return Ok(());
         }
 
-        let target_entity = match world.get_or_err::<TradeRequestEntity>(entity)?.entity {
+        let target_entity = match world.get_or_err::<TradeRequestEntity>(entity).await?.entity {
             Some(entity) => entity,
             None => return Ok(()),
         };
         {
-            *world.get::<&mut TradeRequestEntity>(entity.0)? = TradeRequestEntity::default();
+            let lock = world.lock().await;
+            *lock.get::<&mut TradeRequestEntity>(entity.0)? = TradeRequestEntity::default();
         }
 
-        if world.contains(target_entity.0) {
+        if world.contains(&target_entity).await {
             let trade_entity = match world
-                .get_or_err::<TradeRequestEntity>(&target_entity)?
+                .get_or_err::<TradeRequestEntity>(&target_entity)
+                .await?
                 .entity
             {
                 Some(entity) => entity,
                 None => return Ok(()),
             };
             if trade_entity == *entity {
-                *world.get::<&mut TradeRequestEntity>(target_entity.0)? =
+                let lock = world.lock().await;
+                *lock.get::<&mut TradeRequestEntity>(target_entity.0)? =
                     TradeRequestEntity::default();
             }
             send_message(

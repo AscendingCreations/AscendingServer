@@ -1,4 +1,4 @@
-#![allow(dead_code)]
+#![allow(dead_code, clippy::let_and_return)]
 #![recursion_limit = "256"]
 #![feature(let_chains, error_generic_member_access)]
 #![feature(async_closure)]
@@ -17,12 +17,13 @@ mod time_ext;
 
 #[allow(unused_imports)]
 use backtrace::Backtrace;
-use containers::{GameWorld, Storage};
+use containers::Storage;
 use gameloop::*;
 use gametypes::*;
 use hecs::World;
 use log::{error, info, Level, Metadata, Record};
 use std::{env, fs::File, io::Write, panic, sync::Arc};
+use tokio::sync::Mutex;
 
 use crate::containers::read_config;
 
@@ -102,8 +103,8 @@ async fn main() {
     info!("Initializing Storage");
     let storage = Arc::new(Storage::new(config).await.unwrap());
     info!("Initializing World");
-    let mut world = World::new();
+    let world = Arc::new(Mutex::new(World::new()));
 
     info!("Game Server is Running.");
-    game_loop(&mut world, &storage).await;
+    game_loop(&world, &storage).await;
 }

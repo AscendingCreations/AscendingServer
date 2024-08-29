@@ -1,5 +1,5 @@
-use crate::{gametypes::*, items::*, npcs::*, players::*, socket::*};
-use hecs::{NoSuchEntity, World};
+use crate::{containers::GameWorld, gametypes::*, items::*, npcs::*, players::*, socket::*};
+use hecs::NoSuchEntity;
 
 pub fn move_packet(
     entity: Entity,
@@ -40,12 +40,13 @@ pub fn death_packet(entity: Entity, life: DeathType) -> Result<MByteBuffer> {
     Ok(buffer)
 }
 
-pub fn npc_spawn_packet(
-    world: &mut World,
+pub async fn npc_spawn_packet(
+    world: &GameWorld,
     entity: &Entity,
     did_spawn: bool,
 ) -> Result<MByteBuffer> {
-    let mut query = world.query_one::<(
+    let lock = world.lock().await;
+    let mut query = lock.query_one::<(
         &Dir,
         &Hidden,
         &Level,
@@ -87,12 +88,13 @@ pub fn npc_spawn_packet(
     }
 }
 
-pub fn player_spawn_packet(
-    world: &mut World,
+pub async fn player_spawn_packet(
+    world: &GameWorld,
     entity: &Entity,
     did_spawn: bool,
 ) -> Result<MByteBuffer> {
-    let mut query = world.query_one::<(
+    let lock: tokio::sync::MutexGuard<'_, hecs::World> = world.lock().await;
+    let mut query = lock.query_one::<(
         &Account,
         &Dir,
         &Hidden,

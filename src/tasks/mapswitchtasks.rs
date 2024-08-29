@@ -1,13 +1,12 @@
 use std::cmp::max;
 
 use crate::{
-    containers::{GameStore, HashSet},
+    containers::{GameStore, GameWorld, HashSet},
     gametypes::*,
     maps::*,
     players::*,
     tasks::{map_item_packet, npc_spawn_packet, player_spawn_packet, DataTaskToken},
 };
-use hecs::World;
 
 //types to buffer load when loading a map.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -18,7 +17,7 @@ pub enum MapSwitchTasks {
 }
 
 pub async fn init_data_lists(
-    world: &mut World,
+    world: &GameWorld,
     storage: &GameStore,
     user: &crate::Entity,
     oldmap: Option<MapPosition>,
@@ -85,7 +84,7 @@ pub async fn init_data_lists(
 
     //Only get the New id's not in Old for the Vec we use the old data to deturmine what use to exist.
     //the users map is always first in the Vec of get_surrounding so it always gets loaded first.
-    for m in get_surrounding(world.get_or_err::<Position>(user)?.map, true) {
+    for m in get_surrounding(world.get_or_err::<Position>(user).await?.map, true) {
         if let Some(mapref) = storage.maps.get(&m) {
             let map = mapref.lock().await;
             map.players.iter().for_each(|id| {
@@ -128,7 +127,7 @@ pub async fn init_data_lists(
 
 const PROCESS_LIMIT: usize = 1000;
 
-pub async fn process_data_lists(world: &mut World, storage: &GameStore) -> Result<()> {
+pub async fn process_data_lists(world: &GameWorld, storage: &GameStore) -> Result<()> {
     let mut removals = Vec::new();
     let mut maptasks = storage.map_switch_tasks.lock().await;
     let process_limit = max(PROCESS_LIMIT / (1 + maptasks.len() * 3), 10);
@@ -136,7 +135,12 @@ pub async fn process_data_lists(world: &mut World, storage: &GameStore) -> Resul
     for (entity, tasks) in maptasks.iter_mut() {
         let mut contains_data = false;
 
-        let socket_id = world.get::<&Socket>(entity.0).map(|s| s.id);
+        let socket_id = {
+            let lock = world.lock().await;
+            let id = lock.get::<&Socket>(entity.0).map(|s| s.id);
+            id
+        };
+
         if let Ok(socket_id) = socket_id {
             for task in tasks {
                 let amount_left = match task {
@@ -144,9 +148,12 @@ pub async fn process_data_lists(world: &mut World, storage: &GameStore) -> Resul
                         let cursor = entities.len().saturating_sub(process_limit);
 
                         for entity in entities.drain(cursor..) {
-                            if world.contains(entity.0) {
+                            if world.contains(&entity).await {
                                 DataTaskToken::NpcSpawnToEntity(socket_id)
-                                    .add_task(storage, npc_spawn_packet(world, &entity, false)?)
+                                    .add_task(
+                                        storage,
+                                        npc_spawn_packet(world, &entity, false).await?,
+                                    )
                                     .await?;
                             }
                         }
@@ -157,9 +164,12 @@ pub async fn process_data_lists(world: &mut World, storage: &GameStore) -> Resul
                         let cursor = entities.len().saturating_sub(process_limit);
 
                         for entity in entities.drain(cursor..) {
-                            if world.contains(entity.0) {
+                            if world.contains(&entity).await {
                                 DataTaskToken::PlayerSpawnToEntity(socket_id)
-                                    .add_task(storage, player_spawn_packet(world, &entity, false)?)
+                                    .add_task(
+                                        storage,
+                                        player_spawn_packet(world, &entity, false).await?,
+                                    )
                                     .await?;
                             }
                         }
@@ -170,7 +180,9 @@ pub async fn process_data_lists(world: &mut World, storage: &GameStore) -> Resul
                         let cursor = entities.len().saturating_sub(process_limit);
 
                         for entity in entities.drain(cursor..) {
-                            if let Ok(map_item) = world.get::<&MapItem>(entity.0) {
+                            let lock = world.lock().await;
+                            let map_item = lock.get::<&MapItem>(entity.0);
+                            if let Ok(map_item) = map_item {
                                 DataTaskToken::ItemLoadToEntity(socket_id)
                                     .add_task(
                                         storage,

@@ -1,19 +1,34 @@
-use crate::{containers::{GameStore, GameWorld}, gametypes::*, maps::*, npcs::*, players::*};
+use crate::{
+    containers::{GameStore, GameWorld},
+    gametypes::*,
+    maps::*,
+    npcs::*,
+    players::*,
+};
 use chrono::Duration;
-use hecs::World;
 use rand::{thread_rng, Rng};
 
-pub async fn check_target(world: &mut World, entity: &Entity) -> Result<()> {
-    match world.get_or_err::<Target>(entity)?.target_type {
+pub async fn check_target(world: &GameWorld, entity: &Entity) -> Result<()> {
+    match world.get_or_err::<Target>(entity).await?.target_type {
         EntityType::Player(i, accid) => {
-            if world.contains(i.0)
-                && world.get_or_err::<DeathType>(&i)?.is_alive()
-                && world.get::<&Account>(i.0)?.id == accid
+            let id = {
+                let lock = world.lock().await;
+                let id = lock.get::<&Account>(i.0)?.id;
+                id
+            };
+
+            if world.contains(&i).await
+                && world.get_or_err::<DeathType>(&i).await?.is_alive()
+                && id == accid
             {
                 return Ok(());
             }
 
-            *world.get::<&mut Target>(entity.0)? = Target::default();
+            {
+                let lock = world.lock().await;
+                *lock.get::<&mut Target>(entity.0)? = Target::default();
+            }
+
             npc_clear_move_path(world, entity).await?;
             Ok(())
         }
@@ -22,11 +37,15 @@ pub async fn check_target(world: &mut World, entity: &Entity) -> Result<()> {
                 return Ok(()); //targeting ourselve maybe for healing lets continue.
             }
 
-            if world.contains(i.0) && world.get_or_err::<DeathType>(&i)?.is_alive() {
+            if world.contains(&i).await && world.get_or_err::<DeathType>(&i).await?.is_alive() {
                 return Ok(());
             }
 
-            *world.get::<&mut Target>(entity.0)? = Target::default();
+            {
+                let lock = world.lock().await;
+                *lock.get::<&mut Target>(entity.0)? = Target::default();
+            }
+
             npc_clear_move_path(world, entity).await?;
             Ok(())
         }
@@ -35,7 +54,7 @@ pub async fn check_target(world: &mut World, entity: &Entity) -> Result<()> {
 }
 
 pub async fn targeting(
-    world: &mut World,
+    world: &GameWorld,
     storage: &GameStore,
     entity: &Entity,
     base: &NpcData,
@@ -44,16 +63,21 @@ pub async fn targeting(
     // This way we dont need to change the target if we have one.
     check_target(world, entity).await?;
 
-    if world.get_or_err::<Target>(entity)?.target_type != EntityType::None {
+    if world.get_or_err::<Target>(entity).await?.target_type != EntityType::None {
         if (base.target_auto_switch
-            && world.get_or_err::<Target>(entity)?.target_timer < *storage.gettick.lock().await)
+            && world.get_or_err::<Target>(entity).await?.target_timer
+                < *storage.gettick.lock().await)
             || (base.target_range_dropout
                 && world
-                    .get_or_err::<Position>(entity)?
-                    .checkdistance(world.get_or_err::<Target>(entity)?.target_pos)
+                    .get_or_err::<Position>(entity)
+                    .await?
+                    .checkdistance(world.get_or_err::<Target>(entity).await?.target_pos)
                     > base.sight)
         {
-            *world.get::<&mut Target>(entity.0)? = Target::default();
+            {
+                let lock = world.lock().await;
+                *lock.get::<&mut Target>(entity.0)? = Target::default();
+            }
             npc_clear_move_path(world, entity).await?;
         } else {
             return Ok(());
@@ -64,7 +88,11 @@ pub async fn targeting(
         return Ok(());
     }
 
-    let map_range = get_maps_in_range(storage, &world.get_or_err::<Position>(entity)?, base.sight);
+    let map_range = get_maps_in_range(
+        storage,
+        &world.get_or_err::<Position>(entity).await?,
+        base.sight,
+    );
     let valid_map_data = map_range
         .iter()
         .filter_map(|map_pos| map_pos.get())
@@ -74,8 +102,10 @@ pub async fn targeting(
         let map_data = map_data_ref.lock().await;
 
         for x in &map_data.players {
-            let accid = if world.contains(x.0) {
-                world.get::<&Account>(x.0)?.id
+            let accid = if world.contains(x).await {
+                let lock = world.lock().await;
+                let id = lock.get::<&Account>(x.0)?.id;
+                id
             } else {
                 continue;
             };
@@ -102,13 +132,13 @@ pub async fn targeting(
 }
 
 pub async fn try_target_entity(
-    world: &mut World,
+    world: &GameWorld,
     storage: &GameStore,
     entity: &Entity,
     entitytype: EntityType,
 ) -> Result<()> {
-    let target = world.get_or_err::<Target>(entity)?;
-    let pos = world.get_or_err::<Position>(entity)?;
+    let target = world.get_or_err::<Target>(entity).await?;
+    let pos = world.get_or_err::<Position>(entity).await?;
     let new_target = match entitytype {
         EntityType::Player(id, _) | EntityType::Npc(id) => match target.target_type {
             EntityType::Npc(oldid) | EntityType::Player(oldid, _) => oldid == id,
@@ -119,14 +149,14 @@ pub async fn try_target_entity(
 
     let cantarget = match target.target_type {
         EntityType::Npc(id) | EntityType::Player(id, _) => {
-            if world.contains(id.0) {
+            if world.contains(&id).await {
                 let mut rng = thread_rng();
 
                 if rng.gen_range(0..2) == 1 && new_target {
                     true
                 } else {
-                    let target_pos = world.get_or_err::<Position>(&id)?;
-                    let deathtype = world.get_or_err::<DeathType>(&id)?;
+                    let target_pos = world.get_or_err::<Position>(&id).await?;
+                    let deathtype = world.get_or_err::<DeathType>(&id).await?;
                     !can_target(pos, target_pos, deathtype, 1)
                 }
             } else {
@@ -136,7 +166,7 @@ pub async fn try_target_entity(
         _ => true,
     };
 
-    let npc_index = world.get_or_default::<NpcIndex>(entity).0;
+    let npc_index = world.get_or_default::<NpcIndex>(entity).await.0;
     let npc_base = storage.bases.npcs.get(npc_index as usize);
 
     if let Some(base) = npc_base
@@ -145,13 +175,14 @@ pub async fn try_target_entity(
         let entity_copy = entitytype;
         match entitytype {
             EntityType::Npc(id) | EntityType::Player(id, _) => {
-                if world.contains(id.0) {
-                    let target_pos = world.get_or_err::<Position>(&id)?;
-                    let deathtype = world.get_or_err::<DeathType>(&id)?;
+                if world.contains(&id).await {
+                    let target_pos = world.get_or_err::<Position>(&id).await?;
+                    let deathtype = world.get_or_err::<DeathType>(&id).await?;
                     if can_target(pos, target_pos, deathtype, 1) {
-                        world.get::<&mut Target>(entity.0)?.target_pos = target_pos;
-                        world.get::<&mut Target>(entity.0)?.target_type = entity_copy;
-                        world.get::<&mut Target>(entity.0)?.target_timer =
+                        let lock = world.lock().await;
+                        lock.get::<&mut Target>(entity.0)?.target_pos = target_pos;
+                        lock.get::<&mut Target>(entity.0)?.target_type = entity_copy;
+                        lock.get::<&mut Target>(entity.0)?.target_timer =
                             *storage.gettick.lock().await
                                 + Duration::try_milliseconds(base.target_auto_switch_chance)
                                     .unwrap_or_default();
@@ -165,20 +196,20 @@ pub async fn try_target_entity(
     Ok(())
 }
 
-pub async fn update_target_pos(world: &mut World, entity: &Entity) -> Result<Target> {
-    if !world.contains(entity.0) {
+pub async fn update_target_pos(world: &GameWorld, entity: &Entity) -> Result<Target> {
+    if !world.contains(entity).await {
         return Ok(Target::default());
     }
 
-    let pos = world.get_or_err::<Position>(entity)?;
-    let mut target = world.get_or_err::<Target>(entity)?;
+    let pos = world.get_or_err::<Position>(entity).await?;
+    let mut target = world.get_or_err::<Target>(entity).await?;
     let target_type = target.target_type;
 
     match target_type {
         EntityType::Npc(id) | EntityType::Player(id, _) => {
-            if world.contains(id.0) {
-                let target_pos = world.get_or_err::<Position>(&id)?;
-                let deathtype = world.get_or_err::<DeathType>(&id)?;
+            if world.contains(&id).await {
+                let target_pos = world.get_or_err::<Position>(&id).await?;
+                let deathtype = world.get_or_err::<DeathType>(&id).await?;
 
                 if check_surrounding(pos.map, target_pos.map, true) == MapPos::None
                     || !deathtype.is_alive()
@@ -194,13 +225,14 @@ pub async fn update_target_pos(world: &mut World, entity: &Entity) -> Result<Tar
         _ => {}
     }
 
-    *world.get::<&mut Target>(entity.0)? = target;
+    let lock = world.lock().await;
+    *lock.get::<&mut Target>(entity.0)? = target;
 
     Ok(target)
 }
 
 pub async fn npc_targeting(
-    world: &mut World,
+    world: &GameWorld,
     storage: &GameStore,
     entity: &Entity,
     base: &NpcData,
@@ -208,17 +240,24 @@ pub async fn npc_targeting(
 ) -> Result<bool> {
     let (pos, _) = match entitytype {
         EntityType::Player(i, accid) => {
-            if world.contains(i.0) {
-                if world.get_or_err::<DeathType>(&i)?.is_alive()
-                    && world.get::<&Account>(i.0)?.id == accid
-                {
+            if world.contains(&i).await {
+                let id = {
+                    let lock = world.lock().await;
+                    let id = lock.get::<&Account>(i.0)?.id;
+                    id
+                };
+
+                if world.get_or_err::<DeathType>(&i).await?.is_alive() && id == accid {
                     let check = check_surrounding(
-                        world.get_or_err::<Position>(entity)?.map,
-                        world.get_or_err::<Position>(&i)?.map,
+                        world.get_or_err::<Position>(entity).await?.map,
+                        world.get_or_err::<Position>(&i).await?.map,
                         true,
                     );
-                    let pos = world.get_or_err::<Position>(&i)?.map_offset(check.into());
-                    let dir = world.get_or_err::<Dir>(&i)?.0;
+                    let pos = world
+                        .get_or_err::<Position>(&i)
+                        .await?
+                        .map_offset(check.into());
+                    let dir = world.get_or_err::<Dir>(&i).await?.0;
                     (pos, dir)
                 } else {
                     return Ok(false);
@@ -228,25 +267,26 @@ pub async fn npc_targeting(
             }
         }
         EntityType::Npc(i) => {
-            if world.contains(i.0) {
+            if world.contains(&i).await {
                 //let newbase = &storage.bases.npcs[world.get_or_err::<NpcIndex>(&i)?.0 as usize];
                 let mut is_enemy = false;
 
                 if base.has_enemies {
-                    is_enemy = base
-                        .enemies
-                        .iter()
-                        .any(|&x| world.get_or_default::<NpcIndex>(&i).0 == x);
+                    let npc_index = world.get_or_default::<NpcIndex>(&i).await.0;
+                    is_enemy = base.enemies.iter().any(|&x| npc_index == x);
                 }
 
-                if world.get_or_err::<DeathType>(&i)?.is_alive() && is_enemy {
+                if world.get_or_err::<DeathType>(&i).await?.is_alive() && is_enemy {
                     let check = check_surrounding(
-                        world.get_or_err::<Position>(entity)?.map,
-                        world.get_or_err::<Position>(&i)?.map,
+                        world.get_or_err::<Position>(entity).await?.map,
+                        world.get_or_err::<Position>(&i).await?.map,
                         true,
                     );
-                    let pos = world.get_or_err::<Position>(&i)?.map_offset(check.into());
-                    let dir = world.get_or_err::<Dir>(&i)?.0;
+                    let pos = world
+                        .get_or_err::<Position>(&i)
+                        .await?
+                        .map_offset(check.into());
+                    let dir = world.get_or_err::<Dir>(&i).await?.0;
                     (pos, dir)
                 } else {
                     return Ok(false);
@@ -258,16 +298,21 @@ pub async fn npc_targeting(
         EntityType::Map(_) | EntityType::None | EntityType::MapItem(_) => return Ok(false),
     };
 
-    let distance = world.get_or_err::<Position>(entity)?.checkdistance(pos);
+    let distance = world
+        .get_or_err::<Position>(entity)
+        .await?
+        .checkdistance(pos);
+
     if distance > base.sight {
         return Ok(false);
     }
 
-    world.get::<&mut Target>(entity.0)?.target_pos = pos;
-    world.get::<&mut Target>(entity.0)?.target_type = entitytype;
-    world.get::<&mut Target>(entity.0)?.target_timer = *storage.gettick.lock().await
+    let lock = world.lock().await;
+    lock.get::<&mut Target>(entity.0)?.target_pos = pos;
+    lock.get::<&mut Target>(entity.0)?.target_type = entitytype;
+    lock.get::<&mut Target>(entity.0)?.target_timer = *storage.gettick.lock().await
         + Duration::try_milliseconds(base.target_auto_switch_chance).unwrap_or_default();
-    world.get::<&mut AttackTimer>(entity.0)?.0 = *storage.gettick.lock().await
+    lock.get::<&mut AttackTimer>(entity.0)?.0 = *storage.gettick.lock().await
         + Duration::try_milliseconds(base.attack_wait).unwrap_or_default();
 
     Ok(true)

@@ -4,10 +4,9 @@ use crate::{
     gametypes::*,
     socket::*,
 };
-use hecs::World;
 
 pub async fn packet_mapper(
-    world: &mut World,
+    world: &GameWorld,
     storage: &GameStore,
     data: &mut MByteBuffer,
     entity: &Entity,

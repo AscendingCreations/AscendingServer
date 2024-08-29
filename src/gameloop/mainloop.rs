@@ -8,9 +8,8 @@ use crate::{
     time_ext::MyInstant,
 };
 use chrono::Duration;
-use hecs::World;
 
-pub async fn game_loop(world: &mut World, storage: &GameStore) {
+pub async fn game_loop(world: &GameWorld, storage: &GameStore) {
     let mut tick: MyInstant;
     let mut tmr100: MyInstant = MyInstant::now();
     let mut tmr500: MyInstant = MyInstant::now();

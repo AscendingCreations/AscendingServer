@@ -1,10 +1,8 @@
-use hecs::World;
-
 use crate::{containers::*, gametypes::*, items::*, players::*, socket::*, sql::*};
 
 #[inline]
 pub async fn save_storage_item(
-    world: &mut World,
+    world: &GameWorld,
     storage: &GameStore,
     entity: &Entity,
     slot: usize,
@@ -49,7 +47,7 @@ pub fn find_storage_slot(item: &Item, storage: &[Item], base: &ItemData) -> Opti
 #[inline]
 //This should always be successful unless an error occurs since we check for space ahead of time.
 pub async fn auto_set_storage_item(
-    world: &mut World,
+    world: &GameWorld,
     storage: &GameStore,
     entity: &crate::Entity,
     item: &mut Item,
@@ -59,7 +57,8 @@ pub async fn auto_set_storage_item(
     let mut total_left = if item.val == 0 { 1 } else { item.val };
 
     {
-        let mut player_storage = world.get::<&mut PlayerStorage>(entity.0)?;
+        let lock = world.lock().await;
+        let mut player_storage = lock.get::<&mut PlayerStorage>(entity.0)?;
 
         if base.stackable {
             for id in 0..MAX_STORAGE {
@@ -104,14 +103,15 @@ pub async fn auto_set_storage_item(
 }
 
 pub async fn check_storage_space(
-    world: &mut World,
+    world: &GameWorld,
     entity: &crate::Entity,
     item: &mut Item,
     base: &ItemData,
 ) -> Result<bool> {
     let mut total_left = if item.val == 0 { 1 } else { item.val };
     let mut empty_space_count = 0;
-    let player_storage = world.get::<&PlayerStorage>(entity.0)?;
+    let lock = world.lock().await;
+    let player_storage = lock.get::<&PlayerStorage>(entity.0)?;
 
     //First try to add it to other of the same type
     for id in 0..MAX_STORAGE {
@@ -138,14 +138,15 @@ pub async fn check_storage_space(
 }
 
 pub async fn check_storage_item_partial_space(
-    world: &mut World,
+    world: &GameWorld,
     entity: &crate::Entity,
     item: &mut Item,
     base: &ItemData,
 ) -> Result<(u16, u16)> {
     let mut total_left = if item.val == 0 { 1 } else { item.val };
     let start_val = if item.val == 0 { 1 } else { item.val };
-    let player_storage = world.get::<&PlayerStorage>(entity.0)?;
+    let lock = world.lock().await;
+    let player_storage = lock.get::<&PlayerStorage>(entity.0)?;
 
     //First try to add it to other of the same type
     if base.stackable {
@@ -175,7 +176,7 @@ pub async fn check_storage_item_partial_space(
 //checks if we only got partial or not if so returns how many we got.
 //Returns is_less, amount removed, amount it started with.
 pub async fn check_storage_partial_space(
-    world: &mut World,
+    world: &GameWorld,
     storage: &GameStore,
     entity: &crate::Entity,
     item: &mut Item,
@@ -194,7 +195,7 @@ pub async fn check_storage_partial_space(
 #[allow(clippy::too_many_arguments)]
 #[inline]
 pub async fn set_storage_item(
-    world: &mut World,
+    world: &GameWorld,
     storage: &GameStore,
     entity: &crate::Entity,
     item: &mut Item,
@@ -202,14 +203,15 @@ pub async fn set_storage_item(
     slot: usize,
     amount: u16,
 ) -> Result<u16> {
-    let player_storage = world.cloned_get_or_err::<PlayerStorage>(entity)?;
+    let player_storage = world.cloned_get_or_err::<PlayerStorage>(entity).await?;
 
     let mut rem = 0u16;
     let item_min = std::cmp::min(amount, item.val);
 
     if player_storage.items[slot].val == 0 {
         {
-            let mut storage = world.get::<&mut PlayerStorage>(entity.0)?;
+            let lock = world.lock().await;
+            let mut storage = lock.get::<&mut PlayerStorage>(entity.0)?;
             storage.items[slot] = *item;
             storage.items[slot].val = item_min;
         }
@@ -217,8 +219,10 @@ pub async fn set_storage_item(
         return Ok(0);
     } else if player_storage.items[slot].num == item.num {
         {
+            let lock: tokio::sync::MutexGuard<'_, hecs::World> = world.lock().await;
+            let mut store_item = lock.get::<&mut PlayerStorage>(entity.0)?.items[slot];
             rem = val_add_amount_rem(
-                &mut world.get::<&mut PlayerStorage>(entity.0)?.items[slot].val,
+                &mut store_item.val,
                 &mut item.val,
                 item_min,
                 base.stacklimit,
@@ -233,7 +237,7 @@ pub async fn set_storage_item(
 
 #[inline]
 pub async fn give_storage_item(
-    world: &mut World,
+    world: &GameWorld,
     storage: &GameStore,
     entity: &crate::Entity,
     item: &mut Item,
@@ -245,7 +249,7 @@ pub async fn give_storage_item(
 
 #[inline]
 pub async fn check_storage_item_fits(
-    world: &mut World,
+    world: &GameWorld,
     storage: &GameStore,
     entity: &crate::Entity,
     item: &mut Item,
@@ -257,7 +261,7 @@ pub async fn check_storage_item_fits(
 
 #[inline]
 pub async fn set_storage_slot(
-    world: &mut World,
+    world: &GameWorld,
     storage: &GameStore,
     entity: &crate::Entity,
     item: &mut Item,
@@ -271,18 +275,19 @@ pub async fn set_storage_slot(
 
 #[inline]
 pub async fn take_storage_items(
-    world: &mut World,
+    world: &GameWorld,
     storage: &GameStore,
     entity: &crate::Entity,
     num: u32,
     mut amount: u16,
 ) -> Result<u16> {
-    let player_storage = world.cloned_get_or_err::<PlayerStorage>(entity)?;
+    let player_storage = world.cloned_get_or_err::<PlayerStorage>(entity).await?;
 
     if count_storage_item(num, &player_storage.items) >= amount as u64 {
         while let Some(slot) = find_storage_item(num, &player_storage.items) {
             {
-                world.get::<&mut PlayerStorage>(entity.0)?.items[slot].val =
+                let lock = world.lock().await;
+                lock.get::<&mut PlayerStorage>(entity.0)?.items[slot].val =
                     player_storage.items[slot].val.saturating_sub(amount);
             }
             amount = player_storage.items[slot].val;
@@ -300,16 +305,18 @@ pub async fn take_storage_items(
 
 #[inline]
 pub async fn take_storage_itemslot(
-    world: &mut World,
+    world: &GameWorld,
     storage: &GameStore,
     entity: &crate::Entity,
     slot: usize,
     mut amount: u16,
 ) -> Result<u16> {
-    let player_storage = world.cloned_get_or_err::<PlayerStorage>(entity)?;
+    let player_storage = world.cloned_get_or_err::<PlayerStorage>(entity).await?;
     amount = std::cmp::min(amount, player_storage.items[slot].val);
     {
-        if let Ok(mut player_storage) = world.get::<&mut PlayerStorage>(entity.0) {
+        let lock = world.lock().await;
+        let store = lock.get::<&mut PlayerStorage>(entity.0);
+        if let Ok(mut player_storage) = store {
             player_storage.items[slot].val = player_storage.items[slot].val.saturating_sub(amount);
             if player_storage.items[slot].val == 0 {
                 player_storage.items[slot] = Item::default();
@@ -318,5 +325,7 @@ pub async fn take_storage_itemslot(
     }
     save_storage_item(world, storage, entity, slot).await?;
 
-    Ok(world.get::<&PlayerStorage>(entity.0)?.items[slot].val)
+    let lock = world.lock().await;
+    let val = lock.get::<&PlayerStorage>(entity.0)?.items[slot].val;
+    Ok(val)
 }

@@ -1,9 +1,8 @@
 use crate::{
-    containers::{GameStore, HashMap},
+    containers::{GameStore, GameWorld, HashMap},
     gametypes::Result,
     socket::{accept_connection, Client, ClientState},
 };
-use hecs::World;
 use log::{trace, warn};
 use mio::{net::TcpListener, Events, Poll};
 use std::{collections::VecDeque, io, sync::Arc, time::Duration};
@@ -48,7 +47,7 @@ impl Server {
         })
     }
 
-    pub async fn accept(&mut self, world: &mut World, storage: &GameStore) -> Result<()> {
+    pub async fn accept(&mut self, world: &GameWorld, storage: &GameStore) -> Result<()> {
         /* Wait for a new connection to accept and try to grab a token from the bag. */
         loop {
             let (stream, addr) = match self.listener.accept() {
@@ -106,7 +105,7 @@ impl Server {
     }
 }
 
-pub async fn poll_events(world: &mut World, storage: &GameStore) -> Result<()> {
+pub async fn poll_events(world: &GameWorld, storage: &GameStore) -> Result<()> {
     let mut events = Events::with_capacity(1024);
 
     storage

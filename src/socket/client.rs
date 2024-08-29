@@ -7,8 +7,7 @@ use crate::{
     socket::*,
     tasks::{unload_entity_packet, DataTaskToken},
 };
-use hecs::World;
-use log::{error, info, trace, warn};
+use log::{error, trace, warn};
 use mio::{net::TcpStream, Interest};
 use mmap_bytey::BUFFER_SIZE;
 use std::{
@@ -117,7 +116,7 @@ impl Client {
     pub async fn process(
         &mut self,
         event: &mio::event::Event,
-        world: &mut World,
+        world: &GameWorld,
         storage: &GameStore,
     ) -> Result<()> {
         //We set it as None so we can fully control when to enable it again based on conditions.
@@ -174,7 +173,7 @@ impl Client {
     }
 
     #[inline]
-    pub async fn close_socket(&mut self, world: &mut World, storage: &GameStore) -> Result<()> {
+    pub async fn close_socket(&mut self, world: &GameWorld, storage: &GameStore) -> Result<()> {
         match self.state {
             ClientState::Closed => Ok(()),
             _ => {
@@ -187,8 +186,9 @@ impl Client {
         }
     }
 
-    pub async fn tls_read(&mut self, world: &mut World, storage: &GameStore) -> Result<()> {
-        let socket = match world.get::<&mut Socket>(self.entity.0) {
+    pub async fn tls_read(&mut self, world: &GameWorld, storage: &GameStore) -> Result<()> {
+        let lock = world.lock().await;
+        let socket = match lock.get::<&mut Socket>(self.entity.0) {
             Ok(v) => v,
             Err(_) => {
                 self.state = ClientState::Closing;
@@ -198,11 +198,10 @@ impl Client {
 
         // get the current pos so we can reset it back for reading.
         //let mut buffer = socket.buffer.lock().unwrap();
-        info!("Lock first");
+
         let pos = socket.buffer.lock().await.cursor();
-        info!("Lock second");
+
         socket.buffer.lock().await.move_cursor_to_end();
-        info!("unlock");
 
         loop {
             match self.tls.read_tls(&mut self.stream) {
@@ -271,8 +270,9 @@ impl Client {
         Ok(())
     }
 
-    pub async fn read(&mut self, world: &mut World, storage: &GameStore) -> Result<()> {
-        let socket = match world.get::<&mut Socket>(self.entity.0) {
+    pub async fn read(&mut self, world: &GameWorld, storage: &GameStore) -> Result<()> {
+        let lock = world.lock().await;
+        let socket = match lock.get::<&mut Socket>(self.entity.0) {
             Ok(v) => v,
             Err(e) => {
                 trace!("World get, error in socket read: {}", e);
@@ -327,11 +327,11 @@ impl Client {
         Ok(())
     }
 
-    pub async fn write(&mut self, world: &mut World) {
+    pub async fn write(&mut self, world: &GameWorld) {
         let mut count: usize = 0;
 
         //make sure the player exists if nto we have a socket closing
-        if !world.contains(self.entity.0) {
+        if !world.contains(&self.entity).await {
             trace!(
                 "write, world does not contain entity: {:?}. Closing socket.",
                 self.entity.0
@@ -378,9 +378,9 @@ impl Client {
         }
     }
 
-    pub async fn tls_write(&mut self, world: &mut World) {
+    pub async fn tls_write(&mut self, world: &GameWorld) {
         //make sure the player exists if not we have a socket closing
-        if !world.contains(self.entity.0) {
+        if !world.contains(&self.entity).await {
             trace!(
                 "tls_write, world does not contain entity: {:?}. Closing socket.",
                 self.entity.0
@@ -504,7 +504,7 @@ impl Client {
 }
 
 #[inline]
-pub async fn disconnect(playerid: Entity, world: &mut World, storage: &GameStore) -> Result<()> {
+pub async fn disconnect(playerid: Entity, world: &GameWorld, storage: &GameStore) -> Result<()> {
     left_game(world, storage, &playerid).await?;
 
     let (socket, position) = storage.remove_player(world, playerid).await?;
@@ -531,7 +531,7 @@ pub async fn accept_connection(
     server: &Server,
     socketid: usize,
     addr: String,
-    world: &mut World,
+    world: &GameWorld,
     storage: &GameStore,
 ) -> Option<Entity> {
     if server.clients.len() + 1 >= MAX_SOCKET_PLAYERS {
@@ -613,8 +613,9 @@ pub async fn send_to_front(storage: &GameStore, socket_id: usize, buf: MByteBuff
 }
 
 #[inline]
-pub async fn send_to_all(world: &mut World, storage: &GameStore, buf: MByteBuffer) -> Result<()> {
-    for (_entity, (_, socket)) in world
+pub async fn send_to_all(world: &GameWorld, storage: &GameStore, buf: MByteBuffer) -> Result<()> {
+    let lock = world.lock().await;
+    for (_entity, (_, socket)) in lock
         .query::<((&WorldEntityType, &OnlineType), &Socket)>()
         .iter()
         .filter(|(_entity, ((worldentitytype, onlinetype), _))| {
@@ -640,7 +641,7 @@ pub async fn send_to_all(world: &mut World, storage: &GameStore, buf: MByteBuffe
 
 #[inline]
 pub async fn send_to_maps(
-    world: &mut World,
+    world: &GameWorld,
     storage: &GameStore,
     position: MapPosition,
     buf: MByteBuffer,
@@ -658,8 +659,8 @@ pub async fn send_to_maps(
             if avoidindex.map(|value| value == *entity).unwrap_or(false) {
                 continue;
             }
-
-            let (status, socket) = world.query_one_mut::<(&OnlineType, &Socket)>(entity.0)?;
+            let mut lock = world.lock().await;
+            let (status, socket) = lock.query_one_mut::<(&OnlineType, &Socket)>(entity.0)?;
 
             if *status == OnlineType::Online {
                 if let Some(client) = storage
@@ -683,13 +684,14 @@ pub async fn send_to_maps(
 
 #[inline]
 pub async fn send_to_entities(
-    world: &mut World,
+    world: &GameWorld,
     storage: &GameStore,
     entities: &[Entity],
     buf: MByteBuffer,
 ) -> Result<()> {
     for entity in entities {
-        let (status, socket) = world.query_one_mut::<(&OnlineType, &Socket)>(entity.0)?;
+        let mut lock = world.lock().await;
+        let (status, socket) = lock.query_one_mut::<(&OnlineType, &Socket)>(entity.0)?;
 
         if *status == OnlineType::Online {
             if let Some(client) = storage
@@ -742,7 +744,7 @@ pub async fn get_length(
 
 pub const MAX_PROCESSED_PACKETS: i32 = 25;
 
-pub async fn process_packets(world: &mut World, storage: &GameStore) -> Result<()> {
+pub async fn process_packets(world: &GameWorld, storage: &GameStore) -> Result<()> {
     let mut rem_arr: Vec<(Entity, usize, bool)> = Vec::with_capacity(64);
     let mut packet = MByteBuffer::new()?;
 
@@ -752,7 +754,8 @@ pub async fn process_packets(world: &mut World, storage: &GameStore) -> Result<(
         let mut count = 0;
 
         let (buffer, socket_id, address) = {
-            let socket = match world.get::<&Socket>(entity.0) {
+            let lock = world.lock().await;
+            let socket = match lock.get::<&Socket>(entity.0) {
                 Ok(s) => s,
                 Err(e) => {
                     error!(

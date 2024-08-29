@@ -1,10 +1,10 @@
+use crate::{
+    containers::GameWorld, gametypes::*, players::*, sql::integers::Shifting, time_ext::*,
+};
+use hecs::NoSuchEntity;
+use sqlx::FromRow;
 use std::backtrace::Backtrace;
 use std::sync::Arc;
-
-use crate::sql::integers::Shifting;
-use crate::{gametypes::*, players::*, time_ext::*};
-use hecs::{NoSuchEntity, World};
-use sqlx::FromRow;
 
 #[derive(Debug, PartialEq, Eq, FromRow)]
 pub struct PlayerWithPassword {
@@ -69,8 +69,9 @@ pub struct PGPlayerWithID {
 }
 
 impl PGPlayerWithID {
-    pub async fn into_player(self, world: &mut World, entity: &Entity) -> Result<()> {
-        let mut query = world.query_one::<PlayerQueryMut>(entity.0)?;
+    pub async fn into_player(self, world: &GameWorld, entity: &Entity) -> Result<()> {
+        let lock = world.lock().await;
+        let mut query = lock.query_one::<PlayerQueryMut>(entity.0)?;
 
         if let Some((
             account,

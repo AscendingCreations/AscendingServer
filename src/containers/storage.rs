@@ -1,5 +1,5 @@
 use crate::{
-    containers::{Bases, HashMap, IndexMap, IndexSet},
+    containers::{Bases, GameWorld, HashMap, IndexMap, IndexSet},
     gametypes::*,
     maps::*,
     npcs::*,
@@ -9,7 +9,6 @@ use crate::{
     time_ext::MyInstant,
 };
 use chrono::Duration;
-use hecs::World;
 use log::LevelFilter;
 use mio::Poll;
 use rustls::{
@@ -22,7 +21,7 @@ use sqlx::{
     postgres::{PgConnectOptions, PgPoolOptions},
     ConnectOptions, PgPool,
 };
-use std::{collections::VecDeque, fs, io::BufReader, ops::Deref, sync::Arc};
+use std::{collections::VecDeque, fs, io::BufReader, sync::Arc};
 use tokio::sync::Mutex;
 
 pub struct Storage {
@@ -266,27 +265,28 @@ impl Storage {
 
     pub async fn add_empty_player(
         &self,
-        world: &mut World,
+        world: &GameWorld,
         id: usize,
         addr: String,
     ) -> Result<Entity> {
         let socket = Socket::new(id, addr)?;
-
-        let identity = world.spawn((WorldEntityType::Player, socket, OnlineType::Accepted));
-        world.insert_one(identity, EntityType::Player(Entity(identity), 0))?;
+        let mut lock = world.lock().await;
+        let identity = lock.spawn((WorldEntityType::Player, socket, OnlineType::Accepted));
+        lock.insert_one(identity, EntityType::Player(Entity(identity), 0))?;
 
         Ok(Entity(identity))
     }
 
     pub async fn add_player_data(
         &self,
-        world: &mut World,
+        world: &GameWorld,
         entity: &Entity,
         code: String,
         handshake: String,
         time: MyInstant,
     ) -> Result<()> {
-        world.insert(
+        let mut lock = world.lock().await;
+        lock.insert(
             entity.0,
             (
                 Account::default(),
@@ -306,7 +306,7 @@ impl Storage {
                 WorldEntityType::Player,
             ),
         )?;
-        world.insert(
+        lock.insert(
             entity.0,
             (
                 DeathTimer::default(),
@@ -326,7 +326,7 @@ impl Storage {
                 PlayerTarget::default(),
             ),
         )?;
-        world.insert(
+        lock.insert(
             entity.0,
             (
                 PlayerStorage::default(),
@@ -345,26 +345,28 @@ impl Storage {
 
     pub async fn remove_player(
         &self,
-        world: &mut World,
+        world: &GameWorld,
         id: Entity,
     ) -> Result<(Socket, Option<Position>)> {
+        let mut lock = world.lock().await;
         // only removes the Components in the Fisbone ::<>
-        let (socket,) = world.remove::<(Socket,)>(id.0)?;
-        let pos = world.remove::<(Position,)>(id.0).ok().map(|v| v.0);
-        if let Ok((account,)) = world.remove::<(Account,)>(id.0) {
+        let (socket,) = lock.remove::<(Socket,)>(id.0)?;
+        let pos = lock.remove::<(Position,)>(id.0).ok().map(|v| v.0);
+        if let Ok((account,)) = lock.remove::<(Account,)>(id.0) {
             println!("Players Disconnected : {}", &account.username);
             self.player_names.lock().await.remove(&account.username);
         }
         //Removes Everything related to the Entity.
-        world.despawn(id.0)?;
+        lock.despawn(id.0)?;
 
         self.player_ids.lock().await.swap_remove(&id);
         Ok((socket, pos))
     }
 
-    pub async fn add_npc(&self, world: &mut World, npc_id: u64) -> Result<Option<Entity>> {
+    pub async fn add_npc(&self, world: &GameWorld, npc_id: u64) -> Result<Option<Entity>> {
         if let Some(npcdata) = NpcData::load_npc(self, npc_id) {
-            let identity = world.spawn((
+            let mut lock = world.lock().await;
+            let identity = lock.spawn((
                 WorldEntityType::Npc,
                 Position::default(),
                 NpcIndex(npc_id),
@@ -385,7 +387,7 @@ impl Storage {
                 EntityData::default(),
                 Sprite::default(),
             ));
-            world.insert(
+            lock.insert(
                 identity,
                 (
                     Spawn::default(),
@@ -404,7 +406,7 @@ impl Storage {
             )?;
 
             if !npcdata.behaviour.is_friendly() {
-                world.insert(
+                lock.insert(
                     identity,
                     (
                         NpcHitBy::default(),
@@ -418,7 +420,7 @@ impl Storage {
                     ),
                 )?;
             }
-            world.insert_one(identity, EntityType::Npc(Entity(identity)))?;
+            lock.insert_one(identity, EntityType::Npc(Entity(identity)))?;
 
             self.npc_ids.lock().await.insert(Entity(identity));
 
@@ -428,10 +430,11 @@ impl Storage {
         }
     }
 
-    pub async fn remove_npc(&self, world: &mut World, id: Entity) -> Result<Position> {
-        let ret: Position = world.get_or_err::<Position>(&id)?;
+    pub async fn remove_npc(&self, world: &GameWorld, id: Entity) -> Result<Position> {
+        let ret: Position = world.get_or_err::<Position>(&id).await?;
         //Removes Everything related to the Entity.
-        world.despawn(id.0)?;
+        let mut lock = world.lock().await;
+        lock.despawn(id.0)?;
         self.npc_ids.lock().await.swap_remove(&id);
 
         //Removes the NPC from the block map.

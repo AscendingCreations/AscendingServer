@@ -3,7 +3,6 @@ use crate::{
     gametypes::{AscendingError, MapPosition, Result},
     socket::*,
 };
-use hecs::World;
 use indexmap::map::Entry;
 use log::warn;
 use mmap_bytey::BUFFER_SIZE;
@@ -103,7 +102,7 @@ impl DataTaskToken {
 
     pub async fn send(
         &self,
-        world: &mut World,
+        world: &GameWorld,
         storage: &GameStore,
         buf: MByteBuffer,
     ) -> Result<()> {
@@ -122,7 +121,7 @@ impl DataTaskToken {
     }
 }
 
-pub async fn process_tasks(world: &mut World, storage: &GameStore) -> Result<()> {
+pub async fn process_tasks(world: &GameWorld, storage: &GameStore) -> Result<()> {
     for id in storage.packet_cache_ids.lock().await.drain(..) {
         if let Some(buffers) = storage.packet_cache.lock().await.get_mut(&id) {
             //We send the older packets first hence pop front as they are the oldest.
