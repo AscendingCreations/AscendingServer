@@ -199,7 +199,7 @@ pub async fn is_player_online(world: &mut World, entity: &crate::Entity) -> Resu
 #[inline(always)]
 pub async fn player_switch_maps(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     entity: &crate::Entity,
     new_pos: Position,
 ) -> Result<(Position, bool)> {
@@ -235,7 +235,7 @@ pub async fn player_switch_maps(
 #[inline(always)]
 pub async fn player_swap_pos(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     entity: &crate::Entity,
     pos: Position,
 ) -> Result<Position> {
@@ -286,7 +286,7 @@ pub async fn player_add_up_vital(
 #[inline(always)]
 pub async fn player_set_dir(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     entity: &crate::Entity,
     dir: u8,
 ) -> Result<()> {
@@ -381,7 +381,7 @@ pub async fn player_setmap(
 
 pub async fn player_set_vital(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     entity: &crate::Entity,
     vital: VitalTypes,
     amount: i32,
@@ -408,7 +408,7 @@ pub async fn player_set_vital(
 #[inline]
 pub async fn player_give_vals(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     entity: &crate::Entity,
     amount: u64,
 ) -> Result<u64> {
@@ -448,7 +448,7 @@ pub async fn player_give_vals(
 #[inline]
 pub async fn player_take_vals(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     entity: &crate::Entity,
     amount: u64,
 ) -> Result<()> {
@@ -480,7 +480,7 @@ pub async fn player_take_vals(
 
 pub async fn send_swap_error(
     _world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     old_socket_id: usize,
     socket_id: usize,
 ) -> Result<()> {
@@ -505,7 +505,7 @@ pub async fn send_swap_error(
 
 pub async fn send_login_info(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     entity: &Entity,
     code: String,
     handshake: String,

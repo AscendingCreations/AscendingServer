@@ -1,5 +1,5 @@
 use crate::{
-    containers::{HashSet, IndexSet, Storage},
+    containers::{GameStore, HashSet, IndexSet},
     gametypes::*,
     time_ext::MyInstant,
 };
@@ -210,7 +210,7 @@ impl MapData {
         self.move_grid[pos.as_tile()].attr = GridAttribute::Entity;
     }
 
-    pub async fn add_player(&mut self, storage: &Storage, id: Entity) {
+    pub async fn add_player(&mut self, storage: &GameStore, id: Entity) {
         self.players.insert(id);
 
         for i in self.get_surrounding(true) {
@@ -232,7 +232,7 @@ impl MapData {
         self.npcs.insert(id);
     }
 
-    pub async fn remove_player(&mut self, storage: &Storage, id: Entity) {
+    pub async fn remove_player(&mut self, storage: &GameStore, id: Entity) {
         self.players.swap_remove(&id);
 
         //we set the surrounding maps to have players on them if the player is within 1 map of them.
@@ -301,7 +301,7 @@ pub fn check_surrounding(
 }
 
 pub fn get_dir_mapid(
-    storage: &Storage,
+    storage: &GameStore,
     position: MapPosition,
     dir: MapPosDir,
 ) -> Option<MapPosition> {
@@ -429,7 +429,7 @@ pub fn map_offset_range(
     None
 }
 
-pub fn get_maps_in_range(storage: &Storage, pos: &Position, range: i32) -> Vec<MapPos> {
+pub fn get_maps_in_range(storage: &GameStore, pos: &Position, range: i32) -> Vec<MapPos> {
     let mut arr: Vec<MapPos> = Vec::new();
 
     if storage.bases.maps.get(&pos.map).is_none() {
@@ -505,7 +505,7 @@ pub fn get_maps_in_range(storage: &Storage, pos: &Position, range: i32) -> Vec<M
     arr
 }
 
-pub async fn is_dir_blocked(storage: &Storage, cur_pos: Position, movedir: u8) -> bool {
+pub async fn is_dir_blocked(storage: &GameStore, cur_pos: Position, movedir: u8) -> bool {
     // Directional blocking might be in the wrong order as it should be.
     // 0 down, 1 right, 2 up, 3 left
     match movedir {
@@ -553,7 +553,7 @@ pub async fn is_dir_blocked(storage: &Storage, cur_pos: Position, movedir: u8) -
 }
 
 pub async fn map_path_blocked(
-    storage: &Storage,
+    storage: &GameStore,
     cur_pos: Position,
     next_pos: Position,
     movedir: u8,

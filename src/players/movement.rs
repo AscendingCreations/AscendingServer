@@ -1,11 +1,11 @@
 use hecs::World;
 
-use crate::{containers::Storage, gametypes::*, maps::*, players::*, sql::*, tasks::*};
+use crate::{containers::{GameStore, GameWorld}, gametypes::*, maps::*, players::*, sql::*, tasks::*};
 
 //TODO: Add Result<(), AscendingError> to all Functions that return nothing.
 pub async fn player_warp(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     entity: &Entity,
     new_pos: &Position,
     spawn: bool,
@@ -58,7 +58,7 @@ pub async fn player_warp(
 
 pub async fn player_movement(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     entity: &Entity,
     dir: u8,
 ) -> Result<bool> {

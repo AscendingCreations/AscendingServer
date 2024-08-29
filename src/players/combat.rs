@@ -1,5 +1,5 @@
 use crate::{
-    containers::Storage,
+    containers::{GameStore, GameWorld},
     gametypes::*,
     maps::{can_target, is_dir_blocked},
     npcs::{can_attack_npc, damage_npc, kill_npc, try_target_entity, NpcIndex},
@@ -30,7 +30,7 @@ pub fn get_damage_percentage(damage: u32, hp: (u32, u32)) -> f64 {
 
 pub async fn try_player_cast(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     caster: &Entity,
     target: &Entity,
 ) -> bool {
@@ -61,7 +61,7 @@ pub async fn try_player_cast(
 
 pub async fn player_combat(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     entity: &Entity,
     target_entity: &Entity,
 ) -> Result<bool> {
@@ -149,7 +149,7 @@ pub async fn player_combat(
 
 pub async fn player_combat_damage(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     entity: &Entity,
     target_entity: &Entity,
 ) -> Result<i32> {
@@ -198,7 +198,7 @@ pub async fn player_combat_damage(
     Ok(damage as i32)
 }
 
-pub async fn kill_player(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
+pub async fn kill_player(world: &mut World, storage: &GameStore, entity: &Entity) -> Result<()> {
     {
         if let Ok(mut vitals) = world.get::<&mut Vitals>(entity.0) {
             vitals.vital = vitals.vitalmax;

@@ -1,13 +1,13 @@
 use super::packet_mapper;
 use crate::{
-    containers::Storage, gametypes::Result, socket::*, AscendingError, Entity, OnlineType,
+    containers::{GameStore, GameWorld}, gametypes::Result, socket::*, AscendingError, Entity, OnlineType,
     WorldExtras,
 };
 use hecs::World;
 
 pub async fn handle_data(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {

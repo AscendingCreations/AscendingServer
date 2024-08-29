@@ -86,7 +86,7 @@ pub async fn npc_clear_move_path(world: &mut World, entity: &crate::Entity) -> R
 #[inline(always)]
 pub async fn set_npc_dir(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     entity: &crate::Entity,
     dir: u8,
 ) -> Result<()> {
@@ -104,7 +104,7 @@ pub async fn set_npc_dir(
 #[inline(always)]
 pub async fn npc_switch_maps(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     entity: &crate::Entity,
     new_pos: Position,
 ) -> Result<Position> {
@@ -134,7 +134,7 @@ pub async fn npc_switch_maps(
 #[inline(always)]
 pub async fn npc_swap_pos(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     entity: &crate::Entity,
     pos: Position,
 ) -> Result<Position> {

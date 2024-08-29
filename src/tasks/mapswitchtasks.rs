@@ -1,7 +1,7 @@
 use std::cmp::max;
 
 use crate::{
-    containers::{HashSet, Storage},
+    containers::{GameStore, HashSet},
     gametypes::*,
     maps::*,
     players::*,
@@ -19,7 +19,7 @@ pub enum MapSwitchTasks {
 
 pub async fn init_data_lists(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     user: &crate::Entity,
     oldmap: Option<MapPosition>,
 ) -> Result<()> {
@@ -128,7 +128,7 @@ pub async fn init_data_lists(
 
 const PROCESS_LIMIT: usize = 1000;
 
-pub async fn process_data_lists(world: &mut World, storage: &Storage) -> Result<()> {
+pub async fn process_data_lists(world: &mut World, storage: &GameStore) -> Result<()> {
     let mut removals = Vec::new();
     let mut maptasks = storage.map_switch_tasks.lock().await;
     let process_limit = max(PROCESS_LIMIT / (1 + maptasks.len() * 3), 10);

@@ -13,7 +13,7 @@ use crate::{
 #[inline]
 pub async fn save_inv_item(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     entity: &Entity,
     slot: usize,
 ) -> Result<()> {
@@ -55,7 +55,7 @@ pub fn find_inv_slot(item: &Item, inv: &[Item], base: &ItemData) -> Option<usize
 #[inline]
 pub async fn auto_set_inv_item(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     entity: &crate::Entity,
     item: &mut Item,
     base: &ItemData,
@@ -181,7 +181,7 @@ pub async fn check_inv_item_partial_space(
 #[inline]
 pub async fn set_inv_item(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     entity: &crate::Entity,
     item: &mut Item,
     base: &ItemData,
@@ -221,7 +221,7 @@ pub async fn set_inv_item(
 #[inline]
 pub async fn give_inv_item(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     entity: &crate::Entity,
     item: &mut Item,
 ) -> Result<()> {
@@ -232,7 +232,7 @@ pub async fn give_inv_item(
 
 pub async fn check_inv_space(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     entity: &crate::Entity,
     item: &mut Item,
 ) -> Result<bool> {
@@ -245,7 +245,7 @@ pub async fn check_inv_space(
 //Returns is_less, amount removed, amount it started with.
 pub async fn check_inv_partial_space(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     entity: &crate::Entity,
     item: &mut Item,
 ) -> Result<(bool, u16, u16)> {
@@ -263,7 +263,7 @@ pub async fn check_inv_partial_space(
 #[inline]
 pub async fn set_inv_slot(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     entity: &crate::Entity,
     item: &mut Item,
     slot: usize,
@@ -277,7 +277,7 @@ pub async fn set_inv_slot(
 #[inline]
 pub async fn take_inv_items(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     entity: &crate::Entity,
     num: u32,
     mut amount: u16,
@@ -309,7 +309,7 @@ pub async fn take_inv_items(
 #[inline]
 pub async fn take_inv_itemslot(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     entity: &crate::Entity,
     slot: usize,
     mut amount: u16,
@@ -395,7 +395,7 @@ pub async fn auto_set_trade_item(
 #[inline]
 pub async fn give_trade_item(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     entity: &crate::Entity,
     item: &mut Item,
 ) -> Result<Vec<usize>> {
@@ -405,7 +405,7 @@ pub async fn give_trade_item(
 }
 
 pub async fn check_temp_inv_space(
-    storage: &Storage,
+    storage: &GameStore,
     item: &mut Item,
     temp_inv: &mut Inventory,
 ) -> Result<bool> {
@@ -492,7 +492,7 @@ pub async fn auto_set_temp_inv_item(
 
 #[inline]
 pub async fn give_temp_inv_item(
-    storage: &Storage,
+    storage: &GameStore,
     item: &mut Item,
     temp_inv: &mut Inventory,
 ) -> Result<()> {
@@ -503,7 +503,7 @@ pub async fn give_temp_inv_item(
 
 pub async fn player_unequip(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     entity: &crate::Entity,
     slot: usize,
 ) -> Result<bool> {
@@ -531,7 +531,7 @@ pub async fn player_unequip(
 
 pub async fn player_equip(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     entity: &crate::Entity,
     item: Item,
     slot: usize,
@@ -547,7 +547,7 @@ pub async fn player_equip(
 
 pub async fn player_use_item(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     entity: &crate::Entity,
     slot: u16,
 ) -> Result<()> {

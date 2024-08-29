@@ -31,7 +31,7 @@ impl PathNode {
 }
 
 pub fn path_map_switch(
-    storage: &Storage,
+    storage: &GameStore,
     allowed_maps: &HashSet<MapPosition>,
     cur_pos: Position,
     next_pos: &mut Position,
@@ -66,7 +66,7 @@ pub fn path_map_switch(
 }
 
 pub async fn a_star_path(
-    storage: &Storage,
+    storage: &GameStore,
     start: Position,
     dir: u8,
     stop: Position,
@@ -237,7 +237,7 @@ pub async fn npc_path_gather(
     }
 }
 
-pub async fn npc_rand_movement(storage: &Storage, pos: Position) -> VecDeque<(Position, u8)> {
+pub async fn npc_rand_movement(storage: &GameStore, pos: Position) -> VecDeque<(Position, u8)> {
     let mut rng = thread_rng();
     //down, right, up, left
     let adjacent = [(0, -1), (1, 0), (0, 1), (-1, 0)];

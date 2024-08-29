@@ -1,8 +1,8 @@
-use crate::{containers::Storage, gametypes::*, npcs::*, tasks::*};
+use crate::{containers::{GameStore, GameWorld}, gametypes::*, npcs::*, tasks::*};
 use chrono::Duration;
 use hecs::World;
 
-pub async fn update_npcs(world: &mut World, storage: &Storage) -> Result<()> {
+pub async fn update_npcs(world: &mut World, storage: &GameStore) -> Result<()> {
     let tick = *storage.gettick.lock().await;
     let mut unloadnpcs = Vec::new();
 

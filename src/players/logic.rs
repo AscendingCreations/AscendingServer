@@ -1,5 +1,5 @@
 use crate::{
-    containers::Storage, gametypes::*, maps::can_target, npcs::npc_clear_move_path, players::*,
+    containers::{GameStore, GameWorld}, gametypes::*, maps::can_target, npcs::npc_clear_move_path, players::*,
     socket::*, sql::*, tasks::*,
 };
 use chrono::Duration;
@@ -8,7 +8,7 @@ use std::cmp;
 
 use hecs::World;
 
-pub async fn update_players(world: &mut World, storage: &Storage) -> Result<()> {
+pub async fn update_players(world: &mut World, storage: &GameStore) -> Result<()> {
     let tick = *storage.gettick.lock().await;
 
     for id in &*storage.player_ids.lock().await {
@@ -80,7 +80,7 @@ pub async fn update_players(world: &mut World, storage: &Storage) -> Result<()> 
     Ok(())
 }
 
-pub async fn check_player_connection(world: &mut World, storage: &Storage) -> Result<()> {
+pub async fn check_player_connection(world: &mut World, storage: &GameStore) -> Result<()> {
     let mut remove_player_list = Vec::new();
 
     for (entity, timer) in world.query::<&ConnectionLoginTimer>().iter() {
@@ -97,7 +97,7 @@ pub async fn check_player_connection(world: &mut World, storage: &Storage) -> Re
 }
 
 //If they login successfully the remove the timer from world.
-pub async fn send_connection_pings(world: &mut World, storage: &Storage) -> Result<()> {
+pub async fn send_connection_pings(world: &mut World, storage: &GameStore) -> Result<()> {
     for id in &*storage.player_ids.lock().await {
         if world.get_or_err::<OnlineType>(id)? == OnlineType::Online {
             send_ping(world, storage, id).await?;
@@ -109,7 +109,7 @@ pub async fn send_connection_pings(world: &mut World, storage: &Storage) -> Resu
 
 pub async fn player_earn_exp(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     entity: &Entity,
     victimlevel: i32,
     expval: i64,
@@ -247,7 +247,7 @@ pub async fn player_calc_max_mp(world: &mut World, entity: &Entity) -> Result<i3
 
 pub async fn player_get_weapon_damage(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     entity: &Entity,
 ) -> Result<(i16, i16)> {
     let mut query = world.query_one::<&mut Equipment>(entity.0)?;
@@ -273,7 +273,7 @@ pub async fn player_get_weapon_damage(
 
 pub async fn player_get_armor_defense(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     entity: &Entity,
 ) -> Result<(i16, i16)> {
     let mut query = world.query_one::<&mut Equipment>(entity.0)?;
@@ -300,7 +300,7 @@ pub async fn player_get_armor_defense(
 
 pub async fn player_repair_equipment(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     entity: &Entity,
     slot: usize,
     repair_per: f32,
@@ -354,7 +354,7 @@ pub fn get_next_stat_exp(level: u32) -> u64 {
     level as u64 * exp_per_level as u64
 }
 
-pub async fn joingame(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
+pub async fn joingame(world: &mut World, storage: &GameStore, entity: &Entity) -> Result<()> {
     let socket_id = world.get::<&Socket>(entity.0)?.id;
 
     {
@@ -410,7 +410,7 @@ pub async fn joingame(world: &mut World, storage: &Storage, entity: &Entity) -> 
     .await
 }
 
-pub async fn left_game(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
+pub async fn left_game(world: &mut World, storage: &GameStore, entity: &Entity) -> Result<()> {
     if world.get_or_err::<OnlineType>(entity)? != OnlineType::Online {
         return Ok(());
     }
@@ -476,7 +476,7 @@ pub async fn remove_all_npc_target(world: &mut World, entity: &Entity) -> Result
 
 pub async fn init_trade(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     entity: &Entity,
     target_entity: &Entity,
 ) -> Result<()> {
@@ -517,7 +517,7 @@ pub async fn init_trade(
 
 pub async fn process_player_trade(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     entity: &Entity,
     target_entity: &Entity,
 ) -> Result<bool> {
@@ -577,7 +577,7 @@ pub async fn process_player_trade(
     Ok(true)
 }
 
-pub async fn close_trade(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
+pub async fn close_trade(world: &mut World, storage: &GameStore, entity: &Entity) -> Result<()> {
     {
         *world.get::<&mut IsUsingType>(entity.0)? = IsUsingType::None;
         *world.get::<&mut TradeItem>(entity.0)? = TradeItem::default();
@@ -588,7 +588,7 @@ pub async fn close_trade(world: &mut World, storage: &Storage, entity: &Entity) 
     send_clearisusingtype(world, storage, entity).await
 }
 
-pub async fn can_trade(world: &mut World, storage: &Storage, entity: &Entity) -> Result<bool> {
+pub async fn can_trade(world: &mut World, storage: &GameStore, entity: &Entity) -> Result<bool> {
     Ok(!world.get_or_err::<IsUsingType>(entity)?.inuse()
         && world.get_or_err::<TradeRequestEntity>(entity)?.requesttimer
             <= *storage.gettick.lock().await)

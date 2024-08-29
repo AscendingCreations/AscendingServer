@@ -1,5 +1,5 @@
 use crate::{
-    containers::Storage,
+    containers::{GameStore, GameWorld},
     maps::{update_map_items, update_maps},
     npcs::*,
     players::*,
@@ -10,7 +10,7 @@ use crate::{
 use chrono::Duration;
 use hecs::World;
 
-pub async fn game_loop(world: &mut World, storage: &Storage) {
+pub async fn game_loop(world: &mut World, storage: &GameStore) {
     let mut tick: MyInstant;
     let mut tmr100: MyInstant = MyInstant::now();
     let mut tmr500: MyInstant = MyInstant::now();

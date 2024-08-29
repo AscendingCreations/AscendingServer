@@ -1,4 +1,4 @@
-use crate::containers::Storage;
+use crate::containers::{GameWorld, Storage};
 use crate::gametypes::*;
 use educe::Educe;
 use rangemap::RangeMap;

@@ -1,6 +1,6 @@
 use std::borrow::Borrow;
 
-use crate::{containers::Storage, gametypes::*, maps::*, npcs::*, players::*, tasks::*};
+use crate::{containers::{GameStore, GameWorld}, gametypes::*, maps::*, npcs::*, players::*, tasks::*};
 use hecs::World;
 use rand::{thread_rng, Rng};
 
@@ -25,7 +25,7 @@ fn entity_cast_check(
 
 pub async fn try_cast(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     caster: &Entity,
     base: &NpcData,
     target: EntityType,
@@ -89,7 +89,7 @@ pub async fn try_cast(
 
 pub async fn npc_cast(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     npc: &Entity,
     base: &NpcData,
 ) -> Result<EntityType> {
@@ -121,7 +121,7 @@ pub async fn npc_cast(
     }
 }
 
-pub async fn can_attack_npc(world: &mut World, storage: &Storage, npc: &Entity) -> Result<bool> {
+pub async fn can_attack_npc(world: &mut World, storage: &GameStore, npc: &Entity) -> Result<bool> {
     let npc_index = world.get_or_err::<NpcIndex>(npc)?.0;
     let base = &storage.bases.npcs[npc_index as usize];
 
@@ -137,7 +137,7 @@ pub async fn can_attack_npc(world: &mut World, storage: &Storage, npc: &Entity) 
 
 pub async fn npc_combat(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     entity: &Entity,
     base: &NpcData,
 ) -> Result<()> {
@@ -216,7 +216,7 @@ pub async fn npc_combat(
 
 pub async fn npc_combat_damage(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     entity: &Entity,
     enemy_entity: &Entity,
     base: &NpcData,
@@ -267,7 +267,7 @@ pub async fn npc_combat_damage(
     Ok(damage as i32)
 }
 
-pub async fn kill_npc(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
+pub async fn kill_npc(world: &mut World, storage: &GameStore, entity: &Entity) -> Result<()> {
     let npc_index = world.get_or_err::<NpcIndex>(entity)?.0;
     let npc_pos = world.get_or_err::<Position>(entity)?;
     let npcbase = storage.bases.npcs[npc_index as usize].borrow();

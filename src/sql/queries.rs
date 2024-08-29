@@ -43,7 +43,7 @@ pub async fn initiate(conn: &PgPool) -> Result<()> {
     Ok(())
 }
 
-pub async fn find_player(storage: &Storage, email: &str, password: &str) -> Result<Option<i64>> {
+pub async fn find_player(storage: &GameStore, email: &str, password: &str) -> Result<Option<i64>> {
     let userdata: Option<PlayerWithPassword> = sqlx::query_as(
         r#"
         SELECT uid, password FROM player
@@ -73,7 +73,7 @@ pub async fn find_player(storage: &Storage, email: &str, password: &str) -> Resu
     }
 }
 
-pub async fn check_existance(storage: &Storage, username: &str, email: &str) -> Result<i64> {
+pub async fn check_existance(storage: &GameStore, username: &str, email: &str) -> Result<i64> {
     let check: Check =
         sqlx::query_as(r#"SELECT EXISTS(SELECT 1 FROM player WHERE username=$1) as check"#)
             .bind(username)
@@ -98,7 +98,7 @@ pub async fn check_existance(storage: &Storage, username: &str, email: &str) -> 
 }
 
 pub async fn new_player(
-    storage: &Storage,
+    storage: &GameStore,
     world: &mut World,
     entity: &crate::Entity,
     username: String,
@@ -198,7 +198,7 @@ pub async fn new_player(
 }
 
 pub async fn load_player(
-    storage: &Storage,
+    storage: &GameStore,
     world: &mut World,
     entity: &crate::Entity,
     accountid: i64,
@@ -265,7 +265,7 @@ pub async fn load_player(
 }
 
 pub async fn update_player(
-    storage: &Storage,
+    storage: &GameStore,
     world: &mut World,
     entity: &crate::Entity,
 ) -> Result<()> {
@@ -305,7 +305,7 @@ pub async fn update_player(
 }
 
 pub async fn update_inv(
-    storage: &Storage,
+    storage: &GameStore,
     world: &mut World,
     entity: &crate::Entity,
     slot: usize,
@@ -325,7 +325,7 @@ pub async fn update_inv(
 }
 
 pub async fn update_storage(
-    storage: &Storage,
+    storage: &GameStore,
     world: &mut World,
     entity: &crate::Entity,
     slot: usize,
@@ -345,7 +345,7 @@ pub async fn update_storage(
 }
 
 pub async fn update_equipment(
-    storage: &Storage,
+    storage: &GameStore,
     world: &mut World,
     entity: &crate::Entity,
     slot: usize,
@@ -365,7 +365,7 @@ pub async fn update_equipment(
 }
 
 pub async fn update_address(
-    storage: &Storage,
+    storage: &GameStore,
     world: &mut World,
     entity: &crate::Entity,
 ) -> Result<()> {
@@ -389,7 +389,7 @@ pub async fn update_address(
 }
 
 pub async fn update_playerdata(
-    storage: &Storage,
+    storage: &GameStore,
     world: &mut World,
     entity: &crate::Entity,
 ) -> Result<()> {
@@ -413,7 +413,7 @@ pub async fn update_playerdata(
 }
 
 pub async fn update_passreset(
-    storage: &Storage,
+    storage: &GameStore,
     world: &mut World,
     entity: &crate::Entity,
     resetpassword: Option<String>,
@@ -434,7 +434,7 @@ pub async fn update_passreset(
 }
 
 pub async fn update_spawn(
-    storage: &Storage,
+    storage: &GameStore,
     world: &mut World,
     entity: &crate::Entity,
 ) -> Result<()> {
@@ -458,7 +458,7 @@ pub async fn update_spawn(
 }
 
 pub async fn update_pos(
-    storage: &Storage,
+    storage: &GameStore,
     world: &mut World,
     entity: &crate::Entity,
 ) -> Result<()> {
@@ -482,7 +482,7 @@ pub async fn update_pos(
 }
 
 pub async fn update_currency(
-    storage: &Storage,
+    storage: &GameStore,
     world: &mut World,
     entity: &crate::Entity,
 ) -> Result<()> {
@@ -506,7 +506,7 @@ pub async fn update_currency(
 }
 
 pub async fn update_level(
-    storage: &Storage,
+    storage: &GameStore,
     world: &mut World,
     entity: &crate::Entity,
 ) -> Result<()> {
@@ -533,7 +533,7 @@ pub async fn update_level(
 }
 
 pub async fn update_resetcount(
-    storage: &Storage,
+    storage: &GameStore,
     world: &mut World,
     entity: &crate::Entity,
 ) -> Result<()> {

@@ -22,7 +22,7 @@ use sqlx::{
     postgres::{PgConnectOptions, PgPoolOptions},
     ConnectOptions, PgPool,
 };
-use std::{collections::VecDeque, fs, io::BufReader, sync::Arc};
+use std::{collections::VecDeque, fs, io::BufReader, ops::Deref, sync::Arc};
 use tokio::sync::Mutex;
 
 pub struct Storage {

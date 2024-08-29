@@ -5,7 +5,7 @@ use crate::{containers::*, gametypes::*, items::*, players::*, socket::*, sql::*
 #[inline]
 pub async fn save_storage_item(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     entity: &Entity,
     slot: usize,
 ) -> Result<()> {
@@ -50,7 +50,7 @@ pub fn find_storage_slot(item: &Item, storage: &[Item], base: &ItemData) -> Opti
 //This should always be successful unless an error occurs since we check for space ahead of time.
 pub async fn auto_set_storage_item(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     entity: &crate::Entity,
     item: &mut Item,
     base: &ItemData,
@@ -176,7 +176,7 @@ pub async fn check_storage_item_partial_space(
 //Returns is_less, amount removed, amount it started with.
 pub async fn check_storage_partial_space(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     entity: &crate::Entity,
     item: &mut Item,
 ) -> Result<(bool, u16, u16)> {
@@ -195,7 +195,7 @@ pub async fn check_storage_partial_space(
 #[inline]
 pub async fn set_storage_item(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     entity: &crate::Entity,
     item: &mut Item,
     base: &ItemData,
@@ -234,7 +234,7 @@ pub async fn set_storage_item(
 #[inline]
 pub async fn give_storage_item(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     entity: &crate::Entity,
     item: &mut Item,
 ) -> Result<()> {
@@ -246,7 +246,7 @@ pub async fn give_storage_item(
 #[inline]
 pub async fn check_storage_item_fits(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     entity: &crate::Entity,
     item: &mut Item,
 ) -> Result<bool> {
@@ -258,7 +258,7 @@ pub async fn check_storage_item_fits(
 #[inline]
 pub async fn set_storage_slot(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     entity: &crate::Entity,
     item: &mut Item,
     slot: usize,
@@ -272,7 +272,7 @@ pub async fn set_storage_slot(
 #[inline]
 pub async fn take_storage_items(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     entity: &crate::Entity,
     num: u32,
     mut amount: u16,
@@ -301,7 +301,7 @@ pub async fn take_storage_items(
 #[inline]
 pub async fn take_storage_itemslot(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     entity: &crate::Entity,
     slot: usize,
     mut amount: u16,

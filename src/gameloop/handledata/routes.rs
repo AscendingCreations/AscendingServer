@@ -1,7 +1,13 @@
 use std::backtrace::Backtrace;
 
 use crate::{
-    containers::Storage, gametypes::*, items::Item, maps::*, players::*, socket::*, sql::*,
+    containers::{GameStore, GameWorld},
+    gametypes::*,
+    items::Item,
+    maps::*,
+    players::*,
+    socket::*,
+    sql::*,
     tasks::*,
 };
 use chrono::Duration;
@@ -12,7 +18,7 @@ use regex::Regex;
 
 pub async fn handle_ping(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     _data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
@@ -21,7 +27,7 @@ pub async fn handle_ping(
 
 pub async fn handle_register(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
@@ -179,7 +185,7 @@ pub async fn handle_register(
 
 pub async fn handle_handshake(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
@@ -196,7 +202,7 @@ pub async fn handle_handshake(
 
 pub async fn handle_login(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
@@ -306,7 +312,7 @@ pub async fn handle_login(
 
 pub async fn handle_move(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
@@ -347,7 +353,7 @@ pub async fn handle_move(
 
 pub async fn handle_dir(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
@@ -380,7 +386,7 @@ pub async fn handle_dir(
 
 pub async fn handle_attack(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
@@ -430,7 +436,7 @@ pub async fn handle_attack(
 
 pub async fn handle_useitem(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
@@ -460,7 +466,7 @@ pub async fn handle_useitem(
 
 pub async fn handle_unequip(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
@@ -498,7 +504,7 @@ pub async fn handle_unequip(
 
 pub async fn handle_switchinvslot(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
@@ -571,7 +577,7 @@ pub async fn handle_switchinvslot(
 
 pub async fn handle_pickup(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     _data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
@@ -720,7 +726,7 @@ pub async fn handle_pickup(
 
 pub async fn handle_dropitem(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
@@ -788,7 +794,7 @@ pub async fn handle_dropitem(
 
 pub async fn handle_deleteitem(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
@@ -818,7 +824,7 @@ pub async fn handle_deleteitem(
 
 pub async fn handle_switchstorageslot(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
@@ -891,7 +897,7 @@ pub async fn handle_switchstorageslot(
 
 pub async fn handle_deletestorageitem(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
@@ -921,7 +927,7 @@ pub async fn handle_deletestorageitem(
 
 pub async fn handle_deposititem(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
@@ -986,7 +992,7 @@ pub async fn handle_deposititem(
 
 pub async fn handle_withdrawitem(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
@@ -1050,7 +1056,7 @@ pub async fn handle_withdrawitem(
 
 pub async fn handle_message(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
@@ -1143,7 +1149,7 @@ pub async fn handle_message(
 
 pub async fn handle_command(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
@@ -1249,7 +1255,7 @@ pub async fn handle_command(
 
 pub async fn handle_settarget(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
@@ -1271,7 +1277,7 @@ pub async fn handle_settarget(
 
 pub async fn handle_closestorage(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     _data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
@@ -1295,7 +1301,7 @@ pub async fn handle_closestorage(
 
 pub async fn handle_closeshop(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     _data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
@@ -1319,7 +1325,7 @@ pub async fn handle_closeshop(
 
 pub async fn handle_closetrade(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     _data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
@@ -1368,7 +1374,7 @@ pub async fn handle_closetrade(
 
 pub async fn handle_buyitem(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
@@ -1441,7 +1447,7 @@ pub async fn handle_buyitem(
 
 pub async fn handle_sellitem(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
@@ -1496,7 +1502,7 @@ pub async fn handle_sellitem(
 
 pub async fn handle_addtradeitem(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
@@ -1567,7 +1573,7 @@ pub async fn handle_addtradeitem(
 
 pub async fn handle_removetradeitem(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
@@ -1621,7 +1627,7 @@ pub async fn handle_removetradeitem(
 
 pub async fn handle_updatetrademoney(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
@@ -1661,7 +1667,7 @@ pub async fn handle_updatetrademoney(
 
 pub async fn handle_submittrade(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     _data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
@@ -1750,7 +1756,7 @@ pub async fn handle_submittrade(
 
 pub async fn handle_accepttrade(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     _data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
@@ -1815,7 +1821,7 @@ pub async fn handle_accepttrade(
 
 pub async fn handle_declinetrade(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     _data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {

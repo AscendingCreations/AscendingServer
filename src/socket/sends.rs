@@ -1,11 +1,11 @@
 use std::ops::Range;
 
-use crate::{containers::Storage, gametypes::*, players::*, socket::*, tasks::*};
+use crate::{containers::{GameStore, GameWorld}, gametypes::*, players::*, socket::*, tasks::*};
 use hecs::World;
 
 #[inline]
 pub async fn send_infomsg(
-    storage: &Storage,
+    storage: &GameStore,
     socket_id: usize,
     message: String,
     close_socket: u8,
@@ -27,7 +27,7 @@ pub async fn send_infomsg(
 
 #[inline]
 pub async fn send_fltalert(
-    storage: &Storage,
+    storage: &GameStore,
     socket_id: usize,
     message: String,
     ftltype: FtlType,
@@ -43,7 +43,7 @@ pub async fn send_fltalert(
 }
 
 #[inline]
-pub async fn send_loginok(storage: &Storage, socket_id: usize) -> Result<()> {
+pub async fn send_loginok(storage: &GameStore, socket_id: usize) -> Result<()> {
     let mut buf = MByteBuffer::new_packet()?;
 
     let time = storage.time.lock().await;
@@ -57,7 +57,7 @@ pub async fn send_loginok(storage: &Storage, socket_id: usize) -> Result<()> {
 }
 
 #[inline]
-pub async fn send_myindex(storage: &Storage, socket_id: usize, entity: &Entity) -> Result<()> {
+pub async fn send_myindex(storage: &GameStore, socket_id: usize, entity: &Entity) -> Result<()> {
     let mut buf = MByteBuffer::new_packet()?;
 
     buf.write(ServerPackets::MyIndex)?;
@@ -68,7 +68,7 @@ pub async fn send_myindex(storage: &Storage, socket_id: usize, entity: &Entity) 
     tls_send_to(storage, socket_id, buf).await
 }
 
-pub async fn send_move_ok(storage: &Storage, socket_id: usize, move_ok: bool) -> Result<()> {
+pub async fn send_move_ok(storage: &GameStore, socket_id: usize, move_ok: bool) -> Result<()> {
     let mut buf = MByteBuffer::new_packet()?;
 
     buf.write(ServerPackets::MoveOk)?;
@@ -81,7 +81,7 @@ pub async fn send_move_ok(storage: &Storage, socket_id: usize, move_ok: bool) ->
 #[inline]
 pub async fn send_playerdata(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     socket_id: usize,
     entity: &Entity,
 ) -> Result<()> {
@@ -111,7 +111,7 @@ pub async fn send_playerdata(
 
 pub async fn send_codes(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     entity: &Entity,
     code: String,
     handshake: String,
@@ -130,7 +130,7 @@ pub async fn send_codes(
     tls_send_to(storage, id, buf).await
 }
 
-pub async fn send_ping(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
+pub async fn send_ping(world: &mut World, storage: &GameStore, entity: &Entity) -> Result<()> {
     let mut buf = MByteBuffer::new_packet()?;
 
     buf.write(ServerPackets::OnlineCheck)?;
@@ -143,7 +143,7 @@ pub async fn send_ping(world: &mut World, storage: &Storage, entity: &Entity) ->
 }
 
 #[inline]
-pub async fn send_inv(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
+pub async fn send_inv(world: &mut World, storage: &GameStore, entity: &Entity) -> Result<()> {
     let mut buf = MByteBuffer::new_packet()?;
 
     buf.write(ServerPackets::PlayerInv)?;
@@ -156,7 +156,7 @@ pub async fn send_inv(world: &mut World, storage: &Storage, entity: &Entity) -> 
 #[inline]
 pub async fn send_invslot(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     entity: &Entity,
     id: usize,
 ) -> Result<()> {
@@ -173,7 +173,7 @@ pub async fn send_invslot(
 #[inline]
 pub async fn send_storage(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     entity: &Entity,
     range: Range<usize>,
 ) -> Result<()> {
@@ -191,7 +191,7 @@ pub async fn send_storage(
 #[inline]
 pub async fn send_storageslot(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     entity: &Entity,
     id: usize,
 ) -> Result<()> {
@@ -206,7 +206,7 @@ pub async fn send_storageslot(
 }
 
 #[inline]
-pub async fn send_equipment(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
+pub async fn send_equipment(world: &mut World, storage: &GameStore, entity: &Entity) -> Result<()> {
     let mut buf = MByteBuffer::new_packet()?;
 
     buf.write(ServerPackets::PlayerEquipment)?;
@@ -225,7 +225,7 @@ pub async fn send_equipment(world: &mut World, storage: &Storage, entity: &Entit
 }
 
 #[inline]
-pub async fn send_level(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
+pub async fn send_level(world: &mut World, storage: &GameStore, entity: &Entity) -> Result<()> {
     let mut buf = MByteBuffer::new_packet()?;
 
     buf.write(ServerPackets::PlayerLevel)?;
@@ -237,7 +237,7 @@ pub async fn send_level(world: &mut World, storage: &Storage, entity: &Entity) -
 }
 
 #[inline]
-pub async fn send_money(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
+pub async fn send_money(world: &mut World, storage: &GameStore, entity: &Entity) -> Result<()> {
     let mut buf = MByteBuffer::new_packet()?;
 
     buf.write(ServerPackets::PlayerMoney)?;
@@ -250,7 +250,7 @@ pub async fn send_money(world: &mut World, storage: &Storage, entity: &Entity) -
 #[inline]
 pub async fn send_pk(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     entity: &Entity,
     toself: bool,
 ) -> Result<()> {
@@ -274,7 +274,7 @@ pub async fn send_pk(
 #[inline]
 pub async fn send_message(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     entity: &Entity,
     msg: String,
     head: String,
@@ -329,7 +329,11 @@ pub async fn send_message(
 }
 
 #[inline]
-pub async fn send_openstorage(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
+pub async fn send_openstorage(
+    world: &mut World,
+    storage: &GameStore,
+    entity: &Entity,
+) -> Result<()> {
     let mut buf = MByteBuffer::new_packet()?;
 
     buf.write(ServerPackets::OpenStorage)?;
@@ -342,7 +346,7 @@ pub async fn send_openstorage(world: &mut World, storage: &Storage, entity: &Ent
 #[inline]
 pub async fn send_openshop(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     entity: &Entity,
     shop_index: u16,
 ) -> Result<()> {
@@ -358,7 +362,7 @@ pub async fn send_openshop(
 #[inline]
 pub async fn send_clearisusingtype(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     entity: &Entity,
 ) -> Result<()> {
     let mut buf = MByteBuffer::new_packet()?;
@@ -373,7 +377,7 @@ pub async fn send_clearisusingtype(
 #[inline]
 pub async fn send_updatetradeitem(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     target_entity: &Entity,
     send_entity: &Entity,
     trade_slot: u16,
@@ -392,7 +396,7 @@ pub async fn send_updatetradeitem(
 #[inline]
 pub async fn send_updatetrademoney(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     target_entity: &Entity,
     send_entity: &Entity,
 ) -> Result<()> {
@@ -408,7 +412,7 @@ pub async fn send_updatetrademoney(
 #[inline]
 pub async fn send_inittrade(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     entity: &Entity,
     target_entity: &Entity,
 ) -> Result<()> {
@@ -424,7 +428,7 @@ pub async fn send_inittrade(
 #[inline]
 pub async fn send_tradestatus(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     entity: &Entity,
     my_status: &TradeStatus,
     their_status: &TradeStatus,
@@ -442,7 +446,7 @@ pub async fn send_tradestatus(
 #[inline]
 pub async fn send_traderequest(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     entity: &Entity,
     target_entity: &Entity,
 ) -> Result<()> {
@@ -458,7 +462,7 @@ pub async fn send_traderequest(
 #[inline]
 pub async fn send_playitemsfx(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     entity: &Entity,
     item_index: u16,
 ) -> Result<()> {
@@ -472,7 +476,7 @@ pub async fn send_playitemsfx(
 }
 
 #[inline]
-pub async fn send_gameping(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
+pub async fn send_gameping(world: &mut World, storage: &GameStore, entity: &Entity) -> Result<()> {
     let mut buf = MByteBuffer::new_packet()?;
 
     buf.write(ServerPackets::Ping)?;

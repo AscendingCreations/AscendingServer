@@ -1,10 +1,14 @@
 use super::routes;
-use crate::{containers::Storage, gametypes::*, socket::*};
+use crate::{
+    containers::{GameStore, GameWorld},
+    gametypes::*,
+    socket::*,
+};
 use hecs::World;
 
 pub async fn packet_mapper(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     data: &mut MByteBuffer,
     entity: &Entity,
     id: ClientPacket,

@@ -1,9 +1,9 @@
-use crate::{containers::Storage, gametypes::*, maps::*, npcs::*, tasks::*};
+use crate::{containers::{GameStore, GameWorld}, gametypes::*, maps::*, npcs::*, tasks::*};
 use chrono::Duration;
 use hecs::World;
 
 pub async fn is_next_to_target(
-    storage: &Storage,
+    storage: &GameStore,
     entity_pos: Position,
     target_pos: Position,
     range: i32,
@@ -33,7 +33,7 @@ pub fn get_target_direction(entity_pos: Position, target_pos: Position) -> u8 {
 
 pub async fn npc_update_path(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     entity: &Entity,
     base: &NpcData,
 ) -> Result<()> {
@@ -185,7 +185,7 @@ pub async fn npc_update_path(
 
 pub async fn check_players_on_map(
     _world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     position: &MapPosition,
 ) -> bool {
     if let Some(map) = storage.maps.get(position) {
@@ -197,7 +197,7 @@ pub async fn check_players_on_map(
 
 pub async fn npc_movement(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     entity: &Entity,
     _base: &NpcData,
 ) -> Result<()> {

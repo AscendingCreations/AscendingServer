@@ -1,5 +1,5 @@
 use crate::{
-    containers::Storage,
+    containers::{GameStore, GameWorld},
     gametypes::{AscendingError, MapPosition, Result},
     socket::*,
 };
@@ -39,7 +39,7 @@ pub enum DataTaskToken {
 pub const PACKET_DATA_LIMIT: usize = 1400;
 
 impl DataTaskToken {
-    pub async fn add_task(self, storage: &Storage, mut data: MByteBuffer) -> Result<()> {
+    pub async fn add_task(self, storage: &GameStore, mut data: MByteBuffer) -> Result<()> {
         //Newer packets get pushed to the back.
         match storage.packet_cache.lock().await.entry(self) {
             Entry::Vacant(v) => {
@@ -101,7 +101,12 @@ impl DataTaskToken {
         }
     }
 
-    pub async fn send(&self, world: &mut World, storage: &Storage, buf: MByteBuffer) -> Result<()> {
+    pub async fn send(
+        &self,
+        world: &mut World,
+        storage: &GameStore,
+        buf: MByteBuffer,
+    ) -> Result<()> {
         use DataTaskToken::*;
         match self {
             GlobalChat => send_to_all(world, storage, buf).await,
@@ -117,7 +122,7 @@ impl DataTaskToken {
     }
 }
 
-pub async fn process_tasks(world: &mut World, storage: &Storage) -> Result<()> {
+pub async fn process_tasks(world: &mut World, storage: &GameStore) -> Result<()> {
     for id in storage.packet_cache_ids.lock().await.drain(..) {
         if let Some(buffers) = storage.packet_cache.lock().await.get_mut(&id) {
             //We send the older packets first hence pop front as they are the oldest.

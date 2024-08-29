@@ -1,5 +1,5 @@
 use crate::{
-    containers::Storage,
+    containers::{GameStore, GameWorld},
     gametypes::*,
     items::Item,
     socket::*,
@@ -36,7 +36,7 @@ pub struct DropItem {
     pub pos: Position,
 }
 
-pub async fn update_map_items(world: &mut World, storage: &Storage) -> Result<()> {
+pub async fn update_map_items(world: &mut World, storage: &GameStore) -> Result<()> {
     let tick = *storage.gettick.lock().await;
 
     let mut to_remove = Vec::new();
@@ -67,7 +67,7 @@ pub async fn update_map_items(world: &mut World, storage: &Storage) -> Result<()
 
 pub async fn find_drop_pos(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     drop_item: DropItem,
 ) -> Result<Vec<(Position, Option<Entity>)>> {
     let mut result = Vec::new();
@@ -83,7 +83,8 @@ pub async fn find_drop_pos(
         let mapdata = storage.maps.get(&drop_item.pos.map);
         if let Some(map_data) = mapdata {
             if !map_data
-            .lock().await
+                .lock()
+                .await
                 .is_blocked_tile(drop_item.pos, WorldEntityType::MapItem)
             {
                 result.push((drop_item.pos, None));
@@ -119,7 +120,8 @@ pub async fn find_drop_pos(
                     let mapdata = storage.maps.get(&check_pos.map);
                     if let Some(map_data) = mapdata {
                         if !map_data
-                        .lock().await
+                            .lock()
+                            .await
                             .is_blocked_tile(check_pos, WorldEntityType::MapItem)
                         {
                             result.push((check_pos, None));
@@ -182,7 +184,7 @@ pub async fn find_drop_pos(
 
 pub async fn try_drop_item(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     drop_item: DropItem,
     despawn: Option<MyInstant>,
     ownertimer: Option<MyInstant>,
@@ -252,7 +254,7 @@ pub async fn try_drop_item(
 
 pub async fn player_interact_object(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     entity: &Entity,
 ) -> Result<()> {
     if !world.contains(entity.0) {

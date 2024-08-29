@@ -17,12 +17,12 @@ mod time_ext;
 
 #[allow(unused_imports)]
 use backtrace::Backtrace;
-use containers::Storage;
+use containers::{GameWorld, Storage};
 use gameloop::*;
 use gametypes::*;
 use hecs::World;
 use log::{error, info, Level, Metadata, Record};
-use std::{env, fs::File, io::Write, panic};
+use std::{env, fs::File, io::Write, panic, sync::Arc};
 
 use crate::containers::read_config;
 
@@ -100,7 +100,7 @@ async fn main() {
 
     info!("Starting up");
     info!("Initializing Storage");
-    let storage = Storage::new(config).await.unwrap();
+    let storage = Arc::new(Storage::new(config).await.unwrap());
     info!("Initializing World");
     let mut world = World::new();
 

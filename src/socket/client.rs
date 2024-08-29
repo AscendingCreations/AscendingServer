@@ -1,5 +1,5 @@
 use crate::{
-    containers::Storage,
+    containers::{GameStore, GameWorld},
     gametypes::*,
     handle_data,
     maps::*,
@@ -118,7 +118,7 @@ impl Client {
         &mut self,
         event: &mio::event::Event,
         world: &mut World,
-        storage: &Storage,
+        storage: &GameStore,
     ) -> Result<()> {
         //We set it as None so we can fully control when to enable it again based on conditions.
         self.poll_state.set(SocketPollState::Read);
@@ -167,14 +167,14 @@ impl Client {
     }
 
     #[inline]
-    pub async fn set_to_closing(&mut self, storage: &Storage) -> Result<()> {
+    pub async fn set_to_closing(&mut self, storage: &GameStore) -> Result<()> {
         self.state = ClientState::Closing;
         self.poll_state.add(SocketPollState::Write);
         self.reregister(&*storage.poll.lock().await)
     }
 
     #[inline]
-    pub async fn close_socket(&mut self, world: &mut World, storage: &Storage) -> Result<()> {
+    pub async fn close_socket(&mut self, world: &mut World, storage: &GameStore) -> Result<()> {
         match self.state {
             ClientState::Closed => Ok(()),
             _ => {
@@ -187,7 +187,7 @@ impl Client {
         }
     }
 
-    pub async fn tls_read(&mut self, world: &mut World, storage: &Storage) -> Result<()> {
+    pub async fn tls_read(&mut self, world: &mut World, storage: &GameStore) -> Result<()> {
         let socket = match world.get::<&mut Socket>(self.entity.0) {
             Ok(v) => v,
             Err(_) => {
@@ -271,7 +271,7 @@ impl Client {
         Ok(())
     }
 
-    pub async fn read(&mut self, world: &mut World, storage: &Storage) -> Result<()> {
+    pub async fn read(&mut self, world: &mut World, storage: &GameStore) -> Result<()> {
         let socket = match world.get::<&mut Socket>(self.entity.0) {
             Ok(v) => v,
             Err(e) => {
@@ -504,7 +504,7 @@ impl Client {
 }
 
 #[inline]
-pub async fn disconnect(playerid: Entity, world: &mut World, storage: &Storage) -> Result<()> {
+pub async fn disconnect(playerid: Entity, world: &mut World, storage: &GameStore) -> Result<()> {
     left_game(world, storage, &playerid).await?;
 
     let (socket, position) = storage.remove_player(world, playerid).await?;
@@ -532,7 +532,7 @@ pub async fn accept_connection(
     socketid: usize,
     addr: String,
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
 ) -> Option<Entity> {
     if server.clients.len() + 1 >= MAX_SOCKET_PLAYERS {
         warn!(
@@ -546,7 +546,7 @@ pub async fn accept_connection(
 }
 
 pub async fn set_encryption_status(
-    storage: &Storage,
+    storage: &GameStore,
     socket_id: usize,
     encryption_status: EncryptionState,
 ) {
@@ -562,7 +562,7 @@ pub async fn set_encryption_status(
 }
 
 #[inline]
-pub async fn send_to(storage: &Storage, socket_id: usize, buf: MByteBuffer) -> Result<()> {
+pub async fn send_to(storage: &GameStore, socket_id: usize, buf: MByteBuffer) -> Result<()> {
     if let Some(client) = storage
         .server
         .lock()
@@ -577,7 +577,7 @@ pub async fn send_to(storage: &Storage, socket_id: usize, buf: MByteBuffer) -> R
 }
 
 #[inline]
-pub async fn tls_send_to(storage: &Storage, socket_id: usize, buf: MByteBuffer) -> Result<()> {
+pub async fn tls_send_to(storage: &GameStore, socket_id: usize, buf: MByteBuffer) -> Result<()> {
     if let Some(client) = storage
         .server
         .lock()
@@ -595,7 +595,7 @@ pub async fn tls_send_to(storage: &Storage, socket_id: usize, buf: MByteBuffer) 
 }
 
 #[inline]
-pub async fn send_to_front(storage: &Storage, socket_id: usize, buf: MByteBuffer) -> Result<()> {
+pub async fn send_to_front(storage: &GameStore, socket_id: usize, buf: MByteBuffer) -> Result<()> {
     if let Some(client) = storage
         .server
         .lock()
@@ -613,7 +613,7 @@ pub async fn send_to_front(storage: &Storage, socket_id: usize, buf: MByteBuffer
 }
 
 #[inline]
-pub async fn send_to_all(world: &mut World, storage: &Storage, buf: MByteBuffer) -> Result<()> {
+pub async fn send_to_all(world: &mut World, storage: &GameStore, buf: MByteBuffer) -> Result<()> {
     for (_entity, (_, socket)) in world
         .query::<((&WorldEntityType, &OnlineType), &Socket)>()
         .iter()
@@ -641,7 +641,7 @@ pub async fn send_to_all(world: &mut World, storage: &Storage, buf: MByteBuffer)
 #[inline]
 pub async fn send_to_maps(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     position: MapPosition,
     buf: MByteBuffer,
     avoidindex: Option<Entity>,
@@ -684,7 +684,7 @@ pub async fn send_to_maps(
 #[inline]
 pub async fn send_to_entities(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     entities: &[Entity],
     buf: MByteBuffer,
 ) -> Result<()> {
@@ -711,7 +711,7 @@ pub async fn send_to_entities(
 }
 
 pub async fn get_length(
-    storage: &Storage,
+    storage: &GameStore,
     buffer: &mut ByteBuffer,
     id: usize,
 ) -> Result<Option<u64>> {
@@ -742,7 +742,7 @@ pub async fn get_length(
 
 pub const MAX_PROCESSED_PACKETS: i32 = 25;
 
-pub async fn process_packets(world: &mut World, storage: &Storage) -> Result<()> {
+pub async fn process_packets(world: &mut World, storage: &GameStore) -> Result<()> {
     let mut rem_arr: Vec<(Entity, usize, bool)> = Vec::with_capacity(64);
     let mut packet = MByteBuffer::new()?;
 

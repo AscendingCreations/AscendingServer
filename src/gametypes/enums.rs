@@ -167,7 +167,7 @@ impl EntityType {
         }
     }
 
-    pub fn get_pos(&self, world: &mut World, _storage: &Storage) -> Option<Position> {
+    pub fn get_pos(&self, world: &mut World, _storage: &GameStore) -> Option<Position> {
         match self {
             EntityType::Map(position) => Some(*position),
             EntityType::Player(i, _) => world.get_or_err::<Position>(i).ok(),

@@ -1,4 +1,4 @@
-use crate::{containers::Storage, gametypes::*, maps::*, npcs::*, players::*};
+use crate::{containers::{GameStore, GameWorld}, gametypes::*, maps::*, npcs::*, players::*};
 use chrono::Duration;
 use hecs::World;
 use rand::{thread_rng, Rng};
@@ -36,7 +36,7 @@ pub async fn check_target(world: &mut World, entity: &Entity) -> Result<()> {
 
 pub async fn targeting(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     entity: &Entity,
     base: &NpcData,
 ) -> Result<()> {
@@ -103,7 +103,7 @@ pub async fn targeting(
 
 pub async fn try_target_entity(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     entity: &Entity,
     entitytype: EntityType,
 ) -> Result<()> {
@@ -201,7 +201,7 @@ pub async fn update_target_pos(world: &mut World, entity: &Entity) -> Result<Tar
 
 pub async fn npc_targeting(
     world: &mut World,
-    storage: &Storage,
+    storage: &GameStore,
     entity: &Entity,
     base: &NpcData,
     entitytype: EntityType,

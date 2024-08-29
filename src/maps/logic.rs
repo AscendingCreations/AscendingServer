@@ -1,5 +1,5 @@
 use crate::{
-    containers::Storage,
+    containers::{GameStore, GameWorld},
     gametypes::*,
     items::Item,
     maps::is_dir_blocked,
@@ -13,7 +13,7 @@ use std::cmp::min;
 
 use super::{check_surrounding, MapItem};
 
-pub async fn update_maps(world: &mut World, storage: &Storage) -> Result<()> {
+pub async fn update_maps(world: &mut World, storage: &GameStore) -> Result<()> {
     let mut rng = thread_rng();
     let mut spawnable = Vec::new();
     let mut len = storage.npc_ids.lock().await.len();
@@ -191,7 +191,7 @@ pub fn can_target(
 }
 
 pub async fn in_dir_attack_zone(
-    storage: &Storage,
+    storage: &GameStore,
     caster_pos: Position,
     target_pos: Position,
     range: i32,
