@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 ## Unreleased
 
+### Changed
+- World to use RWLock
+- Storage to be a Arc with internal Locks.
+- Tokio Async most functions.
+
 ## 0.1.0 (4. May, 2024)
 ### Added
-- Fires Release.
+- First Release.
