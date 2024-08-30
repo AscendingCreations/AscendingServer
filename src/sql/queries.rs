@@ -116,7 +116,7 @@ pub async fn new_player(
         String::from("FailedPasswordHash")
     };
 
-    let lock = world.lock().await;
+    let lock = world.read().await;
     let mut query = lock.query_one::<PlayerQuery>(entity.0)?;
     let uid: (i64,) = if let Some((
         _account,
@@ -220,7 +220,7 @@ pub async fn load_player(
     .fetch_all(&storage.pgconn)
     .await?;
 
-    let lock = world.lock().await;
+    let lock = world.read().await;
     let mut inv_items = lock.get::<&mut Inventory>(entity.0)?;
     PGInvItem::array_into_items(player_inv, &mut inv_items.items).await;
 
@@ -258,7 +258,7 @@ pub async fn update_player(
     world: &GameWorld,
     entity: &crate::Entity,
 ) -> Result<()> {
-    let lock = world.lock().await;
+    let lock = world.read().await;
     let mut query = lock.query_one::<(
         &Account,
         &PlayerItemTimer,
@@ -300,7 +300,7 @@ pub async fn update_inv(
     entity: &crate::Entity,
     slot: usize,
 ) -> Result<()> {
-    let lock = world.lock().await;
+    let lock = world.read().await;
     let mut query = lock.query_one::<(&Inventory, &Account)>(entity.0)?;
 
     if let Some((inv, account)) = query.get() {
@@ -321,7 +321,7 @@ pub async fn update_storage(
     entity: &crate::Entity,
     slot: usize,
 ) -> Result<()> {
-    let lock = world.lock().await;
+    let lock = world.read().await;
     let mut query = lock.query_one::<(&PlayerStorage, &Account)>(entity.0)?;
 
     if let Some((player_storage, account)) = query.get() {
@@ -342,7 +342,7 @@ pub async fn update_equipment(
     entity: &crate::Entity,
     slot: usize,
 ) -> Result<()> {
-    let lock = world.lock().await;
+    let lock = world.read().await;
     let mut query = lock.query_one::<(&Equipment, &Account)>(entity.0)?;
 
     if let Some((equip, account)) = query.get() {
@@ -362,7 +362,7 @@ pub async fn update_address(
     world: &GameWorld,
     entity: &crate::Entity,
 ) -> Result<()> {
-    let lock = world.lock().await;
+    let lock = world.read().await;
     let mut query = lock.query_one::<(&Account, &Socket)>(entity.0)?;
 
     if let Some((account, socket)) = query.get() {
@@ -387,7 +387,7 @@ pub async fn update_playerdata(
     world: &GameWorld,
     entity: &crate::Entity,
 ) -> Result<()> {
-    let lock = world.lock().await;
+    let lock = world.read().await;
     let mut query = lock.query_one::<(&Account, &EntityData)>(entity.0)?;
 
     if let Some((account, entity_data)) = query.get() {
@@ -413,7 +413,7 @@ pub async fn update_passreset(
     entity: &crate::Entity,
     resetpassword: Option<String>,
 ) -> Result<()> {
-    let lock = world.lock().await;
+    let lock = world.read().await;
     let id = lock.get::<&Account>(entity.0)?.id;
     sqlx::query(
         r#"
@@ -435,7 +435,7 @@ pub async fn update_spawn(
     world: &GameWorld,
     entity: &crate::Entity,
 ) -> Result<()> {
-    let lock = world.lock().await;
+    let lock = world.read().await;
     let mut query = lock.query_one::<(&Account, &Spawn)>(entity.0)?;
 
     if let Some((account, spawn)) = query.get() {
@@ -460,7 +460,7 @@ pub async fn update_pos(
     world: &GameWorld,
     entity: &crate::Entity,
 ) -> Result<()> {
-    let lock = world.lock().await;
+    let lock = world.read().await;
     let mut query = lock.query_one::<(&Account, &Position)>(entity.0)?;
 
     if let Some((account, position)) = query.get() {
@@ -485,7 +485,7 @@ pub async fn update_currency(
     world: &GameWorld,
     entity: &crate::Entity,
 ) -> Result<()> {
-    let lock = world.lock().await;
+    let lock = world.read().await;
     let mut query = lock.query_one::<(&Account, &Money)>(entity.0)?;
 
     if let Some((account, money)) = query.get() {
@@ -510,7 +510,7 @@ pub async fn update_level(
     world: &GameWorld,
     entity: &crate::Entity,
 ) -> Result<()> {
-    let lock = world.lock().await;
+    let lock = world.read().await;
     let mut query = lock.query_one::<(&Account, &Level, &Player, &Vitals)>(entity.0)?;
 
     if let Some((account, level, player, vitals)) = query.get() {
@@ -538,7 +538,7 @@ pub async fn update_resetcount(
     world: &GameWorld,
     entity: &crate::Entity,
 ) -> Result<()> {
-    let lock = world.lock().await;
+    let lock = world.read().await;
     let mut query = lock.query_one::<(&Account, &Player)>(entity.0)?;
 
     if let Some((account, player)) = query.get() {

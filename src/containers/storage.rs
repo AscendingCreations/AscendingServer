@@ -270,7 +270,7 @@ impl Storage {
         addr: String,
     ) -> Result<Entity> {
         let socket = Socket::new(id, addr)?;
-        let mut lock = world.lock().await;
+        let mut lock = world.write().await;
         let identity = lock.spawn((WorldEntityType::Player, socket, OnlineType::Accepted));
         lock.insert_one(identity, EntityType::Player(Entity(identity), 0))?;
 
@@ -285,7 +285,7 @@ impl Storage {
         handshake: String,
         time: MyInstant,
     ) -> Result<()> {
-        let mut lock = world.lock().await;
+        let mut lock = world.write().await;
         lock.insert(
             entity.0,
             (
@@ -348,7 +348,7 @@ impl Storage {
         world: &GameWorld,
         id: Entity,
     ) -> Result<(Socket, Option<Position>)> {
-        let mut lock = world.lock().await;
+        let mut lock = world.write().await;
         // only removes the Components in the Fisbone ::<>
         let (socket,) = lock.remove::<(Socket,)>(id.0)?;
         let pos = lock.remove::<(Position,)>(id.0).ok().map(|v| v.0);
@@ -365,7 +365,7 @@ impl Storage {
 
     pub async fn add_npc(&self, world: &GameWorld, npc_id: u64) -> Result<Option<Entity>> {
         if let Some(npcdata) = NpcData::load_npc(self, npc_id) {
-            let mut lock = world.lock().await;
+            let mut lock = world.write().await;
             let identity = lock.spawn((
                 WorldEntityType::Npc,
                 Position::default(),
@@ -433,7 +433,7 @@ impl Storage {
     pub async fn remove_npc(&self, world: &GameWorld, id: Entity) -> Result<Position> {
         let ret: Position = world.get_or_err::<Position>(&id).await?;
         //Removes Everything related to the Entity.
-        let mut lock = world.lock().await;
+        let mut lock = world.write().await;
         lock.despawn(id.0)?;
         self.npc_ids.lock().await.swap_remove(&id);
 

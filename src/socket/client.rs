@@ -187,7 +187,7 @@ impl Client {
     }
 
     pub async fn tls_read(&mut self, world: &GameWorld, storage: &GameStore) -> Result<()> {
-        let lock = world.lock().await;
+        let lock = world.read().await;
         let socket = match lock.get::<&mut Socket>(self.entity.0) {
             Ok(v) => v,
             Err(_) => {
@@ -271,7 +271,7 @@ impl Client {
     }
 
     pub async fn read(&mut self, world: &GameWorld, storage: &GameStore) -> Result<()> {
-        let lock = world.lock().await;
+        let lock = world.read().await;
         let socket = match lock.get::<&mut Socket>(self.entity.0) {
             Ok(v) => v,
             Err(e) => {
@@ -614,7 +614,7 @@ pub async fn send_to_front(storage: &GameStore, socket_id: usize, buf: MByteBuff
 
 #[inline]
 pub async fn send_to_all(world: &GameWorld, storage: &GameStore, buf: MByteBuffer) -> Result<()> {
-    let lock = world.lock().await;
+    let lock = world.read().await;
     for (_entity, (_, socket)) in lock
         .query::<((&WorldEntityType, &OnlineType), &Socket)>()
         .iter()
@@ -659,21 +659,24 @@ pub async fn send_to_maps(
             if avoidindex.map(|value| value == *entity).unwrap_or(false) {
                 continue;
             }
-            let mut lock = world.lock().await;
-            let (status, socket) = lock.query_one_mut::<(&OnlineType, &Socket)>(entity.0)?;
 
-            if *status == OnlineType::Online {
-                if let Some(client) = storage
-                    .server
-                    .lock()
-                    .await
-                    .clients
-                    .get(&mio::Token(socket.id))
-                {
-                    client
+            let lock = world.read().await;
+            let mut query = lock.query_one::<(&OnlineType, &Socket)>(entity.0)?;
+
+            if let Some((status, socket)) = query.get() {
+                if *status == OnlineType::Online {
+                    if let Some(client) = storage
+                        .server
                         .lock()
                         .await
-                        .send(&*storage.poll.lock().await, buf.try_clone()?)?;
+                        .clients
+                        .get(&mio::Token(socket.id))
+                    {
+                        client
+                            .lock()
+                            .await
+                            .send(&*storage.poll.lock().await, buf.try_clone()?)?;
+                    }
                 }
             }
         }
@@ -690,21 +693,23 @@ pub async fn send_to_entities(
     buf: MByteBuffer,
 ) -> Result<()> {
     for entity in entities {
-        let mut lock = world.lock().await;
-        let (status, socket) = lock.query_one_mut::<(&OnlineType, &Socket)>(entity.0)?;
+        let lock = world.read().await;
+        let mut query = lock.query_one::<(&OnlineType, &Socket)>(entity.0)?;
 
-        if *status == OnlineType::Online {
-            if let Some(client) = storage
-                .server
-                .lock()
-                .await
-                .clients
-                .get(&mio::Token(socket.id))
-            {
-                client
+        if let Some((status, socket)) = query.get() {
+            if *status == OnlineType::Online {
+                if let Some(client) = storage
+                    .server
                     .lock()
                     .await
-                    .send(&*storage.poll.lock().await, buf.try_clone()?)?;
+                    .clients
+                    .get(&mio::Token(socket.id))
+                {
+                    client
+                        .lock()
+                        .await
+                        .send(&*storage.poll.lock().await, buf.try_clone()?)?;
+                }
             }
         }
     }
@@ -754,7 +759,7 @@ pub async fn process_packets(world: &GameWorld, storage: &GameStore) -> Result<(
         let mut count = 0;
 
         let (buffer, socket_id, address) = {
-            let lock = world.lock().await;
+            let lock = world.read().await;
             let socket = match lock.get::<&Socket>(entity.0) {
                 Ok(s) => s,
                 Err(e) => {

@@ -42,7 +42,7 @@ pub async fn handle_register(
 
     if !storage.player_ids.lock().await.contains(entity) {
         let (socket_id, address) = {
-            let lock = world.lock().await;
+            let lock = world.read().await;
             let socket = lock.get::<&Socket>(entity.0)?;
             (socket.id, socket.addr.clone())
         };
@@ -146,7 +146,7 @@ pub async fn handle_register(
             .await?;
 
         {
-            let lock = world.lock().await;
+            let lock = world.read().await;
             let mut query = lock.query_one::<(&mut Account, &mut Sprite)>(entity.0)?;
             let (account, sprite) = query.get().ok_or(AscendingError::HecsComponent {
                 error: hecs::ComponentError::MissingComponent(MissingComponent::new::<(
@@ -171,7 +171,7 @@ pub async fn handle_register(
         return match new_player(storage, world, entity, username, email, password).await {
             Ok(uid) => {
                 {
-                    let lock: tokio::sync::MutexGuard<'_, hecs::World> = world.lock().await;
+                    let lock = world.read().await;
                     lock.get::<&mut Account>(entity.0)?.id = uid;
                 }
                 send_myindex(storage, socket_id, entity).await?;
@@ -205,7 +205,7 @@ pub async fn handle_handshake(
 
     if user_handshake.handshake == handshake {
         {
-            let mut lock = world.lock().await;
+            let mut lock = world.write().await;
             lock.remove_one::<LoginHandShake>(entity.0)?;
             lock.remove_one::<ConnectionLoginTimer>(entity.0)?;
         }
@@ -229,7 +229,7 @@ pub async fn handle_login(
     let reconnect_code = data.read::<String>()?;
 
     let (socket_id, address) = {
-        let lock = world.lock().await;
+        let lock = world.read().await;
         let socket = lock.get::<&Socket>(entity.0)?;
         (socket.id, socket.addr.clone())
     };
@@ -358,7 +358,7 @@ pub async fn handle_move(
         }
 
         let id = {
-            let lock = world.lock().await;
+            let lock = world.read().await;
             let id = lock.get::<&Socket>(entity.0)?.id;
             id
         };
@@ -394,7 +394,7 @@ pub async fn handle_dir(
         }
 
         {
-            let lock = world.lock().await;
+            let lock = world.read().await;
             lock.get::<&mut Dir>(entity.0)?.0 = dir;
         }
 
@@ -432,7 +432,7 @@ pub async fn handle_attack(
 
         if world.get_or_err::<Dir>(entity).await?.0 != dir {
             {
-                let lock = world.lock().await;
+                let lock = world.read().await;
                 lock.get::<&mut Dir>(entity.0)?.0 = dir;
             }
             DataTaskToken::Dir(world.get_or_err::<Position>(entity).await?.map)
@@ -446,7 +446,7 @@ pub async fn handle_attack(
                     player_interact_object(world, storage, entity).await?;
                 }
                 {
-                    let lock = world.lock().await;
+                    let lock = world.read().await;
                     lock.get::<&mut AttackTimer>(entity.0)?.0 = *storage.gettick.lock().await
                         + Duration::try_milliseconds(250).unwrap_or_default();
                 }
@@ -480,7 +480,7 @@ pub async fn handle_useitem(
         let slot = data.read::<u16>()?;
 
         {
-            let lock = world.lock().await;
+            let lock = world.read().await;
             lock.get::<&mut PlayerItemTimer>(entity.0)?.itemtimer =
                 *storage.gettick.lock().await + Duration::try_milliseconds(250).unwrap_or_default();
         }
@@ -511,7 +511,7 @@ pub async fn handle_unequip(
         let slot = data.read::<u16>()? as usize;
 
         if slot >= EQUIPMENT_TYPE_MAX || {
-            let lock = world.lock().await;
+            let lock = world.read().await;
             let val = lock.get::<&Equipment>(entity.0)?.items[slot].val;
             val
         } == 0
@@ -523,7 +523,7 @@ pub async fn handle_unequip(
             send_fltalert(
                 storage,
                 {
-                    let lock = world.lock().await;
+                    let lock = world.read().await;
                     let id = lock.get::<&Socket>(entity.0)?.id;
                     id
                 },
@@ -559,7 +559,7 @@ pub async fn handle_switchinvslot(
         let mut amount = data.read::<u16>()?;
 
         if oldslot >= MAX_INV || newslot >= MAX_INV || {
-            let lock = world.lock().await;
+            let lock = world.read().await;
             let val = lock.get::<&Inventory>(entity.0)?.items[oldslot].val;
             val == 0
         } {
@@ -567,19 +567,19 @@ pub async fn handle_switchinvslot(
         }
 
         amount = amount.min({
-            let lock = world.lock().await;
+            let lock = world.read().await;
             let val = lock.get::<&Inventory>(entity.0)?.items[oldslot].val;
             val
         });
 
         let mut itemold = {
-            let lock = world.lock().await;
+            let lock = world.read().await;
             let old = lock.get::<&Inventory>(entity.0)?.items[oldslot];
             old
         };
 
         let (oldval, oldnum, newval, newnum) = {
-            let lock = world.lock().await;
+            let lock = world.read().await;
             let newval = lock.get::<&Inventory>(entity.0)?.items[newslot].val;
             let newnum = lock.get::<&Inventory>(entity.0)?.items[newslot].num;
             let oldval = lock.get::<&Inventory>(entity.0)?.items[oldslot].val;
@@ -595,7 +595,7 @@ pub async fn handle_switchinvslot(
                 }
             } else if oldval == amount {
                 {
-                    let lock = world.lock().await;
+                    let lock = world.read().await;
 
                     let itemnew = lock.get::<&Inventory>(entity.0)?.items[newslot];
                     {
@@ -609,7 +609,7 @@ pub async fn handle_switchinvslot(
                 return send_fltalert(
                         storage,
                         {
-                            let lock = world.lock().await;
+                            let lock = world.read().await;
                             let id = lock.get::<&Socket>(entity.0)?.id;
                             id
                         },
@@ -620,7 +620,7 @@ pub async fn handle_switchinvslot(
             }
         } else {
             {
-                let lock = world.lock().await;
+                let lock = world.read().await;
                 let itemnew = lock.get::<&Inventory>(entity.0)?.items[newslot];
                 {
                     lock.get::<&mut Inventory>(entity.0)?.items[newslot] = itemold;
@@ -696,7 +696,7 @@ pub async fn handle_pickup(
                                     .await?;
 
                             {
-                                let lock = world.lock().await;
+                                let lock = world.read().await;
                                 lock.get::<&mut MapItem>(i.0)?.item.val = rem as u16;
                             }
 
@@ -729,7 +729,7 @@ pub async fn handle_pickup(
                                         MessageChannel::Private,
                                         None,
                                     ).await?;
-                                    let lock = world.lock().await;
+                                    let lock = world.read().await;
                                     lock.get::<&mut MapItem>(i.0)?.item.val = start - amount;
                                 } else {
                                     send_message(
@@ -786,7 +786,7 @@ pub async fn handle_pickup(
             }
         }
         {
-            let lock = world.lock().await;
+            let lock = world.read().await;
             lock.get::<&mut PlayerMapTimer>(entity.0)?.mapitemtimer =
                 *storage.gettick.lock().await + Duration::try_milliseconds(100).unwrap_or_default();
         }
@@ -819,7 +819,7 @@ pub async fn handle_dropitem(
         }
 
         let slot_val = {
-            let lock = world.lock().await;
+            let lock = world.read().await;
             let val = lock.get::<&Inventory>(entity.0)?.items[slot].val;
             val
         };
@@ -831,7 +831,7 @@ pub async fn handle_dropitem(
         amount = amount.min(slot_val);
 
         let item_data = {
-            let lock = world.lock().await;
+            let lock = world.read().await;
             let item = lock.get::<&Inventory>(entity.0)?.items[slot];
             item
         };
@@ -899,7 +899,7 @@ pub async fn handle_deleteitem(
         }
 
         let slot_val = {
-            let lock = world.lock().await;
+            let lock = world.read().await;
             let val = lock.get::<&Inventory>(entity.0)?.items[slot].val;
             val
         };
@@ -941,7 +941,7 @@ pub async fn handle_switchstorageslot(
         }
 
         let (mut olditem, newitem) = {
-            let lock = world.lock().await;
+            let lock = world.read().await;
             let olditem = lock.get::<&PlayerStorage>(entity.0)?.items[oldslot];
             let newitem = lock.get::<&PlayerStorage>(entity.0)?.items[newslot];
             (olditem, newitem)
@@ -963,7 +963,7 @@ pub async fn handle_switchstorageslot(
                 }
             } else if olditem.val == amount {
                 {
-                    let lock = world.lock().await;
+                    let lock = world.read().await;
                     lock.get::<&mut PlayerStorage>(entity.0)?.items[newslot] = olditem;
                     lock.get::<&mut PlayerStorage>(entity.0)?.items[oldslot] = newitem;
                 }
@@ -973,7 +973,7 @@ pub async fn handle_switchstorageslot(
                 return send_fltalert(
                         storage,
                         {
-                            let lock = world.lock().await;
+                            let lock = world.read().await;
                             let id = lock.get::<&Socket>(entity.0)?.id;
                             id },
                         "Can not swap slots with a different containing items unless you swap everything."
@@ -983,7 +983,7 @@ pub async fn handle_switchstorageslot(
             }
         } else {
             {
-                let lock = world.lock().await;
+                let lock = world.read().await;
                 lock.get::<&mut PlayerStorage>(entity.0)?.items[newslot] = olditem;
                 lock.get::<&mut PlayerStorage>(entity.0)?.items[oldslot] = newitem;
             }
@@ -1019,7 +1019,7 @@ pub async fn handle_deletestorageitem(
         }
 
         let slot_val = {
-            let lock = world.lock().await;
+            let lock = world.read().await;
             let val = lock.get::<&PlayerStorage>(entity.0)?.items[slot].val;
             val
         };
@@ -1060,7 +1060,7 @@ pub async fn handle_deposititem(
         }
 
         let (mut inv_item, bank_item) = {
-            let lock = world.lock().await;
+            let lock = world.read().await;
             let item_data = lock.get::<&Inventory>(entity.0)?.items[inv_slot];
             let bank_data = lock.get::<&PlayerStorage>(entity.0)?.items[bank_slot];
             (item_data, bank_data)
@@ -1076,7 +1076,7 @@ pub async fn handle_deposititem(
 
         if bank_item.val == 0 {
             {
-                let lock = world.lock().await;
+                let lock = world.read().await;
                 lock.get::<&mut PlayerStorage>(entity.0)?.items[bank_slot] = inv_item;
             }
             save_storage_item(world, storage, entity, bank_slot).await?;
@@ -1132,7 +1132,7 @@ pub async fn handle_withdrawitem(
         }
 
         let (mut bank_item, inv_item) = {
-            let lock = world.lock().await;
+            let lock = world.read().await;
             let bank_item = lock.get::<&PlayerStorage>(entity.0)?.items[bank_slot];
             let inv_item = lock.get::<&Inventory>(entity.0)?.items[inv_slot];
             (bank_item, inv_item)
@@ -1148,7 +1148,7 @@ pub async fn handle_withdrawitem(
 
         if { inv_item.val } == 0 {
             {
-                let lock = world.lock().await;
+                let lock = world.read().await;
                 lock.get::<&mut Inventory>(entity.0)?.items[inv_slot] = bank_item;
             }
             save_inv_item(world, storage, entity, inv_slot).await?;
@@ -1198,7 +1198,7 @@ pub async fn handle_message(
         let name = data.read::<String>()?;
 
         let (username, socket_id) = {
-            let lock = world.lock().await;
+            let lock = world.read().await;
             let id = lock.get::<&Socket>(entity.0)?.id;
             let username = lock.get::<&Account>(entity.0)?.username.clone();
             (username, id)
@@ -1244,7 +1244,7 @@ pub async fn handle_message(
 
                 usersocket = match storage.player_names.lock().await.get(&name) {
                     Some(id) => {
-                        let lock = world.lock().await;
+                        let lock = world.read().await;
                         let socket_ref = lock.get::<&Socket>(id.0);
                         if let Ok(socket) = socket_ref {
                             Some(socket.id)
@@ -1330,7 +1330,7 @@ pub async fn handle_command(
                     {
                         send_traderequest(world, storage, entity, &target_entity).await?;
                         {
-                            let lock = world.lock().await;
+                            let lock = world.read().await;
                             if let Ok(mut traderequest) =
                                 lock.get::<&mut TradeRequestEntity>(entity.0)
                             {
@@ -1408,7 +1408,7 @@ pub async fn handle_settarget(
             }
         }
 
-        let lock: tokio::sync::MutexGuard<'_, hecs::World> = world.lock().await;
+        let lock = world.read().await;
         lock.get::<&mut PlayerTarget>(entity.0)?.0 = target;
 
         return Ok(());
@@ -1431,7 +1431,7 @@ pub async fn handle_closestorage(
         }
 
         {
-            let lock = world.lock().await;
+            let lock = world.read().await;
             *lock.get::<&mut IsUsingType>(entity.0)? = IsUsingType::None;
         }
         send_clearisusingtype(world, storage, entity).await?;
@@ -1456,7 +1456,7 @@ pub async fn handle_closeshop(
         }
 
         {
-            let lock = world.lock().await;
+            let lock = world.read().await;
             *lock.get::<&mut IsUsingType>(entity.0)? = IsUsingType::None;
         }
         send_clearisusingtype(world, storage, entity).await?;
@@ -1494,7 +1494,7 @@ pub async fn handle_closetrade(
         close_trade(world, storage, &target_entity).await?;
 
         {
-            let lock = world.lock().await;
+            let lock = world.read().await;
             *lock.get::<&mut TradeRequestEntity>(entity.0)? = TradeRequestEntity::default();
             *lock.get::<&mut TradeRequestEntity>(target_entity.0)? = TradeRequestEntity::default();
         }
@@ -1616,7 +1616,7 @@ pub async fn handle_sellitem(
         }
 
         let inv_item = {
-            let lock = world.lock().await;
+            let lock = world.read().await;
             let inv_item = lock.get::<&Inventory>(entity.0)?.items[slot];
             inv_item
         };
@@ -1687,7 +1687,7 @@ pub async fn handle_addtradeitem(
         }
 
         let mut inv_item = {
-            let lock = world.lock().await;
+            let lock = world.read().await;
             let inv_item = lock.get::<&Inventory>(entity.0)?.items[slot];
             inv_item
         };
@@ -1703,7 +1703,7 @@ pub async fn handle_addtradeitem(
 
         // Make sure it does not exceed the amount player have
         let (inv_count, trade_count) = {
-            let lock = world.lock().await;
+            let lock = world.read().await;
             let inv = lock.get::<&Inventory>(entity.0)?;
             let trade = lock.get::<&TradeItem>(entity.0)?;
 
@@ -1773,7 +1773,7 @@ pub async fn handle_removetradeitem(
         amount = amount.min(trade_item.val as u64);
 
         {
-            let lock = world.lock().await;
+            let lock = world.read().await;
             let trade_slot = lock.get::<&mut TradeItem>(entity.0);
             if let Ok(mut tradeitem) = trade_slot {
                 tradeitem.items[slot].val = tradeitem.items[slot].val.saturating_sub(amount as u16);
@@ -1822,7 +1822,7 @@ pub async fn handle_updatetrademoney(
         let amount = data.read::<u64>()?.min(money);
 
         {
-            let lock = world.lock().await;
+            let lock = world.read().await;
             lock.get::<&mut TradeMoney>(entity.0)?.vals = amount;
         }
         send_updatetrademoney(world, storage, entity, &target_entity).await?;
@@ -1861,18 +1861,18 @@ pub async fn handle_submittrade(
 
         match entity_status {
             TradeStatus::None => {
-                let lock = world.lock().await;
+                let lock = world.read().await;
                 *lock.get::<&mut TradeStatus>(entity.0)? = TradeStatus::Accepted;
             }
             TradeStatus::Accepted => {
                 if target_status == TradeStatus::Accepted {
                     {
-                        let lock = world.lock().await;
+                        let lock = world.read().await;
                         *lock.get::<&mut TradeStatus>(entity.0)? = TradeStatus::Submitted;
                     }
                 } else if target_status == TradeStatus::Submitted {
                     {
-                        let lock = world.lock().await;
+                        let lock = world.read().await;
                         *lock.get::<&mut TradeStatus>(entity.0)? = TradeStatus::Submitted;
                     }
                     if !process_player_trade(world, storage, entity, &target_entity).await? {
@@ -1943,7 +1943,7 @@ pub async fn handle_accepttrade(
             None => return Ok(()),
         };
         {
-            let lock = world.lock().await;
+            let lock = world.read().await;
             *lock.get::<&mut TradeRequestEntity>(entity.0)? = TradeRequestEntity::default();
         }
 
@@ -1969,7 +1969,7 @@ pub async fn handle_accepttrade(
         }
 
         {
-            let lock = world.lock().await;
+            let lock = world.read().await;
             *lock.get::<&mut TradeStatus>(entity.0)? = TradeStatus::None;
             *lock.get::<&mut TradeStatus>(trade_entity.0)? = TradeStatus::None;
             *lock.get::<&mut TradeRequestEntity>(entity.0)? = TradeRequestEntity::default();
@@ -2016,7 +2016,7 @@ pub async fn handle_declinetrade(
             None => return Ok(()),
         };
         {
-            let lock = world.lock().await;
+            let lock = world.read().await;
             *lock.get::<&mut TradeRequestEntity>(entity.0)? = TradeRequestEntity::default();
         }
 
@@ -2030,7 +2030,7 @@ pub async fn handle_declinetrade(
                 None => return Ok(()),
             };
             if trade_entity == *entity {
-                let lock = world.lock().await;
+                let lock = world.read().await;
                 *lock.get::<&mut TradeRequestEntity>(target_entity.0)? =
                     TradeRequestEntity::default();
             }

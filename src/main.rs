@@ -23,7 +23,7 @@ use gametypes::*;
 use hecs::World;
 use log::{error, info, Level, Metadata, Record};
 use std::{env, fs::File, io::Write, panic, sync::Arc};
-use tokio::sync::Mutex;
+use tokio::sync::RwLock;
 
 use crate::containers::read_config;
 
@@ -103,7 +103,7 @@ async fn main() {
     info!("Initializing Storage");
     let storage = Arc::new(Storage::new(config).await.unwrap());
     info!("Initializing World");
-    let world = Arc::new(Mutex::new(World::new()));
+    let world = Arc::new(RwLock::new(World::new()));
 
     info!("Game Server is Running.");
     game_loop(&world, &storage).await;

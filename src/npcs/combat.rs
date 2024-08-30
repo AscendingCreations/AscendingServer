@@ -12,7 +12,7 @@ use rand::{thread_rng, Rng};
 
 #[inline(always)]
 pub async fn damage_npc(world: &GameWorld, entity: &crate::Entity, damage: i32) -> Result<()> {
-    let lock = world.lock().await;
+    let lock = world.read().await;
     let mut vital = lock.get::<&mut Vitals>(entity.0)?;
     vital.vital[VitalTypes::Hp as usize] =
         vital.vital[VitalTypes::Hp as usize].saturating_sub(damage);
@@ -106,7 +106,7 @@ pub async fn npc_cast(
         | AIBehavior::HelpReactive
         | AIBehavior::Reactive => {
             let target_type = {
-                let lock = world.lock().await;
+                let lock = world.read().await;
                 let target_type = lock.get::<&Target>(npc.0).map(|t| t.target_type);
                 target_type
             };
@@ -246,7 +246,7 @@ pub async fn npc_combat_damage(
         world.get_or_err::<Physical>(enemy_entity).await?.defense
     };
 
-    let lock = world.lock().await;
+    let lock = world.read().await;
     let data = lock.entity(entity.0)?;
     let edata = lock.entity(enemy_entity.0)?;
 
@@ -320,7 +320,7 @@ pub async fn kill_npc(world: &GameWorld, storage: &GameStore, entity: &Entity) -
         }
     }
 
-    let lock = world.lock().await;
+    let lock = world.read().await;
     *lock.get::<&mut DeathType>(entity.0)? = DeathType::Dead;
     Ok(())
 }

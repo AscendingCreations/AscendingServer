@@ -114,7 +114,7 @@ pub async fn update_maps(world: &GameWorld, storage: &GameStore) -> Result<()> {
                 if !storage_mapitem.contains_key(&data.pos) {
                     if data.timer <= tick {
                         let map_item = create_mapitem(data.index, data.amount, data.pos);
-                        let mut lock = world.lock().await;
+                        let mut lock = world.write().await;
                         let id = lock.spawn((WorldEntityType::MapItem, map_item));
                         lock.insert(
                             id,
@@ -170,7 +170,7 @@ pub async fn spawn_npc(
     zone: Option<usize>,
     entity: Entity,
 ) -> Result<()> {
-    let lock = world.lock().await;
+    let lock = world.read().await;
     *lock.get::<&mut Position>(entity.0)? = pos;
     lock.get::<&mut Spawn>(entity.0)?.pos = pos;
     lock.get::<&mut NpcSpawnedZone>(entity.0)?.0 = zone;

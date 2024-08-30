@@ -45,7 +45,7 @@ pub async fn npc_spawn_packet(
     entity: &Entity,
     did_spawn: bool,
 ) -> Result<MByteBuffer> {
-    let lock = world.lock().await;
+    let lock = world.read().await;
     let mut query = lock.query_one::<(
         &Dir,
         &Hidden,
@@ -93,7 +93,7 @@ pub async fn player_spawn_packet(
     entity: &Entity,
     did_spawn: bool,
 ) -> Result<MByteBuffer> {
-    let lock: tokio::sync::MutexGuard<'_, hecs::World> = world.lock().await;
+    let lock = world.read().await;
     let mut query = lock.query_one::<(
         &Account,
         &Dir,

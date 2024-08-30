@@ -505,7 +505,7 @@ impl WorldExtrasAsync for GameWorld {
     where
         T: Default + Send + Sync + Copy + 'static,
     {
-        let lock = self.lock().await;
+        let lock = self.read().await;
         lock.get::<&T>(entity.0).map(|t| *t).unwrap_or_default()
     }
 
@@ -513,7 +513,7 @@ impl WorldExtrasAsync for GameWorld {
     where
         T: Default + Send + Sync + Clone + 'static,
     {
-        let lock = self.lock().await;
+        let lock = self.read().await;
         lock.get::<&T>(entity.0)
             .map(|t| (*t).clone())
             .unwrap_or_default()
@@ -523,7 +523,7 @@ impl WorldExtrasAsync for GameWorld {
     where
         T: Send + Sync + Copy + 'static,
     {
-        let lock = self.lock().await;
+        let lock = self.read().await;
         let data = match lock.get::<&T>(entity.0) {
             Ok(t) => *t,
             Err(e) => {
@@ -539,7 +539,7 @@ impl WorldExtrasAsync for GameWorld {
     where
         T: Send + Sync + Clone + 'static,
     {
-        let lock = self.lock().await;
+        let lock = self.read().await;
         let data = match lock.get::<&T>(entity.0) {
             Ok(t) => (*t).clone(),
             Err(e) => {
@@ -555,7 +555,7 @@ impl WorldExtrasAsync for GameWorld {
     where
         T: Send + Sync + Copy + 'static,
     {
-        let lock = self.lock().await;
+        let lock = self.read().await;
         match lock.get::<&T>(entity.0).map(|t| *t) {
             Ok(t) => Ok(t),
             Err(e) => {
@@ -572,7 +572,7 @@ impl WorldExtrasAsync for GameWorld {
     where
         T: Send + Sync + Clone + 'static,
     {
-        let lock = self.lock().await;
+        let lock = self.read().await;
         match lock.get::<&T>(entity.0).map(|t| (*t).clone()) {
             Ok(t) => Ok(t),
             Err(e) => {
@@ -586,7 +586,7 @@ impl WorldExtrasAsync for GameWorld {
     }
 
     async fn contains(&self, entity: &Entity) -> bool {
-        let lock = self.lock().await;
+        let lock = self.read().await;
         lock.contains(entity.0)
     }
 }
@@ -596,7 +596,7 @@ impl WorldExtrasAsync for &GameWorld {
     where
         T: Default + Send + Sync + Copy + 'static,
     {
-        let lock = self.lock().await;
+        let lock = self.read().await;
         lock.get::<&T>(entity.0).map(|t| *t).unwrap_or_default()
     }
 
@@ -604,7 +604,7 @@ impl WorldExtrasAsync for &GameWorld {
     where
         T: Default + Send + Sync + Clone + 'static,
     {
-        let lock = self.lock().await;
+        let lock = self.read().await;
         lock.get::<&T>(entity.0)
             .map(|t| (*t).clone())
             .unwrap_or_default()
@@ -614,7 +614,7 @@ impl WorldExtrasAsync for &GameWorld {
     where
         T: Send + Sync + Copy + 'static,
     {
-        let lock = self.lock().await;
+        let lock = self.read().await;
         let data = match lock.get::<&T>(entity.0) {
             Ok(t) => *t,
             Err(e) => {
@@ -630,7 +630,7 @@ impl WorldExtrasAsync for &GameWorld {
     where
         T: Send + Sync + Clone + 'static,
     {
-        let lock = self.lock().await;
+        let lock = self.read().await;
         let data = match lock.get::<&T>(entity.0) {
             Ok(t) => (*t).clone(),
             Err(e) => {
@@ -646,7 +646,7 @@ impl WorldExtrasAsync for &GameWorld {
     where
         T: Send + Sync + Copy + 'static,
     {
-        let lock = self.lock().await;
+        let lock = self.read().await;
         match lock.get::<&T>(entity.0).map(|t| *t) {
             Ok(t) => Ok(t),
             Err(e) => {
@@ -663,7 +663,7 @@ impl WorldExtrasAsync for &GameWorld {
     where
         T: Send + Sync + Clone + 'static,
     {
-        let lock = self.lock().await;
+        let lock = self.read().await;
         match lock.get::<&T>(entity.0).map(|t| (*t).clone()) {
             Ok(t) => Ok(t),
             Err(e) => {
@@ -677,7 +677,7 @@ impl WorldExtrasAsync for &GameWorld {
     }
 
     async fn contains(&self, entity: &Entity) -> bool {
-        let lock = self.lock().await;
+        let lock = self.read().await;
         lock.contains(entity.0)
     }
 }

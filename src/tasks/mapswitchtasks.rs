@@ -136,7 +136,7 @@ pub async fn process_data_lists(world: &GameWorld, storage: &GameStore) -> Resul
         let mut contains_data = false;
 
         let socket_id = {
-            let lock = world.lock().await;
+            let lock = world.read().await;
             let id = lock.get::<&Socket>(entity.0).map(|s| s.id);
             id
         };
@@ -180,7 +180,7 @@ pub async fn process_data_lists(world: &GameWorld, storage: &GameStore) -> Resul
                         let cursor = entities.len().saturating_sub(process_limit);
 
                         for entity in entities.drain(cursor..) {
-                            let lock = world.lock().await;
+                            let lock = world.read().await;
                             let map_item = lock.get::<&MapItem>(entity.0);
                             if let Ok(map_item) = map_item {
                                 DataTaskToken::ItemLoadToEntity(socket_id)

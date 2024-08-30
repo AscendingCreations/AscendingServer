@@ -190,7 +190,7 @@ pub struct Player {
 }
 
 pub async fn is_player_online(world: &GameWorld, entity: &crate::Entity) -> Result<bool> {
-    let lock = world.lock().await;
+    let lock = world.read().await;
     let online = *lock.get::<&WorldEntityType>(entity.0)? == WorldEntityType::Player
         && *lock.get::<&OnlineType>(entity.0)? == OnlineType::Online;
 
@@ -228,7 +228,7 @@ pub async fn player_switch_maps(
         return Ok((old_position, false));
     }
 
-    let lock = world.lock().await;
+    let lock = world.read().await;
     *lock.get::<&mut Position>(entity.0)? = new_pos;
 
     Ok((old_position, true))
@@ -241,7 +241,7 @@ pub async fn player_swap_pos(
     entity: &crate::Entity,
     pos: Position,
 ) -> Result<Position> {
-    let lock = world.lock().await;
+    let lock = world.read().await;
     let mut query = lock.query_one::<&mut Position>(entity.0)?;
 
     Ok(if let Some(player_position) = query.get() {
@@ -271,7 +271,7 @@ pub async fn player_add_up_vital(
     entity: &crate::Entity,
     vital: usize,
 ) -> Result<i32> {
-    let lock = world.lock().await;
+    let lock = world.read().await;
     let mut query = lock.query_one::<&mut Vitals>(entity.0)?;
 
     Ok(if let Some(player_vital) = query.get() {
@@ -294,7 +294,7 @@ pub async fn player_set_dir(
     entity: &crate::Entity,
     dir: u8,
 ) -> Result<()> {
-    let lock = world.lock().await;
+    let lock = world.read().await;
     let mut query = lock.query_one::<(&mut Dir, &Position)>(entity.0)?;
 
     if let Some((player_dir, player_position)) = query.get() {
@@ -311,7 +311,7 @@ pub async fn player_set_dir(
 }
 
 pub async fn player_getx(world: &GameWorld, entity: &crate::Entity) -> Result<i32> {
-    let lock = world.lock().await;
+    let lock = world.read().await;
     let mut query = lock.query_one::<&Position>(entity.0)?;
 
     Ok(if let Some(player_position) = query.get() {
@@ -322,7 +322,7 @@ pub async fn player_getx(world: &GameWorld, entity: &crate::Entity) -> Result<i3
 }
 
 pub async fn player_gety(world: &GameWorld, entity: &crate::Entity) -> Result<i32> {
-    let lock = world.lock().await;
+    let lock = world.read().await;
     let mut query = lock.query_one::<&Position>(entity.0)?;
 
     Ok(if let Some(player_position) = query.get() {
@@ -333,7 +333,7 @@ pub async fn player_gety(world: &GameWorld, entity: &crate::Entity) -> Result<i3
 }
 
 pub async fn player_getmap(world: &GameWorld, entity: &crate::Entity) -> Result<MapPosition> {
-    let lock = world.lock().await;
+    let lock = world.read().await;
     let mut query = lock.query_one::<&Position>(entity.0)?;
 
     Ok(if let Some(player_position) = query.get() {
@@ -344,7 +344,7 @@ pub async fn player_getmap(world: &GameWorld, entity: &crate::Entity) -> Result<
 }
 
 pub async fn player_gethp(world: &GameWorld, entity: &crate::Entity) -> Result<i32> {
-    let lock = world.lock().await;
+    let lock = world.read().await;
     let mut query = lock.query_one::<&Vitals>(entity.0)?;
 
     Ok(if let Some(player_vital) = query.get() {
@@ -355,7 +355,7 @@ pub async fn player_gethp(world: &GameWorld, entity: &crate::Entity) -> Result<i
 }
 
 pub async fn player_setx(world: &GameWorld, entity: &crate::Entity, x: i32) -> Result<()> {
-    let lock = world.lock().await;
+    let lock = world.read().await;
     let mut query = lock.query_one::<&mut Position>(entity.0)?;
 
     if let Some(player_position) = query.get() {
@@ -366,7 +366,7 @@ pub async fn player_setx(world: &GameWorld, entity: &crate::Entity, x: i32) -> R
 }
 
 pub async fn player_sety(world: &GameWorld, entity: &crate::Entity, y: i32) -> Result<()> {
-    let lock = world.lock().await;
+    let lock = world.read().await;
     let mut query = lock.query_one::<&mut Position>(entity.0)?;
 
     if let Some(player_position) = query.get() {
@@ -381,7 +381,7 @@ pub async fn player_setmap(
     entity: &crate::Entity,
     map: MapPosition,
 ) -> Result<()> {
-    let lock = world.lock().await;
+    let lock = world.read().await;
     let mut query = lock.query_one::<&mut Position>(entity.0)?;
 
     if let Some(player_position) = query.get() {
@@ -399,7 +399,7 @@ pub async fn player_set_vital(
     amount: i32,
 ) -> Result<()> {
     {
-        let lock = world.lock().await;
+        let lock = world.read().await;
         let mut query = lock.query_one::<&mut Vitals>(entity.0)?;
 
         if let Some(player_vital) = query.get() {
@@ -437,13 +437,13 @@ pub async fn player_give_vals(
                     .await?
                     .vals
                     .saturating_add(cur);
-                let lock = world.lock().await;
+                let lock = world.read().await;
                 lock.get::<&mut Money>(entity.0)?.vals = money;
             }
             cur = 0;
         } else {
             {
-                let lock = world.lock().await;
+                let lock = world.read().await;
                 lock.get::<&mut Money>(entity.0)?.vals = u64::MAX;
             }
             cur = cur.saturating_sub(rem);
@@ -454,7 +454,7 @@ pub async fn player_give_vals(
         send_fltalert(
             storage,
             {
-                let lock = world.lock().await;
+                let lock = world.read().await;
                 let id = lock.get::<&Socket>(entity.0)?.id;
                 id
             },
@@ -485,13 +485,13 @@ pub async fn player_take_vals(
                 .await?
                 .vals
                 .saturating_sub(cur);
-            let lock = world.lock().await;
+            let lock = world.read().await;
             lock.get::<&mut Money>(entity.0)?.vals = money;
         }
     } else {
         cur = player_money.vals;
         {
-            let lock = world.lock().await;
+            let lock = world.read().await;
             lock.get::<&mut Money>(entity.0)?.vals = 0;
         }
     }
@@ -501,7 +501,7 @@ pub async fn player_take_vals(
     send_fltalert(
         storage,
         {
-            let lock = world.lock().await;
+            let lock = world.read().await;
             let id = lock.get::<&Socket>(entity.0)?.id;
             id
         },
@@ -546,7 +546,7 @@ pub async fn send_login_info(
     username: String,
 ) -> Result<()> {
     {
-        let mut lock = world.lock().await;
+        let mut lock = world.write().await;
 
         lock.insert(
             entity.0,

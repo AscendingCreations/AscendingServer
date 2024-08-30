@@ -41,7 +41,7 @@ pub async fn update_map_items(world: &GameWorld, storage: &GameStore) -> Result<
     let mut to_remove = Vec::new();
 
     {
-        let lock = world.lock().await;
+        let lock = world.read().await;
 
         for id in &*storage.map_items.lock().await {
             let mapitems = lock.get::<&MapItem>(id.1 .0)?;
@@ -210,7 +210,7 @@ pub async fn try_drop_item(
         if item_base.stackable
             && let Some(got_entity) = found_pos.1
         {
-            let lock = world.lock().await;
+            let lock = world.read().await;
             let map_item = lock.get::<&mut MapItem>(got_entity.0);
 
             if let Ok(mut mapitem) = map_item {
@@ -230,7 +230,7 @@ pub async fn try_drop_item(
                 map_item.despawn = despawn;
                 map_item.ownertimer = ownertimer;
                 map_item.ownerid = ownerid;
-                let mut lock = world.lock().await;
+                let mut lock = world.write().await;
                 let id = lock.spawn((WorldEntityType::MapItem, map_item));
                 let despawntimer = if let Some(timer) = despawn {
                     DespawnTimer(timer)
@@ -314,7 +314,7 @@ pub async fn player_interact_object(
         match mapdata.attribute[target_pos.as_tile()] {
             MapAttribute::Storage => {
                 {
-                    let lock = world.lock().await;
+                    let lock = world.read().await;
                     *lock.get::<&mut IsUsingType>(entity.0)? = IsUsingType::Bank;
                 }
                 send_storage(world, storage, entity, 0..35).await?;
@@ -323,7 +323,7 @@ pub async fn player_interact_object(
             }
             MapAttribute::Shop(shop_index) => {
                 {
-                    let lock = world.lock().await;
+                    let lock = world.read().await;
                     *lock.get::<&mut IsUsingType>(entity.0)? =
                         IsUsingType::Store(shop_index as i64);
                 }

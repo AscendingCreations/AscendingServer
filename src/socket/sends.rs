@@ -92,7 +92,7 @@ pub async fn send_playerdata(
     let mut buf = MByteBuffer::new_packet()?;
 
     let username = {
-        let lock = world.lock().await;
+        let lock = world.read().await;
         let username = lock.get::<&Account>(entity.0)?.username.clone();
         username
     };
@@ -133,7 +133,7 @@ pub async fn send_codes(
     buf.write(&handshake)?;
     buf.finish()?;
 
-    let lock = world.lock().await;
+    let lock = world.read().await;
     let id = lock.get::<&Socket>(entity.0)?.id;
 
     // Once the codes are Sent we need to set this to unencrypted mode as the client will be un unencrypted mode.
@@ -148,7 +148,7 @@ pub async fn send_ping(world: &GameWorld, storage: &GameStore, entity: &Entity) 
     buf.write(0u64)?;
     buf.finish()?;
 
-    let lock = world.lock().await;
+    let lock = world.read().await;
     let id = lock.get::<&Socket>(entity.0)?.id;
 
     send_to(storage, id, buf).await
@@ -157,7 +157,7 @@ pub async fn send_ping(world: &GameWorld, storage: &GameStore, entity: &Entity) 
 #[inline]
 pub async fn send_inv(world: &GameWorld, storage: &GameStore, entity: &Entity) -> Result<()> {
     let mut buf = MByteBuffer::new_packet()?;
-    let lock = world.lock().await;
+    let lock = world.read().await;
 
     buf.write(ServerPackets::PlayerInv)?;
     buf.write(&lock.get::<&Inventory>(entity.0)?.items)?;
@@ -176,7 +176,7 @@ pub async fn send_invslot(
     id: usize,
 ) -> Result<()> {
     let mut buf = MByteBuffer::new_packet()?;
-    let lock = world.lock().await;
+    let lock = world.read().await;
 
     buf.write(ServerPackets::PlayerInvSlot)?;
     buf.write(id)?;
@@ -196,7 +196,7 @@ pub async fn send_storage(
     range: Range<usize>,
 ) -> Result<()> {
     let mut buf = MByteBuffer::new_packet()?;
-    let lock = world.lock().await;
+    let lock = world.read().await;
     let storage_slots = lock.get::<&PlayerStorage>(entity.0)?;
 
     buf.write(ServerPackets::PlayerStorage)?;
@@ -217,7 +217,7 @@ pub async fn send_storageslot(
     id: usize,
 ) -> Result<()> {
     let mut buf = MByteBuffer::new_packet()?;
-    let lock = world.lock().await;
+    let lock = world.read().await;
 
     buf.write(ServerPackets::PlayerStorageSlot)?;
     buf.write(id)?;
@@ -257,7 +257,7 @@ pub async fn send_level(world: &GameWorld, storage: &GameStore, entity: &Entity)
     buf.write(world.get_or_err::<Player>(entity).await?.levelexp)?;
     buf.finish()?;
 
-    let lock = world.lock().await;
+    let lock = world.read().await;
     let id = lock.get::<&Socket>(entity.0)?.id;
 
     send_to(storage, id, buf).await
@@ -271,7 +271,7 @@ pub async fn send_money(world: &GameWorld, storage: &GameStore, entity: &Entity)
     buf.write(world.get_or_err::<Money>(entity).await?.vals)?;
     buf.finish()?;
 
-    let lock = world.lock().await;
+    let lock = world.read().await;
     let id = lock.get::<&Socket>(entity.0)?.id;
 
     send_to(storage, id, buf).await
@@ -339,7 +339,7 @@ pub async fn send_message(
                 send_to(storage, i, buf.try_clone()?).await?;
             }
 
-            let lock = world.lock().await;
+            let lock = world.read().await;
             let id = lock.get::<&Socket>(entity.0)?.id;
             send_to(storage, id, buf).await?;
         }
@@ -355,7 +355,7 @@ pub async fn send_message(
             buf.write(Some(access))?;
             buf.finish()?;
 
-            let lock = world.lock().await;
+            let lock = world.read().await;
             let id = lock.get::<&Socket>(entity.0)?.id;
             send_to(storage, id, buf).await?;
         }
@@ -376,7 +376,7 @@ pub async fn send_openstorage(
     buf.write(1_u32)?;
     buf.finish()?;
 
-    let lock = world.lock().await;
+    let lock = world.read().await;
     let id = lock.get::<&Socket>(entity.0)?.id;
 
     send_to(storage, id, buf).await
@@ -395,7 +395,7 @@ pub async fn send_openshop(
     buf.write(shop_index)?;
     buf.finish()?;
 
-    let lock = world.lock().await;
+    let lock = world.read().await;
     let id = lock.get::<&Socket>(entity.0)?.id;
 
     send_to(storage, id, buf).await
@@ -413,7 +413,7 @@ pub async fn send_clearisusingtype(
     buf.write(1_u16)?;
     buf.finish()?;
 
-    let lock = world.lock().await;
+    let lock = world.read().await;
     let id = lock.get::<&Socket>(entity.0)?.id;
 
     send_to(storage, id, buf).await
@@ -429,7 +429,7 @@ pub async fn send_updatetradeitem(
 ) -> Result<()> {
     let mut buf = MByteBuffer::new_packet()?;
 
-    let lock = world.lock().await;
+    let lock = world.read().await;
     buf.write(ServerPackets::UpdateTradeItem)?;
     buf.write(target_entity == send_entity)?;
     buf.write(trade_slot)?;
@@ -447,7 +447,7 @@ pub async fn send_updatetrademoney(
     target_entity: &Entity,
     send_entity: &Entity,
 ) -> Result<()> {
-    let lock = world.lock().await;
+    let lock = world.read().await;
     let mut buf = MByteBuffer::new_packet()?;
 
     buf.write(ServerPackets::UpdateTradeMoney)?;
@@ -465,7 +465,7 @@ pub async fn send_inittrade(
     entity: &Entity,
     target_entity: &Entity,
 ) -> Result<()> {
-    let lock = world.lock().await;
+    let lock = world.read().await;
     let mut buf = MByteBuffer::new_packet()?;
 
     buf.write(ServerPackets::InitTrade)?;
@@ -484,7 +484,7 @@ pub async fn send_tradestatus(
     my_status: &TradeStatus,
     their_status: &TradeStatus,
 ) -> Result<()> {
-    let lock = world.lock().await;
+    let lock = world.read().await;
     let mut buf = MByteBuffer::new_packet()?;
 
     buf.write(ServerPackets::TradeStatus)?;
@@ -503,7 +503,7 @@ pub async fn send_traderequest(
     entity: &Entity,
     target_entity: &Entity,
 ) -> Result<()> {
-    let lock = world.lock().await;
+    let lock = world.read().await;
     let mut buf = MByteBuffer::new_packet()?;
 
     buf.write(ServerPackets::TradeRequest)?;
@@ -521,7 +521,7 @@ pub async fn send_playitemsfx(
     entity: &Entity,
     item_index: u16,
 ) -> Result<()> {
-    let lock = world.lock().await;
+    let lock = world.read().await;
     let mut buf = MByteBuffer::new_packet()?;
 
     buf.write(ServerPackets::PlayItemSfx)?;
@@ -534,7 +534,7 @@ pub async fn send_playitemsfx(
 
 #[inline]
 pub async fn send_gameping(world: &GameWorld, storage: &GameStore, entity: &Entity) -> Result<()> {
-    let lock = world.lock().await;
+    let lock = world.read().await;
     let mut buf = MByteBuffer::new_packet()?;
 
     buf.write(ServerPackets::Ping)?;
