@@ -523,11 +523,22 @@ pub async fn player_unequip(
     entity: &crate::Entity,
     slot: usize,
 ) -> Result<bool> {
-    if world.cloned_get_or_err::<Equipment>(entity).await?.items[slot].val == 0 {
+    let has_none = {
+        let lock = world.read().await;
+        let equipment = lock.get::<&Equipment>(entity.0)?;
+        equipment.items[slot].val == 0
+    };
+
+    if has_none {
         return Ok(true);
     }
 
-    let mut item = world.get_or_err::<&Equipment>(entity).await?.items[slot];
+    let mut item = {
+        let lock = world.read().await;
+        let equipment = lock.get::<&Equipment>(entity.0)?;
+        let item = equipment.items[slot];
+        item
+    };
 
     if !check_inv_space(world, storage, entity, &mut item).await? {
         return Ok(false);

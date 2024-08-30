@@ -515,7 +515,7 @@ pub async fn handle_unequip(
         }
 
         {
-            let lock = world.read().await;
+            let lock = world.write().await;
             let val = lock.get::<&Equipment>(entity.0)?.items[slot].val;
 
             if val == 0 {

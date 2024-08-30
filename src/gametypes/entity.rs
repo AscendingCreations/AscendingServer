@@ -515,7 +515,8 @@ impl WorldExtrasAsync for GameWorld {
         T: Default + Send + Sync + Clone + 'static,
     {
         let lock = self.read().await;
-        let data = lock.get::<&T>(entity.0)
+        let data = lock
+            .get::<&T>(entity.0)
             .map(|t| (*t).clone())
             .unwrap_or_default();
         data
@@ -562,7 +563,7 @@ impl WorldExtrasAsync for GameWorld {
     {
         let lock = self.read().await;
         let data = lock.get::<&T>(entity.0);
-        match data {
+        let data = match data {
             Ok(t) => Ok(*t),
             Err(e) => {
                 warn!("Component Err: {:?}", e);
@@ -571,7 +572,8 @@ impl WorldExtrasAsync for GameWorld {
                     backtrace: Box::new(Backtrace::capture()),
                 })
             }
-        }
+        };
+        data
     }
 
     async fn cloned_get_or_err<T>(&self, entity: &Entity) -> Result<T>
@@ -580,7 +582,7 @@ impl WorldExtrasAsync for GameWorld {
     {
         let lock = self.read().await;
         let data = lock.get::<&T>(entity.0);
-        match data {
+        let data = match data {
             Ok(t) => Ok((*t).clone()),
             Err(e) => {
                 warn!("Component Err: {:?}", e);
@@ -589,108 +591,13 @@ impl WorldExtrasAsync for GameWorld {
                     backtrace: Box::new(Backtrace::capture()),
                 })
             }
-        }
+        };
+        data
     }
 
     async fn contains(&self, entity: &Entity) -> bool {
         let lock = self.read().await;
-        lock.contains(entity.0)
-    }
-}
-
-impl WorldExtrasAsync for &GameWorld {
-    async fn get_or_default<T>(&self, entity: &Entity) -> T
-    where
-        T: Default + Send + Sync + Copy + 'static,
-    {
-        let lock = self.read().await;
-        let data = lock.get::<&T>(entity.0).map(|t| *t).unwrap_or_default();
-        data
-    }
-
-    async fn cloned_get_or_default<T>(&self, entity: &Entity) -> T
-    where
-        T: Default + Send + Sync + Clone + 'static,
-    {
-        let lock = self.read().await;
-        let data = lock.get::<&T>(entity.0)
-            .map(|t| (*t).clone())
-            .unwrap_or_default();
-        data
-    }
-
-    async fn get_or_panic<T>(&self, entity: &Entity) -> T
-    where
-        T: Send + Sync + Copy + 'static,
-    {
-        let lock = self.read().await;
-        let data = lock.get::<&T>(entity.0);
-        let data = match data {
-            Ok(t) => *t,
-            Err(e) => {
-                error!("Component error: {:?}", e);
-                panic!("Component error: {:?}", e);
-            }
-        };
-
-        data
-    }
-
-    async fn cloned_get_or_panic<T>(&self, entity: &Entity) -> T
-    where
-        T: Send + Sync + Clone + 'static,
-    {
-        let lock = self.read().await;
-        let data = lock.get::<&T>(entity.0);
-        let data = match data {
-            Ok(t) => (*t).clone(),
-            Err(e) => {
-                error!("Component error: {:?}", e);
-                panic!("Component error: {:?}", e);
-            }
-        };
-
-        data
-    }
-
-    async fn get_or_err<T>(&self, entity: &Entity) -> Result<T>
-    where
-        T: Send + Sync + Copy + 'static,
-    {
-        let lock = self.read().await;
-        let data = lock.get::<&T>(entity.0);
-        match data {
-            Ok(t) => Ok(*t),
-            Err(e) => {
-                warn!("Component Err: {:?}", e);
-                Err(AscendingError::HecsComponent {
-                    error: e,
-                    backtrace: Box::new(Backtrace::capture()),
-                })
-            }
-        }
-    }
-
-    async fn cloned_get_or_err<T>(&self, entity: &Entity) -> Result<T>
-    where
-        T: Send + Sync + Clone + 'static,
-    {
-        let lock = self.read().await;
-        let data = lock.get::<&T>(entity.0);
-        match data {
-            Ok(t) => Ok((*t).clone()),
-            Err(e) => {
-                warn!("Component Err: {:?}", e);
-                Err(AscendingError::HecsComponent {
-                    error: e,
-                    backtrace: Box::new(Backtrace::capture()),
-                })
-            }
-        }
-    }
-
-    async fn contains(&self, entity: &Entity) -> bool {
-        let lock = self.read().await;
-        lock.contains(entity.0)
+        let contains = lock.contains(entity.0);
+        contains
     }
 }
