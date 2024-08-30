@@ -13,15 +13,15 @@ use log::debug;
 use std::cmp;
 
 pub async fn update_players(world: &GameWorld, storage: &GameStore) -> Result<()> {
-    let tick = *storage.gettick.lock().await;
+    let tick = *storage.gettick.read().await;
 
-    for id in &*storage.player_ids.lock().await {
+    for id in &*storage.player_ids.read().await {
         if world.get_or_err::<OnlineType>(id).await? == OnlineType::Online {
             if world.get_or_err::<DeathType>(id).await? == DeathType::Spirit {
                 //timers
                 if world.get_or_err::<DeathTimer>(id).await?.0 < tick {
                     {
-                        let lock = world.read().await;
+                        let lock = world.write().await;
                         *lock.get::<&mut DeathType>(id.0)? = DeathType::Alive;
                     }
 
@@ -43,7 +43,7 @@ pub async fn update_players(world: &GameWorld, storage: &GameStore) -> Result<()
                     for i in 0..VITALS_MAX {
                         let max_vital = world.get_or_err::<Vitals>(id).await?;
                         {
-                            let lock = world.read().await;
+                            let lock = world.write().await;
                             lock.get::<&mut Vitals>(id.0)?.vital[i] = max_vital.vitalmax[i];
                         }
                     }
@@ -54,7 +54,7 @@ pub async fn update_players(world: &GameWorld, storage: &GameStore) -> Result<()
                 let killcount = world.get_or_err::<KillCount>(id).await?;
                 if killcount.count > 0 && killcount.killcounttimer < tick {
                     {
-                        let lock = world.read().await;
+                        let lock = world.write().await;
                         lock.get::<&mut KillCount>(id.0)?.count = 0;
                     }
                 }
@@ -76,7 +76,7 @@ pub async fn update_players(world: &GameWorld, storage: &GameStore) -> Result<()
                     .await?;
 
                     {
-                        let lock = world.read().await;
+                        let lock = world.write().await;
                         *lock.get::<&mut TradeRequestEntity>(id.0)? = TradeRequestEntity::default();
                     }
                 }
@@ -93,7 +93,7 @@ pub async fn check_player_connection(world: &GameWorld, storage: &GameStore) -> 
     {
         let lock = world.read().await;
         for (entity, timer) in lock.query::<&ConnectionLoginTimer>().iter() {
-            if timer.0 < *storage.gettick.lock().await {
+            if timer.0 < *storage.gettick.read().await {
                 remove_player_list.push(entity);
             }
         }
@@ -108,7 +108,7 @@ pub async fn check_player_connection(world: &GameWorld, storage: &GameStore) -> 
 
 //If they login successfully the remove the timer from world.
 pub async fn send_connection_pings(world: &GameWorld, storage: &GameStore) -> Result<()> {
-    for id in &*storage.player_ids.lock().await {
+    for id in &*storage.player_ids.read().await {
         if world.get_or_err::<OnlineType>(id).await? == OnlineType::Online {
             send_ping(world, storage, id).await?;
         }
@@ -134,10 +134,10 @@ pub async fn player_earn_exp(
     giveexp = (giveexp as f64 * spercent) as i64;
 
     {
-        let lock = world.read().await;
+        let lock = world.write().await;
         lock.get::<&mut InCombat>(entity.0)?.0 = true;
         lock.get::<&mut Combat>(entity.0)?.0 =
-            *storage.gettick.lock().await + Duration::try_milliseconds(2000).unwrap_or_default();
+            *storage.gettick.read().await + Duration::try_milliseconds(2000).unwrap_or_default();
     }
 
     let leveldifference = victimlevel - world.get_or_err::<Level>(entity).await?.0;
@@ -149,7 +149,7 @@ pub async fn player_earn_exp(
     }
 
     {
-        let lock = world.read().await;
+        let lock = world.write().await;
         lock.get::<&mut Player>(entity.0)?.levelexp += cmp::max(giveexp, 1) as u64;
     }
 
@@ -158,7 +158,7 @@ pub async fn player_earn_exp(
         && world.get_or_err::<Level>(entity).await?.0 != MAX_LVL as i32
     {
         {
-            let lock = world.read().await;
+            let lock = world.write().await;
             lock.get::<&mut Level>(entity.0)?.0 += 1;
         }
 
@@ -171,7 +171,7 @@ pub async fn player_earn_exp(
         let max_mp = player_calc_max_mp(world, entity).await?;
 
         {
-            let lock = world.read().await;
+            let lock = world.write().await;
             lock.get::<&mut Player>(entity.0)?.levelexp = lvlexp;
             lock.get::<&mut Vitals>(entity.0)?.vitalmax[VitalTypes::Hp as usize] = max_hp;
             lock.get::<&mut Vitals>(entity.0)?.vitalmax[VitalTypes::Mp as usize] = max_mp;
@@ -190,7 +190,7 @@ pub async fn player_earn_exp(
 
         for i in 0..VitalTypes::Count as usize {
             let add_up = player_add_up_vital(world, entity, i).await?;
-            let lock = world.read().await;
+            let lock = world.write().await;
             lock.get::<&mut Vitals>(entity.0)?.vital[i] = add_up;
         }
 
@@ -222,7 +222,7 @@ pub async fn player_earn_exp(
 }
 
 pub async fn player_get_next_lvl_exp(world: &GameWorld, entity: &Entity) -> Result<u64> {
-    let lock = world.read().await;
+    let lock = world.write().await;
     let mut query = lock.query_one::<&Level>(entity.0)?;
 
     if let Some(player_level) = query.get() {
@@ -250,7 +250,7 @@ pub async fn player_get_next_lvl_exp(world: &GameWorld, entity: &Entity) -> Resu
 }
 
 pub async fn player_calc_max_hp(world: &GameWorld, entity: &Entity) -> Result<i32> {
-    let lock = world.read().await;
+    let lock = world.write().await;
     let mut query = lock.query_one::<&Level>(entity.0)?;
 
     if let Some(player_level) = query.get() {
@@ -261,7 +261,7 @@ pub async fn player_calc_max_hp(world: &GameWorld, entity: &Entity) -> Result<i3
 }
 
 pub async fn player_calc_max_mp(world: &GameWorld, entity: &Entity) -> Result<i32> {
-    let lock = world.read().await;
+    let lock = world.write().await;
     let mut query = lock.query_one::<&Level>(entity.0)?;
 
     if let Some(player_level) = query.get() {
@@ -276,7 +276,7 @@ pub async fn player_get_weapon_damage(
     storage: &GameStore,
     entity: &Entity,
 ) -> Result<(i16, i16)> {
-    let lock = world.read().await;
+    let lock = world.write().await;
     let mut query = lock.query_one::<&mut Equipment>(entity.0)?;
 
     Ok(if let Some(player_equipment) = query.get() {
@@ -303,7 +303,7 @@ pub async fn player_get_armor_defense(
     storage: &GameStore,
     entity: &Entity,
 ) -> Result<(i16, i16)> {
-    let lock = world.read().await;
+    let lock = world.write().await;
     let mut query = lock.query_one::<&mut Equipment>(entity.0)?;
 
     Ok(if let Some(player_equipment) = query.get() {
@@ -335,7 +335,7 @@ pub async fn player_repair_equipment(
 ) -> Result<()> {
     let mut update = false;
     {
-        let lock = world.read().await;
+        let lock = world.write().await;
         let equipment = lock.get::<&mut Equipment>(entity.0);
         if let Ok(mut equipment) = equipment {
             if let Some(item) = storage.bases.items.get(equipment.items[slot].num as usize) {
@@ -389,7 +389,7 @@ pub fn get_next_stat_exp(level: u32) -> u64 {
 
 pub async fn joingame(world: &GameWorld, storage: &GameStore, entity: &Entity) -> Result<()> {
     let socket_id = {
-        let lock = world.read().await;
+        let lock = world.write().await;
         let socket_id = lock.get::<&Socket>(entity.0)?.id;
         *lock.get::<&mut OnlineType>(entity.0)? = OnlineType::Online;
         socket_id
@@ -405,7 +405,7 @@ pub async fn joingame(world: &GameWorld, storage: &GameStore, entity: &Entity) -
 
     // Add player on map
     if let Some(mapref) = storage.maps.get(&position.map) {
-        let mut map = mapref.lock().await;
+        let mut map = mapref.write().await;
         map.add_player(storage, *entity).await;
         map.add_entity_to_grid(position);
     }
@@ -534,7 +534,7 @@ pub async fn init_trade(
         }
 
         {
-            let lock = world.read().await;
+            let lock = world.write().await;
             *lock.get::<&mut IsUsingType>(entity.0)? = IsUsingType::Trading(*target_entity);
             *lock.get::<&mut IsUsingType>(target_entity.0)? = IsUsingType::Trading(*entity);
 
@@ -620,7 +620,7 @@ pub async fn process_player_trade(
 
 pub async fn close_trade(world: &GameWorld, storage: &GameStore, entity: &Entity) -> Result<()> {
     {
-        let lock = world.read().await;
+        let lock = world.write().await;
         *lock.get::<&mut IsUsingType>(entity.0)? = IsUsingType::None;
         *lock.get::<&mut TradeItem>(entity.0)? = TradeItem::default();
         *lock.get::<&mut IsUsingType>(entity.0)? = IsUsingType::default();
@@ -636,5 +636,5 @@ pub async fn can_trade(world: &GameWorld, storage: &GameStore, entity: &Entity) 
             .get_or_err::<TradeRequestEntity>(entity)
             .await?
             .requesttimer
-            <= *storage.gettick.lock().await)
+            <= *storage.gettick.read().await)
 }

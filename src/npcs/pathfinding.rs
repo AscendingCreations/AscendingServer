@@ -105,7 +105,7 @@ pub async fn a_star_path(
         //And follow the Parents till the Start location. if the final location is blocked we will
         //find a location within a range of 1 regardless if blocked or not.
         if let Some(map) = storage.maps.get(&current_node.pos.map) {
-            if map.lock().await.is_blocked_tile(stop, WorldEntityType::Npc)
+            if map.read().await.is_blocked_tile(stop, WorldEntityType::Npc)
                 && in_dir_attack_zone(storage, current_node.pos, stop, 1).await
             {
                 return npc_path_gather(&nodes, &current_node, start).await;

@@ -50,7 +50,7 @@ pub async fn send_fltalert(
 pub async fn send_loginok(storage: &GameStore, socket_id: usize) -> Result<()> {
     let mut buf = MByteBuffer::new_packet()?;
 
-    let time = storage.time.lock().await;
+    let time = storage.time.read().await;
 
     buf.write(ServerPackets::LoginOk)?;
     buf.write(time.hour)?;

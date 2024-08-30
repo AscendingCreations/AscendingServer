@@ -83,7 +83,7 @@ impl Server {
                 // Lets make the Client to handle hwo we send packets.
                 let mut client = Client::new(stream, token, entity, tls_conn);
                 //Register the Poll to the client for recv and Sending
-                client.register(&*storage.poll.lock().await)?;
+                client.register(&*storage.poll.read().await)?;
 
                 // insert client into handled list.
                 self.clients.insert(token, Mutex::new(client));
@@ -110,22 +110,22 @@ pub async fn poll_events(world: &GameWorld, storage: &GameStore) -> Result<()> {
 
     storage
         .poll
-        .lock()
+        .write()
         .await
         .poll(&mut events, Some(Duration::from_millis(0)))?;
 
     for event in events.iter() {
         match event.token() {
             SERVER => {
-                storage.server.lock().await.accept(world, storage).await?;
-                storage.poll.lock().await.registry().reregister(
-                    &mut storage.server.lock().await.listener,
+                storage.server.write().await.accept(world, storage).await?;
+                storage.poll.read().await.registry().reregister(
+                    &mut storage.server.write().await.listener,
                     SERVER,
                     mio::Interest::READABLE,
                 )?;
             }
             token => {
-                let mut server = storage.server.lock().await;
+                let mut server = storage.server.write().await;
                 let state = if let Some(a) = server.clients.get(&token) {
                     let mut client = a.lock().await;
                     client.process(event, world, storage).await?;

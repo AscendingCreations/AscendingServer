@@ -36,14 +36,14 @@ pub struct DropItem {
 }
 
 pub async fn update_map_items(world: &GameWorld, storage: &GameStore) -> Result<()> {
-    let tick = *storage.gettick.lock().await;
+    let tick = *storage.gettick.read().await;
 
     let mut to_remove = Vec::new();
 
     {
         let lock = world.read().await;
 
-        for id in &*storage.map_items.lock().await {
+        for id in &*storage.map_items.read().await {
             let mapitems = lock.get::<&MapItem>(id.1 .0)?;
 
             if mapitems.despawn.is_some() && lock.get_or_err::<DespawnTimer>(id.1)?.0 <= tick {
@@ -55,11 +55,11 @@ pub async fn update_map_items(world: &GameWorld, storage: &GameStore) -> Result<
     for (entity, e_pos) in to_remove.iter_mut() {
         if let Some(map) = storage.maps.get(&e_pos.map) {
             let pos = world.get_or_err::<MapItem>(entity).await?.pos;
-            let mut storage_mapitems = storage.map_items.lock().await;
+            let mut storage_mapitems = storage.map_items.write().await;
             if storage_mapitems.contains_key(&pos) {
                 storage_mapitems.swap_remove(&pos);
             }
-            map.lock().await.remove_item(*entity);
+            map.write().await.remove_item(*entity);
             DataTaskToken::EntityUnload(e_pos.map)
                 .add_task(storage, unload_entity_packet(*entity)?)
                 .await?;
@@ -76,7 +76,7 @@ pub async fn find_drop_pos(
 ) -> Result<Vec<(Position, Option<Entity>)>> {
     let mut result = Vec::new();
 
-    let storage_mapitem = storage.map_items.lock().await;
+    let storage_mapitem = storage.map_items.read().await;
     let item_base = match storage.bases.items.get(drop_item.index as usize) {
         Some(data) => data,
         None => return Ok(result),
@@ -87,7 +87,7 @@ pub async fn find_drop_pos(
         let mapdata = storage.maps.get(&drop_item.pos.map);
         if let Some(map_data) = mapdata {
             if !map_data
-                .lock()
+                .read()
                 .await
                 .is_blocked_tile(drop_item.pos, WorldEntityType::MapItem)
             {
@@ -124,7 +124,7 @@ pub async fn find_drop_pos(
                     let mapdata = storage.maps.get(&check_pos.map);
                     if let Some(map_data) = mapdata {
                         if !map_data
-                            .lock()
+                            .read()
                             .await
                             .is_blocked_tile(check_pos, WorldEntityType::MapItem)
                         {
@@ -210,7 +210,7 @@ pub async fn try_drop_item(
         if item_base.stackable
             && let Some(got_entity) = found_pos.1
         {
-            let lock = world.read().await;
+            let lock = world.write().await;
             let map_item = lock.get::<&mut MapItem>(got_entity.0);
 
             if let Ok(mut mapitem) = map_item {
@@ -223,7 +223,7 @@ pub async fn try_drop_item(
                 }
             }
         } else {
-            let mut storage_mapitem = storage.map_items.lock().await;
+            let mut storage_mapitem = storage.map_items.write().await;
             let mapdata = storage.maps.get(&found_pos.0.map);
             if let Some(map_data) = mapdata {
                 let mut map_item = create_mapitem(drop_item.index, drop_item.amount, found_pos.0);
@@ -238,7 +238,7 @@ pub async fn try_drop_item(
                     DespawnTimer::default()
                 };
                 lock.insert(id, (EntityType::MapItem(Entity(id)), despawntimer))?;
-                map_data.lock().await.itemids.insert(Entity(id));
+                map_data.write().await.itemids.insert(Entity(id));
                 storage_mapitem.insert(found_pos.0, Entity(id));
                 DataTaskToken::ItemLoad(found_pos.0.map)
                     .add_task(
@@ -314,7 +314,7 @@ pub async fn player_interact_object(
         match mapdata.attribute[target_pos.as_tile()] {
             MapAttribute::Storage => {
                 {
-                    let lock = world.read().await;
+                    let lock = world.write().await;
                     *lock.get::<&mut IsUsingType>(entity.0)? = IsUsingType::Bank;
                 }
                 send_storage(world, storage, entity, 0..35).await?;
@@ -323,7 +323,7 @@ pub async fn player_interact_object(
             }
             MapAttribute::Shop(shop_index) => {
                 {
-                    let lock = world.read().await;
+                    let lock = world.write().await;
                     *lock.get::<&mut IsUsingType>(entity.0)? =
                         IsUsingType::Store(shop_index as i64);
                 }

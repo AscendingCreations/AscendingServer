@@ -154,7 +154,7 @@ impl Client {
         // if `SocketPollState::None` is registers as the poll event we will not get data.
         match self.state {
             ClientState::Closing => self.close_socket(world, storage).await?,
-            _ => self.reregister(&*storage.poll.lock().await)?,
+            _ => self.reregister(&*storage.poll.read().await)?,
         }
 
         Ok(())
@@ -169,7 +169,7 @@ impl Client {
     pub async fn set_to_closing(&mut self, storage: &GameStore) -> Result<()> {
         self.state = ClientState::Closing;
         self.poll_state.add(SocketPollState::Write);
-        self.reregister(&*storage.poll.lock().await)
+        self.reregister(&*storage.poll.read().await)
     }
 
     #[inline]
@@ -178,7 +178,7 @@ impl Client {
             ClientState::Closed => Ok(()),
             _ => {
                 //We dont care about errors here as they only occur when a socket is already disconnected by the client.
-                self.deregister(&*storage.poll.lock().await)?;
+                self.deregister(&*storage.poll.read().await)?;
                 let _ = self.stream.shutdown(std::net::Shutdown::Both);
                 self.state = ClientState::Closed;
                 disconnect(self.entity, world, storage).await
@@ -187,7 +187,7 @@ impl Client {
     }
 
     pub async fn tls_read(&mut self, world: &GameWorld, storage: &GameStore) -> Result<()> {
-        let lock = world.read().await;
+        let lock = world.write().await;
         let socket = match lock.get::<&mut Socket>(self.entity.0) {
             Ok(v) => v,
             Err(_) => {
@@ -199,9 +199,9 @@ impl Client {
         // get the current pos so we can reset it back for reading.
         //let mut buffer = socket.buffer.lock().unwrap();
 
-        let pos = socket.buffer.lock().await.cursor();
+        let pos = socket.buffer.read().await.cursor();
 
-        socket.buffer.lock().await.move_cursor_to_end();
+        socket.buffer.write().await.move_cursor_to_end();
 
         loop {
             match self.tls.read_tls(&mut self.stream) {
@@ -241,7 +241,7 @@ impl Client {
                     return Ok(());
                 }
 
-                if let Err(e) = socket.buffer.lock().await.write_slice(&buf) {
+                if let Err(e) = socket.buffer.write().await.write_slice(&buf) {
                     trace!("TLS read error: {}", e);
                     self.state = ClientState::Closing;
                     return Ok(());
@@ -257,10 +257,10 @@ impl Client {
         }
 
         // reset it back to the original pos so we can Read from it again.
-        socket.buffer.lock().await.move_cursor(pos)?;
+        socket.buffer.write().await.move_cursor(pos)?;
 
-        if !socket.buffer.lock().await.is_empty() {
-            storage.recv_ids.lock().await.insert(self.entity);
+        if !socket.buffer.read().await.is_empty() {
+            storage.recv_ids.write().await.insert(self.entity);
         } else {
             // we are not going to handle any reads so lets mark it back as read again so it can
             //continue to get packets.
@@ -271,7 +271,7 @@ impl Client {
     }
 
     pub async fn read(&mut self, world: &GameWorld, storage: &GameStore) -> Result<()> {
-        let lock = world.read().await;
+        let lock = world.write().await;
         let socket = match lock.get::<&mut Socket>(self.entity.0) {
             Ok(v) => v,
             Err(e) => {
@@ -283,8 +283,8 @@ impl Client {
 
         // get the current pos so we can reset it back for reading.
 
-        let pos = socket.buffer.lock().await.cursor();
-        socket.buffer.lock().await.move_cursor_to_end();
+        let pos = socket.buffer.read().await.cursor();
+        socket.buffer.write().await.move_cursor_to_end();
 
         let mut buf: [u8; 4096] = [0; 4096];
         let mut closing = false;
@@ -299,7 +299,7 @@ impl Client {
                     closing = true;
                 }
                 Ok(n) => {
-                    if let Err(e) = socket.buffer.lock().await.write_slice(&buf[0..n]) {
+                    if let Err(e) = socket.buffer.write().await.write_slice(&buf[0..n]) {
                         trace!("buffer.write_slice, error in socket read: {}", e);
                         closing = true;
                     }
@@ -314,10 +314,10 @@ impl Client {
         }
 
         // reset it back to the original pos so we can Read from it again.
-        socket.buffer.lock().await.move_cursor(pos)?;
+        socket.buffer.write().await.move_cursor(pos)?;
 
-        if !socket.buffer.lock().await.is_empty() {
-            storage.recv_ids.lock().await.insert(self.entity);
+        if !socket.buffer.read().await.is_empty() {
+            storage.recv_ids.write().await.insert(self.entity);
         } else {
             // we are not going to handle any reads so lets mark it back as read again so it can
             //continue to get packets.
@@ -513,7 +513,7 @@ pub async fn disconnect(playerid: Entity, world: &GameWorld, storage: &GameStore
     if let Some(pos) = position {
         if let Some(map) = storage.maps.get(&pos.map) {
             {
-                let mut map_lock = map.lock().await;
+                let mut map_lock = map.write().await;
                 map_lock.remove_player(storage, playerid).await;
                 map_lock.remove_entity_from_grid(pos);
             }
@@ -552,7 +552,7 @@ pub async fn set_encryption_status(
 ) {
     if let Some(client) = storage
         .server
-        .lock()
+        .read()
         .await
         .clients
         .get(&mio::Token(socket_id))
@@ -565,12 +565,12 @@ pub async fn set_encryption_status(
 pub async fn send_to(storage: &GameStore, socket_id: usize, buf: MByteBuffer) -> Result<()> {
     if let Some(client) = storage
         .server
-        .lock()
+        .read()
         .await
         .clients
         .get(&mio::Token(socket_id))
     {
-        client.lock().await.send(&*storage.poll.lock().await, buf)
+        client.lock().await.send(&*storage.poll.read().await, buf)
     } else {
         Ok(())
     }
@@ -580,7 +580,7 @@ pub async fn send_to(storage: &GameStore, socket_id: usize, buf: MByteBuffer) ->
 pub async fn tls_send_to(storage: &GameStore, socket_id: usize, buf: MByteBuffer) -> Result<()> {
     if let Some(client) = storage
         .server
-        .lock()
+        .read()
         .await
         .clients
         .get(&mio::Token(socket_id))
@@ -588,7 +588,7 @@ pub async fn tls_send_to(storage: &GameStore, socket_id: usize, buf: MByteBuffer
         client
             .lock()
             .await
-            .tls_send(&*storage.poll.lock().await, buf)
+            .tls_send(&*storage.poll.read().await, buf)
     } else {
         Ok(())
     }
@@ -598,7 +598,7 @@ pub async fn tls_send_to(storage: &GameStore, socket_id: usize, buf: MByteBuffer
 pub async fn send_to_front(storage: &GameStore, socket_id: usize, buf: MByteBuffer) -> Result<()> {
     if let Some(client) = storage
         .server
-        .lock()
+        .read()
         .await
         .clients
         .get(&mio::Token(socket_id))
@@ -606,7 +606,7 @@ pub async fn send_to_front(storage: &GameStore, socket_id: usize, buf: MByteBuff
         client
             .lock()
             .await
-            .send_first(&*storage.poll.lock().await, buf)
+            .send_first(&*storage.poll.read().await, buf)
     } else {
         Ok(())
     }
@@ -624,7 +624,7 @@ pub async fn send_to_all(world: &GameWorld, storage: &GameStore, buf: MByteBuffe
     {
         if let Some(client) = storage
             .server
-            .lock()
+            .read()
             .await
             .clients
             .get(&mio::Token(socket.id))
@@ -632,7 +632,7 @@ pub async fn send_to_all(world: &GameWorld, storage: &GameStore, buf: MByteBuffe
             client
                 .lock()
                 .await
-                .send(&*storage.poll.lock().await, buf.try_clone()?)?;
+                .send(&*storage.poll.read().await, buf.try_clone()?)?;
         }
     }
 
@@ -652,7 +652,7 @@ pub async fn send_to_maps(
             Some(map) => map,
             None => continue,
         }
-        .lock()
+        .read()
         .await;
 
         for entity in &map.players {
@@ -667,7 +667,7 @@ pub async fn send_to_maps(
                 if *status == OnlineType::Online {
                     if let Some(client) = storage
                         .server
-                        .lock()
+                        .read()
                         .await
                         .clients
                         .get(&mio::Token(socket.id))
@@ -675,7 +675,7 @@ pub async fn send_to_maps(
                         client
                             .lock()
                             .await
-                            .send(&*storage.poll.lock().await, buf.try_clone()?)?;
+                            .send(&*storage.poll.read().await, buf.try_clone()?)?;
                     }
                 }
             }
@@ -700,7 +700,7 @@ pub async fn send_to_entities(
             if *status == OnlineType::Online {
                 if let Some(client) = storage
                     .server
-                    .lock()
+                    .read()
                     .await
                     .clients
                     .get(&mio::Token(socket.id))
@@ -708,7 +708,7 @@ pub async fn send_to_entities(
                     client
                         .lock()
                         .await
-                        .send(&*storage.poll.lock().await, buf.try_clone()?)?;
+                        .send(&*storage.poll.read().await, buf.try_clone()?)?;
                 }
             }
         }
@@ -726,7 +726,7 @@ pub async fn get_length(
         let length = buffer.read::<u64>()?;
 
         if !(1..=8192).contains(&length) {
-            if let Some(client) = storage.server.lock().await.clients.get(&mio::Token(id)) {
+            if let Some(client) = storage.server.read().await.clients.get(&mio::Token(id)) {
                 trace!("Player was disconnected on get_length LENGTH: {:?}", length);
                 client.lock().await.set_to_closing(storage).await?;
                 return Ok(None);
@@ -735,12 +735,12 @@ pub async fn get_length(
 
         Ok(Some(length))
     } else {
-        if let Some(client) = storage.server.lock().await.clients.get(&mio::Token(id)) {
+        if let Some(client) = storage.server.read().await.clients.get(&mio::Token(id)) {
             client.lock().await.poll_state.add(SocketPollState::Read);
             client
                 .lock()
                 .await
-                .reregister(&*storage.poll.lock().await)?;
+                .reregister(&*storage.poll.read().await)?;
         }
 
         Ok(None)
@@ -755,7 +755,7 @@ pub async fn process_packets(world: &GameWorld, storage: &GameStore) -> Result<(
 
     // let entities = storage.recv_ids.lock().await.clone();
     // info!("Locking recv in process_packets from loop");
-    'user_loop: for entity in &*storage.recv_ids.lock().await {
+    'user_loop: for entity in &*storage.recv_ids.read().await {
         let mut count = 0;
 
         let (buffer, socket_id, address) = {
@@ -775,7 +775,7 @@ pub async fn process_packets(world: &GameWorld, storage: &GameStore) -> Result<(
             (socket.buffer.clone(), socket.id, socket.addr.clone())
         };
 
-        let mut buffer = buffer.lock().await;
+        let mut buffer = buffer.write().await;
         loop {
             packet.move_cursor_to_start();
             let length = match get_length(storage, &mut buffer, socket_id).await? {
@@ -881,12 +881,12 @@ pub async fn process_packets(world: &GameWorld, storage: &GameStore) -> Result<(
     //info!("unLocking recv in process_packets from loop");
     for (entity, socket_id, should_close) in rem_arr {
         //info!("Locking recv in process_packets from swap_remove");
-        storage.recv_ids.lock().await.swap_remove(&entity);
+        storage.recv_ids.write().await.swap_remove(&entity);
 
         if should_close {
             if let Some(client) = storage
                 .server
-                .lock()
+                .read()
                 .await
                 .clients
                 .get(&mio::Token(socket_id))

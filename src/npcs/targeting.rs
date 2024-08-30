@@ -25,7 +25,7 @@ pub async fn check_target(world: &GameWorld, entity: &Entity) -> Result<()> {
             }
 
             {
-                let lock = world.read().await;
+                let lock = world.write().await;
                 *lock.get::<&mut Target>(entity.0)? = Target::default();
             }
 
@@ -42,7 +42,7 @@ pub async fn check_target(world: &GameWorld, entity: &Entity) -> Result<()> {
             }
 
             {
-                let lock = world.read().await;
+                let lock = world.write().await;
                 *lock.get::<&mut Target>(entity.0)? = Target::default();
             }
 
@@ -66,7 +66,7 @@ pub async fn targeting(
     if world.get_or_err::<Target>(entity).await?.target_type != EntityType::None {
         if (base.target_auto_switch
             && world.get_or_err::<Target>(entity).await?.target_timer
-                < *storage.gettick.lock().await)
+                < *storage.gettick.read().await)
             || (base.target_range_dropout
                 && world
                     .get_or_err::<Position>(entity)
@@ -75,7 +75,7 @@ pub async fn targeting(
                     > base.sight)
         {
             {
-                let lock = world.read().await;
+                let lock = world.write().await;
                 *lock.get::<&mut Target>(entity.0)? = Target::default();
             }
             npc_clear_move_path(world, entity).await?;
@@ -99,7 +99,7 @@ pub async fn targeting(
         .filter_map(|i| storage.maps.get(&i));
 
     for map_data_ref in valid_map_data {
-        let map_data = map_data_ref.lock().await;
+        let map_data = map_data_ref.read().await;
 
         for x in &map_data.players {
             let accid = if world.contains(x).await {
@@ -179,11 +179,11 @@ pub async fn try_target_entity(
                     let target_pos = world.get_or_err::<Position>(&id).await?;
                     let deathtype = world.get_or_err::<DeathType>(&id).await?;
                     if can_target(pos, target_pos, deathtype, 1) {
-                        let lock = world.read().await;
+                        let lock = world.write().await;
                         lock.get::<&mut Target>(entity.0)?.target_pos = target_pos;
                         lock.get::<&mut Target>(entity.0)?.target_type = entity_copy;
                         lock.get::<&mut Target>(entity.0)?.target_timer =
-                            *storage.gettick.lock().await
+                            *storage.gettick.read().await
                                 + Duration::try_milliseconds(base.target_auto_switch_chance)
                                     .unwrap_or_default();
                     }
@@ -225,7 +225,7 @@ pub async fn update_target_pos(world: &GameWorld, entity: &Entity) -> Result<Tar
         _ => {}
     }
 
-    let lock = world.read().await;
+    let lock = world.write().await;
     *lock.get::<&mut Target>(entity.0)? = target;
 
     Ok(target)
@@ -307,12 +307,12 @@ pub async fn npc_targeting(
         return Ok(false);
     }
 
-    let lock = world.read().await;
+    let lock = world.write().await;
     lock.get::<&mut Target>(entity.0)?.target_pos = pos;
     lock.get::<&mut Target>(entity.0)?.target_type = entitytype;
-    lock.get::<&mut Target>(entity.0)?.target_timer = *storage.gettick.lock().await
+    lock.get::<&mut Target>(entity.0)?.target_timer = *storage.gettick.read().await
         + Duration::try_milliseconds(base.target_auto_switch_chance).unwrap_or_default();
-    lock.get::<&mut AttackTimer>(entity.0)?.0 = *storage.gettick.lock().await
+    lock.get::<&mut AttackTimer>(entity.0)?.0 = *storage.gettick.read().await
         + Duration::try_milliseconds(base.attack_wait).unwrap_or_default();
 
     Ok(true)

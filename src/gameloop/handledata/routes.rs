@@ -40,7 +40,7 @@ pub async fn handle_register(
     let appminior = data.read::<u16>()? as usize;
     let apprevision = data.read::<u16>()? as usize;
 
-    if !storage.player_ids.lock().await.contains(entity) {
+    if !storage.player_ids.read().await.contains(entity) {
         let (socket_id, address) = {
             let lock = world.read().await;
             let socket = lock.get::<&Socket>(entity.0)?;
@@ -139,14 +139,14 @@ pub async fn handle_register(
         let code = Alphanumeric.sample_string(&mut rand::thread_rng(), 32);
         let handshake = Alphanumeric.sample_string(&mut rand::thread_rng(), 32);
 
-        let tick = *storage.gettick.lock().await;
+        let tick = *storage.gettick.read().await;
         // we need to Add all the player types creations in a sub function that Creates the Defaults and then adds them to World.
         storage
             .add_player_data(world, entity, code.clone(), handshake.clone(), tick)
             .await?;
 
         {
-            let lock = world.read().await;
+            let lock = world.write().await;
             let mut query = lock.query_one::<(&mut Account, &mut Sprite)>(entity.0)?;
             let (account, sprite) = query.get().ok_or(AscendingError::HecsComponent {
                 error: hecs::ComponentError::MissingComponent(MissingComponent::new::<(
@@ -162,7 +162,7 @@ pub async fn handle_register(
 
         storage
             .player_names
-            .lock()
+            .write()
             .await
             .insert(username.clone(), *entity);
 
@@ -171,7 +171,7 @@ pub async fn handle_register(
         return match new_player(storage, world, entity, username, email, password).await {
             Ok(uid) => {
                 {
-                    let lock = world.read().await;
+                    let lock = world.write().await;
                     lock.get::<&mut Account>(entity.0)?.id = uid;
                 }
                 send_myindex(storage, socket_id, entity).await?;
@@ -234,7 +234,7 @@ pub async fn handle_login(
         (socket.id, socket.addr.clone())
     };
 
-    if !storage.player_ids.lock().await.contains(entity) {
+    if !storage.player_ids.read().await.contains(entity) {
         if APP_MAJOR > appmajor && APP_MINOR > appminior && APP_REVISION > apprevision {
             return send_infomsg(
                 storage,
@@ -274,7 +274,7 @@ pub async fn handle_login(
         // we need to Add all the player types creations in a sub function that Creates the Defaults and then adds them to World.
         let code = Alphanumeric.sample_string(&mut rand::thread_rng(), 32);
         let handshake = Alphanumeric.sample_string(&mut rand::thread_rng(), 32);
-        let old_entity = { storage.player_names.lock().await.get(&username).copied() };
+        let old_entity = { storage.player_names.read().await.get(&username).copied() };
 
         if let Some(old_entity) = old_entity {
             if old_entity.0 != entity.0 {
@@ -284,13 +284,13 @@ pub async fn handle_login(
 
                 // if old code is empty means they did get unloaded just not all the way for some reason.
                 if old_code.code.is_empty() {
-                    let _ = storage.player_names.lock().await.remove(&username);
+                    let _ = storage.player_names.write().await.remove(&username);
                 } else if !reconnect_code.is_empty() && reconnect_code == old_code.code {
                     if let Ok(socket) = world.cloned_get_or_err::<Socket>(&old_entity).await {
                         if socket.id != socket_id {
                             if let Some(client) = storage
                                 .server
-                                .lock()
+                                .read()
                                 .await
                                 .clients
                                 .get(&mio::Token(socket.id))
@@ -310,7 +310,7 @@ pub async fn handle_login(
             }
         }
 
-        let tick = *storage.gettick.lock().await;
+        let tick = *storage.gettick.read().await;
         storage
             .add_player_data(world, entity, code.clone(), handshake.clone(), tick)
             .await?;
@@ -334,7 +334,7 @@ pub async fn handle_move(
     data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
-    if let Some(entity) = storage.player_ids.lock().await.get(entity) {
+    if let Some(entity) = storage.player_ids.read().await.get(entity) {
         if !world.get_or_err::<DeathType>(entity).await?.is_alive()
             || world.get_or_err::<IsUsingType>(entity).await?.inuse()
             || world.get_or_err::<Stunned>(entity).await?.0
@@ -380,7 +380,7 @@ pub async fn handle_dir(
     data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
-    if let Some(entity) = storage.player_ids.lock().await.get(entity) {
+    if let Some(entity) = storage.player_ids.read().await.get(entity) {
         if !world.get_or_err::<DeathType>(entity).await?.is_alive()
             || world.get_or_err::<IsUsingType>(entity).await?.inuse()
         {
@@ -394,7 +394,7 @@ pub async fn handle_dir(
         }
 
         {
-            let lock = world.read().await;
+            let lock = world.write().await;
             lock.get::<&mut Dir>(entity.0)?.0 = dir;
         }
 
@@ -414,11 +414,11 @@ pub async fn handle_attack(
     data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
-    if let Some(entity) = storage.player_ids.lock().await.get(entity) {
+    if let Some(entity) = storage.player_ids.read().await.get(entity) {
         if !world.get_or_err::<DeathType>(entity).await?.is_alive()
             || world.get_or_err::<IsUsingType>(entity).await?.inuse()
             || world.get_or_err::<Attacking>(entity).await?.0
-            || world.get_or_err::<AttackTimer>(entity).await?.0 > *storage.gettick.lock().await
+            || world.get_or_err::<AttackTimer>(entity).await?.0 > *storage.gettick.read().await
         {
             return Ok(());
         }
@@ -432,7 +432,7 @@ pub async fn handle_attack(
 
         if world.get_or_err::<Dir>(entity).await?.0 != dir {
             {
-                let lock = world.read().await;
+                let lock = world.write().await;
                 lock.get::<&mut Dir>(entity.0)?.0 = dir;
             }
             DataTaskToken::Dir(world.get_or_err::<Position>(entity).await?.map)
@@ -446,8 +446,8 @@ pub async fn handle_attack(
                     player_interact_object(world, storage, entity).await?;
                 }
                 {
-                    let lock = world.read().await;
-                    lock.get::<&mut AttackTimer>(entity.0)?.0 = *storage.gettick.lock().await
+                    let lock = world.write().await;
+                    lock.get::<&mut AttackTimer>(entity.0)?.0 = *storage.gettick.read().await
                         + Duration::try_milliseconds(250).unwrap_or_default();
                 }
             }
@@ -466,13 +466,13 @@ pub async fn handle_useitem(
     data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
-    if let Some(entity) = storage.player_ids.lock().await.get(entity) {
+    if let Some(entity) = storage.player_ids.read().await.get(entity) {
         if !world.get_or_err::<DeathType>(entity).await?.is_alive()
             || world.get_or_err::<IsUsingType>(entity).await?.inuse()
             || world.get_or_err::<Attacking>(entity).await?.0
             || world.get_or_err::<Stunned>(entity).await?.0
             || world.get_or_err::<PlayerItemTimer>(entity).await?.itemtimer
-                > *storage.gettick.lock().await
+                > *storage.gettick.read().await
         {
             return Ok(());
         }
@@ -480,9 +480,9 @@ pub async fn handle_useitem(
         let slot = data.read::<u16>()?;
 
         {
-            let lock = world.read().await;
+            let lock = world.write().await;
             lock.get::<&mut PlayerItemTimer>(entity.0)?.itemtimer =
-                *storage.gettick.lock().await + Duration::try_milliseconds(250).unwrap_or_default();
+                *storage.gettick.read().await + Duration::try_milliseconds(250).unwrap_or_default();
         }
 
         return player_use_item(world, storage, entity, slot).await;
@@ -497,26 +497,30 @@ pub async fn handle_unequip(
     data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
-    if let Some(entity) = storage.player_ids.lock().await.get(entity) {
+    if let Some(entity) = storage.player_ids.read().await.get(entity) {
         if !world.get_or_err::<DeathType>(entity).await?.is_alive()
             || world.get_or_err::<IsUsingType>(entity).await?.inuse()
             || world.get_or_err::<Attacking>(entity).await?.0
             || world.get_or_err::<Stunned>(entity).await?.0
             || world.get_or_err::<PlayerItemTimer>(entity).await?.itemtimer
-                > *storage.gettick.lock().await
+                > *storage.gettick.read().await
         {
             return Ok(());
         }
 
         let slot = data.read::<u16>()? as usize;
 
-        if slot >= EQUIPMENT_TYPE_MAX || {
+        if slot >= EQUIPMENT_TYPE_MAX {
+            return Ok(());
+        }
+
+        {
             let lock = world.read().await;
             let val = lock.get::<&Equipment>(entity.0)?.items[slot].val;
-            val
-        } == 0
-        {
-            return Ok(());
+
+            if val == 0 {
+                return Ok(());
+            }
         }
 
         if !player_unequip(world, storage, entity, slot).await? {
@@ -544,12 +548,12 @@ pub async fn handle_switchinvslot(
     data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
-    if let Some(entity) = storage.player_ids.lock().await.get(entity) {
+    if let Some(entity) = storage.player_ids.read().await.get(entity) {
         if !world.get_or_err::<DeathType>(entity).await?.is_alive()
             || world.get_or_err::<Attacking>(entity).await?.0
             || world.get_or_err::<Stunned>(entity).await?.0
             || world.get_or_err::<PlayerItemTimer>(entity).await?.itemtimer
-                > *storage.gettick.lock().await
+                > *storage.gettick.read().await
         {
             return Ok(());
         }
@@ -595,7 +599,7 @@ pub async fn handle_switchinvslot(
                 }
             } else if oldval == amount {
                 {
-                    let lock = world.read().await;
+                    let lock = world.write().await;
 
                     let itemnew = lock.get::<&Inventory>(entity.0)?.items[newslot];
                     {
@@ -620,7 +624,7 @@ pub async fn handle_switchinvslot(
             }
         } else {
             {
-                let lock = world.read().await;
+                let lock = world.write().await;
                 let itemnew = lock.get::<&Inventory>(entity.0)?.items[newslot];
                 {
                     lock.get::<&mut Inventory>(entity.0)?.items[newslot] = itemold;
@@ -643,7 +647,7 @@ pub async fn handle_pickup(
     _data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
-    if let Some(entity) = storage.player_ids.lock().await.get(entity) {
+    if let Some(entity) = storage.player_ids.read().await.get(entity) {
         let mut remove_id: Vec<(MapPosition, Entity)> = Vec::new();
 
         if !world.get_or_err::<DeathType>(entity).await?.is_alive()
@@ -654,7 +658,7 @@ pub async fn handle_pickup(
                 .get_or_err::<PlayerMapTimer>(entity)
                 .await?
                 .mapitemtimer
-                > *storage.gettick.lock().await
+                > *storage.gettick.read().await
         {
             return Ok(());
         }
@@ -668,7 +672,7 @@ pub async fn handle_pickup(
                     Some(map) => map,
                     None => continue,
                 }
-                .lock()
+                .read()
                 .await;
 
                 // for the map base data when we need it.
@@ -696,7 +700,7 @@ pub async fn handle_pickup(
                                     .await?;
 
                             {
-                                let lock = world.read().await;
+                                let lock = world.write().await;
                                 lock.get::<&mut MapItem>(i.0)?.item.val = rem as u16;
                             }
 
@@ -729,7 +733,7 @@ pub async fn handle_pickup(
                                         MessageChannel::Private,
                                         None,
                                     ).await?;
-                                    let lock = world.read().await;
+                                    let lock = world.write().await;
                                     lock.get::<&mut MapItem>(i.0)?.item.val = start - amount;
                                 } else {
                                     send_message(
@@ -775,20 +779,20 @@ pub async fn handle_pickup(
         for (mappos, entity) in remove_id.iter_mut() {
             if let Some(map) = storage.maps.get(mappos) {
                 let pos = world.get_or_err::<MapItem>(entity).await?.pos;
-                let mut storage_mapitems = storage.map_items.lock().await;
+                let mut storage_mapitems = storage.map_items.write().await;
                 if storage_mapitems.contains_key(&pos) {
                     storage_mapitems.swap_remove(&pos);
                 }
-                map.lock().await.remove_item(*entity);
+                map.write().await.remove_item(*entity);
                 DataTaskToken::EntityUnload(*mappos)
                     .add_task(storage, unload_entity_packet(*entity)?)
                     .await?;
             }
         }
         {
-            let lock = world.read().await;
+            let lock = world.write().await;
             lock.get::<&mut PlayerMapTimer>(entity.0)?.mapitemtimer =
-                *storage.gettick.lock().await + Duration::try_milliseconds(100).unwrap_or_default();
+                *storage.gettick.read().await + Duration::try_milliseconds(100).unwrap_or_default();
         }
         return Ok(());
     }
@@ -802,7 +806,7 @@ pub async fn handle_dropitem(
     data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
-    if let Some(entity) = storage.player_ids.lock().await.get(entity) {
+    if let Some(entity) = storage.player_ids.read().await.get(entity) {
         if !world.get_or_err::<DeathType>(entity).await?.is_alive()
             || world.get_or_err::<IsUsingType>(entity).await?.inuse()
             || world.get_or_err::<Attacking>(entity).await?.0
@@ -856,12 +860,12 @@ pub async fn handle_dropitem(
             match world.get_or_err::<UserAccess>(entity).await? {
                 UserAccess::Admin => None,
                 _ => Some(
-                    *storage.gettick.lock().await
+                    *storage.gettick.read().await
                         + Duration::try_milliseconds(600000).unwrap_or_default(),
                 ),
             },
             Some(
-                *storage.gettick.lock().await
+                *storage.gettick.read().await
                     + Duration::try_milliseconds(5000).unwrap_or_default(),
             ),
             Some(*entity),
@@ -883,7 +887,7 @@ pub async fn handle_deleteitem(
     data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
-    if let Some(entity) = storage.player_ids.lock().await.get(entity) {
+    if let Some(entity) = storage.player_ids.read().await.get(entity) {
         if !world.get_or_err::<DeathType>(entity).await?.is_alive()
             || world.get_or_err::<IsUsingType>(entity).await?.inuse()
             || world.get_or_err::<Attacking>(entity).await?.0
@@ -923,7 +927,7 @@ pub async fn handle_switchstorageslot(
     data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
-    if let Some(entity) = storage.player_ids.lock().await.get(entity) {
+    if let Some(entity) = storage.player_ids.read().await.get(entity) {
         if !world.get_or_err::<DeathType>(entity).await?.is_alive()
             || !world.get_or_err::<IsUsingType>(entity).await?.is_bank()
             || world.get_or_err::<Attacking>(entity).await?.0
@@ -963,7 +967,7 @@ pub async fn handle_switchstorageslot(
                 }
             } else if olditem.val == amount {
                 {
-                    let lock = world.read().await;
+                    let lock = world.write().await;
                     lock.get::<&mut PlayerStorage>(entity.0)?.items[newslot] = olditem;
                     lock.get::<&mut PlayerStorage>(entity.0)?.items[oldslot] = newitem;
                 }
@@ -983,7 +987,7 @@ pub async fn handle_switchstorageslot(
             }
         } else {
             {
-                let lock = world.read().await;
+                let lock = world.write().await;
                 lock.get::<&mut PlayerStorage>(entity.0)?.items[newslot] = olditem;
                 lock.get::<&mut PlayerStorage>(entity.0)?.items[oldslot] = newitem;
             }
@@ -1003,7 +1007,7 @@ pub async fn handle_deletestorageitem(
     data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
-    if let Some(entity) = storage.player_ids.lock().await.get(entity) {
+    if let Some(entity) = storage.player_ids.read().await.get(entity) {
         if !world.get_or_err::<DeathType>(entity).await?.is_alive()
             || !world.get_or_err::<IsUsingType>(entity).await?.is_bank()
             || world.get_or_err::<Attacking>(entity).await?.0
@@ -1042,7 +1046,7 @@ pub async fn handle_deposititem(
     data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
-    if let Some(entity) = storage.player_ids.lock().await.get(entity) {
+    if let Some(entity) = storage.player_ids.read().await.get(entity) {
         if !world.get_or_err::<DeathType>(entity).await?.is_alive()
             || !world.get_or_err::<IsUsingType>(entity).await?.is_bank()
             || world.get_or_err::<Attacking>(entity).await?.0
@@ -1076,7 +1080,7 @@ pub async fn handle_deposititem(
 
         if bank_item.val == 0 {
             {
-                let lock = world.read().await;
+                let lock = world.write().await;
                 lock.get::<&mut PlayerStorage>(entity.0)?.items[bank_slot] = inv_item;
             }
             save_storage_item(world, storage, entity, bank_slot).await?;
@@ -1114,7 +1118,7 @@ pub async fn handle_withdrawitem(
     data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
-    if let Some(entity) = storage.player_ids.lock().await.get(entity) {
+    if let Some(entity) = storage.player_ids.read().await.get(entity) {
         if !world.get_or_err::<DeathType>(entity).await?.is_alive()
             || !world.get_or_err::<IsUsingType>(entity).await?.is_bank()
             || world.get_or_err::<Attacking>(entity).await?.0
@@ -1148,7 +1152,7 @@ pub async fn handle_withdrawitem(
 
         if { inv_item.val } == 0 {
             {
-                let lock = world.read().await;
+                let lock = world.write().await;
                 lock.get::<&mut Inventory>(entity.0)?.items[inv_slot] = bank_item;
             }
             save_inv_item(world, storage, entity, inv_slot).await?;
@@ -1185,7 +1189,7 @@ pub async fn handle_message(
     data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
-    if let Some(entity) = storage.player_ids.lock().await.get(entity) {
+    if let Some(entity) = storage.player_ids.read().await.get(entity) {
         let mut usersocket: Option<usize> = None;
 
         if !world.get_or_err::<DeathType>(entity).await?.is_alive() {
@@ -1242,7 +1246,7 @@ pub async fn handle_message(
                     .await;
                 }
 
-                usersocket = match storage.player_names.lock().await.get(&name) {
+                usersocket = match storage.player_names.read().await.get(&name) {
                     Some(id) => {
                         let lock = world.read().await;
                         let socket_ref = lock.get::<&Socket>(id.0);
@@ -1287,7 +1291,7 @@ pub async fn handle_command(
     data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
-    if let Some(_p) = storage.player_ids.lock().await.get(entity) {
+    if let Some(_p) = storage.player_ids.read().await.get(entity) {
         let command = data.read::<Command>()?;
 
         match command {
@@ -1302,7 +1306,7 @@ pub async fn handle_command(
             Command::SpawnNpc(index, pos) => {
                 debug!("Spawning NPC {index} on {:?}", pos);
                 if let Some(mapdata) = storage.maps.get(&pos.map) {
-                    let mut data = mapdata.lock().await;
+                    let mut data = mapdata.write().await;
                     if let Ok(Some(id)) = storage.add_npc(world, index as u64).await {
                         data.add_npc(id);
                         spawn_npc(world, pos, None, id).await?;
@@ -1319,7 +1323,7 @@ pub async fn handle_command(
                         .get_or_err::<TradeRequestEntity>(entity)
                         .await?
                         .requesttimer
-                        <= *storage.gettick.lock().await
+                        <= *storage.gettick.read().await
                         && can_target(
                             world.get_or_err::<Position>(entity).await?,
                             world.get_or_err::<Position>(&target_entity).await?,
@@ -1330,12 +1334,12 @@ pub async fn handle_command(
                     {
                         send_traderequest(world, storage, entity, &target_entity).await?;
                         {
-                            let lock = world.read().await;
+                            let lock = world.write().await;
                             if let Ok(mut traderequest) =
                                 lock.get::<&mut TradeRequestEntity>(entity.0)
                             {
                                 traderequest.entity = Some(target_entity);
-                                traderequest.requesttimer = *storage.gettick.lock().await
+                                traderequest.requesttimer = *storage.gettick.read().await
                                     + Duration::try_milliseconds(60000).unwrap_or_default();
                                 // 1 Minute
                             }
@@ -1343,7 +1347,7 @@ pub async fn handle_command(
                                 lock.get::<&mut TradeRequestEntity>(target_entity.0)
                             {
                                 traderequest.entity = Some(*entity);
-                                traderequest.requesttimer = *storage.gettick.lock().await
+                                traderequest.requesttimer = *storage.gettick.read().await
                                     + Duration::try_milliseconds(60000).unwrap_or_default();
                                 // 1 Minute
                             }
@@ -1399,7 +1403,7 @@ pub async fn handle_settarget(
     data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
-    if let Some(_p) = storage.player_ids.lock().await.get(entity) {
+    if let Some(_p) = storage.player_ids.read().await.get(entity) {
         let target = data.read::<Option<Entity>>()?;
 
         if let Some(target_entity) = target {
@@ -1408,7 +1412,7 @@ pub async fn handle_settarget(
             }
         }
 
-        let lock = world.read().await;
+        let lock = world.write().await;
         lock.get::<&mut PlayerTarget>(entity.0)?.0 = target;
 
         return Ok(());
@@ -1423,7 +1427,7 @@ pub async fn handle_closestorage(
     _data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
-    if let Some(entity) = storage.player_ids.lock().await.get(entity) {
+    if let Some(entity) = storage.player_ids.read().await.get(entity) {
         if !world.get_or_err::<DeathType>(entity).await?.is_alive()
             || !world.get_or_err::<IsUsingType>(entity).await?.is_bank()
         {
@@ -1431,7 +1435,7 @@ pub async fn handle_closestorage(
         }
 
         {
-            let lock = world.read().await;
+            let lock = world.write().await;
             *lock.get::<&mut IsUsingType>(entity.0)? = IsUsingType::None;
         }
         send_clearisusingtype(world, storage, entity).await?;
@@ -1448,7 +1452,7 @@ pub async fn handle_closeshop(
     _data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
-    if let Some(entity) = storage.player_ids.lock().await.get(entity) {
+    if let Some(entity) = storage.player_ids.read().await.get(entity) {
         if !world.get_or_err::<DeathType>(entity).await?.is_alive()
             || !world.get_or_err::<IsUsingType>(entity).await?.is_instore()
         {
@@ -1456,7 +1460,7 @@ pub async fn handle_closeshop(
         }
 
         {
-            let lock = world.read().await;
+            let lock = world.write().await;
             *lock.get::<&mut IsUsingType>(entity.0)? = IsUsingType::None;
         }
         send_clearisusingtype(world, storage, entity).await?;
@@ -1473,7 +1477,7 @@ pub async fn handle_closetrade(
     _data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
-    if let Some(entity) = storage.player_ids.lock().await.get(entity) {
+    if let Some(entity) = storage.player_ids.read().await.get(entity) {
         if !world.get_or_err::<DeathType>(entity).await?.is_alive()
             || !world.get_or_err::<IsUsingType>(entity).await?.is_trading()
         {
@@ -1494,7 +1498,7 @@ pub async fn handle_closetrade(
         close_trade(world, storage, &target_entity).await?;
 
         {
-            let lock = world.read().await;
+            let lock = world.write().await;
             *lock.get::<&mut TradeRequestEntity>(entity.0)? = TradeRequestEntity::default();
             *lock.get::<&mut TradeRequestEntity>(target_entity.0)? = TradeRequestEntity::default();
         }
@@ -1523,7 +1527,7 @@ pub async fn handle_buy_item(
     data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
-    if let Some(entity) = storage.player_ids.lock().await.get(entity) {
+    if let Some(entity) = storage.player_ids.read().await.get(entity) {
         if !world.get_or_err::<DeathType>(entity).await?.is_alive()
             || !world.get_or_err::<IsUsingType>(entity).await?.is_instore()
         {
@@ -1596,7 +1600,7 @@ pub async fn handle_sellitem(
     data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
-    if let Some(entity) = storage.player_ids.lock().await.get(entity) {
+    if let Some(entity) = storage.player_ids.read().await.get(entity) {
         if !world.get_or_err::<DeathType>(entity).await?.is_alive()
             || !world.get_or_err::<IsUsingType>(entity).await?.is_instore()
         {
@@ -1659,7 +1663,7 @@ pub async fn handle_addtradeitem(
     data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
-    if let Some(entity) = storage.player_ids.lock().await.get(entity) {
+    if let Some(entity) = storage.player_ids.read().await.get(entity) {
         if !world.get_or_err::<DeathType>(entity).await?.is_alive()
             || !world.get_or_err::<IsUsingType>(entity).await?.is_trading()
         {
@@ -1741,7 +1745,7 @@ pub async fn handle_removetradeitem(
     data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
-    if let Some(entity) = storage.player_ids.lock().await.get(entity) {
+    if let Some(entity) = storage.player_ids.read().await.get(entity) {
         if !world.get_or_err::<DeathType>(entity).await?.is_alive()
             || !world.get_or_err::<IsUsingType>(entity).await?.is_trading()
         {
@@ -1773,7 +1777,7 @@ pub async fn handle_removetradeitem(
         amount = amount.min(trade_item.val as u64);
 
         {
-            let lock = world.read().await;
+            let lock = world.write().await;
             let trade_slot = lock.get::<&mut TradeItem>(entity.0);
             if let Ok(mut tradeitem) = trade_slot {
                 tradeitem.items[slot].val = tradeitem.items[slot].val.saturating_sub(amount as u16);
@@ -1798,7 +1802,7 @@ pub async fn handle_updatetrademoney(
     data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
-    if let Some(entity) = storage.player_ids.lock().await.get(entity) {
+    if let Some(entity) = storage.player_ids.read().await.get(entity) {
         if !world.get_or_err::<DeathType>(entity).await?.is_alive()
             || !world.get_or_err::<IsUsingType>(entity).await?.is_trading()
         {
@@ -1822,7 +1826,7 @@ pub async fn handle_updatetrademoney(
         let amount = data.read::<u64>()?.min(money);
 
         {
-            let lock = world.read().await;
+            let lock = world.write().await;
             lock.get::<&mut TradeMoney>(entity.0)?.vals = amount;
         }
         send_updatetrademoney(world, storage, entity, &target_entity).await?;
@@ -1839,7 +1843,7 @@ pub async fn handle_submittrade(
     _data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
-    if let Some(entity) = storage.player_ids.lock().await.get(entity) {
+    if let Some(entity) = storage.player_ids.read().await.get(entity) {
         if !world.get_or_err::<DeathType>(entity).await?.is_alive()
             || !world.get_or_err::<IsUsingType>(entity).await?.is_trading()
         {
@@ -1861,18 +1865,18 @@ pub async fn handle_submittrade(
 
         match entity_status {
             TradeStatus::None => {
-                let lock = world.read().await;
+                let lock = world.write().await;
                 *lock.get::<&mut TradeStatus>(entity.0)? = TradeStatus::Accepted;
             }
             TradeStatus::Accepted => {
                 if target_status == TradeStatus::Accepted {
                     {
-                        let lock = world.read().await;
+                        let lock = world.write().await;
                         *lock.get::<&mut TradeStatus>(entity.0)? = TradeStatus::Submitted;
                     }
                 } else if target_status == TradeStatus::Submitted {
                     {
-                        let lock = world.read().await;
+                        let lock = world.write().await;
                         *lock.get::<&mut TradeStatus>(entity.0)? = TradeStatus::Submitted;
                     }
                     if !process_player_trade(world, storage, entity, &target_entity).await? {
@@ -1931,7 +1935,7 @@ pub async fn handle_accepttrade(
     _data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
-    if let Some(entity) = storage.player_ids.lock().await.get(entity) {
+    if let Some(entity) = storage.player_ids.read().await.get(entity) {
         if !world.get_or_err::<DeathType>(entity).await?.is_alive()
             || world.get_or_err::<IsUsingType>(entity).await?.inuse()
         {
@@ -1943,7 +1947,7 @@ pub async fn handle_accepttrade(
             None => return Ok(()),
         };
         {
-            let lock = world.read().await;
+            let lock = world.write().await;
             *lock.get::<&mut TradeRequestEntity>(entity.0)? = TradeRequestEntity::default();
         }
 
@@ -1969,7 +1973,7 @@ pub async fn handle_accepttrade(
         }
 
         {
-            let lock = world.read().await;
+            let lock = world.write().await;
             *lock.get::<&mut TradeStatus>(entity.0)? = TradeStatus::None;
             *lock.get::<&mut TradeStatus>(trade_entity.0)? = TradeStatus::None;
             *lock.get::<&mut TradeRequestEntity>(entity.0)? = TradeRequestEntity::default();
@@ -2004,7 +2008,7 @@ pub async fn handle_declinetrade(
     _data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
-    if let Some(entity) = storage.player_ids.lock().await.get(entity) {
+    if let Some(entity) = storage.player_ids.read().await.get(entity) {
         if !world.get_or_err::<DeathType>(entity).await?.is_alive()
             || world.get_or_err::<IsUsingType>(entity).await?.inuse()
         {
@@ -2016,7 +2020,7 @@ pub async fn handle_declinetrade(
             None => return Ok(()),
         };
         {
-            let lock = world.read().await;
+            let lock = world.write().await;
             *lock.get::<&mut TradeRequestEntity>(entity.0)? = TradeRequestEntity::default();
         }
 
@@ -2030,7 +2034,7 @@ pub async fn handle_declinetrade(
                 None => return Ok(()),
             };
             if trade_entity == *entity {
-                let lock = world.read().await;
+                let lock = world.write().await;
                 *lock.get::<&mut TradeRequestEntity>(target_entity.0)? =
                     TradeRequestEntity::default();
             }

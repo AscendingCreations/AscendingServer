@@ -217,8 +217,9 @@ impl MapData {
             if i != self.position {
                 match storage.maps.get(&i) {
                     Some(map) => {
-                        let count = map.lock().await.players_on_map.saturating_add(1);
-                        map.lock().await.players_on_map = count;
+                        let mut map_lock = map.write().await;
+                        let count = map_lock.players_on_map.saturating_add(1);
+                        map_lock.players_on_map = count;
                     }
                     None => continue,
                 }
@@ -240,8 +241,9 @@ impl MapData {
             if i != self.position {
                 match storage.maps.get(&i) {
                     Some(map) => {
-                        let count = map.lock().await.players_on_map.saturating_sub(1);
-                        map.lock().await.players_on_map = count;
+                        let mut map_lock = map.write().await;
+                        let count = map_lock.players_on_map.saturating_sub(1);
+                        map_lock.players_on_map = count;
                     }
                     None => continue,
                 }
@@ -511,7 +513,7 @@ pub async fn is_dir_blocked(storage: &GameStore, cur_pos: Position, movedir: u8)
     match movedir {
         0 => {
             if let Some(map) = storage.maps.get(&cur_pos.map) {
-                map.lock().await.move_grid[cur_pos.as_tile()]
+                map.read().await.move_grid[cur_pos.as_tile()]
                     .dir_block
                     .get(B0)
                     == 0b00000001
@@ -521,7 +523,7 @@ pub async fn is_dir_blocked(storage: &GameStore, cur_pos: Position, movedir: u8)
         }
         1 => {
             if let Some(map) = storage.maps.get(&cur_pos.map) {
-                map.lock().await.move_grid[cur_pos.as_tile()]
+                map.read().await.move_grid[cur_pos.as_tile()]
                     .dir_block
                     .get(B3)
                     == 0b00001000
@@ -531,7 +533,7 @@ pub async fn is_dir_blocked(storage: &GameStore, cur_pos: Position, movedir: u8)
         }
         2 => {
             if let Some(map) = storage.maps.get(&cur_pos.map) {
-                map.lock().await.move_grid[cur_pos.as_tile()]
+                map.read().await.move_grid[cur_pos.as_tile()]
                     .dir_block
                     .get(B1)
                     == 0b00000010
@@ -541,7 +543,7 @@ pub async fn is_dir_blocked(storage: &GameStore, cur_pos: Position, movedir: u8)
         }
         _ => {
             if let Some(map) = storage.maps.get(&cur_pos.map) {
-                map.lock().await.move_grid[cur_pos.as_tile()]
+                map.read().await.move_grid[cur_pos.as_tile()]
                     .dir_block
                     .get(B2)
                     == 0b00000100
@@ -565,7 +567,7 @@ pub async fn map_path_blocked(
 
     if !blocked {
         return match storage.maps.get(&next_pos.map) {
-            Some(map) => map.lock().await.is_blocked_tile(next_pos, entity_type),
+            Some(map) => map.read().await.is_blocked_tile(next_pos, entity_type),
             None => true,
         };
     }

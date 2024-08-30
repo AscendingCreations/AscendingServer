@@ -506,7 +506,8 @@ impl WorldExtrasAsync for GameWorld {
         T: Default + Send + Sync + Copy + 'static,
     {
         let lock = self.read().await;
-        lock.get::<&T>(entity.0).map(|t| *t).unwrap_or_default()
+        let data = lock.get::<&T>(entity.0).map(|t| *t).unwrap_or_default();
+        data
     }
 
     async fn cloned_get_or_default<T>(&self, entity: &Entity) -> T
@@ -514,9 +515,10 @@ impl WorldExtrasAsync for GameWorld {
         T: Default + Send + Sync + Clone + 'static,
     {
         let lock = self.read().await;
-        lock.get::<&T>(entity.0)
+        let data = lock.get::<&T>(entity.0)
             .map(|t| (*t).clone())
-            .unwrap_or_default()
+            .unwrap_or_default();
+        data
     }
 
     async fn get_or_panic<T>(&self, entity: &Entity) -> T
@@ -524,7 +526,9 @@ impl WorldExtrasAsync for GameWorld {
         T: Send + Sync + Copy + 'static,
     {
         let lock = self.read().await;
-        let data = match lock.get::<&T>(entity.0) {
+        let data = lock.get::<&T>(entity.0);
+
+        let data = match data {
             Ok(t) => *t,
             Err(e) => {
                 error!("Component error: {:?}", e);
@@ -540,7 +544,8 @@ impl WorldExtrasAsync for GameWorld {
         T: Send + Sync + Clone + 'static,
     {
         let lock = self.read().await;
-        let data = match lock.get::<&T>(entity.0) {
+        let data = lock.get::<&T>(entity.0);
+        let data = match data {
             Ok(t) => (*t).clone(),
             Err(e) => {
                 error!("Component error: {:?}", e);
@@ -556,8 +561,9 @@ impl WorldExtrasAsync for GameWorld {
         T: Send + Sync + Copy + 'static,
     {
         let lock = self.read().await;
-        match lock.get::<&T>(entity.0).map(|t| *t) {
-            Ok(t) => Ok(t),
+        let data = lock.get::<&T>(entity.0);
+        match data {
+            Ok(t) => Ok(*t),
             Err(e) => {
                 warn!("Component Err: {:?}", e);
                 Err(AscendingError::HecsComponent {
@@ -573,8 +579,9 @@ impl WorldExtrasAsync for GameWorld {
         T: Send + Sync + Clone + 'static,
     {
         let lock = self.read().await;
-        match lock.get::<&T>(entity.0).map(|t| (*t).clone()) {
-            Ok(t) => Ok(t),
+        let data = lock.get::<&T>(entity.0);
+        match data {
+            Ok(t) => Ok((*t).clone()),
             Err(e) => {
                 warn!("Component Err: {:?}", e);
                 Err(AscendingError::HecsComponent {
@@ -597,7 +604,8 @@ impl WorldExtrasAsync for &GameWorld {
         T: Default + Send + Sync + Copy + 'static,
     {
         let lock = self.read().await;
-        lock.get::<&T>(entity.0).map(|t| *t).unwrap_or_default()
+        let data = lock.get::<&T>(entity.0).map(|t| *t).unwrap_or_default();
+        data
     }
 
     async fn cloned_get_or_default<T>(&self, entity: &Entity) -> T
@@ -605,9 +613,10 @@ impl WorldExtrasAsync for &GameWorld {
         T: Default + Send + Sync + Clone + 'static,
     {
         let lock = self.read().await;
-        lock.get::<&T>(entity.0)
+        let data = lock.get::<&T>(entity.0)
             .map(|t| (*t).clone())
-            .unwrap_or_default()
+            .unwrap_or_default();
+        data
     }
 
     async fn get_or_panic<T>(&self, entity: &Entity) -> T
@@ -615,7 +624,8 @@ impl WorldExtrasAsync for &GameWorld {
         T: Send + Sync + Copy + 'static,
     {
         let lock = self.read().await;
-        let data = match lock.get::<&T>(entity.0) {
+        let data = lock.get::<&T>(entity.0);
+        let data = match data {
             Ok(t) => *t,
             Err(e) => {
                 error!("Component error: {:?}", e);
@@ -631,7 +641,8 @@ impl WorldExtrasAsync for &GameWorld {
         T: Send + Sync + Clone + 'static,
     {
         let lock = self.read().await;
-        let data = match lock.get::<&T>(entity.0) {
+        let data = lock.get::<&T>(entity.0);
+        let data = match data {
             Ok(t) => (*t).clone(),
             Err(e) => {
                 error!("Component error: {:?}", e);
@@ -647,8 +658,9 @@ impl WorldExtrasAsync for &GameWorld {
         T: Send + Sync + Copy + 'static,
     {
         let lock = self.read().await;
-        match lock.get::<&T>(entity.0).map(|t| *t) {
-            Ok(t) => Ok(t),
+        let data = lock.get::<&T>(entity.0);
+        match data {
+            Ok(t) => Ok(*t),
             Err(e) => {
                 warn!("Component Err: {:?}", e);
                 Err(AscendingError::HecsComponent {
@@ -664,8 +676,9 @@ impl WorldExtrasAsync for &GameWorld {
         T: Send + Sync + Clone + 'static,
     {
         let lock = self.read().await;
-        match lock.get::<&T>(entity.0).map(|t| (*t).clone()) {
-            Ok(t) => Ok(t),
+        let data = lock.get::<&T>(entity.0);
+        match data {
+            Ok(t) => Ok((*t).clone()),
             Err(e) => {
                 warn!("Component Err: {:?}", e);
                 Err(AscendingError::HecsComponent {

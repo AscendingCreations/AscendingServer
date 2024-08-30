@@ -19,9 +19,9 @@ pub async fn game_loop(world: &GameWorld, storage: &GameStore) {
 
     loop {
         {
-            *storage.gettick.lock().await = MyInstant::now();
+            *storage.gettick.write().await = MyInstant::now();
         };
-        tick = *storage.gettick.lock().await;
+        tick = *storage.gettick.read().await;
 
         if tick > tmr100 {
             update_npcs(world, storage).await.unwrap();
@@ -41,7 +41,7 @@ pub async fn game_loop(world: &GameWorld, storage: &GameStore) {
         }
 
         if tick > tmr60000 {
-            let mut time = storage.time.lock().await;
+            let mut time = storage.time.write().await;
             time.min += 1;
             if time.min >= 60 {
                 time.min = 0;

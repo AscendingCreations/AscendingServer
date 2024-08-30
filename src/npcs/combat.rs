@@ -12,7 +12,7 @@ use rand::{thread_rng, Rng};
 
 #[inline(always)]
 pub async fn damage_npc(world: &GameWorld, entity: &crate::Entity, damage: i32) -> Result<()> {
-    let lock = world.read().await;
+    let lock = world.write().await;
     let mut vital = lock.get::<&mut Vitals>(entity.0)?;
     vital.vital[VitalTypes::Hp as usize] =
         vital.vital[VitalTypes::Hp as usize].saturating_sub(damage);
@@ -320,7 +320,7 @@ pub async fn kill_npc(world: &GameWorld, storage: &GameStore, entity: &Entity) -
         }
     }
 
-    let lock = world.read().await;
+    let lock = world.write().await;
     *lock.get::<&mut DeathType>(entity.0)? = DeathType::Dead;
     Ok(())
 }

@@ -44,7 +44,7 @@ pub async fn npc_update_path(
 ) -> Result<()> {
     let path_timer = world.get_or_err::<NpcPathTimer>(entity).await?;
 
-    if path_timer.timer > *storage.gettick.lock().await {
+    if path_timer.timer > *storage.gettick.read().await {
         return Ok(());
     }
 
@@ -62,7 +62,7 @@ pub async fn npc_update_path(
         || (new_target.target_type == EntityType::None && target.target_type != EntityType::None)
     {
         {
-            let lock = world.read().await;
+            let lock = world.write().await;
             let mut path_tmr = lock.get::<&mut NpcPathTimer>(entity.0)?;
             path_tmr.tries = 0;
             path_tmr.fails = 0;
@@ -94,10 +94,10 @@ pub async fn npc_update_path(
         {
             npc_set_move_path(world, entity, path).await?;
             {
-                let lock = world.read().await;
+                let lock = world.write().await;
                 let mut path_tmr = lock.get::<&mut NpcPathTimer>(entity.0)?;
                 path_tmr.tries = 0;
-                path_tmr.timer = *storage.gettick.lock().await
+                path_tmr.timer = *storage.gettick.read().await
                     + Duration::try_milliseconds(100).unwrap_or_default();
                 path_tmr.fails = 0;
             }
@@ -130,10 +130,10 @@ pub async fn npc_update_path(
         }
 
         {
-            let lock = world.read().await;
+            let lock = world.write().await;
             let mut path_tmr = lock.get::<&mut NpcPathTimer>(entity.0)?;
             path_tmr.tries = 0;
-            path_tmr.timer = *storage.gettick.lock().await
+            path_tmr.timer = *storage.gettick.read().await
                 + Duration::try_milliseconds(base.movement_wait + 750).unwrap_or_default();
             path_tmr.fails = 0;
         }
@@ -153,10 +153,10 @@ pub async fn npc_update_path(
         {
             npc_set_move_path(world, entity, path).await?;
             {
-                let lock = world.read().await;
+                let lock = world.write().await;
                 let mut path_tmr = lock.get::<&mut NpcPathTimer>(entity.0)?;
                 path_tmr.tries = 0;
-                path_tmr.timer = *storage.gettick.lock().await
+                path_tmr.timer = *storage.gettick.read().await
                     + Duration::try_milliseconds(100).unwrap_or_default();
                 path_tmr.fails = 0;
             }
@@ -166,20 +166,20 @@ pub async fn npc_update_path(
             npc_set_move_path(world, entity, moves).await?;
 
             {
-                let lock = world.read().await;
+                let lock = world.write().await;
                 let mut path_tmr = lock.get::<&mut NpcPathTimer>(entity.0)?;
                 path_tmr.tries += 1;
-                path_tmr.timer = *storage.gettick.lock().await
+                path_tmr.timer = *storage.gettick.read().await
                     + Duration::try_milliseconds(
                         base.movement_wait + ((path_timer.tries + 1) as i64 * 250),
                     )
                     .unwrap_or_default();
-                lock.get::<&mut NpcAITimer>(entity.0)?.0 = *storage.gettick.lock().await
+                lock.get::<&mut NpcAITimer>(entity.0)?.0 = *storage.gettick.read().await
                     + Duration::try_milliseconds(3000).unwrap_or_default();
             }
         } else {
             {
-                let lock = world.read().await;
+                let lock = world.write().await;
                 {
                     let mut path_tmr = lock.get::<&mut NpcPathTimer>(entity.0)?;
                     path_tmr.tries = 0;
@@ -191,7 +191,7 @@ pub async fn npc_update_path(
             npc_clear_move_path(world, entity).await?;
         }
     //no special movement lets give them some if we can;
-    } else if world.get_or_err::<NpcAITimer>(entity).await?.0 <= *storage.gettick.lock().await
+    } else if world.get_or_err::<NpcAITimer>(entity).await?.0 <= *storage.gettick.read().await
         && check_players_on_map(
             world,
             storage,
@@ -202,9 +202,9 @@ pub async fn npc_update_path(
         let moves = npc_rand_movement(storage, world.get_or_err::<Position>(entity).await?).await;
 
         npc_set_move_path(world, entity, moves).await?;
-        let lock = world.read().await;
+        let lock = world.write().await;
         lock.get::<&mut NpcAITimer>(entity.0)?.0 =
-            *storage.gettick.lock().await + Duration::try_milliseconds(3000).unwrap_or_default();
+            *storage.gettick.read().await + Duration::try_milliseconds(3000).unwrap_or_default();
     }
 
     Ok(())
@@ -216,7 +216,7 @@ pub async fn check_players_on_map(
     position: &MapPosition,
 ) -> bool {
     if let Some(map) = storage.maps.get(position) {
-        map.lock().await.players_on_map()
+        map.read().await.players_on_map()
     } else {
         false
     }
@@ -232,7 +232,7 @@ pub async fn npc_movement(
         let position = world.get_or_err::<Position>(entity).await?;
 
         let movement = {
-            let lock = world.read().await;
+            let lock = world.write().await;
             let movement = lock.get::<&mut NpcMoves>(entity.0)?.0.pop_front();
             movement
         };
@@ -240,7 +240,7 @@ pub async fn npc_movement(
         let next = match movement {
             Some(v) => v,
             None => {
-                let lock = world.read().await;
+                let lock = world.write().await;
                 lock.get::<&mut NpcMoving>(entity.0)?.0 = false;
                 return Ok(());
             }
@@ -256,13 +256,13 @@ pub async fn npc_movement(
                     fails
                 } < 10
                 {
-                    let lock = world.read().await;
+                    let lock = world.write().await;
                     //no special movement. Lets wait till we can move again. maybe walkthru upon multi failure here?.
                     lock.get::<&mut NpcMoves>(entity.0)?.0.push_front(next);
                     lock.get::<&mut NpcPathTimer>(entity.0)?.fails += 1;
                 } else {
                     {
-                        let lock = world.read().await;
+                        let lock = world.write().await;
                         let mut path_tmr = lock.get::<&mut NpcPathTimer>(entity.0)?;
                         path_tmr.tries = 0;
                         path_tmr.fails = 0;
@@ -322,7 +322,7 @@ pub async fn npc_movement(
                 };
             } else if Some(next.0) == world.get_or_err::<NpcMovePos>(entity).await?.0 {
                 {
-                    let lock = world.read().await;
+                    let lock = world.write().await;
                     lock.get::<&mut NpcMovePos>(entity.0)?.0 = None;
                 }
 
@@ -330,7 +330,7 @@ pub async fn npc_movement(
             }
 
             {
-                let lock = world.read().await;
+                let lock = world.write().await;
                 lock.get::<&mut Dir>(entity.0)?.0 = next.1;
             }
 

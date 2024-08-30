@@ -4,7 +4,7 @@ use hecs::Bundle;
 use mmap_bytey::{MByteBufferRead, MByteBufferWrite};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use tokio::sync::Mutex;
+use tokio::sync::RwLock;
 
 #[derive(Clone, Debug, Bundle)]
 pub struct Socket {
@@ -13,7 +13,7 @@ pub struct Socket {
     // Socket ID
     pub id: usize,
     // Packet Buffer
-    pub buffer: Arc<Mutex<ByteBuffer>>,
+    pub buffer: Arc<RwLock<ByteBuffer>>,
 }
 
 impl Socket {
@@ -22,11 +22,10 @@ impl Socket {
         Ok(Self {
             id,
             addr: Arc::new(addr),
-            buffer: Arc::new(Mutex::new(ByteBuffer::with_capacity(8192)?)),
+            buffer: Arc::new(RwLock::new(ByteBuffer::with_capacity(8192)?)),
         })
     }
 }
-
 #[derive(Clone, Debug, Default)]
 pub struct Account {
     pub username: String,
@@ -207,7 +206,7 @@ pub async fn player_switch_maps(
     let old_position = world.get_or_err::<Position>(entity).await?;
 
     if let Some(mapref) = storage.maps.get(&old_position.map) {
-        let mut map = mapref.lock().await;
+        let mut map = mapref.write().await;
         map.remove_player(storage, *entity).await;
         map.remove_entity_from_grid(old_position);
     } else {
@@ -215,12 +214,12 @@ pub async fn player_switch_maps(
     }
 
     if let Some(mapref) = storage.maps.get(&new_pos.map) {
-        let mut map = mapref.lock().await;
+        let mut map = mapref.write().await;
         map.add_player(storage, *entity).await;
         map.add_entity_to_grid(new_pos);
     } else {
         if let Some(mapref) = storage.maps.get(&old_position.map) {
-            let mut map = mapref.lock().await;
+            let mut map = mapref.write().await;
             map.add_player(storage, *entity).await;
             map.add_entity_to_grid(old_position);
         }
@@ -228,7 +227,7 @@ pub async fn player_switch_maps(
         return Ok((old_position, false));
     }
 
-    let lock = world.read().await;
+    let lock = world.write().await;
     *lock.get::<&mut Position>(entity.0)? = new_pos;
 
     Ok((old_position, true))
@@ -241,7 +240,7 @@ pub async fn player_swap_pos(
     entity: &crate::Entity,
     pos: Position,
 ) -> Result<Position> {
-    let lock = world.read().await;
+    let lock = world.write().await;
     let mut query = lock.query_one::<&mut Position>(entity.0)?;
 
     Ok(if let Some(player_position) = query.get() {
@@ -254,7 +253,7 @@ pub async fn player_swap_pos(
                 Some(map) => map,
                 None => return Ok(old_position),
             }
-            .lock()
+            .write()
             .await;
             map.remove_entity_from_grid(old_position);
             map.add_entity_to_grid(pos);
@@ -271,7 +270,7 @@ pub async fn player_add_up_vital(
     entity: &crate::Entity,
     vital: usize,
 ) -> Result<i32> {
-    let lock = world.read().await;
+    let lock = world.write().await;
     let mut query = lock.query_one::<&mut Vitals>(entity.0)?;
 
     Ok(if let Some(player_vital) = query.get() {
@@ -294,7 +293,7 @@ pub async fn player_set_dir(
     entity: &crate::Entity,
     dir: u8,
 ) -> Result<()> {
-    let lock = world.read().await;
+    let lock = world.write().await;
     let mut query = lock.query_one::<(&mut Dir, &Position)>(entity.0)?;
 
     if let Some((player_dir, player_position)) = query.get() {
@@ -355,7 +354,7 @@ pub async fn player_gethp(world: &GameWorld, entity: &crate::Entity) -> Result<i
 }
 
 pub async fn player_setx(world: &GameWorld, entity: &crate::Entity, x: i32) -> Result<()> {
-    let lock = world.read().await;
+    let lock = world.write().await;
     let mut query = lock.query_one::<&mut Position>(entity.0)?;
 
     if let Some(player_position) = query.get() {
@@ -366,7 +365,7 @@ pub async fn player_setx(world: &GameWorld, entity: &crate::Entity, x: i32) -> R
 }
 
 pub async fn player_sety(world: &GameWorld, entity: &crate::Entity, y: i32) -> Result<()> {
-    let lock = world.read().await;
+    let lock = world.write().await;
     let mut query = lock.query_one::<&mut Position>(entity.0)?;
 
     if let Some(player_position) = query.get() {
@@ -381,7 +380,7 @@ pub async fn player_setmap(
     entity: &crate::Entity,
     map: MapPosition,
 ) -> Result<()> {
-    let lock = world.read().await;
+    let lock = world.write().await;
     let mut query = lock.query_one::<&mut Position>(entity.0)?;
 
     if let Some(player_position) = query.get() {
@@ -399,7 +398,7 @@ pub async fn player_set_vital(
     amount: i32,
 ) -> Result<()> {
     {
-        let lock = world.read().await;
+        let lock = world.write().await;
         let mut query = lock.query_one::<&mut Vitals>(entity.0)?;
 
         if let Some(player_vital) = query.get() {
@@ -437,13 +436,13 @@ pub async fn player_give_vals(
                     .await?
                     .vals
                     .saturating_add(cur);
-                let lock = world.read().await;
+                let lock = world.write().await;
                 lock.get::<&mut Money>(entity.0)?.vals = money;
             }
             cur = 0;
         } else {
             {
-                let lock = world.read().await;
+                let lock = world.write().await;
                 lock.get::<&mut Money>(entity.0)?.vals = u64::MAX;
             }
             cur = cur.saturating_sub(rem);
@@ -485,13 +484,13 @@ pub async fn player_take_vals(
                 .await?
                 .vals
                 .saturating_sub(cur);
-            let lock = world.read().await;
+            let lock = world.write().await;
             lock.get::<&mut Money>(entity.0)?.vals = money;
         }
     } else {
         cur = player_money.vals;
         {
-            let lock = world.read().await;
+            let lock = world.write().await;
             lock.get::<&mut Money>(entity.0)?.vals = 0;
         }
     }
@@ -561,7 +560,7 @@ pub async fn send_login_info(
         )?;
     }
 
-    storage.player_names.lock().await.insert(username, *entity);
+    storage.player_names.write().await.insert(username, *entity);
     send_myindex(storage, socket_id, entity).await?;
     send_codes(world, storage, entity, code, handshake).await
 }

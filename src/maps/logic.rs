@@ -15,12 +15,12 @@ use super::{check_surrounding, MapItem};
 pub async fn update_maps(world: &GameWorld, storage: &GameStore) -> Result<()> {
     let mut rng = thread_rng();
     let mut spawnable = Vec::new();
-    let mut len = storage.npc_ids.lock().await.len();
-    let tick = *storage.gettick.lock().await;
+    let mut len = storage.npc_ids.read().await.len();
+    let tick = *storage.gettick.read().await;
 
     for (position, map_data) in &storage.maps {
         // Only Spawn is a player is on or near a the map.
-        if map_data.lock().await.players_on_map() {
+        if map_data.read().await.players_on_map() {
             //get this so we can Add to it each time without needing to borrow() npcs again.
 
             let mut count = 0;
@@ -34,7 +34,7 @@ pub async fn update_maps(world: &GameWorld, storage: &GameStore) -> Result<()> {
                     .ok_or(AscendingError::MapNotFound(*position))?;
 
                 for (id, (max_npcs, zone_npcs)) in map.zones.iter().enumerate() {
-                    let data = map_data.lock().await;
+                    let data = map_data.read().await;
                     //We want to only allow this many npcs per map to spawn at a time.
                     if count >= NPCS_SPAWNCAP {
                         break;
@@ -51,7 +51,7 @@ pub async fn update_maps(world: &GameWorld, storage: &GameStore) -> Result<()> {
                             .filter(|v| v.is_some())
                             .map(|v| v.unwrap_or_default())
                         {
-                            let game_time = storage.time.lock().await;
+                            let game_time = storage.time.read().await;
                             let (from, to) = storage
                                 .bases
                                 .npcs
@@ -96,7 +96,7 @@ pub async fn update_maps(world: &GameWorld, storage: &GameStore) -> Result<()> {
                     }
                 }
 
-                let mut data = map_data.lock().await;
+                let mut data = map_data.write().await;
                 //Lets Spawn the npcs here;
                 for (spawn, zone, npc_id) in spawnable.drain(..) {
                     if let Ok(Some(id)) = storage.add_npc(world, npc_id).await {
@@ -109,8 +109,8 @@ pub async fn update_maps(world: &GameWorld, storage: &GameStore) -> Result<()> {
 
             let mut add_items = Vec::new();
 
-            for data in map_data.lock().await.spawnable_item.iter_mut() {
-                let mut storage_mapitem = storage.map_items.lock().await;
+            for data in map_data.write().await.spawnable_item.iter_mut() {
+                let mut storage_mapitem = storage.map_items.write().await;
                 if !storage_mapitem.contains_key(&data.pos) {
                     if data.timer <= tick {
                         let map_item = create_mapitem(data.index, data.amount, data.pos);
@@ -142,7 +142,7 @@ pub async fn update_maps(world: &GameWorld, storage: &GameStore) -> Result<()> {
             }
 
             for entity in add_items {
-                map_data.lock().await.itemids.insert(entity);
+                map_data.write().await.itemids.insert(entity);
             }
         }
     }
@@ -170,7 +170,7 @@ pub async fn spawn_npc(
     zone: Option<usize>,
     entity: Entity,
 ) -> Result<()> {
-    let lock = world.read().await;
+    let lock = world.write().await;
     *lock.get::<&mut Position>(entity.0)? = pos;
     lock.get::<&mut Spawn>(entity.0)?.pos = pos;
     lock.get::<&mut NpcSpawnedZone>(entity.0)?.0 = zone;

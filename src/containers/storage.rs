@@ -22,26 +22,26 @@ use sqlx::{
     ConnectOptions, PgPool,
 };
 use std::{collections::VecDeque, fs, io::BufReader, sync::Arc};
-use tokio::sync::Mutex;
+use tokio::sync::RwLock;
 
 pub struct Storage {
-    pub player_ids: Mutex<IndexSet<Entity>>,
-    pub recv_ids: Mutex<IndexSet<Entity>>,
-    pub npc_ids: Mutex<IndexSet<Entity>>,
-    pub player_names: Mutex<HashMap<String, Entity>>, //for player names to ID's
-    pub maps: IndexMap<MapPosition, Mutex<MapData>>,
-    pub map_items: Mutex<IndexMap<Position, Entity>>,
+    pub player_ids: RwLock<IndexSet<Entity>>,
+    pub recv_ids: RwLock<IndexSet<Entity>>,
+    pub npc_ids: RwLock<IndexSet<Entity>>,
+    pub player_names: RwLock<HashMap<String, Entity>>, //for player names to ID's
+    pub maps: IndexMap<MapPosition, RwLock<MapData>>,
+    pub map_items: RwLock<IndexMap<Position, Entity>>,
     //This is for buffering the specific packets needing to send.
     #[allow(clippy::type_complexity)]
-    pub packet_cache: Mutex<IndexMap<DataTaskToken, VecDeque<(u32, MByteBuffer, bool)>>>,
+    pub packet_cache: RwLock<IndexMap<DataTaskToken, VecDeque<(u32, MByteBuffer, bool)>>>,
     //This keeps track of what Things need sending. So we can leave it loaded and only loop whats needed.
-    pub packet_cache_ids: Mutex<IndexSet<DataTaskToken>>,
-    pub poll: Mutex<mio::Poll>,
-    pub server: Mutex<Server>,
-    pub gettick: Mutex<MyInstant>,
+    pub packet_cache_ids: RwLock<IndexSet<DataTaskToken>>,
+    pub poll: RwLock<mio::Poll>,
+    pub server: RwLock<Server>,
+    pub gettick: RwLock<MyInstant>,
     pub pgconn: PgPool,
-    pub time: Mutex<GameTime>,
-    pub map_switch_tasks: Mutex<IndexMap<Entity, Vec<MapSwitchTasks>>>, //Data Tasks For dealing with Player Warp and MapSwitch
+    pub time: RwLock<GameTime>,
+    pub map_switch_tasks: RwLock<IndexMap<Entity, Vec<MapSwitchTasks>>>, //Data Tasks For dealing with Player Warp and MapSwitch
     pub bases: Bases,
     //pub rt: RefCell<Runtime>,
     // pub local: RefCell<task::LocalSet>,
@@ -178,20 +178,20 @@ impl Storage {
         crate::sql::initiate(&pgconn).await.unwrap();
 
         let mut storage = Self {
-            player_ids: Mutex::new(IndexSet::default()),
-            recv_ids: Mutex::new(IndexSet::default()),
-            npc_ids: Mutex::new(IndexSet::default()),
-            player_names: Mutex::new(HashMap::default()), //for player names to ID's
+            player_ids: RwLock::new(IndexSet::default()),
+            recv_ids: RwLock::new(IndexSet::default()),
+            npc_ids: RwLock::new(IndexSet::default()),
+            player_names: RwLock::new(HashMap::default()), //for player names to ID's
             maps: IndexMap::default(),
-            map_items: Mutex::new(IndexMap::default()),
-            packet_cache: Mutex::new(IndexMap::default()),
-            packet_cache_ids: Mutex::new(IndexSet::default()),
-            poll: Mutex::new(poll),
-            server: Mutex::new(server),
-            gettick: Mutex::new(MyInstant::now()),
+            map_items: RwLock::new(IndexMap::default()),
+            packet_cache: RwLock::new(IndexMap::default()),
+            packet_cache_ids: RwLock::new(IndexSet::default()),
+            poll: RwLock::new(poll),
+            server: RwLock::new(server),
+            gettick: RwLock::new(MyInstant::now()),
             pgconn,
-            time: Mutex::new(GameTime::default()),
-            map_switch_tasks: Mutex::new(IndexMap::default()),
+            time: RwLock::new(GameTime::default()),
+            map_switch_tasks: RwLock::new(IndexMap::default()),
             bases: Bases::new()?,
             //rt: RefCell::new(rt),
             //local: RefCell::new(local),
@@ -232,7 +232,7 @@ impl Storage {
                 map.move_grid[id].dir_block = map_data.dir_block[id];
             }
 
-            storage.maps.insert(position, Mutex::new(map));
+            storage.maps.insert(position, RwLock::new(map));
             storage.bases.maps.insert(position, map_data);
         }
 
@@ -339,7 +339,7 @@ impl Storage {
                 ConnectionLoginTimer(time + Duration::try_milliseconds(600000).unwrap_or_default()),
             ),
         )?;
-        self.player_ids.lock().await.insert(*entity);
+        self.player_ids.write().await.insert(*entity);
         Ok(())
     }
 
@@ -354,12 +354,12 @@ impl Storage {
         let pos = lock.remove::<(Position,)>(id.0).ok().map(|v| v.0);
         if let Ok((account,)) = lock.remove::<(Account,)>(id.0) {
             println!("Players Disconnected : {}", &account.username);
-            self.player_names.lock().await.remove(&account.username);
+            self.player_names.write().await.remove(&account.username);
         }
         //Removes Everything related to the Entity.
         lock.despawn(id.0)?;
 
-        self.player_ids.lock().await.swap_remove(&id);
+        self.player_ids.write().await.swap_remove(&id);
         Ok((socket, pos))
     }
 
@@ -371,7 +371,7 @@ impl Storage {
                 Position::default(),
                 NpcIndex(npc_id),
                 NpcTimer {
-                    spawntimer: *self.gettick.lock().await
+                    spawntimer: *self.gettick.write().await
                         + Duration::try_milliseconds(npcdata.spawn_wait).unwrap_or_default(),
                     ..Default::default()
                 },
@@ -422,7 +422,7 @@ impl Storage {
             }
             lock.insert_one(identity, EntityType::Npc(Entity(identity)))?;
 
-            self.npc_ids.lock().await.insert(Entity(identity));
+            self.npc_ids.write().await.insert(Entity(identity));
 
             Ok(Some(Entity(identity)))
         } else {
@@ -435,12 +435,12 @@ impl Storage {
         //Removes Everything related to the Entity.
         let mut lock = world.write().await;
         lock.despawn(id.0)?;
-        self.npc_ids.lock().await.swap_remove(&id);
+        self.npc_ids.write().await.swap_remove(&id);
 
         //Removes the NPC from the block map.
         //TODO expand this to support larger npc's liek bosses basedon their Block size.
         if let Some(map) = self.maps.get(&ret.map) {
-            map.lock().await.remove_entity_from_grid(ret);
+            map.write().await.remove_entity_from_grid(ret);
         }
 
         Ok(ret)
