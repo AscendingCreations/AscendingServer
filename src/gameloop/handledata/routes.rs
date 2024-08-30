@@ -1517,7 +1517,7 @@ pub async fn handle_closetrade(
     Err(AscendingError::InvalidSocket)
 }
 
-pub async fn handle_buyitem(
+pub async fn handle_buy_item(
     world: &GameWorld,
     storage: &GameStore,
     data: &mut MByteBuffer,

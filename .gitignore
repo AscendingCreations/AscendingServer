@@ -6,5 +6,5 @@ out/
 *.txt
 /ServerLog.txt
 .VSCodeCounter/
-
+*.lock
 settings.toml

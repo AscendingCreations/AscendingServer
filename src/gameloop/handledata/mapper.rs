@@ -44,7 +44,7 @@ pub async fn packet_mapper(
         }
         ClientPacket::CloseShop => routes::handle_closeshop(world, storage, data, entity).await,
         ClientPacket::CloseTrade => routes::handle_closetrade(world, storage, data, entity).await,
-        ClientPacket::BuyItem => routes::handle_buyitem(world, storage, data, entity).await,
+        ClientPacket::BuyItem => routes::handle_buy_item(world, storage, data, entity).await,
         ClientPacket::SellItem => routes::handle_sellitem(world, storage, data, entity).await,
         ClientPacket::AddTradeItem => {
             routes::handle_addtradeitem(world, storage, data, entity).await
