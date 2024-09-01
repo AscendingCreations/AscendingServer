@@ -26,9 +26,11 @@ impl Socket {
         })
     }
 }
+
 #[derive(Clone, Debug, Default)]
 pub struct Account {
     pub username: String,
+    pub email: String,
     pub passresetcode: Option<String>,
     pub id: i64,
 }
@@ -560,7 +562,11 @@ pub async fn send_login_info(
         )?;
     }
 
-    storage.player_names.write().await.insert(username, *entity);
+    storage
+        .player_usernames
+        .write()
+        .await
+        .insert(username, *entity);
     send_myindex(storage, socket_id, entity).await?;
     send_codes(world, storage, entity, code, handshake).await
 }

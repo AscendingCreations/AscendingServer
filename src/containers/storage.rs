@@ -28,7 +28,8 @@ pub struct Storage {
     pub player_ids: RwLock<IndexSet<Entity>>,
     pub recv_ids: RwLock<IndexSet<Entity>>,
     pub npc_ids: RwLock<IndexSet<Entity>>,
-    pub player_names: RwLock<HashMap<String, Entity>>, //for player names to ID's
+    pub player_usernames: RwLock<HashMap<String, Entity>>, //for player usernames to ID's
+    pub player_emails: RwLock<HashMap<String, Entity>>,    //for player email to ID's
     pub maps: IndexMap<MapPosition, RwLock<MapData>>,
     pub map_items: RwLock<IndexMap<Position, Entity>>,
     //This is for buffering the specific packets needing to send.
@@ -181,7 +182,8 @@ impl Storage {
             player_ids: RwLock::new(IndexSet::default()),
             recv_ids: RwLock::new(IndexSet::default()),
             npc_ids: RwLock::new(IndexSet::default()),
-            player_names: RwLock::new(HashMap::default()), //for player names to ID's
+            player_usernames: RwLock::new(HashMap::default()), //for player names to ID's
+            player_emails: RwLock::new(HashMap::default()),    //for player names to ID's
             maps: IndexMap::default(),
             map_items: RwLock::new(IndexMap::default()),
             packet_cache: RwLock::new(IndexMap::default()),
@@ -352,10 +354,16 @@ impl Storage {
         // only removes the Components in the Fisbone ::<>
         let (socket,) = lock.remove::<(Socket,)>(id.0)?;
         let pos = lock.remove::<(Position,)>(id.0).ok().map(|v| v.0);
+
         if let Ok((account,)) = lock.remove::<(Account,)>(id.0) {
             println!("Players Disconnected : {}", &account.username);
-            self.player_names.write().await.remove(&account.username);
+            self.player_usernames
+                .write()
+                .await
+                .remove(&account.username);
+            self.player_emails.write().await.remove(&account.email);
         }
+
         //Removes Everything related to the Entity.
         lock.despawn(id.0)?;
 

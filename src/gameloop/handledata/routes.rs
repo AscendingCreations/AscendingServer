@@ -157,11 +157,18 @@ pub async fn handle_register(
             })?;
 
             account.username.clone_from(&username);
+            account.email.clone_from(&email);
             sprite.id = sprite_id as u16;
         }
 
         storage
-            .player_names
+            .player_emails
+            .write()
+            .await
+            .insert(email.clone(), *entity);
+
+        storage
+            .player_usernames
             .write()
             .await
             .insert(username.clone(), *entity);
@@ -221,7 +228,7 @@ pub async fn handle_login(
     data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
-    let username = data.read::<String>()?;
+    let email = data.read::<String>()?;
     let password = data.read::<String>()?;
     let appmajor = data.read::<u16>()? as usize;
     let appminior = data.read::<u16>()? as usize;
@@ -246,7 +253,7 @@ pub async fn handle_login(
             .await;
         }
 
-        if username.len() >= 64 || password.len() >= 128 {
+        if email.len() >= 64 || password.len() >= 128 {
             return send_infomsg(
                 storage,
                 socket_id,
@@ -257,7 +264,7 @@ pub async fn handle_login(
             .await;
         }
 
-        let id = match find_player(storage, &username, &password).await? {
+        let id = match find_player(storage, &email, &password).await? {
             Some(id) => id,
             None => {
                 return send_infomsg(
@@ -274,7 +281,10 @@ pub async fn handle_login(
         // we need to Add all the player types creations in a sub function that Creates the Defaults and then adds them to World.
         let code = Alphanumeric.sample_string(&mut rand::thread_rng(), 32);
         let handshake = Alphanumeric.sample_string(&mut rand::thread_rng(), 32);
-        let old_entity = { storage.player_names.read().await.get(&username).copied() };
+        let old_entity = {
+            let names_lock = storage.player_emails.read().await;
+            names_lock.get(&email).copied()
+        };
 
         if let Some(old_entity) = old_entity {
             if old_entity.0 != entity.0 {
@@ -284,7 +294,7 @@ pub async fn handle_login(
 
                 // if old code is empty means they did get unloaded just not all the way for some reason.
                 if old_code.code.is_empty() {
-                    let _ = storage.player_names.write().await.remove(&username);
+                    let _ = storage.player_emails.write().await.remove(&email);
                 } else if !reconnect_code.is_empty() && reconnect_code == old_code.code {
                     if let Ok(socket) = world.cloned_get_or_err::<Socket>(&old_entity).await {
                         if socket.id != socket_id {
@@ -304,8 +314,15 @@ pub async fn handle_login(
                         }
                     }
                 } else {
-                    return send_infomsg(storage, socket_id, "Error Loading User.".into(), 1, true)
-                        .await;
+                    return send_infomsg(
+                        storage,
+                        socket_id,
+                        "User Already Online, If you think this is an error please report it."
+                            .into(),
+                        1,
+                        true,
+                    )
+                    .await;
                 }
             }
         }
@@ -319,9 +336,19 @@ pub async fn handle_login(
             return send_infomsg(storage, socket_id, "Error Loading User.".into(), 1, true).await;
         }
 
-        let name = world.cloned_get_or_err::<Account>(entity).await?.username;
+        let name = {
+            let lock = world.read().await;
+            let username = lock.get::<&mut Account>(entity.0)?.username.clone();
+            username
+        };
 
         info!("Player {} with IP: {}, Logging in.", &name, address);
+
+        {
+            let mut names_lock = storage.player_emails.write().await;
+            names_lock.insert(email, *entity);
+        }
+
         return send_login_info(world, storage, entity, code, handshake, socket_id, name).await;
     }
 
@@ -1246,7 +1273,7 @@ pub async fn handle_message(
                     .await;
                 }
 
-                usersocket = match storage.player_names.read().await.get(&name) {
+                usersocket = match storage.player_usernames.read().await.get(&name) {
                     Some(id) => {
                         let lock = world.read().await;
                         let socket_ref = lock.get::<&Socket>(id.0);

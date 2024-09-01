@@ -57,6 +57,7 @@ pub struct PGPlayerWithID {
     pub vals: i64,
     pub data: Vec<i64>,
     pub access: UserAccess,
+    pub email: String,
     pub pos: Position,
     pub vital: Vec<i32>,
     pub vital_max: Vec<i32>,
@@ -92,6 +93,7 @@ impl PGPlayerWithID {
         {
             account.id = self.uid;
             account.username.clone_from(&self.username);
+            account.email.clone_from(&self.email);
             socket.addr = Arc::new(self.address);
             sprite.id = self.sprite.shift_signed();
             spawn.pos = self.spawn;
