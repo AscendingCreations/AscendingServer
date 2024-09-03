@@ -7,13 +7,14 @@ use crate::{
     socket::*,
     tasks::{unload_entity_packet, DataTaskToken},
 };
-use log::{error, trace, warn};
+use log::{error, info, trace, warn};
 use mio::{net::TcpStream, Interest};
 use mmap_bytey::BUFFER_SIZE;
 use std::{
     collections::VecDeque,
     io::{self, Read, Write},
 };
+use tokio::time::{Duration, Instant};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum ClientState {
@@ -107,7 +108,7 @@ impl Client {
             state: ClientState::Open,
             sends: VecDeque::with_capacity(32),
             tls_sends: VecDeque::new(),
-            poll_state: SocketPollState::Read,
+            poll_state: SocketPollState::ReadWrite,
             tls,
             encrypt_state: EncryptionState::ReadWrite,
         }
@@ -168,7 +169,7 @@ impl Client {
     #[inline]
     pub async fn set_to_closing(&mut self, storage: &GameStore) -> Result<()> {
         self.state = ClientState::Closing;
-        self.poll_state.add(SocketPollState::Write);
+        //self.poll_state.add(SocketPollState::Write);
         self.reregister(&*storage.poll.read().await)
     }
 
@@ -187,21 +188,26 @@ impl Client {
     }
 
     pub async fn tls_read(&mut self, world: &GameWorld, storage: &GameStore) -> Result<()> {
-        let lock = world.write().await;
-        let socket = match lock.get::<&mut Socket>(self.entity.0) {
-            Ok(v) => v,
-            Err(_) => {
-                self.state = ClientState::Closing;
-                return Ok(());
-            }
+        let arc_buffer = {
+            let player_buffer_lock = storage.player_buffers.read().await;
+            let buffer = match player_buffer_lock.get(&self.entity) {
+                Some(v) => v.clone(),
+                None => {
+                    trace!("Player has no buffer");
+                    self.state = ClientState::Closing;
+                    return Ok(());
+                }
+            };
+            buffer
         };
+        let mut buffer = arc_buffer.write().await;
 
         // get the current pos so we can reset it back for reading.
         //let mut buffer = socket.buffer.lock().unwrap();
 
-        let pos = socket.buffer.read().await.cursor();
+        let pos = buffer.cursor();
 
-        socket.buffer.write().await.move_cursor_to_end();
+        buffer.move_cursor_to_end();
 
         loop {
             match self.tls.read_tls(&mut self.stream) {
@@ -241,7 +247,7 @@ impl Client {
                     return Ok(());
                 }
 
-                if let Err(e) = socket.buffer.write().await.write_slice(&buf) {
+                if let Err(e) = buffer.write_slice(&buf) {
                     trace!("TLS read error: {}", e);
                     self.state = ClientState::Closing;
                     return Ok(());
@@ -257,11 +263,9 @@ impl Client {
         }
 
         // reset it back to the original pos so we can Read from it again.
-        socket.buffer.write().await.move_cursor(pos)?;
+        buffer.move_cursor(pos)?;
 
-        if !socket.buffer.read().await.is_empty() {
-            storage.recv_ids.write().await.insert(self.entity);
-        } else {
+        if buffer.is_empty() {
             // we are not going to handle any reads so lets mark it back as read again so it can
             //continue to get packets.
             self.poll_state.add(SocketPollState::Read);
@@ -271,20 +275,24 @@ impl Client {
     }
 
     pub async fn read(&mut self, world: &GameWorld, storage: &GameStore) -> Result<()> {
-        let lock = world.write().await;
-        let socket = match lock.get::<&mut Socket>(self.entity.0) {
-            Ok(v) => v,
-            Err(e) => {
-                trace!("World get, error in socket read: {}", e);
-                self.state = ClientState::Closing;
-                return Ok(());
-            }
+        let arc_buffer = {
+            let player_buffer_lock = storage.player_buffers.read().await;
+            let buffer = match player_buffer_lock.get(&self.entity) {
+                Some(v) => v.clone(),
+                None => {
+                    trace!("Player has no buffer");
+                    self.state = ClientState::Closing;
+                    return Ok(());
+                }
+            };
+            buffer
         };
+        let mut buffer = arc_buffer.write().await;
 
         // get the current pos so we can reset it back for reading.
 
-        let pos = socket.buffer.read().await.cursor();
-        socket.buffer.write().await.move_cursor_to_end();
+        let pos = buffer.cursor();
+        buffer.move_cursor_to_end();
 
         let mut buf: [u8; 4096] = [0; 4096];
         let mut closing = false;
@@ -299,7 +307,7 @@ impl Client {
                     closing = true;
                 }
                 Ok(n) => {
-                    if let Err(e) = socket.buffer.write().await.write_slice(&buf[0..n]) {
+                    if let Err(e) = buffer.write_slice(&buf[0..n]) {
                         trace!("buffer.write_slice, error in socket read: {}", e);
                         closing = true;
                     }
@@ -314,11 +322,9 @@ impl Client {
         }
 
         // reset it back to the original pos so we can Read from it again.
-        socket.buffer.write().await.move_cursor(pos)?;
+        buffer.move_cursor(pos)?;
 
-        if !socket.buffer.read().await.is_empty() {
-            storage.recv_ids.write().await.insert(self.entity);
-        } else {
+        if buffer.is_empty() {
             // we are not going to handle any reads so lets mark it back as read again so it can
             //continue to get packets.
             self.poll_state.add(SocketPollState::Read);
@@ -508,6 +514,7 @@ pub async fn disconnect(playerid: Entity, world: &GameWorld, storage: &GameStore
     left_game(world, storage, &playerid).await?;
 
     let (socket, position) = storage.remove_player(world, playerid).await?;
+    storage.player_buffers.write().await.remove(&playerid);
 
     trace!("Players Disconnected IP: {} ", &socket.addr);
     if let Some(pos) = position {
@@ -651,11 +658,15 @@ pub async fn send_to_maps(
         let map = match storage.maps.get(&m) {
             Some(map) => map,
             None => continue,
-        }
-        .read()
-        .await;
+        };
 
-        for entity in &map.players {
+        let players_on_map = {
+            let map = map.read().await;
+            let players = map.players.clone();
+            players
+        };
+
+        for entity in &players_on_map {
             if avoidindex.map(|value| value == *entity).unwrap_or(false) {
                 continue;
             }
@@ -736,7 +747,7 @@ pub async fn get_length(
         Ok(Some(length))
     } else {
         if let Some(client) = storage.server.read().await.clients.get(&mio::Token(id)) {
-            client.lock().await.poll_state.add(SocketPollState::Read);
+            //client.lock().await.poll_state.add(SocketPollState::Read);
             client
                 .lock()
                 .await
@@ -749,156 +760,232 @@ pub async fn get_length(
 
 pub const MAX_PROCESSED_PACKETS: i32 = 25;
 
-pub async fn process_packets(world: &GameWorld, storage: &GameStore) -> Result<()> {
-    let mut rem_arr: Vec<(Entity, usize, bool)> = Vec::with_capacity(64);
+pub async fn process_packets(world: GameWorld, storage: GameStore) -> Result<()> {
     let mut packet = MByteBuffer::new()?;
+    let mut processed = 0;
 
-    // let entities = storage.recv_ids.lock().await.clone();
-    // info!("Locking recv in process_packets from loop");
-    'user_loop: for entity in &*storage.recv_ids.read().await {
-        let mut count = 0;
+    'user_loop: while !{
+        let stop = *storage.disable_threads.read().await;
+        stop
+    } {
+        info!("Running packet Events");
+        if let Some(entity) = {
+            let mut lock = storage.packet_process_ids.write().await;
+            let id = lock.pop_front();
+            id
+        } {
+            let mut count = 0;
 
-        let (buffer, socket_id, address) = {
-            let lock = world.read().await;
-            let socket = match lock.get::<&Socket>(entity.0) {
-                Ok(s) => s,
-                Err(e) => {
-                    error!(
+            let (socket_id, address) = {
+                let lock = world.read().await;
+                let socket = match lock.get::<&Socket>(entity.0) {
+                    Ok(s) => s,
+                    Err(e) => {
+                        error!(
                         "world.get::<&Socket> error: {}. Entity: {:?}, did not get fully unloaded? recv_id buffer still existed.",
                         e, entity
                     );
-                    rem_arr.push((*entity, 0, false));
-                    continue 'user_loop;
-                }
+                        continue 'user_loop;
+                    }
+                };
+
+                (socket.id, socket.addr.clone())
             };
 
-            (socket.buffer.clone(), socket.id, socket.addr.clone())
-        };
-
-        let mut buffer = buffer.write().await;
-        loop {
-            packet.move_cursor_to_start();
-            let length = match get_length(storage, &mut buffer, socket_id).await? {
-                Some(n) => n,
-                None => {
-                    rem_arr.push((*entity, 0, false));
-                    break;
-                }
+            let arc_buffer = {
+                let player_buffer_lock = storage.player_buffers.read().await;
+                let buffer = match player_buffer_lock.get(&entity) {
+                    Some(v) => v.clone(),
+                    None => {
+                        trace!("Player has no buffer");
+                        set_socket_to_closing(&storage, socket_id).await;
+                        continue 'user_loop;
+                    }
+                };
+                buffer
             };
 
-            if length == 0 {
-                trace!(
-                    "Length was Zero. Bad or malformed packet from IP: {}",
-                    address
-                );
+            //let mut buffer = arc_buffer.write().await;
 
-                rem_arr.push((*entity, socket_id, true));
-                continue 'user_loop;
-            }
+            'inner_loop: loop {
+                packet.move_cursor_to_start();
+                let length = {
+                    let mut buffer = arc_buffer.write().await;
+                    let len = match get_length(&storage, &mut buffer, socket_id).await {
+                        Ok(s) => match s {
+                            Some(n) => n,
+                            None => {
+                                break;
+                            }
+                        },
+                        Err(e) => {
+                            trace!("get_length. Error: {e}");
+                            set_socket_to_closing(&storage, socket_id).await;
+                            continue 'user_loop;
+                        }
+                    };
+                    len
+                };
 
-            if length > BUFFER_SIZE as u64 {
-                trace!(
-                        "Length was {} greater than the max packet size of {}. Bad or malformed packet from IP: {}",
-                        length,
-                        address,
-                        BUFFER_SIZE
+                if length == 0 {
+                    trace!(
+                        "Length was Zero. Bad or malformed packet from IP: {}",
+                        address
                     );
 
-                rem_arr.push((*entity, socket_id, true));
-                continue 'user_loop;
-            }
+                    set_socket_to_closing(&storage, socket_id).await;
+                    continue 'user_loop;
+                }
 
-            if length <= (buffer.length() - buffer.cursor()) as u64 {
-                let mut errored = false;
+                if length > BUFFER_SIZE as u64 {
+                    trace!(
+                            "Length was {} greater than the max packet size of {}. Bad or malformed packet from IP: {}",
+                            length,
+                            address,
+                            BUFFER_SIZE
+                        );
 
-                if let Ok(bytes) = buffer.read_slice(length as usize) {
-                    if packet.write_slice(bytes).is_err() {
+                    set_socket_to_closing(&storage, socket_id).await;
+                    continue 'user_loop;
+                }
+
+                let (buffer_length, cursor) = {
+                    let lock = arc_buffer.read().await;
+                    let length = lock.length();
+                    let cursor = lock.cursor();
+                    (length, cursor)
+                };
+
+                if length <= (buffer_length - cursor) as u64 {
+                    let mut errored = false;
+
+                    if let Ok(bytes) = arc_buffer.write().await.read_slice(length as usize) {
+                        if packet.write_slice(bytes).is_err() {
+                            errored = true;
+                        }
+
+                        packet.move_cursor_to_start();
+                    } else {
                         errored = true;
                     }
 
-                    packet.move_cursor_to_start();
+                    if errored {
+                        warn!(
+                            "IP: {} was disconnected due to error on packet length.",
+                            address
+                        );
+                        set_socket_to_closing(&storage, socket_id).await;
+                        continue 'user_loop;
+                    }
+
+                    if handle_data(&world, &storage, &mut packet, &entity)
+                        .await
+                        .is_err()
+                    {
+                        warn!("IP: {} was disconnected due to invalid packets", address);
+                        set_socket_to_closing(&storage, socket_id).await;
+                        continue 'user_loop;
+                    }
+
+                    count += 1
                 } else {
-                    errored = true;
+                    let cursor = arc_buffer.read().await.cursor() - 8;
+                    if let Err(e) = arc_buffer.write().await.move_cursor(cursor) {
+                        error!("buffer: {e}.");
+                        set_socket_to_closing(&storage, socket_id).await;
+                        continue 'user_loop;
+                    }
+
+                    break 'inner_loop;
                 }
 
-                if errored {
+                if count == MAX_PROCESSED_PACKETS {
+                    break 'inner_loop;
+                }
+            }
+
+            let cursor = arc_buffer.read().await.cursor();
+            let buffer_len = arc_buffer.write().await.length() - cursor;
+
+            if cursor == arc_buffer.read().await.length() {
+                if let Err(e) = arc_buffer.write().await.truncate(0) {
+                    trace!("Player buffer truncate. Error: {e}");
+                    set_socket_to_closing(&storage, socket_id).await;
+                    continue 'user_loop;
+                }
+
+                if arc_buffer.read().await.capacity() > 500000 {
                     warn!(
-                        "IP: {} was disconnected due to error on packet length.",
-                        address
+                        "process_packets: buffer resize to 100000. Buffer Capacity: {}, Buffer len: {}",
+                        arc_buffer.read().await.capacity(),
+                        buffer_len
                     );
-                    rem_arr.push((*entity, socket_id, true));
-                    continue 'user_loop;
+                    if let Err(e) = arc_buffer.write().await.resize(100000) {
+                        trace!("Player buffer resize. Error: {e}");
+                        set_socket_to_closing(&storage, socket_id).await;
+                        continue 'user_loop;
+                    }
                 }
-
-                if handle_data(world, storage, &mut packet, entity)
-                    .await
-                    .is_err()
-                {
-                    warn!("IP: {} was disconnected due to invalid packets", address);
-                    rem_arr.push((*entity, socket_id, true));
-                    continue 'user_loop;
-                }
-
-                count += 1
-            } else {
-                let cursor = buffer.cursor() - 8;
-                buffer.move_cursor(cursor)?;
-
-                rem_arr.push((*entity, 0, false));
-                break;
-            }
-
-            if count == MAX_PROCESSED_PACKETS {
-                break;
-            }
-        }
-        let cursor = buffer.cursor();
-        let buffer_len = buffer.length() - cursor;
-
-        if cursor == buffer.length() {
-            buffer.truncate(0)?;
-            if buffer.capacity() > 500000 {
+            } else if arc_buffer.read().await.capacity() > 500000 && buffer_len <= 100000 {
                 warn!(
-                    "process_packets: buffer resize to 100000. Buffer Capacity: {}, Buffer len: {}",
-                    buffer.capacity(),
+                    "process_packets: buffer resize to Buffer len. Buffer Capacity: {}, Buffer len: {}",
+                    arc_buffer.read().await.capacity(),
                     buffer_len
                 );
-                buffer.resize(100000)?;
+                let mut replacement = match ByteBuffer::with_capacity(buffer_len) {
+                    Ok(v) => v,
+                    Err(e) => {
+                        trace!("Player new buffer could not be created. Error: {e}");
+                        set_socket_to_closing(&storage, socket_id).await;
+                        continue 'user_loop;
+                    }
+                };
+
+                {
+                    let mut buffer = arc_buffer.write().await;
+                
+                    let read_slice = match buffer.read_slice(buffer_len) {
+                        Ok(v) => v,
+                        Err(e) => {
+                            trace!("Player buffer read only slice could not be retrived. Error: {e}");
+                            set_socket_to_closing(&storage, socket_id).await;
+                            continue 'user_loop;
+                        }
+                    };
+
+                    if let Err(e) = replacement.write_slice(read_slice) {
+                        trace!("Player buffer write. Error: {e}");
+                        set_socket_to_closing(&storage, socket_id).await;
+                        continue 'user_loop;
+                    }
+
+                    replacement.move_cursor_to_start();
+                    *buffer = replacement;
+                }
             }
-        } else if buffer.capacity() > 500000 && buffer_len <= 100000 {
-            warn!(
-                "process_packets: buffer resize to Buffer len. Buffer Capacity: {}, Buffer len: {}",
-                buffer.capacity(),
-                buffer_len
-            );
-            let mut replacement = ByteBuffer::with_capacity(buffer_len)?;
-            replacement.write_slice(buffer.read_slice(buffer_len)?)?;
-            replacement.move_cursor_to_start();
-            *buffer = replacement;
+
+            storage.packet_process_ids.write().await.push_back(entity);
         }
-    }
+        processed += 1;
 
-    //info!("unLocking recv in process_packets from loop");
-    for (entity, socket_id, should_close) in rem_arr {
-        //info!("Locking recv in process_packets from swap_remove");
-        storage.recv_ids.write().await.swap_remove(&entity);
-
-        if should_close {
-            if let Some(client) = storage
-                .server
-                .read()
-                .await
-                .clients
-                .get(&mio::Token(socket_id))
-            {
-                //info!("Locking client in process_packets from swap_remove");
-                client.lock().await.set_to_closing(storage).await?;
-                //info!("Locking client in process_packets from swap_remove");
-            }
+        if processed >= 10 {
+            tokio::time::sleep(Duration::from_millis(1)).await;
         }
-
-        //info!("unLocking recv in process_packets from swap_remove");
     }
 
     Ok(())
+}
+
+pub async fn set_socket_to_closing(storage: &GameStore, socket_id: usize) {
+    if let Some(client) = storage
+        .server
+        .read()
+        .await
+        .clients
+        .get(&mio::Token(socket_id))
+    {
+        if let Err(e) = client.lock().await.set_to_closing(storage).await {
+            trace!("Player socket must not exit as could not be set to close. Error: {e}");
+        }
+    }
 }

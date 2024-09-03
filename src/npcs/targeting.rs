@@ -150,9 +150,12 @@ pub async fn try_target_entity(
     let cantarget = match target.target_type {
         EntityType::Npc(id) | EntityType::Player(id, _) => {
             if world.contains(&id).await {
-                let mut rng = thread_rng();
+                let rng = {
+                    let mut rng = thread_rng();
+                    rng.gen_range(0..2)
+                };
 
-                if rng.gen_range(0..2) == 1 && new_target {
+                if rng == 1 && new_target {
                     true
                 } else {
                     let target_pos = world.get_or_err::<Position>(&id).await?;

@@ -2,17 +2,20 @@ use crate::{
     containers::{GameStore, GameWorld, HashMap},
     gametypes::Result,
     socket::{accept_connection, Client, ClientState},
+    tasks::{process_data_lists, process_tasks},
 };
-use log::{trace, warn};
+use log::{info, trace, warn};
 use mio::{net::TcpListener, Events, Poll};
 use std::{collections::VecDeque, io, sync::Arc, time::Duration};
 use tokio::sync::Mutex;
+
+use super::process_packets;
 
 pub const SERVER: mio::Token = mio::Token(0);
 
 pub struct Server {
     pub listener: TcpListener,
-    pub clients: HashMap<mio::Token, Mutex<Client>>,
+    pub clients: HashMap<mio::Token, Arc<Mutex<Client>>>,
     pub tokens: VecDeque<mio::Token>,
     pub tls_config: Arc<rustls::ServerConfig>,
 }
@@ -86,7 +89,8 @@ impl Server {
                 client.register(&*storage.poll.read().await)?;
 
                 // insert client into handled list.
-                self.clients.insert(token, Mutex::new(client));
+                self.clients.insert(token, Arc::new(Mutex::new(client)));
+                storage.packet_process_ids.write().await.push_back(entity);
             } else {
                 warn!("listener.accept No tokens left to give out.");
                 drop(stream);
@@ -105,41 +109,74 @@ impl Server {
     }
 }
 
-pub async fn poll_events(world: &GameWorld, storage: &GameStore) -> Result<()> {
+pub async fn poll_events(world: GameWorld, storage: GameStore) -> Result<()> {
     let mut events = Events::with_capacity(1024);
 
-    storage
-        .poll
-        .write()
-        .await
-        .poll(&mut events, Some(Duration::from_millis(0)))?;
+    while !{
+        let stop = *storage.disable_threads.read().await;
+        stop
+    } {
+        if let Err(e) = storage
+            .poll
+            .write()
+            .await
+            .poll(&mut events, Some(Duration::from_millis(0)))
+        {
+            info!("oop error poll: {e}");
+        }
 
-    for event in events.iter() {
-        match event.token() {
-            SERVER => {
-                storage.server.write().await.accept(world, storage).await?;
-                storage.poll.read().await.registry().reregister(
-                    &mut storage.server.write().await.listener,
-                    SERVER,
-                    mio::Interest::READABLE,
-                )?;
-            }
-            token => {
-                let mut server = storage.server.write().await;
-                let state = if let Some(a) = server.clients.get(&token) {
-                    let mut client = a.lock().await;
-                    client.process(event, world, storage).await?;
-                    client.state
-                } else {
-                    trace!("a token no longer exists within clients.");
-                    ClientState::Closed
-                };
+        for event in events.iter() {
+            match event.token() {
+                SERVER => {
+                    if let Err(e) = storage.server.write().await.accept(&world, &storage).await {
+                        info!("oop error accept: {e}");
+                    }
+                    if let Err(e) = storage.poll.read().await.registry().reregister(
+                        &mut storage.server.write().await.listener,
+                        SERVER,
+                        mio::Interest::READABLE,
+                    ) {
+                        info!("oop error reregister: {e}");
+                    }
+                }
+                token => {
+                    let client = {
+                        let server = storage.server.read().await;
+                        let client = server.clients.get(&token).cloned();
+                        client
+                    };
 
-                if state == ClientState::Closed {
-                    server.remove(token);
-                };
+                    let state = if let Some(a) = client {
+                        let mut client = a.lock().await;
+                        if let Err(e) = client.process(event, &world, &storage).await {
+                            info!("oop error client process: {e}");
+                        }
+                        client.state
+                    } else {
+                        trace!("a token no longer exists within clients.");
+                        ClientState::Closed
+                    };
+
+                    if state == ClientState::Closed {
+                        let mut server = storage.server.write().await;
+                        server.remove(token);
+                    };
+                }
             }
         }
+
+        events.clear();
+
+        /*if let Err(e) = process_packets(&world, &storage).await {
+            info!("oop error process_packets: {e}");
+        }*/
+        if let Err(e) = process_data_lists(&world, &storage).await {
+            info!("oop error process_data_lists: {e}");
+        }
+        if let Err(e) = process_tasks(&world, &storage).await {
+            info!("oop error process_tasks: {e}");
+        }
+        //std::thread::sleep(std::time::Duration::from_millis(1));
     }
 
     Ok(())

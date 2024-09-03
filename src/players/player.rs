@@ -242,29 +242,36 @@ pub async fn player_swap_pos(
     entity: &crate::Entity,
     pos: Position,
 ) -> Result<Position> {
-    let lock = world.write().await;
-    let mut query = lock.query_one::<&mut Position>(entity.0)?;
+    let position = {
+        let lock = world.read().await;
+        let position = match lock.get::<&Position>(entity.0) {
+            Ok(p) => *p,
+            Err(_) => return Ok(Position::default()),
+        };
+        position
+    };
 
-    Ok(if let Some(player_position) = query.get() {
-        let old_position = *player_position;
-
-        if old_position != pos {
-            *player_position = pos;
-
-            let mut map = match storage.maps.get(&old_position.map) {
-                Some(map) => map,
-                None => return Ok(old_position),
-            }
-            .write()
-            .await;
-            map.remove_entity_from_grid(old_position);
-            map.add_entity_to_grid(pos);
+    if position != pos {
+        {
+            let lock = world.write().await;
+            let mut old_position = match lock.get::<&mut Position>(entity.0) {
+                Ok(v) => v,
+                Err(_) => return Ok(Position::default()),
+            };
+            *old_position = pos;
         }
 
-        old_position
-    } else {
-        Position::default()
-    })
+        let mut map = match storage.maps.get(&position.map) {
+            Some(map) => map,
+            None => return Ok(position),
+        }
+        .write()
+        .await;
+        map.remove_entity_from_grid(position);
+        map.add_entity_to_grid(pos);
+    }
+
+    Ok(position)
 }
 
 pub async fn player_add_up_vital(

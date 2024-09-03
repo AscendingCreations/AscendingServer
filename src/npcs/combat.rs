@@ -290,10 +290,12 @@ pub async fn kill_npc(world: &GameWorld, storage: &GameStore, entity: &Entity) -
     let npc_pos = world.get_or_err::<Position>(entity).await?;
     let npcbase = storage.bases.npcs[npc_index as usize].borrow();
 
-    let mut rng = thread_rng();
-
     if npcbase.max_shares > 0 {
-        let r = rng.gen_range(0..npcbase.max_shares);
+        let r = {
+            let mut rng = thread_rng();
+            rng.gen_range(0..npcbase.max_shares)
+        };
+
         if let Some(&drop_id) = npcbase.drop_ranges.get(&r) {
             //do item drops here for this drop.
             if let Some(drop_data) = npcbase.drops.get(drop_id) {

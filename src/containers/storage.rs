@@ -22,15 +22,16 @@ use sqlx::{
     ConnectOptions, PgPool,
 };
 use std::{collections::VecDeque, fs, io::BufReader, sync::Arc};
-use tokio::sync::RwLock;
+use tokio::sync::{Mutex, RwLock};
 
 pub struct Storage {
     pub player_ids: RwLock<IndexSet<Entity>>,
-    pub recv_ids: RwLock<IndexSet<Entity>>,
+    pub packet_process_ids: RwLock<VecDeque<Entity>>,
+    pub player_buffers: RwLock<HashMap<Entity, Arc<RwLock<ByteBuffer>>>>,
     pub npc_ids: RwLock<IndexSet<Entity>>,
     pub player_usernames: RwLock<HashMap<String, Entity>>, //for player usernames to ID's
     pub player_emails: RwLock<HashMap<String, Entity>>,    //for player email to ID's
-    pub maps: IndexMap<MapPosition, RwLock<MapData>>,
+    pub maps: IndexMap<MapPosition, RwLock<MapData>>, // not yet unloading and loading, just load everything.
     pub map_items: RwLock<IndexMap<Position, Entity>>,
     //This is for buffering the specific packets needing to send.
     #[allow(clippy::type_complexity)]
@@ -44,8 +45,8 @@ pub struct Storage {
     pub time: RwLock<GameTime>,
     pub map_switch_tasks: RwLock<IndexMap<Entity, Vec<MapSwitchTasks>>>, //Data Tasks For dealing with Player Warp and MapSwitch
     pub bases: Bases,
-    //pub rt: RefCell<Runtime>,
-    // pub local: RefCell<task::LocalSet>,
+    pub disable_threads: RwLock<bool>,
+    pub thread_handles: Mutex<Vec<tokio::task::JoinHandle<Result<()>>>>,
     pub config: Config,
 }
 
@@ -180,7 +181,8 @@ impl Storage {
 
         let mut storage = Self {
             player_ids: RwLock::new(IndexSet::default()),
-            recv_ids: RwLock::new(IndexSet::default()),
+            packet_process_ids: RwLock::new(VecDeque::with_capacity(64)), //Keep track of who's recv buffer to process.
+            player_buffers: RwLock::new(HashMap::default()),              //Player recv Buffers.
             npc_ids: RwLock::new(IndexSet::default()),
             player_usernames: RwLock::new(HashMap::default()), //for player names to ID's
             player_emails: RwLock::new(HashMap::default()),    //for player names to ID's
@@ -195,8 +197,8 @@ impl Storage {
             time: RwLock::new(GameTime::default()),
             map_switch_tasks: RwLock::new(IndexMap::default()),
             bases: Bases::new()?,
-            //rt: RefCell::new(rt),
-            //local: RefCell::new(local),
+            disable_threads: RwLock::new(false),
+            thread_handles: Mutex::new(Vec::with_capacity(6)),
             config,
         };
 
@@ -272,10 +274,17 @@ impl Storage {
         addr: String,
     ) -> Result<Entity> {
         let socket = Socket::new(id, addr)?;
-        let mut lock = world.write().await;
-        let identity = lock.spawn((WorldEntityType::Player, socket, OnlineType::Accepted));
-        lock.insert_one(identity, EntityType::Player(Entity(identity), 0))?;
+        let identity = {
+            let mut lock = world.write().await;
+            let identity = lock.spawn((WorldEntityType::Player, socket, OnlineType::Accepted));
+            lock.insert_one(identity, EntityType::Player(Entity(identity), 0))?;
+            identity
+        };
 
+        self.player_buffers.write().await.insert(
+            Entity(identity),
+            Arc::new(RwLock::new(ByteBuffer::with_capacity(8192)?)),
+        );
         Ok(Entity(identity))
     }
 

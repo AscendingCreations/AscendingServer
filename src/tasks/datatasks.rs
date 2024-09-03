@@ -122,15 +122,27 @@ impl DataTaskToken {
 }
 
 pub async fn process_tasks(world: &GameWorld, storage: &GameStore) -> Result<()> {
-    for id in storage.packet_cache_ids.write().await.drain(..) {
-        if let Some(buffers) = storage.packet_cache.write().await.get_mut(&id) {
-            //We send the older packets first hence pop front as they are the oldest.
-            for (count, mut buffer, is_finished) in buffers.drain(..) {
-                finish_cache(&mut buffer, count, is_finished)?;
-                id.send(world, storage, buffer).await?;
-            }
+    let ids = {
+        let ids: Vec<_> = storage.packet_cache_ids.write().await.drain(..).collect();
+        ids
+    };
 
-            //lets resize these if they get to unruly.
+    for id in ids {
+        let buffers = if let Some(buffers) = storage.packet_cache.write().await.get_mut(&id) {
+            let buffers: Vec<(u32, MByteBuffer, bool)> = buffers.drain(..).collect();
+            buffers
+        } else {
+            continue;
+        };
+
+        //We send the older packets first hence pop front as they are the oldest.
+        for (count, mut buffer, is_finished) in buffers {
+            finish_cache(&mut buffer, count, is_finished)?;
+            id.send(world, storage, buffer).await?;
+        }
+
+        //lets resize these if they get to unruly.
+        if let Some(buffers) = storage.packet_cache.write().await.get_mut(&id) {
             if buffers.capacity() > 250 && buffers.len() < 100 {
                 warn!(
                     "process_tasks: packet_cache Buffer Strink to 100, Current Capacity {}, Current len {}.",

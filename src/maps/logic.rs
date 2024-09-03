@@ -96,12 +96,15 @@ pub async fn update_maps(world: &GameWorld, storage: &GameStore) -> Result<()> {
                     }
                 }
 
-                let mut data = map_data.write().await;
+                
                 //Lets Spawn the npcs here;
                 for (spawn, zone, npc_id) in spawnable.drain(..) {
                     if let Ok(Some(id)) = storage.add_npc(world, npc_id).await {
-                        data.add_npc(id);
-                        data.zones[zone] = data.zones[zone].saturating_add(1);
+                        {
+                            let mut data = map_data.write().await;
+                            data.add_npc(id);
+                            data.zones[zone] = data.zones[zone].saturating_add(1);
+                        }
                         spawn_npc(world, spawn, Some(zone), id).await?;
                     }
                 }
@@ -110,17 +113,26 @@ pub async fn update_maps(world: &GameWorld, storage: &GameStore) -> Result<()> {
             let mut add_items = Vec::new();
 
             for data in map_data.write().await.spawnable_item.iter_mut() {
-                let mut storage_mapitem = storage.map_items.write().await;
-                if !storage_mapitem.contains_key(&data.pos) {
+                if !{
+                    let storage_mapitem = storage.map_items.read().await;
+                    let contains = storage_mapitem.contains_key(&data.pos);
+                    contains
+                } {
                     if data.timer <= tick {
                         let map_item = create_mapitem(data.index, data.amount, data.pos);
-                        let mut lock = world.write().await;
-                        let id = lock.spawn((WorldEntityType::MapItem, map_item));
-                        lock.insert(
-                            id,
-                            (EntityType::MapItem(Entity(id)), DespawnTimer::default()),
-                        )?;
-                        storage_mapitem.insert(data.pos, Entity(id));
+                        let id = {
+                            let mut lock = world.write().await;
+                            let id = lock.spawn((WorldEntityType::MapItem, map_item));
+                            lock.insert(
+                                id,
+                                (EntityType::MapItem(Entity(id)), DespawnTimer::default()),
+                            )?;
+                            id
+                        };
+                        {
+                            let mut storage_mapitem = storage.map_items.write().await;
+                            storage_mapitem.insert(data.pos, Entity(id));
+                        }
                         DataTaskToken::ItemLoad(data.pos.map)
                             .add_task(
                                 storage,

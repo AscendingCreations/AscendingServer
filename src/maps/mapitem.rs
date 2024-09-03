@@ -55,9 +55,11 @@ pub async fn update_map_items(world: &GameWorld, storage: &GameStore) -> Result<
     for (entity, e_pos) in to_remove.iter_mut() {
         if let Some(map) = storage.maps.get(&e_pos.map) {
             let pos = world.get_or_err::<MapItem>(entity).await?.pos;
-            let mut storage_mapitems = storage.map_items.write().await;
-            if storage_mapitems.contains_key(&pos) {
-                storage_mapitems.swap_remove(&pos);
+            {
+                let mut storage_mapitems = storage.map_items.write().await;
+                if storage_mapitems.contains_key(&pos) {
+                    storage_mapitems.swap_remove(&pos);
+                }
             }
             map.write().await.remove_item(*entity);
             DataTaskToken::EntityUnload(e_pos.map)
@@ -223,23 +225,31 @@ pub async fn try_drop_item(
                 }
             }
         } else {
-            let mut storage_mapitem = storage.map_items.write().await;
             let mapdata = storage.maps.get(&found_pos.0.map);
             if let Some(map_data) = mapdata {
                 let mut map_item = create_mapitem(drop_item.index, drop_item.amount, found_pos.0);
                 map_item.despawn = despawn;
                 map_item.ownertimer = ownertimer;
                 map_item.ownerid = ownerid;
-                let mut lock = world.write().await;
-                let id = lock.spawn((WorldEntityType::MapItem, map_item));
-                let despawntimer = if let Some(timer) = despawn {
-                    DespawnTimer(timer)
-                } else {
-                    DespawnTimer::default()
+                let id = {
+                    let mut lock = world.write().await;
+                    let id: hecs::Entity = lock.spawn((WorldEntityType::MapItem, map_item));
+                    let despawntimer = if let Some(timer) = despawn {
+                        DespawnTimer(timer)
+                    } else {
+                        DespawnTimer::default()
+                    };
+                    lock.insert(id, (EntityType::MapItem(Entity(id)), despawntimer))?;
+                    id
                 };
-                lock.insert(id, (EntityType::MapItem(Entity(id)), despawntimer))?;
+
                 map_data.write().await.itemids.insert(Entity(id));
-                storage_mapitem.insert(found_pos.0, Entity(id));
+
+                {
+                    let mut storage_mapitem = storage.map_items.write().await;
+                    storage_mapitem.insert(found_pos.0, Entity(id));
+                }
+
                 DataTaskToken::ItemLoad(found_pos.0.map)
                     .add_task(
                         storage,

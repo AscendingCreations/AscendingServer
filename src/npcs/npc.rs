@@ -145,17 +145,21 @@ pub async fn npc_swap_pos(
 ) -> Result<Position> {
     let oldpos = world.get_or_err::<Position>(entity).await?;
     if oldpos != pos {
-        let lock = world.write().await;
-        *lock.get::<&mut Position>(entity.0)? = pos;
-
-        let mut map = match storage.maps.get(&oldpos.map) {
-            Some(map) => map,
-            None => return Ok(oldpos),
+        {
+            let lock = world.write().await;
+            *lock.get::<&mut Position>(entity.0)? = pos;
         }
-        .write()
-        .await;
-        map.remove_entity_from_grid(oldpos);
-        map.add_entity_to_grid(pos);
+
+        {
+            let mut map = match storage.maps.get(&oldpos.map) {
+                Some(map) => map,
+                None => return Ok(oldpos),
+            }
+            .write()
+            .await;
+            map.remove_entity_from_grid(oldpos);
+            map.add_entity_to_grid(pos);
+        }
     }
 
     Ok(oldpos)

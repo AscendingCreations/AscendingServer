@@ -806,9 +806,11 @@ pub async fn handle_pickup(
         for (mappos, entity) in remove_id.iter_mut() {
             if let Some(map) = storage.maps.get(mappos) {
                 let pos = world.get_or_err::<MapItem>(entity).await?.pos;
-                let mut storage_mapitems = storage.map_items.write().await;
-                if storage_mapitems.contains_key(&pos) {
-                    storage_mapitems.swap_remove(&pos);
+                {
+                    let mut storage_mapitems = storage.map_items.write().await;
+                    if storage_mapitems.contains_key(&pos) {
+                        storage_mapitems.swap_remove(&pos);
+                    }
                 }
                 map.write().await.remove_item(*entity);
                 DataTaskToken::EntityUnload(*mappos)
@@ -1333,9 +1335,11 @@ pub async fn handle_command(
             Command::SpawnNpc(index, pos) => {
                 debug!("Spawning NPC {index} on {:?}", pos);
                 if let Some(mapdata) = storage.maps.get(&pos.map) {
-                    let mut data = mapdata.write().await;
                     if let Ok(Some(id)) = storage.add_npc(world, index as u64).await {
-                        data.add_npc(id);
+                        {
+                            let mut data = mapdata.write().await;
+                            data.add_npc(id);
+                        }
                         spawn_npc(world, pos, None, id).await?;
                     }
                 }
