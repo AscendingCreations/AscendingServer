@@ -11,7 +11,7 @@ use std::cmp;
 
 #[inline]
 pub async fn damage_player(world: &GameWorld, entity: &crate::Entity, damage: i32) -> Result<()> {
-    let lock = world.write().await;
+    let lock = world.read().await;
     let mut query = lock.query_one::<&mut Vitals>(entity.0)?;
 
     if let Some(player_vital) = query.get() {
@@ -211,7 +211,7 @@ pub async fn player_combat_damage(
 
 pub async fn kill_player(world: &GameWorld, storage: &GameStore, entity: &Entity) -> Result<()> {
     {
-        let lock = world.write().await;
+        let lock = world.read().await;
         if let Ok(mut vitals) = lock.get::<&mut Vitals>(entity.0) {
             vitals.vital = vitals.vitalmax;
         }

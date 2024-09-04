@@ -108,14 +108,21 @@ async fn main() {
     {
         let mut thread_handles = storage.thread_handles.lock().await;
 
-        let new_world = world.clone();
-        let new_store = storage.clone();
-        let join = tokio::spawn(crate::socket::process_packets(new_world, new_store));
-        thread_handles.push(join);
+        for _ in 0..4 {
+            let new_world = world.clone();
+            let new_store = storage.clone();
+            let join = tokio::spawn(crate::socket::process_packets(new_world, new_store));
+            thread_handles.push(join);
+        }
 
         let new_world = world.clone();
         let new_store = storage.clone();
         let join = tokio::spawn(crate::socket::poll_events(new_world, new_store));
+        thread_handles.push(join);
+
+        let new_world = world.clone();
+        let new_store = storage.clone();
+        let join = tokio::spawn(crate::tasks::process_tasks(new_world, new_store));
         thread_handles.push(join);
     }
 

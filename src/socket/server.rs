@@ -7,7 +7,7 @@ use crate::{
 use log::{info, trace, warn};
 use mio::{net::TcpListener, Events, Poll};
 use std::{collections::VecDeque, io, sync::Arc, time::Duration};
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, RwLock};
 
 use super::process_packets;
 
@@ -50,55 +50,6 @@ impl Server {
         })
     }
 
-    pub async fn accept(&mut self, world: &GameWorld, storage: &GameStore) -> Result<()> {
-        /* Wait for a new connection to accept and try to grab a token from the bag. */
-        loop {
-            let (stream, addr) = match self.listener.accept() {
-                Ok((stream, addr)) => (stream, addr),
-                Err(ref err) if err.kind() == io::ErrorKind::WouldBlock => break,
-                Err(e) => {
-                    trace!("listener.accept error: {}", e);
-                    return Err(e.into());
-                }
-            };
-
-            stream.set_nodelay(true)?;
-
-            if let Some(token) = self.tokens.pop_front() {
-                // Attempt to Create a Empty Player Entity.
-                let entity = match accept_connection(
-                    self,
-                    token.0,
-                    addr.to_string(),
-                    world,
-                    storage,
-                )
-                .await
-                {
-                    Some(e) => e,
-                    None => {
-                        drop(stream);
-                        return Ok(());
-                    }
-                };
-
-                let tls_conn = rustls::ServerConnection::new(Arc::clone(&self.tls_config))?;
-                // Lets make the Client to handle hwo we send packets.
-                let mut client = Client::new(stream, token, entity, tls_conn);
-                //Register the Poll to the client for recv and Sending
-                client.register(&*storage.poll.read().await)?;
-
-                // insert client into handled list.
-                self.clients.insert(token, Arc::new(Mutex::new(client)));
-                storage.packet_process_ids.write().await.push_back(entity);
-            } else {
-                warn!("listener.accept No tokens left to give out.");
-                drop(stream);
-            }
-        }
-        Ok(())
-    }
-
     #[inline]
     pub fn remove(&mut self, token: mio::Token) {
         /* If the token is valid, let's remove the connection and add the token back to the bag. */
@@ -107,6 +58,68 @@ impl Server {
             self.tokens.push_front(token);
         }
     }
+}
+
+pub async fn accept(server: &RwLock<Server>, world: &GameWorld, storage: &GameStore) -> Result<()> {
+    /* Wait for a new connection to accept and try to grab a token from the bag. */
+    loop {
+        let (stream, addr) = {
+            let lock = server.read().await;
+            let (stream, addr) = match lock.listener.accept() {
+                Ok((stream, addr)) => (stream, addr),
+                Err(ref err) if err.kind() == io::ErrorKind::WouldBlock => break,
+                Err(e) => {
+                    trace!("listener.accept error: {}", e);
+                    return Err(e.into());
+                }
+            };
+            (stream, addr)
+        };
+
+        stream.set_nodelay(true)?;
+
+        let token = {
+            let mut lock = server.write().await;
+            let token = lock.tokens.pop_front();
+            token
+        };
+
+        if let Some(token) = token {
+            // Attempt to Create a Empty Player Entity.
+            let entity =
+                match accept_connection(server, token.0, addr.to_string(), world, storage).await {
+                    Some(e) => e,
+                    None => {
+                        drop(stream);
+                        return Ok(());
+                    }
+                };
+
+            let tls_conn = {
+                let lock = server.read().await;
+                let tls_connection = rustls::ServerConnection::new(Arc::clone(&lock.tls_config))?;
+                tls_connection
+            };
+
+            // Lets make the Client to handle hwo we send packets.
+            let mut client = Client::new(stream, token, entity, tls_conn);
+            //Register the Poll to the client for recv and Sending
+            client.register(&*storage.poll.read().await)?;
+
+            // insert client into handled list.
+
+            server
+                .write()
+                .await
+                .clients
+                .insert(token, Arc::new(Mutex::new(client)));
+            storage.packet_process_ids.write().await.push_back(entity);
+        } else {
+            warn!("listener.accept No tokens left to give out.");
+            drop(stream);
+        }
+    }
+    Ok(())
 }
 
 pub async fn poll_events(world: GameWorld, storage: GameStore) -> Result<()> {
@@ -128,7 +141,7 @@ pub async fn poll_events(world: GameWorld, storage: GameStore) -> Result<()> {
         for event in events.iter() {
             match event.token() {
                 SERVER => {
-                    if let Err(e) = storage.server.write().await.accept(&world, &storage).await {
+                    if let Err(e) = accept(&storage.server, &world, &storage).await {
                         info!("oop error accept: {e}");
                     }
                     if let Err(e) = storage.poll.read().await.registry().reregister(
@@ -170,12 +183,10 @@ pub async fn poll_events(world: GameWorld, storage: GameStore) -> Result<()> {
         /*if let Err(e) = process_packets(&world, &storage).await {
             info!("oop error process_packets: {e}");
         }*/
-        if let Err(e) = process_data_lists(&world, &storage).await {
-            info!("oop error process_data_lists: {e}");
-        }
-        if let Err(e) = process_tasks(&world, &storage).await {
+
+        /*if let Err(e) = process_tasks(&world, &storage).await {
             info!("oop error process_tasks: {e}");
-        }
+        }*/
         //std::thread::sleep(std::time::Duration::from_millis(1));
     }
 

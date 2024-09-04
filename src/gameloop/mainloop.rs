@@ -64,6 +64,6 @@ pub async fn game_loop(world: &GameWorld, storage: &GameStore) {
         //process_packets(world, storage).await.unwrap();
         //process_data_lists(world, storage).await.unwrap();
         //process_tasks(world, storage).await.unwrap();
-        std::thread::sleep(std::time::Duration::from_millis(1));
+        //std::thread::sleep(std::time::Duration::from_millis(1));
     }
 }

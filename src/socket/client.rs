@@ -13,8 +13,12 @@ use mmap_bytey::BUFFER_SIZE;
 use std::{
     collections::VecDeque,
     io::{self, Read, Write},
+    sync::Arc,
 };
-use tokio::time::{Duration, Instant};
+use tokio::{
+    sync::RwLock,
+    time::{Duration, Instant},
+};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum ClientState {
@@ -535,18 +539,22 @@ pub async fn disconnect(playerid: Entity, world: &GameWorld, storage: &GameStore
 
 #[inline]
 pub async fn accept_connection(
-    server: &Server,
+    server: &RwLock<Server>,
     socketid: usize,
     addr: String,
     world: &GameWorld,
     storage: &GameStore,
 ) -> Option<Entity> {
-    if server.clients.len() + 1 >= MAX_SOCKET_PLAYERS {
-        warn!(
-            "Server is full. has reached MAX_SOCKET_PLAYERS: {} ",
-            MAX_SOCKET_PLAYERS
-        );
-        return None;
+    {
+        let lock = server.read().await;
+
+        if lock.clients.len() + 1 >= MAX_SOCKET_PLAYERS {
+            warn!(
+                "Server is full. has reached MAX_SOCKET_PLAYERS: {} ",
+                MAX_SOCKET_PLAYERS
+            );
+            return None;
+        }
     }
 
     storage.add_empty_player(world, socketid, addr).await.ok()
@@ -730,14 +738,32 @@ pub async fn send_to_entities(
 
 pub async fn get_length(
     storage: &GameStore,
-    buffer: &mut ByteBuffer,
+    arc_buffer: &Arc<RwLock<ByteBuffer>>,
     id: usize,
 ) -> Result<Option<u64>> {
-    if buffer.length() - buffer.cursor() >= 8 {
-        let length = buffer.read::<u64>()?;
+    let client = {
+        let client = storage
+            .server
+            .read()
+            .await
+            .clients
+            .get(&mio::Token(id))
+            .cloned();
+        client
+    };
+
+    let (buffer_length, cursor) = {
+        let lock = arc_buffer.read().await;
+        let length = lock.length();
+        let cursor = lock.cursor();
+        (length, cursor)
+    };
+
+    if buffer_length - cursor >= 8 {
+        let length = arc_buffer.write().await.read::<u64>()?;
 
         if !(1..=8192).contains(&length) {
-            if let Some(client) = storage.server.read().await.clients.get(&mio::Token(id)) {
+            if let Some(client) = client {
                 trace!("Player was disconnected on get_length LENGTH: {:?}", length);
                 client.lock().await.set_to_closing(storage).await?;
                 return Ok(None);
@@ -746,12 +772,13 @@ pub async fn get_length(
 
         Ok(Some(length))
     } else {
-        if let Some(client) = storage.server.read().await.clients.get(&mio::Token(id)) {
-            //client.lock().await.poll_state.add(SocketPollState::Read);
+        if let Some(client) = client {
+            trace!("reregistering client");
             client
                 .lock()
                 .await
                 .reregister(&*storage.poll.read().await)?;
+            trace!("done reregistering client");
         }
 
         Ok(None)
@@ -762,13 +789,11 @@ pub const MAX_PROCESSED_PACKETS: i32 = 25;
 
 pub async fn process_packets(world: GameWorld, storage: GameStore) -> Result<()> {
     let mut packet = MByteBuffer::new()?;
-    let mut processed = 0;
 
     'user_loop: while !{
         let stop = *storage.disable_threads.read().await;
         stop
     } {
-        info!("Running packet Events");
         if let Some(entity) = {
             let mut lock = storage.packet_process_ids.write().await;
             let id = lock.pop_front();
@@ -810,8 +835,7 @@ pub async fn process_packets(world: GameWorld, storage: GameStore) -> Result<()>
             'inner_loop: loop {
                 packet.move_cursor_to_start();
                 let length = {
-                    let mut buffer = arc_buffer.write().await;
-                    let len = match get_length(&storage, &mut buffer, socket_id).await {
+                    let len = match get_length(&storage, &arc_buffer, socket_id).await {
                         Ok(s) => match s {
                             Some(n) => n,
                             None => {
@@ -943,11 +967,13 @@ pub async fn process_packets(world: GameWorld, storage: GameStore) -> Result<()>
 
                 {
                     let mut buffer = arc_buffer.write().await;
-                
+
                     let read_slice = match buffer.read_slice(buffer_len) {
                         Ok(v) => v,
                         Err(e) => {
-                            trace!("Player buffer read only slice could not be retrived. Error: {e}");
+                            trace!(
+                                "Player buffer read only slice could not be retrived. Error: {e}"
+                            );
                             set_socket_to_closing(&storage, socket_id).await;
                             continue 'user_loop;
                         }
@@ -966,11 +992,11 @@ pub async fn process_packets(world: GameWorld, storage: GameStore) -> Result<()>
 
             storage.packet_process_ids.write().await.push_back(entity);
         }
-        processed += 1;
+        // processed += 1;
 
-        if processed >= 10 {
-            tokio::time::sleep(Duration::from_millis(1)).await;
-        }
+        //if processed >= 10 {
+        //tokio::time::sleep(Duration::from_millis(0)).await;
+        // }
     }
 
     Ok(())

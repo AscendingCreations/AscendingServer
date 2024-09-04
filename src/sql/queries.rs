@@ -220,7 +220,7 @@ pub async fn load_player(
     .fetch_all(&storage.pgconn)
     .await?;
 
-    let lock = world.write().await;
+    let lock = world.read().await;
     let mut inv_items = lock.get::<&mut Inventory>(entity.0)?;
     PGInvItem::array_into_items(player_inv, &mut inv_items.items).await;
 

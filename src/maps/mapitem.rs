@@ -212,7 +212,7 @@ pub async fn try_drop_item(
         if item_base.stackable
             && let Some(got_entity) = found_pos.1
         {
-            let lock = world.write().await;
+            let lock = world.read().await;
             let map_item = lock.get::<&mut MapItem>(got_entity.0);
 
             if let Ok(mut mapitem) = map_item {
@@ -324,7 +324,7 @@ pub async fn player_interact_object(
         match mapdata.attribute[target_pos.as_tile()] {
             MapAttribute::Storage => {
                 {
-                    let lock = world.write().await;
+                    let lock = world.read().await;
                     *lock.get::<&mut IsUsingType>(entity.0)? = IsUsingType::Bank;
                 }
                 send_storage(world, storage, entity, 0..35).await?;
@@ -333,7 +333,7 @@ pub async fn player_interact_object(
             }
             MapAttribute::Shop(shop_index) => {
                 {
-                    let lock = world.write().await;
+                    let lock = world.read().await;
                     *lock.get::<&mut IsUsingType>(entity.0)? =
                         IsUsingType::Store(shop_index as i64);
                 }

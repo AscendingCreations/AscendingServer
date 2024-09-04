@@ -296,60 +296,64 @@ impl Storage {
         handshake: String,
         time: MyInstant,
     ) -> Result<()> {
-        let mut lock = world.write().await;
-        lock.insert(
-            entity.0,
-            (
-                Account::default(),
-                PlayerItemTimer::default(),
-                PlayerMapTimer::default(),
-                Inventory::default(),
-                Equipment::default(),
-                Sprite::default(),
-                Money::default(),
-                Player::default(),
-                Spawn::default(),
-                Target::default(),
-                KillCount::default(),
-                Vitals::default(),
-                Dir::default(),
-                AttackTimer::default(),
-                WorldEntityType::Player,
-            ),
-        )?;
-        lock.insert(
-            entity.0,
-            (
-                DeathTimer::default(),
-                MoveTimer::default(),
-                Combat::default(),
-                Physical::default(),
-                Hidden::default(),
-                Stunned::default(),
-                Attacking::default(),
-                Level::default(),
-                InCombat::default(),
-                EntityData::default(),
-                UserAccess::default(),
-                Position::default(),
-                DeathType::default(),
-                IsUsingType::default(),
-                PlayerTarget::default(),
-            ),
-        )?;
-        lock.insert(
-            entity.0,
-            (
-                PlayerStorage::default(),
-                TradeItem::default(),
-                ReloginCode { code },
-                LoginHandShake { handshake },
-                TradeMoney::default(),
-                TradeStatus::default(),
-                TradeRequestEntity::default(),
-                ConnectionLoginTimer(time + Duration::try_milliseconds(600000).unwrap_or_default()),
-            ),
-        )?;
+        {
+            let mut lock = world.write().await;
+            lock.insert(
+                entity.0,
+                (
+                    Account::default(),
+                    PlayerItemTimer::default(),
+                    PlayerMapTimer::default(),
+                    Inventory::default(),
+                    Equipment::default(),
+                    Sprite::default(),
+                    Money::default(),
+                    Player::default(),
+                    Spawn::default(),
+                    Target::default(),
+                    KillCount::default(),
+                    Vitals::default(),
+                    Dir::default(),
+                    AttackTimer::default(),
+                    WorldEntityType::Player,
+                ),
+            )?;
+            lock.insert(
+                entity.0,
+                (
+                    DeathTimer::default(),
+                    MoveTimer::default(),
+                    Combat::default(),
+                    Physical::default(),
+                    Hidden::default(),
+                    Stunned::default(),
+                    Attacking::default(),
+                    Level::default(),
+                    InCombat::default(),
+                    EntityData::default(),
+                    UserAccess::default(),
+                    Position::default(),
+                    DeathType::default(),
+                    IsUsingType::default(),
+                    PlayerTarget::default(),
+                ),
+            )?;
+            lock.insert(
+                entity.0,
+                (
+                    PlayerStorage::default(),
+                    TradeItem::default(),
+                    ReloginCode { code },
+                    LoginHandShake { handshake },
+                    TradeMoney::default(),
+                    TradeStatus::default(),
+                    TradeRequestEntity::default(),
+                    ConnectionLoginTimer(
+                        time + Duration::try_milliseconds(600000).unwrap_or_default(),
+                    ),
+                ),
+            )?;
+        }
         self.player_ids.write().await.insert(*entity);
         Ok(())
     }
@@ -359,12 +363,20 @@ impl Storage {
         world: &GameWorld,
         id: Entity,
     ) -> Result<(Socket, Option<Position>)> {
-        let mut lock = world.write().await;
-        // only removes the Components in the Fisbone ::<>
-        let (socket,) = lock.remove::<(Socket,)>(id.0)?;
-        let pos = lock.remove::<(Position,)>(id.0).ok().map(|v| v.0);
+        let (account, pos, socket) = {
+            let mut lock = world.write().await;
+            // only removes the Components in the Fisbone ::<>
+            let (socket,) = lock.remove::<(Socket,)>(id.0)?;
+            let pos = lock.remove::<(Position,)>(id.0).ok().map(|v| v.0);
 
-        if let Ok((account,)) = lock.remove::<(Account,)>(id.0) {
+            let account = lock.remove::<(Account,)>(id.0);
+            //Removes Everything related to the Entity.
+            lock.despawn(id.0)?;
+
+            (account, pos, socket)
+        };
+
+        if let Ok((account,)) = account {
             println!("Players Disconnected : {}", &account.username);
             self.player_usernames
                 .write()
@@ -373,71 +385,73 @@ impl Storage {
             self.player_emails.write().await.remove(&account.email);
         }
 
-        //Removes Everything related to the Entity.
-        lock.despawn(id.0)?;
-
         self.player_ids.write().await.swap_remove(&id);
         Ok((socket, pos))
     }
 
     pub async fn add_npc(&self, world: &GameWorld, npc_id: u64) -> Result<Option<Entity>> {
         if let Some(npcdata) = NpcData::load_npc(self, npc_id) {
-            let mut lock = world.write().await;
-            let identity = lock.spawn((
-                WorldEntityType::Npc,
-                Position::default(),
-                NpcIndex(npc_id),
-                NpcTimer {
-                    spawntimer: *self.gettick.write().await
-                        + Duration::try_milliseconds(npcdata.spawn_wait).unwrap_or_default(),
-                    ..Default::default()
-                },
-                NpcAITimer::default(),
-                NpcDespawns::default(),
-                NpcMoving::default(),
-                NpcRetreating::default(),
-                NpcWalkToSpawn::default(),
-                NpcMoves::default(),
-                NpcSpawnedZone::default(),
-                Dir::default(),
-                MoveTimer::default(),
-                EntityData::default(),
-                Sprite::default(),
-            ));
-            lock.insert(
-                identity,
-                (
-                    Spawn::default(),
-                    NpcMode::Normal,
-                    Hidden::default(),
-                    Level::default(),
-                    Vitals::default(),
-                    Physical::default(),
-                    DeathType::default(),
-                    NpcMovePos::default(),
-                    Target::default(),
-                    InCombat::default(),
-                    AttackTimer::default(),
-                    NpcPathTimer::default(),
-                ),
-            )?;
-
-            if !npcdata.behaviour.is_friendly() {
+            let gettick = *self.gettick.read().await;
+            let identity = {
+                let mut lock = world.write().await;
+                let identity = lock.spawn((
+                    WorldEntityType::Npc,
+                    Position::default(),
+                    NpcIndex(npc_id),
+                    NpcTimer {
+                        spawntimer: gettick
+                            + Duration::try_milliseconds(npcdata.spawn_wait).unwrap_or_default(),
+                        ..Default::default()
+                    },
+                    NpcAITimer::default(),
+                    NpcDespawns::default(),
+                    NpcMoving::default(),
+                    NpcRetreating::default(),
+                    NpcWalkToSpawn::default(),
+                    NpcMoves::default(),
+                    NpcSpawnedZone::default(),
+                    Dir::default(),
+                    MoveTimer::default(),
+                    EntityData::default(),
+                    Sprite::default(),
+                ));
                 lock.insert(
                     identity,
                     (
-                        NpcHitBy::default(),
+                        Spawn::default(),
+                        NpcMode::Normal,
+                        Hidden::default(),
+                        Level::default(),
+                        Vitals::default(),
+                        Physical::default(),
+                        DeathType::default(),
+                        NpcMovePos::default(),
                         Target::default(),
-                        AttackTimer::default(),
-                        DeathTimer::default(),
-                        Combat::default(),
-                        Stunned::default(),
-                        Attacking::default(),
                         InCombat::default(),
+                        AttackTimer::default(),
+                        NpcPathTimer::default(),
                     ),
                 )?;
-            }
-            lock.insert_one(identity, EntityType::Npc(Entity(identity)))?;
+
+                if !npcdata.behaviour.is_friendly() {
+                    lock.insert(
+                        identity,
+                        (
+                            NpcHitBy::default(),
+                            Target::default(),
+                            AttackTimer::default(),
+                            DeathTimer::default(),
+                            Combat::default(),
+                            Stunned::default(),
+                            Attacking::default(),
+                            InCombat::default(),
+                        ),
+                    )?;
+                }
+                lock.insert_one(identity, EntityType::Npc(Entity(identity)))?;
+
+                identity
+            };
 
             self.npc_ids.write().await.insert(Entity(identity));
 
@@ -450,8 +464,11 @@ impl Storage {
     pub async fn remove_npc(&self, world: &GameWorld, id: Entity) -> Result<Position> {
         let ret: Position = world.get_or_err::<Position>(&id).await?;
         //Removes Everything related to the Entity.
-        let mut lock = world.write().await;
-        lock.despawn(id.0)?;
+        {
+            let mut lock = world.write().await;
+            lock.despawn(id.0)?;
+        }
+
         self.npc_ids.write().await.swap_remove(&id);
 
         //Removes the NPC from the block map.

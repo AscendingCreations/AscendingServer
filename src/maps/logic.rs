@@ -96,7 +96,6 @@ pub async fn update_maps(world: &GameWorld, storage: &GameStore) -> Result<()> {
                     }
                 }
 
-                
                 //Lets Spawn the npcs here;
                 for (spawn, zone, npc_id) in spawnable.drain(..) {
                     if let Ok(Some(id)) = storage.add_npc(world, npc_id).await {
@@ -182,7 +181,7 @@ pub async fn spawn_npc(
     zone: Option<usize>,
     entity: Entity,
 ) -> Result<()> {
-    let lock = world.write().await;
+    let lock = world.read().await;
     *lock.get::<&mut Position>(entity.0)? = pos;
     lock.get::<&mut Spawn>(entity.0)?.pos = pos;
     lock.get::<&mut NpcSpawnedZone>(entity.0)?.0 = zone;
