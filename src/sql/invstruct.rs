@@ -31,7 +31,7 @@ impl PGInvItem {
         items
     }
 
-    pub async fn single(inv: &[Item], uid: i64, slot: usize) -> PGInvItem {
+    pub fn single(inv: &[Item], uid: i64, slot: usize) -> PGInvItem {
         PGInvItem {
             uid,
             id: slot as i16,
@@ -87,13 +87,13 @@ impl PGInvItem {
         let mut vec = Vec::with_capacity(items.len());
 
         for item in items {
-            vec.push(item.into_update().await)
+            vec.push(item.into_update())
         }
 
         vec
     }
 
-    pub async fn into_update(self) -> String {
+    pub fn into_update(self) -> String {
         let data = self
             .data
             .iter()

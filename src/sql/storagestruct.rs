@@ -31,7 +31,7 @@ impl PGStorageItem {
         items
     }
 
-    pub async fn single(storage_slot: &[Item], uid: i64, slot: usize) -> PGStorageItem {
+    pub fn single(storage_slot: &[Item], uid: i64, slot: usize) -> PGStorageItem {
         PGStorageItem {
             uid,
             id: slot as i16,
@@ -87,13 +87,13 @@ impl PGStorageItem {
         let mut vec = Vec::with_capacity(items.len());
 
         for item in items {
-            vec.push(item.into_update().await)
+            vec.push(item.into_update())
         }
 
         vec
     }
 
-    pub async fn into_update(self) -> String {
+    pub fn into_update(self) -> String {
         let data = self
             .data
             .iter()

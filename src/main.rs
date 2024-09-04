@@ -101,28 +101,17 @@ async fn main() {
 
     info!("Starting up");
     info!("Initializing Storage");
-    let storage = Arc::new(Storage::new(config).await.unwrap());
+    let (storage, rx) = Storage::new(config).await.unwrap();
+    let storage = Arc::new(storage);
     info!("Initializing World");
     let world = Arc::new(RwLock::new(World::new()));
 
     {
         let mut thread_handles = storage.thread_handles.lock().await;
 
-        for _ in 0..4 {
-            let new_world = world.clone();
-            let new_store = storage.clone();
-            let join = tokio::spawn(crate::socket::process_packets(new_world, new_store));
-            thread_handles.push(join);
-        }
-
         let new_world = world.clone();
         let new_store = storage.clone();
-        let join = tokio::spawn(crate::socket::poll_events(new_world, new_store));
-        thread_handles.push(join);
-
-        let new_world = world.clone();
-        let new_store = storage.clone();
-        let join = tokio::spawn(crate::tasks::process_tasks(new_world, new_store));
+        let join = tokio::spawn(crate::sql::process_sql_requests(new_world, new_store, rx));
         thread_handles.push(join);
     }
 

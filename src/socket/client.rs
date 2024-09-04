@@ -15,10 +15,7 @@ use std::{
     io::{self, Read, Write},
     sync::Arc,
 };
-use tokio::{
-    sync::RwLock,
-    time::{Duration, Instant},
-};
+use tokio::sync::RwLock;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum ClientState {
@@ -130,9 +127,9 @@ impl Client {
         // Check if the Event has some readable Data from the Poll State.
         if event.is_readable() {
             if matches!(self.encrypt_state, EncryptionState::ReadWrite) {
-                self.tls_read(world, storage).await?;
+                self.tls_read(storage).await?;
             } else {
-                self.read(world, storage).await?;
+                self.read(storage).await?;
             }
         }
 
@@ -183,15 +180,20 @@ impl Client {
             ClientState::Closed => Ok(()),
             _ => {
                 //We dont care about errors here as they only occur when a socket is already disconnected by the client.
+                info!("deregister socket");
                 self.deregister(&*storage.poll.read().await)?;
+                info!("shutdown stream");
                 let _ = self.stream.shutdown(std::net::Shutdown::Both);
                 self.state = ClientState::Closed;
-                disconnect(self.entity, world, storage).await
+                info!("disconnect");
+                let ret = disconnect(self.entity, world, storage).await;
+                info!("done close socket");
+                ret
             }
         }
     }
 
-    pub async fn tls_read(&mut self, world: &GameWorld, storage: &GameStore) -> Result<()> {
+    pub async fn tls_read(&mut self, storage: &GameStore) -> Result<()> {
         let arc_buffer = {
             let player_buffer_lock = storage.player_buffers.read().await;
             let buffer = match player_buffer_lock.get(&self.entity) {
@@ -269,7 +271,9 @@ impl Client {
         // reset it back to the original pos so we can Read from it again.
         buffer.move_cursor(pos)?;
 
-        if buffer.is_empty() {
+        if !buffer.is_empty() {
+            storage.recv_ids.write().await.insert(self.entity);
+        } else {
             // we are not going to handle any reads so lets mark it back as read again so it can
             //continue to get packets.
             self.poll_state.add(SocketPollState::Read);
@@ -278,7 +282,7 @@ impl Client {
         Ok(())
     }
 
-    pub async fn read(&mut self, world: &GameWorld, storage: &GameStore) -> Result<()> {
+    pub async fn read(&mut self, storage: &GameStore) -> Result<()> {
         let arc_buffer = {
             let player_buffer_lock = storage.player_buffers.read().await;
             let buffer = match player_buffer_lock.get(&self.entity) {
@@ -328,7 +332,9 @@ impl Client {
         // reset it back to the original pos so we can Read from it again.
         buffer.move_cursor(pos)?;
 
-        if buffer.is_empty() {
+        if !buffer.is_empty() {
+            storage.recv_ids.write().await.insert(self.entity);
+        } else {
             // we are not going to handle any reads so lets mark it back as read again so it can
             //continue to get packets.
             self.poll_state.add(SocketPollState::Read);
@@ -515,25 +521,31 @@ impl Client {
 
 #[inline]
 pub async fn disconnect(playerid: Entity, world: &GameWorld, storage: &GameStore) -> Result<()> {
+    info!("Left Game");
     left_game(world, storage, &playerid).await?;
 
+    info!("remove player");
     let (socket, position) = storage.remove_player(world, playerid).await?;
+    info!("remove buffers");
     storage.player_buffers.write().await.remove(&playerid);
 
     trace!("Players Disconnected IP: {} ", &socket.addr);
     if let Some(pos) = position {
         if let Some(map) = storage.maps.get(&pos.map) {
             {
+                info!("map removes");
                 let mut map_lock = map.write().await;
                 map_lock.remove_player(storage, playerid).await;
                 map_lock.remove_entity_from_grid(pos);
             }
+            info!("datatask entity unload");
             DataTaskToken::EntityUnload(pos.map)
                 .add_task(storage, unload_entity_packet(playerid)?)
                 .await?;
         }
     }
 
+    info!("done");
     Ok(())
 }
 
@@ -787,216 +799,183 @@ pub async fn get_length(
 
 pub const MAX_PROCESSED_PACKETS: i32 = 25;
 
-pub async fn process_packets(world: GameWorld, storage: GameStore) -> Result<()> {
+pub async fn process_packets(world: &GameWorld, storage: &GameStore) -> Result<()> {
     let mut packet = MByteBuffer::new()?;
 
-    'user_loop: while !{
-        let stop = *storage.disable_threads.read().await;
-        stop
-    } {
-        if let Some(entity) = {
-            let mut lock = storage.packet_process_ids.write().await;
-            let id = lock.pop_front();
-            id
-        } {
-            let mut count = 0;
+    let recv_ids = {
+        let mut lock = storage.recv_ids.write().await;
+        let ids: Vec<Entity> = lock.drain(..).collect();
+        ids
+    };
 
-            let (socket_id, address) = {
-                let lock = world.read().await;
-                let socket = match lock.get::<&Socket>(entity.0) {
-                    Ok(s) => s,
-                    Err(e) => {
-                        error!(
+    let mut reprocess = Vec::new();
+
+    'user_loop: for entity in &recv_ids {
+        let mut count = 0;
+
+        let (socket_id, address) = {
+            let lock = world.read().await;
+            let socket = match lock.get::<&Socket>(entity.0) {
+                Ok(s) => s,
+                Err(e) => {
+                    error!(
                         "world.get::<&Socket> error: {}. Entity: {:?}, did not get fully unloaded? recv_id buffer still existed.",
                         e, entity
                     );
-                        continue 'user_loop;
-                    }
-                };
-
-                (socket.id, socket.addr.clone())
-            };
-
-            let arc_buffer = {
-                let player_buffer_lock = storage.player_buffers.read().await;
-                let buffer = match player_buffer_lock.get(&entity) {
-                    Some(v) => v.clone(),
-                    None => {
-                        trace!("Player has no buffer");
-                        set_socket_to_closing(&storage, socket_id).await;
-                        continue 'user_loop;
-                    }
-                };
-                buffer
-            };
-
-            //let mut buffer = arc_buffer.write().await;
-
-            'inner_loop: loop {
-                packet.move_cursor_to_start();
-                let length = {
-                    let len = match get_length(&storage, &arc_buffer, socket_id).await {
-                        Ok(s) => match s {
-                            Some(n) => n,
-                            None => {
-                                break;
-                            }
-                        },
-                        Err(e) => {
-                            trace!("get_length. Error: {e}");
-                            set_socket_to_closing(&storage, socket_id).await;
-                            continue 'user_loop;
-                        }
-                    };
-                    len
-                };
-
-                if length == 0 {
-                    trace!(
-                        "Length was Zero. Bad or malformed packet from IP: {}",
-                        address
-                    );
-
-                    set_socket_to_closing(&storage, socket_id).await;
                     continue 'user_loop;
                 }
+            };
 
-                if length > BUFFER_SIZE as u64 {
-                    trace!(
+            (socket.id, socket.addr.clone())
+        };
+
+        let arc_buffer = {
+            let player_buffer_lock = storage.player_buffers.read().await;
+            let buffer = match player_buffer_lock.get(entity) {
+                Some(v) => v.clone(),
+                None => {
+                    trace!("Player has no buffer");
+                    set_socket_to_closing(storage, socket_id).await;
+                    continue 'user_loop;
+                }
+            };
+            buffer
+        };
+
+        //let mut buffer = arc_buffer.write().await;
+
+        'inner_loop: loop {
+            packet.move_cursor_to_start();
+            let length = {
+                let len = match get_length(storage, &arc_buffer, socket_id).await {
+                    Ok(s) => match s {
+                        Some(n) => n,
+                        None => {
+                            break;
+                        }
+                    },
+                    Err(e) => {
+                        trace!("get_length. Error: {e}");
+                        set_socket_to_closing(storage, socket_id).await;
+                        continue 'user_loop;
+                    }
+                };
+                len
+            };
+
+            if length == 0 {
+                trace!(
+                    "Length was Zero. Bad or malformed packet from IP: {}",
+                    address
+                );
+
+                set_socket_to_closing(storage, socket_id).await;
+                continue 'user_loop;
+            }
+
+            if length > BUFFER_SIZE as u64 {
+                trace!(
                             "Length was {} greater than the max packet size of {}. Bad or malformed packet from IP: {}",
                             length,
                             address,
                             BUFFER_SIZE
                         );
 
-                    set_socket_to_closing(&storage, socket_id).await;
-                    continue 'user_loop;
-                }
+                set_socket_to_closing(storage, socket_id).await;
+                continue 'user_loop;
+            }
 
-                let (buffer_length, cursor) = {
-                    let lock = arc_buffer.read().await;
-                    let length = lock.length();
-                    let cursor = lock.cursor();
-                    (length, cursor)
-                };
+            let (buffer_length, cursor) = {
+                let lock = arc_buffer.read().await;
+                let length = lock.length();
+                let cursor = lock.cursor();
+                (length, cursor)
+            };
 
-                if length <= (buffer_length - cursor) as u64 {
-                    let mut errored = false;
+            if length <= (buffer_length - cursor) as u64 {
+                let mut errored = false;
 
-                    if let Ok(bytes) = arc_buffer.write().await.read_slice(length as usize) {
-                        if packet.write_slice(bytes).is_err() {
-                            errored = true;
-                        }
-
-                        packet.move_cursor_to_start();
-                    } else {
+                if let Ok(bytes) = arc_buffer.write().await.read_slice(length as usize) {
+                    if packet.write_slice(bytes).is_err() {
                         errored = true;
                     }
 
-                    if errored {
-                        warn!(
-                            "IP: {} was disconnected due to error on packet length.",
-                            address
-                        );
-                        set_socket_to_closing(&storage, socket_id).await;
-                        continue 'user_loop;
-                    }
-
-                    if handle_data(&world, &storage, &mut packet, &entity)
-                        .await
-                        .is_err()
-                    {
-                        warn!("IP: {} was disconnected due to invalid packets", address);
-                        set_socket_to_closing(&storage, socket_id).await;
-                        continue 'user_loop;
-                    }
-
-                    count += 1
+                    packet.move_cursor_to_start();
                 } else {
-                    let cursor = arc_buffer.read().await.cursor() - 8;
-                    if let Err(e) = arc_buffer.write().await.move_cursor(cursor) {
-                        error!("buffer: {e}.");
-                        set_socket_to_closing(&storage, socket_id).await;
-                        continue 'user_loop;
-                    }
-
-                    break 'inner_loop;
+                    errored = true;
                 }
 
-                if count == MAX_PROCESSED_PACKETS {
-                    break 'inner_loop;
-                }
-            }
-
-            let cursor = arc_buffer.read().await.cursor();
-            let buffer_len = arc_buffer.write().await.length() - cursor;
-
-            if cursor == arc_buffer.read().await.length() {
-                if let Err(e) = arc_buffer.write().await.truncate(0) {
-                    trace!("Player buffer truncate. Error: {e}");
-                    set_socket_to_closing(&storage, socket_id).await;
+                if errored {
+                    warn!(
+                        "IP: {} was disconnected due to error on packet length.",
+                        address
+                    );
+                    set_socket_to_closing(storage, socket_id).await;
                     continue 'user_loop;
                 }
 
-                if arc_buffer.read().await.capacity() > 500000 {
-                    warn!(
-                        "process_packets: buffer resize to 100000. Buffer Capacity: {}, Buffer len: {}",
-                        arc_buffer.read().await.capacity(),
-                        buffer_len
-                    );
-                    if let Err(e) = arc_buffer.write().await.resize(100000) {
-                        trace!("Player buffer resize. Error: {e}");
-                        set_socket_to_closing(&storage, socket_id).await;
-                        continue 'user_loop;
-                    }
+                if handle_data(world, storage, &mut packet, entity)
+                    .await
+                    .is_err()
+                {
+                    warn!("IP: {} was disconnected due to invalid packets", address);
+                    set_socket_to_closing(storage, socket_id).await;
+                    continue 'user_loop;
                 }
-            } else if arc_buffer.read().await.capacity() > 500000 && buffer_len <= 100000 {
+
+                count += 1
+            } else {
+                let cursor = arc_buffer.read().await.cursor() - 8;
+                arc_buffer.write().await.move_cursor(cursor)?;
+
+                break 'inner_loop;
+            }
+
+            if count == MAX_PROCESSED_PACKETS {
+                break 'inner_loop;
+            }
+        }
+
+        let cursor = arc_buffer.read().await.cursor();
+        let buffer_len = arc_buffer.write().await.length() - cursor;
+
+        if cursor == arc_buffer.read().await.length() {
+            arc_buffer.write().await.truncate(0)?;
+
+            if arc_buffer.read().await.capacity() > 500000 {
                 warn!(
-                    "process_packets: buffer resize to Buffer len. Buffer Capacity: {}, Buffer len: {}",
+                    "process_packets: buffer resize to 100000. Buffer Capacity: {}, Buffer len: {}",
                     arc_buffer.read().await.capacity(),
                     buffer_len
                 );
-                let mut replacement = match ByteBuffer::with_capacity(buffer_len) {
-                    Ok(v) => v,
-                    Err(e) => {
-                        trace!("Player new buffer could not be created. Error: {e}");
-                        set_socket_to_closing(&storage, socket_id).await;
-                        continue 'user_loop;
-                    }
-                };
-
-                {
-                    let mut buffer = arc_buffer.write().await;
-
-                    let read_slice = match buffer.read_slice(buffer_len) {
-                        Ok(v) => v,
-                        Err(e) => {
-                            trace!(
-                                "Player buffer read only slice could not be retrived. Error: {e}"
-                            );
-                            set_socket_to_closing(&storage, socket_id).await;
-                            continue 'user_loop;
-                        }
-                    };
-
-                    if let Err(e) = replacement.write_slice(read_slice) {
-                        trace!("Player buffer write. Error: {e}");
-                        set_socket_to_closing(&storage, socket_id).await;
-                        continue 'user_loop;
-                    }
-
-                    replacement.move_cursor_to_start();
-                    *buffer = replacement;
-                }
+                arc_buffer.write().await.resize(100000)?;
             }
+        } else if arc_buffer.read().await.capacity() > 500000 && buffer_len <= 100000 {
+            warn!(
+                "process_packets: buffer resize to Buffer len. Buffer Capacity: {}, Buffer len: {}",
+                arc_buffer.read().await.capacity(),
+                buffer_len
+            );
+            let mut replacement = ByteBuffer::with_capacity(buffer_len)?;
 
-            storage.packet_process_ids.write().await.push_back(entity);
+            {
+                let mut buffer = arc_buffer.write().await;
+                let read_slice = buffer.read_slice(buffer_len)?;
+                replacement.write_slice(read_slice)?;
+                replacement.move_cursor_to_start();
+                *buffer = replacement;
+            }
         }
-        // processed += 1;
 
-        //if processed >= 10 {
-        //tokio::time::sleep(Duration::from_millis(0)).await;
-        // }
+        reprocess.push(entity);
+    }
+
+    {
+        let mut lock = storage.recv_ids.write().await;
+
+        for i in reprocess {
+            lock.insert(*i);
+        }
     }
 
     Ok(())

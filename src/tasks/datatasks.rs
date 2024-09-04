@@ -6,9 +6,7 @@ use crate::{
 use indexmap::map::Entry;
 use log::{info, warn};
 use mmap_bytey::BUFFER_SIZE;
-use std::{collections::VecDeque, time::Duration};
-
-use super::process_data_lists;
+use std::collections::VecDeque;
 /* Information Packet Data Portion Worse case is 1400 bytes
 * This means you can fit based on Packet Size: 8bytes + Packet ID: 4bytes  + Data array count: 4bytes
 *this leaves you with 1384 bytes to play with per packet.
@@ -123,59 +121,54 @@ impl DataTaskToken {
     }
 }
 
-pub async fn process_tasks(world: GameWorld, storage: GameStore) -> Result<()> {
-    while !{
-        let stop = *storage.disable_threads.read().await;
-        stop
-    } {
-        if let Err(e) = process_data_lists(&world, &storage).await {
-            info!("oop error process_data_lists: {e}");
-        }
+pub async fn process_tasks(world: &GameWorld, storage: &GameStore) -> Result<()> {
+    //loop {
+    /*if let Err(e) = process_data_lists(&world, &storage).await {
+        info!("oop error process_data_lists: {e}");
+    }*/
 
-        let ids = {
-            let ids: Vec<_> = storage.packet_cache_ids.write().await.drain(..).collect();
-            ids
-        };
+    let ids = {
+        let ids: Vec<_> = storage.packet_cache_ids.write().await.drain(..).collect();
+        ids
+    };
 
-        for id in ids {
-            let buffers = {
-                let mut lock = storage.packet_cache.write().await;
-                let buffer = lock.get_mut(&id);
-                let buffer: Vec<(u32, MByteBuffer, bool)> = if let Some(buffers) = buffer {
-                    let buffer = buffers.drain(..).collect();
+    for id in ids {
+        let buffers = {
+            let mut lock = storage.packet_cache.write().await;
+            let buffer = lock.get_mut(&id);
+            let buffer: Vec<(u32, MByteBuffer, bool)> = if let Some(buffers) = buffer {
+                let buffer = buffers.drain(..).collect();
 
-                    if buffers.capacity() > 250 && buffers.len() < 100 {
-                        warn!(
+                if buffers.capacity() > 250 && buffers.len() < 100 {
+                    warn!(
                         "process_tasks: packet_cache Buffer Strink to 100, Current Capacity {}, Current len {}.",
                         buffers.capacity(),
                         buffers.len()
                     );
-                        buffers.shrink_to(100);
-                    }
-
-                    buffer
-                } else {
-                    continue;
-                };
+                    buffers.shrink_to(100);
+                }
 
                 buffer
+            } else {
+                continue;
             };
 
-            //We send the older packets first hence pop front as they are the oldest.
-            for (count, mut buffer, is_finished) in buffers {
-                if let Err(e) = finish_cache(&mut buffer, count, is_finished) {
-                    info!("Opps finish error: {e}");
-                    continue;
-                }
+            buffer
+        };
 
-                if let Err(e) = id.send(&world, &storage, buffer).await {
-                    info!("opps send error: {e}")
-                }
+        //We send the older packets first hence pop front as they are the oldest.
+        for (count, mut buffer, is_finished) in buffers {
+            if let Err(e) = finish_cache(&mut buffer, count, is_finished) {
+                info!("Opps finish error: {e}");
+                continue;
+            }
+
+            if let Err(e) = id.send(&world, &storage, buffer).await {
+                info!("opps send error: {e}")
             }
         }
-
-        //tokio::time::sleep(Duration::from_millis(2)).await
     }
+    //}
 
     Ok(())
 }

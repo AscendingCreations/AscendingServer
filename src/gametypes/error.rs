@@ -132,4 +132,11 @@ pub enum AscendingError {
         #[backtrace]
         backtrace: Box<Backtrace>,
     },
+    #[error("Error: {error}, BackTrace: {backtrace}")]
+    TokioMPSCError {
+        #[from]
+        error: tokio::sync::mpsc::error::SendError<crate::sql::SqlRequests>,
+        #[backtrace]
+        backtrace: Box<Backtrace>,
+    },
 }

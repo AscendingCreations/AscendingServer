@@ -22,7 +22,7 @@ pub async fn update_npcs(world: &GameWorld, storage: &GameStore) -> Result<()> {
                 if world.get_or_err::<NpcDespawns>(id).await?.0
                     && world.get_or_err::<NpcTimer>(id).await?.despawntimer <= tick
                 {
-                    let lock = world.read().await;
+                    let lock = world.write().await;
                     *lock.get::<&mut DeathType>(id.0)? = DeathType::Dead;
                     unloadnpcs.push(*id);
                     continue;
@@ -39,7 +39,7 @@ pub async fn update_npcs(world: &GameWorld, storage: &GameStore) -> Result<()> {
                         .await
                         .in_range(npcdata.spawntime.0, npcdata.spawntime.1)
                     {
-                        let lock = world.read().await;
+                        let lock = world.write().await;
                         *lock.get::<&mut DeathType>(id.0)? = DeathType::Dead;
                         unloadnpcs.push(*id);
                         continue;
@@ -62,7 +62,7 @@ pub async fn update_npcs(world: &GameWorld, storage: &GameStore) -> Result<()> {
                     if npcdata.can_move && world.get_or_err::<MoveTimer>(id).await?.0 <= tick {
                         npc_update_path(world, storage, id, npcdata).await?;
                         npc_movement(world, storage, id, npcdata).await?;
-                        let lock = world.read().await;
+                        let lock = world.write().await;
                         lock.get::<&mut MoveTimer>(id.0)?.0 = tick
                             + Duration::try_milliseconds(npcdata.movement_wait).unwrap_or_default();
                     }
@@ -79,7 +79,7 @@ pub async fn update_npcs(world: &GameWorld, storage: &GameStore) -> Result<()> {
                         && world.get_or_err::<AttackTimer>(id).await?.0 <= tick
                     {
                         npc_combat(world, storage, id, npcdata).await?;
-                        let lock = world.read().await;
+                        let lock = world.write().await;
                         lock.get::<&mut AttackTimer>(id.0)?.0 = tick
                             + Duration::try_milliseconds(npcdata.attack_wait).unwrap_or_default();
                     }
@@ -106,7 +106,7 @@ pub async fn update_npcs(world: &GameWorld, storage: &GameStore) -> Result<()> {
                         WorldEntityType::Npc,
                     ) {
                         {
-                            let lock = world.read().await;
+                            let lock = world.write().await;
                             *lock.get::<&mut DeathType>(id.0)? = DeathType::Alive;
                         }
                         map_data
@@ -125,11 +125,11 @@ pub async fn update_npcs(world: &GameWorld, storage: &GameStore) -> Result<()> {
     }
 
     for i in unloadnpcs {
+        let zone_data = world.get_or_err::<NpcSpawnedZone>(&i).await?.0;
         let spawn_pos = world.get_or_err::<Spawn>(&i).await?;
         let pos = storage.remove_npc(world, i).await?;
 
         if let Some(mapdata) = storage.maps.get(&spawn_pos.pos.map) {
-            let zone_data = world.get_or_err::<NpcSpawnedZone>(&i).await?.0;
             let mut data = mapdata.write().await;
 
             data.remove_npc(i);

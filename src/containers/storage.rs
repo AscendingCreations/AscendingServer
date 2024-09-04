@@ -5,11 +5,12 @@ use crate::{
     npcs::*,
     players::*,
     socket::*,
+    sql::SqlRequests,
     tasks::{DataTaskToken, MapSwitchTasks},
     time_ext::MyInstant,
 };
 use chrono::Duration;
-use log::LevelFilter;
+use log::{info, LevelFilter};
 use mio::Poll;
 use rustls::{
     crypto::{ring as provider, CryptoProvider},
@@ -22,11 +23,11 @@ use sqlx::{
     ConnectOptions, PgPool,
 };
 use std::{collections::VecDeque, fs, io::BufReader, sync::Arc};
-use tokio::sync::{Mutex, RwLock};
+use tokio::sync::{mpsc::*, Mutex, RwLock};
 
 pub struct Storage {
     pub player_ids: RwLock<IndexSet<Entity>>,
-    pub packet_process_ids: RwLock<VecDeque<Entity>>,
+    pub recv_ids: RwLock<IndexSet<Entity>>,
     pub player_buffers: RwLock<HashMap<Entity, Arc<RwLock<ByteBuffer>>>>,
     pub npc_ids: RwLock<IndexSet<Entity>>,
     pub player_usernames: RwLock<HashMap<String, Entity>>, //for player usernames to ID's
@@ -45,8 +46,8 @@ pub struct Storage {
     pub time: RwLock<GameTime>,
     pub map_switch_tasks: RwLock<IndexMap<Entity, Vec<MapSwitchTasks>>>, //Data Tasks For dealing with Player Warp and MapSwitch
     pub bases: Bases,
-    pub disable_threads: RwLock<bool>,
     pub thread_handles: Mutex<Vec<tokio::task::JoinHandle<Result<()>>>>,
+    pub sql_request: Sender<SqlRequests>,
     pub config: Config,
 }
 
@@ -167,22 +168,21 @@ fn build_tls_config(
 }
 
 impl Storage {
-    pub async fn new(config: Config) -> Option<Self> {
+    pub async fn new(config: Config) -> Option<(Self, Receiver<SqlRequests>)> {
         let mut poll = Poll::new().ok()?;
         let tls_config =
             build_tls_config(&config.server_cert, &config.server_key, &config.ca_root).unwrap();
         let server =
             Server::new(&mut poll, &config.listen, config.maxconnections, tls_config).ok()?;
 
-        //let mut rt: Runtime = Runtime::new().unwrap();
-        //let local = task::LocalSet::new();
         let pgconn = establish_connection(&config).await.unwrap();
         crate::sql::initiate(&pgconn).await.unwrap();
+        let (tx, rx) = channel(1000);
 
         let mut storage = Self {
             player_ids: RwLock::new(IndexSet::default()),
-            packet_process_ids: RwLock::new(VecDeque::with_capacity(64)), //Keep track of who's recv buffer to process.
-            player_buffers: RwLock::new(HashMap::default()),              //Player recv Buffers.
+            recv_ids: RwLock::new(IndexSet::default()), //Keep track of who's recv buffer to process.
+            player_buffers: RwLock::new(HashMap::default()), //Player recv Buffers.
             npc_ids: RwLock::new(IndexSet::default()),
             player_usernames: RwLock::new(HashMap::default()), //for player names to ID's
             player_emails: RwLock::new(HashMap::default()),    //for player names to ID's
@@ -197,9 +197,9 @@ impl Storage {
             time: RwLock::new(GameTime::default()),
             map_switch_tasks: RwLock::new(IndexMap::default()),
             bases: Bases::new()?,
-            disable_threads: RwLock::new(false),
             thread_handles: Mutex::new(Vec::with_capacity(6)),
             config,
+            sql_request: tx,
         };
 
         let mut map_data_entry = crate::maps::get_maps();
@@ -264,7 +264,7 @@ impl Storage {
                 storage.bases.shops[index] = shopdata.clone();
             });
 
-        Some(storage)
+        Some((storage, rx))
     }
 
     pub async fn add_empty_player(
@@ -363,13 +363,14 @@ impl Storage {
         world: &GameWorld,
         id: Entity,
     ) -> Result<(Socket, Option<Position>)> {
+        info!("Remove from world");
         let (account, pos, socket) = {
             let mut lock = world.write().await;
             // only removes the Components in the Fisbone ::<>
             let (socket,) = lock.remove::<(Socket,)>(id.0)?;
             let pos = lock.remove::<(Position,)>(id.0).ok().map(|v| v.0);
-
             let account = lock.remove::<(Account,)>(id.0);
+
             //Removes Everything related to the Entity.
             lock.despawn(id.0)?;
 
@@ -378,14 +379,18 @@ impl Storage {
 
         if let Ok((account,)) = account {
             println!("Players Disconnected : {}", &account.username);
+            info!("Remove username");
             self.player_usernames
                 .write()
                 .await
                 .remove(&account.username);
+            info!("Remove email");
             self.player_emails.write().await.remove(&account.email);
         }
 
+        info!("Remove player_ids");
         self.player_ids.write().await.swap_remove(&id);
+        info!("Done");
         Ok((socket, pos))
     }
 

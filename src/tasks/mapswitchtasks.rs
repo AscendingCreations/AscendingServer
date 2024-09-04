@@ -23,7 +23,6 @@ pub async fn init_data_lists(
     oldmap: Option<MapPosition>,
 ) -> Result<()> {
     let mut map_switch_tasks = storage.map_switch_tasks.write().await;
-
     let (not_yet_sent_players, not_yet_sent_npcs, not_yet_sent_items) =
         if let Some(tasks) = map_switch_tasks.get_mut(user) {
             let mut player = HashSet::default();

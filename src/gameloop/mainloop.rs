@@ -8,7 +8,6 @@ use crate::{
     time_ext::MyInstant,
 };
 use chrono::Duration;
-use log::info;
 
 pub async fn game_loop(world: &GameWorld, storage: &GameStore) {
     let mut tick: MyInstant;
@@ -60,10 +59,11 @@ pub async fn game_loop(world: &GameWorld, storage: &GameStore) {
             ping_timer = tick + Duration::try_hours(2).unwrap_or_default();
         }
 
-        //poll_events(world, storage).await.unwrap();
-        //process_packets(world, storage).await.unwrap();
-        //process_data_lists(world, storage).await.unwrap();
-        //process_tasks(world, storage).await.unwrap();
+        poll_events(world, storage).await.unwrap();
+        process_packets(world, storage).await.unwrap();
+        process_data_lists(world, storage).await.unwrap();
+        process_tasks(world, storage).await.unwrap();
+        // tokio::time::sleep(std::time::Duration::from_millis(1)).await;
         //std::thread::sleep(std::time::Duration::from_millis(1));
     }
 }

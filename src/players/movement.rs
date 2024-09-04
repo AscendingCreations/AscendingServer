@@ -47,18 +47,10 @@ pub async fn player_warp(
         }
     }
 
-    {
-        let lock = world.read().await;
-        lock.get::<&mut Player>(entity.0)?.movesavecount += 1;
-    }
-
-    if world.get_or_err::<Player>(entity).await?.movesavecount >= 25 {
-        update_pos(storage, world, entity).await?;
-        {
-            let lock = world.read().await;
-            lock.get::<&mut Player>(entity.0)?.movesavecount = 0;
-        }
-    }
+    storage
+        .sql_request
+        .send(SqlRequests::Position(*entity))
+        .await?;
 
     Ok(())
 }
@@ -98,7 +90,7 @@ pub async fn player_movement(
     }
 
     {
-        let lock = world.read().await;
+        let lock = world.write().await;
         lock.get::<&mut Dir>(entity.0)?.0 = dir;
     }
 
@@ -134,18 +126,10 @@ pub async fn player_movement(
         }
     }
 
-    {
-        let lock = world.read().await;
-        lock.get::<&mut Player>(entity.0)?.movesavecount += 1;
-    }
-
-    if world.get_or_err::<Player>(entity).await?.movesavecount >= 25 {
-        update_pos(storage, world, entity).await?;
-        {
-            let lock = world.read().await;
-            lock.get::<&mut Player>(entity.0)?.movesavecount = 0;
-        }
-    }
+    storage
+        .sql_request
+        .send(SqlRequests::Position(*entity))
+        .await?;
 
     let player_dir = world.get_or_err::<Dir>(entity).await?;
     if new_pos.map != player_position.map {

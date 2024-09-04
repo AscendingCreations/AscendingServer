@@ -7,7 +7,11 @@ pub async fn save_storage_item(
     entity: &Entity,
     slot: usize,
 ) -> Result<()> {
-    update_storage(storage, world, entity, slot).await?;
+    storage
+        .sql_request
+        .send(SqlRequests::Storage((*entity, slot)))
+        .await?;
+    //update_storage(storage, world, entity, slot).await?;
     send_storageslot(world, storage, entity, slot).await
 }
 
@@ -57,7 +61,7 @@ pub async fn auto_set_storage_item(
     let mut total_left = if item.val == 0 { 1 } else { item.val };
 
     {
-        let lock = world.read().await;
+        let lock = world.write().await;
         let mut player_storage = lock.get::<&mut PlayerStorage>(entity.0)?;
 
         if base.stackable {
@@ -210,7 +214,7 @@ pub async fn set_storage_item(
 
     if player_storage.items[slot].val == 0 {
         {
-            let lock = world.read().await;
+            let lock = world.write().await;
             let mut storage = lock.get::<&mut PlayerStorage>(entity.0)?;
             storage.items[slot] = *item;
             storage.items[slot].val = item_min;
@@ -219,7 +223,7 @@ pub async fn set_storage_item(
         return Ok(0);
     } else if player_storage.items[slot].num == item.num {
         {
-            let lock = world.read().await;
+            let lock = world.write().await;
             let mut store_item = lock.get::<&mut PlayerStorage>(entity.0)?.items[slot];
             rem = val_add_amount_rem(
                 &mut store_item.val,
@@ -286,7 +290,7 @@ pub async fn take_storage_items(
     if count_storage_item(num, &player_storage.items) >= amount as u64 {
         while let Some(slot) = find_storage_item(num, &player_storage.items) {
             {
-                let lock = world.read().await;
+                let lock = world.write().await;
                 lock.get::<&mut PlayerStorage>(entity.0)?.items[slot].val =
                     player_storage.items[slot].val.saturating_sub(amount);
             }
@@ -314,7 +318,7 @@ pub async fn take_storage_itemslot(
     let player_storage = world.cloned_get_or_err::<PlayerStorage>(entity).await?;
     amount = std::cmp::min(amount, player_storage.items[slot].val);
     {
-        let lock = world.read().await;
+        let lock = world.write().await;
         let store = lock.get::<&mut PlayerStorage>(entity.0);
         if let Ok(mut player_storage) = store {
             player_storage.items[slot].val = player_storage.items[slot].val.saturating_sub(amount);
