@@ -71,7 +71,7 @@ pub struct PGPlayerWithID {
 
 impl PGPlayerWithID {
     pub async fn into_player(self, world: &GameWorld, entity: &Entity) -> Result<()> {
-        let lock = world.write().await;
+        let lock = world.read().await;
         let mut query = lock.query_one::<PlayerQueryMut>(entity.0)?;
 
         if let Some((

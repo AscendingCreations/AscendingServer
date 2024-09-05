@@ -287,60 +287,64 @@ impl Storage {
         handshake: String,
         time: MyInstant,
     ) -> Result<()> {
-        let mut lock = world.write().await;
-        lock.insert(
-            entity.0,
-            (
-                Account::default(),
-                PlayerItemTimer::default(),
-                PlayerMapTimer::default(),
-                Inventory::default(),
-                Equipment::default(),
-                Sprite::default(),
-                Money::default(),
-                Player::default(),
-                Spawn::default(),
-                Target::default(),
-                KillCount::default(),
-                Vitals::default(),
-                Dir::default(),
-                AttackTimer::default(),
-                WorldEntityType::Player,
-            ),
-        )?;
-        lock.insert(
-            entity.0,
-            (
-                DeathTimer::default(),
-                MoveTimer::default(),
-                Combat::default(),
-                Physical::default(),
-                Hidden::default(),
-                Stunned::default(),
-                Attacking::default(),
-                Level::default(),
-                InCombat::default(),
-                EntityData::default(),
-                UserAccess::default(),
-                Position::default(),
-                DeathType::default(),
-                IsUsingType::default(),
-                PlayerTarget::default(),
-            ),
-        )?;
-        lock.insert(
-            entity.0,
-            (
-                PlayerStorage::default(),
-                TradeItem::default(),
-                ReloginCode { code },
-                LoginHandShake { handshake },
-                TradeMoney::default(),
-                TradeStatus::default(),
-                TradeRequestEntity::default(),
-                ConnectionLoginTimer(time + Duration::try_milliseconds(600000).unwrap_or_default()),
-            ),
-        )?;
+        {
+            let mut lock = world.write().await;
+            lock.insert(
+                entity.0,
+                (
+                    Account::default(),
+                    PlayerItemTimer::default(),
+                    PlayerMapTimer::default(),
+                    Inventory::default(),
+                    Equipment::default(),
+                    Sprite::default(),
+                    Money::default(),
+                    Player::default(),
+                    Spawn::default(),
+                    Target::default(),
+                    KillCount::default(),
+                    Vitals::default(),
+                    Dir::default(),
+                    AttackTimer::default(),
+                    WorldEntityType::Player,
+                ),
+            )?;
+            lock.insert(
+                entity.0,
+                (
+                    DeathTimer::default(),
+                    MoveTimer::default(),
+                    Combat::default(),
+                    Physical::default(),
+                    Hidden::default(),
+                    Stunned::default(),
+                    Attacking::default(),
+                    Level::default(),
+                    InCombat::default(),
+                    EntityData::default(),
+                    UserAccess::default(),
+                    Position::default(),
+                    DeathType::default(),
+                    IsUsingType::default(),
+                    PlayerTarget::default(),
+                ),
+            )?;
+            lock.insert(
+                entity.0,
+                (
+                    PlayerStorage::default(),
+                    TradeItem::default(),
+                    ReloginCode { code },
+                    LoginHandShake { handshake },
+                    TradeMoney::default(),
+                    TradeStatus::default(),
+                    TradeRequestEntity::default(),
+                    ConnectionLoginTimer(
+                        time + Duration::try_milliseconds(600000).unwrap_or_default(),
+                    ),
+                ),
+            )?;
+        }
         self.player_ids.write().await.insert(*entity);
         Ok(())
     }

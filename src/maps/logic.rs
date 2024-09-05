@@ -170,7 +170,7 @@ pub async fn spawn_npc(
     zone: Option<usize>,
     entity: Entity,
 ) -> Result<()> {
-    let lock = world.write().await;
+    let lock = world.read().await;
     *lock.get::<&mut Position>(entity.0)? = pos;
     lock.get::<&mut Spawn>(entity.0)?.pos = pos;
     lock.get::<&mut NpcSpawnedZone>(entity.0)?.0 = zone;

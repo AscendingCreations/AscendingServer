@@ -187,7 +187,7 @@ impl Client {
     }
 
     pub async fn tls_read(&mut self, world: &GameWorld, storage: &GameStore) -> Result<()> {
-        let lock = world.write().await;
+        let lock = world.read().await;
         let socket = match lock.get::<&mut Socket>(self.entity.0) {
             Ok(v) => v,
             Err(_) => {
@@ -271,7 +271,7 @@ impl Client {
     }
 
     pub async fn read(&mut self, world: &GameWorld, storage: &GameStore) -> Result<()> {
-        let lock = world.write().await;
+        let lock = world.read().await;
         let socket = match lock.get::<&mut Socket>(self.entity.0) {
             Ok(v) => v,
             Err(e) => {
