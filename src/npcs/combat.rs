@@ -320,7 +320,7 @@ pub async fn kill_npc(world: &GameWorld, storage: &GameStore, entity: &Entity) -
         }
     }
 
-    let lock = world.read().await;
+    let lock = world.write().await;
     *lock.get::<&mut DeathType>(entity.0)? = DeathType::Dead;
     Ok(())
 }

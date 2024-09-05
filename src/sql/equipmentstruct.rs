@@ -14,7 +14,7 @@ pub struct PGEquipItem {
 }
 
 impl PGEquipItem {
-    pub async fn new(inv: &[Item], uid: i64) -> Vec<PGEquipItem> {
+    pub fn new(inv: &[Item], uid: i64) -> Vec<PGEquipItem> {
         let mut items: Vec<PGEquipItem> = Vec::with_capacity(37);
 
         for (id, invitem) in inv.iter().enumerate() {
@@ -31,7 +31,7 @@ impl PGEquipItem {
         items
     }
 
-    pub async fn single(inv: &[Item], uid: i64, slot: usize) -> PGEquipItem {
+    pub fn single(inv: &[Item], uid: i64, slot: usize) -> PGEquipItem {
         PGEquipItem {
             uid,
             id: slot as i16,
@@ -42,7 +42,7 @@ impl PGEquipItem {
         }
     }
 
-    pub async fn into_item(self, inv: &mut [Item]) {
+    pub fn into_item(self, inv: &mut [Item]) {
         let slot = self.id as usize;
 
         inv[slot].num = self.num.shift_signed();
@@ -51,23 +51,23 @@ impl PGEquipItem {
         inv[slot].data = self.data[..5].try_into().unwrap_or([0; 5]);
     }
 
-    pub async fn array_into_items(items: Vec<PGEquipItem>, inv: &mut [Item]) {
+    pub fn array_into_items(items: Vec<PGEquipItem>, inv: &mut [Item]) {
         for slot in items {
-            slot.into_item(inv).await;
+            slot.into_item(inv);
         }
     }
 
-    pub async fn into_insert_all(items: Vec<PGEquipItem>) -> Vec<String> {
+    pub fn into_insert_all(items: Vec<PGEquipItem>) -> Vec<String> {
         let mut vec = Vec::with_capacity(items.len());
 
         for item in items {
-            vec.push(item.into_insert().await)
+            vec.push(item.into_insert())
         }
 
         vec
     }
 
-    pub async fn into_insert(self) -> String {
+    pub fn into_insert(self) -> String {
         let data = self
             .data
             .iter()
@@ -83,17 +83,17 @@ impl PGEquipItem {
         )
     }
 
-    pub async fn into_update_all(items: Vec<PGEquipItem>) -> Vec<String> {
+    pub fn into_update_all(items: Vec<PGEquipItem>) -> Vec<String> {
         let mut vec = Vec::with_capacity(items.len());
 
         for item in items {
-            vec.push(item.into_update().await)
+            vec.push(item.into_update())
         }
 
         vec
     }
 
-    pub async fn into_update(self) -> String {
+    pub fn into_update(self) -> String {
         let data = self
             .data
             .iter()

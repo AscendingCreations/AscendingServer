@@ -14,7 +14,7 @@ pub struct PGInvItem {
 }
 
 impl PGInvItem {
-    pub async fn new(inv: &[Item], uid: i64) -> Vec<PGInvItem> {
+    pub fn new(inv: &[Item], uid: i64) -> Vec<PGInvItem> {
         let mut items: Vec<PGInvItem> = Vec::with_capacity(MAX_INV);
 
         for (id, invitem) in inv.iter().enumerate() {
@@ -31,7 +31,7 @@ impl PGInvItem {
         items
     }
 
-    pub async fn single(inv: &[Item], uid: i64, slot: usize) -> PGInvItem {
+    pub fn single(inv: &[Item], uid: i64, slot: usize) -> PGInvItem {
         PGInvItem {
             uid,
             id: slot as i16,
@@ -51,23 +51,23 @@ impl PGInvItem {
         inv[slot].data = self.data[..5].try_into().unwrap_or([0; 5]);
     }
 
-    pub async fn array_into_items(items: Vec<PGInvItem>, inv: &mut [Item]) {
+    pub fn array_into_items(items: Vec<PGInvItem>, inv: &mut [Item]) {
         for slot in items {
             slot.into_item(inv);
         }
     }
 
-    pub async fn into_insert_all(items: Vec<PGInvItem>) -> Vec<String> {
+    pub fn into_insert_all(items: Vec<PGInvItem>) -> Vec<String> {
         let mut vec = Vec::with_capacity(items.len());
 
         for item in items {
-            vec.push(item.into_insert().await)
+            vec.push(item.into_insert())
         }
 
         vec
     }
 
-    async fn into_insert(self) -> String {
+    fn into_insert(self) -> String {
         let data = self
             .data
             .iter()
@@ -83,17 +83,17 @@ impl PGInvItem {
         )
     }
 
-    pub async fn into_update_all(items: Vec<PGInvItem>) -> Vec<String> {
+    pub fn into_update_all(items: Vec<PGInvItem>) -> Vec<String> {
         let mut vec = Vec::with_capacity(items.len());
 
         for item in items {
-            vec.push(item.into_update().await)
+            vec.push(item.into_update())
         }
 
         vec
     }
 
-    pub async fn into_update(self) -> String {
+    pub fn into_update(self) -> String {
         let data = self
             .data
             .iter()

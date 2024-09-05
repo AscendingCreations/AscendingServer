@@ -5,6 +5,7 @@ use crate::{
     npcs::*,
     players::*,
     socket::*,
+    sql::SqlRequests,
     tasks::{DataTaskToken, MapSwitchTasks},
     time_ext::MyInstant,
 };
@@ -22,7 +23,7 @@ use sqlx::{
     ConnectOptions, PgPool,
 };
 use std::{collections::VecDeque, fs, io::BufReader, sync::Arc};
-use tokio::sync::RwLock;
+use tokio::sync::{mpsc::*, RwLock};
 
 pub struct Storage {
     pub player_ids: RwLock<IndexSet<Entity>>,
@@ -44,6 +45,7 @@ pub struct Storage {
     pub time: RwLock<GameTime>,
     pub map_switch_tasks: RwLock<IndexMap<Entity, Vec<MapSwitchTasks>>>, //Data Tasks For dealing with Player Warp and MapSwitch
     pub bases: Bases,
+    pub sql_request: Sender<SqlRequests>,
     //pub rt: RefCell<Runtime>,
     // pub local: RefCell<task::LocalSet>,
     pub config: Config,
@@ -166,7 +168,7 @@ fn build_tls_config(
 }
 
 impl Storage {
-    pub async fn new(config: Config) -> Option<Self> {
+    pub async fn new(config: Config) -> Option<(Self, Receiver<SqlRequests>)> {
         let mut poll = Poll::new().ok()?;
         let tls_config =
             build_tls_config(&config.server_cert, &config.server_key, &config.ca_root).unwrap();
@@ -177,6 +179,7 @@ impl Storage {
         //let local = task::LocalSet::new();
         let pgconn = establish_connection(&config).await.unwrap();
         crate::sql::initiate(&pgconn).await.unwrap();
+        let (tx, rx) = channel(1000);
 
         let mut storage = Self {
             player_ids: RwLock::new(IndexSet::default()),
@@ -195,6 +198,7 @@ impl Storage {
             time: RwLock::new(GameTime::default()),
             map_switch_tasks: RwLock::new(IndexMap::default()),
             bases: Bases::new()?,
+            sql_request: tx,
             //rt: RefCell::new(rt),
             //local: RefCell::new(local),
             config,
@@ -262,7 +266,7 @@ impl Storage {
                 storage.bases.shops[index] = shopdata.clone();
             });
 
-        Some(storage)
+        Some((storage, rx))
     }
 
     pub async fn add_empty_player(

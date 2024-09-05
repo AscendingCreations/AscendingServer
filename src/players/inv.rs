@@ -15,7 +15,10 @@ pub async fn save_inv_item(
     entity: &Entity,
     slot: usize,
 ) -> Result<()> {
-    update_inv(storage, world, entity, slot).await?;
+    storage
+        .sql_request
+        .send(SqlRequests::Inv((*entity, slot)))
+        .await?;
     send_invslot(world, storage, entity, slot).await
 }
 
@@ -62,7 +65,7 @@ pub async fn auto_set_inv_item(
     let mut total_left = if item.val == 0 { 1 } else { item.val };
 
     {
-        let lock = world.read().await;
+        let lock = world.write().await;
         let mut player_inv = lock.get::<&mut Inventory>(entity.0)?;
 
         if base.stackable {
@@ -196,7 +199,7 @@ pub async fn set_inv_item(
 
     if player_inv.items[slot].val == 0 {
         {
-            let lock = world.read().await;
+            let lock = world.write().await;
             let mut inv = lock.get::<&mut Inventory>(entity.0)?;
             inv.items[slot] = *item;
             inv.items[slot].val = item_min;
@@ -206,7 +209,7 @@ pub async fn set_inv_item(
         return Ok(0);
     } else if player_inv.items[slot].num == item.num {
         {
-            let lock = world.read().await;
+            let lock = world.write().await;
             let mut inv = lock.get::<&mut Inventory>(entity.0)?;
             rem = val_add_amount_rem(
                 &mut inv.items[slot].val,
@@ -297,7 +300,7 @@ pub async fn take_inv_items(
         ) {
             let mut take_amount = 0;
             {
-                let lock = world.read().await;
+                let lock = world.write().await;
                 let inv_item = lock.get::<&mut Inventory>(entity.0);
                 if let Ok(mut invitem) = inv_item {
                     take_amount = invitem.items[slot].val;
@@ -328,7 +331,7 @@ pub async fn take_inv_itemslot(
     let player_inv = world.cloned_get_or_err::<Inventory>(entity).await?;
     amount = std::cmp::min(amount, player_inv.items[slot].val);
     {
-        let lock = world.read().await;
+        let lock = world.write().await;
         let inv_item = lock.get::<&mut Inventory>(entity.0);
         if let Ok(mut player_inv) = inv_item {
             player_inv.items[slot].val = player_inv.items[slot].val.saturating_sub(amount);
@@ -382,7 +385,7 @@ pub async fn auto_set_trade_item(
     let mut save_slot_list = Vec::new();
 
     {
-        let lock = world.read().await;
+        let lock = world.write().await;
         let mut player_trade = lock.get::<&mut TradeItem>(entity.0)?;
         while let Some(slot) = find_trade_slot(item, &player_trade.items, base) {
             if player_trade.items[slot].val == 0 {
@@ -547,11 +550,14 @@ pub async fn player_unequip(
     give_inv_item(world, storage, entity, &mut item).await?;
 
     {
-        let lock = world.read().await;
+        let lock = world.write().await;
         lock.get::<&mut Equipment>(entity.0)?.items[slot] = Item::default();
     }
 
-    update_equipment(storage, world, entity, slot).await?;
+    storage
+        .sql_request
+        .send(SqlRequests::Equipment((*entity, slot)))
+        .await?;
     send_equipment(world, storage, entity).await?;
 
     Ok(true)
@@ -565,10 +571,13 @@ pub async fn player_equip(
     slot: usize,
 ) -> Result<()> {
     {
-        let lock = world.read().await;
+        let lock = world.write().await;
         lock.get::<&mut Equipment>(entity.0)?.items[slot] = item;
     }
-    update_equipment(storage, world, entity, slot).await?;
+    storage
+        .sql_request
+        .send(SqlRequests::Equipment((*entity, slot)))
+        .await?;
     send_equipment(world, storage, entity).await?;
 
     Ok(())

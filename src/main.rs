@@ -22,6 +22,7 @@ use gameloop::*;
 use gametypes::*;
 use hecs::World;
 use log::{error, info, Level, Metadata, Record};
+use sql::process_sql_requests;
 use std::{env, fs::File, io::Write, panic, sync::Arc};
 use tokio::sync::RwLock;
 
@@ -101,10 +102,17 @@ async fn main() {
 
     info!("Starting up");
     info!("Initializing Storage");
-    let storage = Arc::new(Storage::new(config).await.unwrap());
+    let (storage, sql_rx) = Storage::new(config).await.unwrap();
+    let storage = Arc::new(storage);
+
     info!("Initializing World");
     let world = Arc::new(RwLock::new(World::new()));
 
+    info!("Initializing sql threads");
+    let cloned_world = world.clone();
+    let cloned_storage = storage.clone();
+
+    tokio::spawn(process_sql_requests(cloned_world, cloned_storage, sql_rx));
     info!("Game Server is Running.");
     game_loop(&world, &storage).await;
 }

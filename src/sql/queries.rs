@@ -1,15 +1,74 @@
-use std::backtrace::Backtrace;
-
 use crate::{containers::*, gametypes::*, players::*, sql::integers::Shifting, sql::*};
 use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
 use hecs::NoSuchEntity;
 use log::error;
 use password_hash::SaltString;
 use sqlx::{FromRow, PgPool};
+use std::backtrace::Backtrace;
+use tokio::sync::mpsc::*;
 
 #[derive(Debug, PartialEq, Eq, FromRow)]
 pub struct Check {
     pub check: bool,
+}
+
+//Used for SQL Thread Update Requests.
+pub enum SqlRequests {
+    Player(Entity),
+    Inv((Entity, usize)),
+    Storage((Entity, usize)),
+    Equipment((Entity, usize)),
+    Address(Entity),
+    PlayerData(Entity),
+    PassReset((Entity, Option<String>)),
+    Spawn(Entity),
+    Position(Entity),
+    Currency(Entity),
+    Level(Entity),
+    ResetCount(Entity),
+}
+
+pub async fn process_sql_requests(
+    world: GameWorld,
+    storage: GameStore,
+    mut rx: Receiver<SqlRequests>,
+) -> Result<()> {
+    loop {
+        if let Some(request) = rx.recv().await {
+            let res = match request {
+                SqlRequests::Player(entity) => update_player(&storage, &world, &entity).await,
+                SqlRequests::Inv((entity, slot)) => {
+                    update_inv(&storage, &world, &entity, slot).await
+                }
+                SqlRequests::Storage((entity, slot)) => {
+                    update_storage(&storage, &world, &entity, slot).await
+                }
+                SqlRequests::Equipment((entity, slot)) => {
+                    update_equipment(&storage, &world, &entity, slot).await
+                }
+                SqlRequests::Address(entity) => update_address(&storage, &world, &entity).await,
+                SqlRequests::PlayerData(entity) => {
+                    update_playerdata(&storage, &world, &entity).await
+                }
+                SqlRequests::PassReset((entity, resetpassword)) => {
+                    update_passreset(&storage, &world, &entity, resetpassword).await
+                }
+                SqlRequests::Spawn(entity) => update_spawn(&storage, &world, &entity).await,
+                SqlRequests::Position(entity) => update_pos(&storage, &world, &entity).await,
+                SqlRequests::Currency(entity) => update_currency(&storage, &world, &entity).await,
+                SqlRequests::Level(entity) => update_level(&storage, &world, &entity).await,
+                SqlRequests::ResetCount(entity) => {
+                    update_resetcount(&storage, &world, &entity).await
+                }
+            };
+
+            if let Err(e) = res {
+                error!("process sql error: {e}");
+            }
+        }
+    }
+
+    //Ok(())
 }
 
 pub async fn initiate(conn: &PgPool) -> Result<()> {
@@ -169,7 +228,7 @@ pub async fn new_player(
     };
 
     let inv = lock.get::<&Inventory>(entity.0)?;
-    let inv_insert = PGInvItem::into_insert_all(PGInvItem::new(&inv.items, uid.0).await).await;
+    let inv_insert = PGInvItem::into_insert_all(PGInvItem::new(&inv.items, uid.0));
 
     for script in inv_insert {
         sqlx::query(&script).execute(&storage.pgconn).await?;
@@ -177,15 +236,14 @@ pub async fn new_player(
 
     let item_storage = lock.get::<&PlayerStorage>(entity.0)?;
     let storage_insert =
-        PGStorageItem::into_insert_all(PGStorageItem::new(&item_storage.items, uid.0).await).await;
+        PGStorageItem::into_insert_all(PGStorageItem::new(&item_storage.items, uid.0));
 
     for script in storage_insert {
         sqlx::query(&script).execute(&storage.pgconn).await?;
     }
 
     let equipment = lock.get::<&Equipment>(entity.0)?;
-    let equip_insert =
-        PGEquipItem::into_insert_all(PGEquipItem::new(&equipment.items, uid.0).await).await;
+    let equip_insert = PGEquipItem::into_insert_all(PGEquipItem::new(&equipment.items, uid.0));
 
     for script in equip_insert {
         sqlx::query(&script).execute(&storage.pgconn).await?;
@@ -220,9 +278,9 @@ pub async fn load_player(
     .fetch_all(&storage.pgconn)
     .await?;
 
-    let lock = world.read().await;
+    let lock = world.write().await;
     let mut inv_items = lock.get::<&mut Inventory>(entity.0)?;
-    PGInvItem::array_into_items(player_inv, &mut inv_items.items).await;
+    PGInvItem::array_into_items(player_inv, &mut inv_items.items);
 
     let player_storage: Vec<PGStorageItem> = sqlx::query_as(
         r#"
@@ -235,7 +293,7 @@ pub async fn load_player(
     .await?;
 
     let mut inv_storage = lock.get::<&mut PlayerStorage>(entity.0)?;
-    PGStorageItem::array_into_items(player_storage, &mut inv_storage.items).await;
+    PGStorageItem::array_into_items(player_storage, &mut inv_storage.items);
 
     let player_eqpt: Vec<PGEquipItem> = sqlx::query_as(
         r#"
@@ -248,7 +306,7 @@ pub async fn load_player(
     .await?;
 
     let mut equipment = lock.get::<&mut Equipment>(entity.0)?;
-    PGEquipItem::array_into_items(player_eqpt, &mut equipment.items).await;
+    PGEquipItem::array_into_items(player_eqpt, &mut equipment.items);
 
     Ok(())
 }
@@ -258,38 +316,54 @@ pub async fn update_player(
     world: &GameWorld,
     entity: &crate::Entity,
 ) -> Result<()> {
-    let lock = world.read().await;
-    let mut query = lock.query_one::<(
-        &Account,
-        &PlayerItemTimer,
-        &Position,
-        &Vitals,
-        &DeathTimer,
-        &DeathType,
-        &Player,
-    )>(entity.0)?;
+    let (id, itemtimer, position, vitals, death_timer, death_type, player) = {
+        let lock = world.write().await;
+        let mut query = lock.query_one::<(
+            &Account,
+            &PlayerItemTimer,
+            &Position,
+            &Vitals,
+            &DeathTimer,
+            &DeathType,
+            &Player,
+        )>(entity.0)?;
+        let data =
+            if let Some((account, itemtimer, position, vitals, death_timer, death_type, player)) =
+                query.get()
+            {
+                (
+                    account.id,
+                    *itemtimer,
+                    *position,
+                    *vitals,
+                    *death_timer,
+                    *death_type,
+                    *player,
+                )
+            } else {
+                return Ok(());
+            };
 
-    if let Some((account, itemtimer, position, vitals, death_timer, death_type, player)) =
-        query.get()
-    {
-        sqlx::query(
-            r#"
-        UPDATE public.player
-        SET itemtimer=$2, deathtimer=$3, pos=$4, vital=$5, indeath=$6, pk=$7, vital_max=$8
-        WHERE uid = $1;
-    "#,
-        )
-        .bind(account.id)
-        .bind(itemtimer.itemtimer)
-        .bind(death_timer.0)
-        .bind(position)
-        .bind(vitals.vital)
-        .bind(death_type.is_spirit())
-        .bind(player.pk)
-        .bind(vitals.vitalmax)
-        .execute(&storage.pgconn)
-        .await?;
-    }
+        data
+    };
+
+    sqlx::query(
+        r#"
+    UPDATE public.player
+    SET itemtimer=$2, deathtimer=$3, pos=$4, vital=$5, indeath=$6, pk=$7, vital_max=$8
+    WHERE uid = $1;
+"#,
+    )
+    .bind(id)
+    .bind(itemtimer.itemtimer)
+    .bind(death_timer.0)
+    .bind(position)
+    .bind(vitals.vital)
+    .bind(death_type.is_spirit())
+    .bind(player.pk)
+    .bind(vitals.vitalmax)
+    .execute(&storage.pgconn)
+    .await?;
 
     Ok(())
 }
@@ -300,17 +374,21 @@ pub async fn update_inv(
     entity: &crate::Entity,
     slot: usize,
 ) -> Result<()> {
-    let lock = world.read().await;
-    let mut query = lock.query_one::<(&Inventory, &Account)>(entity.0)?;
+    let (inv, id) = {
+        let lock = world.write().await;
+        let mut query = lock.query_one::<(&Inventory, &Account)>(entity.0)?;
+        let data = if let Some((inv, account)) = query.get() {
+            (inv.clone(), account.id)
+        } else {
+            return Ok(());
+        };
 
-    if let Some((inv, account)) = query.get() {
-        let update = PGInvItem::single(&inv.items, account.id, slot)
-            .await
-            .into_update()
-            .await;
+        data
+    };
 
-        sqlx::query(&update).execute(&storage.pgconn).await?;
-    }
+    sqlx::query(&PGInvItem::single(&inv.items, id, slot).into_update())
+        .execute(&storage.pgconn)
+        .await?;
 
     Ok(())
 }
@@ -321,17 +399,21 @@ pub async fn update_storage(
     entity: &crate::Entity,
     slot: usize,
 ) -> Result<()> {
-    let lock = world.read().await;
-    let mut query = lock.query_one::<(&PlayerStorage, &Account)>(entity.0)?;
+    let (player_storage, id) = {
+        let lock = world.write().await;
+        let mut query = lock.query_one::<(&PlayerStorage, &Account)>(entity.0)?;
+        let data = if let Some((player_storage, account)) = query.get() {
+            (player_storage.clone(), account.id)
+        } else {
+            return Ok(());
+        };
 
-    if let Some((player_storage, account)) = query.get() {
-        let update = PGStorageItem::single(&player_storage.items, account.id, slot)
-            .await
-            .into_update()
-            .await;
+        data
+    };
 
-        sqlx::query(&update).execute(&storage.pgconn).await?;
-    }
+    sqlx::query(&PGStorageItem::single(&player_storage.items, id, slot).into_update())
+        .execute(&storage.pgconn)
+        .await?;
 
     Ok(())
 }
@@ -342,17 +424,21 @@ pub async fn update_equipment(
     entity: &crate::Entity,
     slot: usize,
 ) -> Result<()> {
-    let lock = world.read().await;
-    let mut query = lock.query_one::<(&Equipment, &Account)>(entity.0)?;
+    let (equip, id) = {
+        let lock = world.write().await;
+        let mut query = lock.query_one::<(&Equipment, &Account)>(entity.0)?;
+        let data = if let Some((equip, account)) = query.get() {
+            (equip.clone(), account.id)
+        } else {
+            return Ok(());
+        };
 
-    if let Some((equip, account)) = query.get() {
-        let update = PGEquipItem::single(&equip.items, account.id, slot)
-            .await
-            .into_update()
-            .await;
+        data
+    };
 
-        sqlx::query(&update).execute(&storage.pgconn).await?;
-    }
+    sqlx::query(&PGEquipItem::single(&equip.items, id, slot).into_update())
+        .execute(&storage.pgconn)
+        .await?;
 
     Ok(())
 }
@@ -362,22 +448,29 @@ pub async fn update_address(
     world: &GameWorld,
     entity: &crate::Entity,
 ) -> Result<()> {
-    let lock = world.read().await;
-    let mut query = lock.query_one::<(&Account, &Socket)>(entity.0)?;
+    let (id, addr) = {
+        let lock = world.write().await;
+        let mut query = lock.query_one::<(&Account, &Socket)>(entity.0)?;
+        let data = if let Some((account, socket)) = query.get() {
+            (account.id, socket.addr.clone())
+        } else {
+            return Ok(());
+        };
 
-    if let Some((account, socket)) = query.get() {
-        sqlx::query(
-            r#"
-                UPDATE public.player
-                SET address=$2
-                WHERE uid = $1;
-            "#,
-        )
-        .bind(account.id)
-        .bind(&*socket.addr)
-        .execute(&storage.pgconn)
-        .await?;
-    }
+        data
+    };
+
+    sqlx::query(
+        r#"
+        UPDATE public.player
+        SET address=$2
+        WHERE uid = $1;
+    "#,
+    )
+    .bind(id)
+    .bind(&*addr)
+    .execute(&storage.pgconn)
+    .await?;
 
     Ok(())
 }
@@ -387,22 +480,29 @@ pub async fn update_playerdata(
     world: &GameWorld,
     entity: &crate::Entity,
 ) -> Result<()> {
-    let lock = world.read().await;
-    let mut query = lock.query_one::<(&Account, &EntityData)>(entity.0)?;
+    let (id, entity_data) = {
+        let lock = world.write().await;
+        let mut query = lock.query_one::<(&Account, &EntityData)>(entity.0)?;
+        let data = if let Some((account, entity_data)) = query.get() {
+            (account.id, *entity_data)
+        } else {
+            return Ok(());
+        };
 
-    if let Some((account, entity_data)) = query.get() {
-        sqlx::query(
-            r#"
-                UPDATE public.player
-                SET data=$2
-                WHERE uid = $1;
-            "#,
-        )
-        .bind(account.id)
-        .bind(entity_data.0)
-        .execute(&storage.pgconn)
-        .await?;
-    }
+        data
+    };
+
+    sqlx::query(
+        r#"
+        UPDATE public.player
+        SET data=$2
+        WHERE uid = $1;
+    "#,
+    )
+    .bind(id)
+    .bind(entity_data.0)
+    .execute(&storage.pgconn)
+    .await?;
 
     Ok(())
 }
@@ -413,8 +513,17 @@ pub async fn update_passreset(
     entity: &crate::Entity,
     resetpassword: Option<String>,
 ) -> Result<()> {
-    let lock = world.read().await;
-    let id = lock.get::<&Account>(entity.0)?.id;
+    let id = {
+        let lock = world.write().await;
+        let id = if let Ok(account) = lock.get::<&Account>(entity.0) {
+            account.id
+        } else {
+            return Ok(());
+        };
+
+        id
+    };
+
     sqlx::query(
         r#"
                 UPDATE public.player
@@ -435,22 +544,29 @@ pub async fn update_spawn(
     world: &GameWorld,
     entity: &crate::Entity,
 ) -> Result<()> {
-    let lock = world.read().await;
-    let mut query = lock.query_one::<(&Account, &Spawn)>(entity.0)?;
+    let (id, spawn) = {
+        let lock = world.write().await;
+        let mut query = lock.query_one::<(&Account, &Spawn)>(entity.0)?;
+        let data = if let Some((account, spawn)) = query.get() {
+            (account.id, *spawn)
+        } else {
+            return Ok(());
+        };
 
-    if let Some((account, spawn)) = query.get() {
-        sqlx::query(
-            r#"
-                UPDATE public.player
-                SET spawn=$2
-                WHERE uid = $1;
-            "#,
-        )
-        .bind(account.id)
-        .bind(spawn.pos)
-        .execute(&storage.pgconn)
-        .await?;
-    }
+        data
+    };
+
+    sqlx::query(
+        r#"
+        UPDATE public.player
+        SET spawn=$2
+        WHERE uid = $1;
+    "#,
+    )
+    .bind(id)
+    .bind(spawn.pos)
+    .execute(&storage.pgconn)
+    .await?;
 
     Ok(())
 }
@@ -460,22 +576,29 @@ pub async fn update_pos(
     world: &GameWorld,
     entity: &crate::Entity,
 ) -> Result<()> {
-    let lock = world.read().await;
-    let mut query = lock.query_one::<(&Account, &Position)>(entity.0)?;
+    let (id, position) = {
+        let lock = world.write().await;
+        let mut query = lock.query_one::<(&Account, &Position)>(entity.0)?;
+        let data = if let Some((account, position)) = query.get() {
+            (account.id, *position)
+        } else {
+            return Ok(());
+        };
 
-    if let Some((account, position)) = query.get() {
-        sqlx::query(
-            r#"
-                UPDATE public.player
-                SET pos=$2
-                WHERE uid = $1;
-            "#,
-        )
-        .bind(account.id)
-        .bind(position)
-        .execute(&storage.pgconn)
-        .await?;
-    }
+        data
+    };
+
+    sqlx::query(
+        r#"
+        UPDATE public.player
+        SET pos=$2
+        WHERE uid = $1;
+    "#,
+    )
+    .bind(id)
+    .bind(position)
+    .execute(&storage.pgconn)
+    .await?;
 
     Ok(())
 }
@@ -485,23 +608,29 @@ pub async fn update_currency(
     world: &GameWorld,
     entity: &crate::Entity,
 ) -> Result<()> {
-    let lock = world.read().await;
-    let mut query = lock.query_one::<(&Account, &Money)>(entity.0)?;
+    let (id, money) = {
+        let lock = world.write().await;
+        let mut query = lock.query_one::<(&Account, &Money)>(entity.0)?;
+        let data = if let Some((account, money)) = query.get() {
+            (account.id, *money)
+        } else {
+            return Ok(());
+        };
 
-    if let Some((account, money)) = query.get() {
-        sqlx::query(
-            r#"
-                UPDATE public.player
-                SET vals=$2
-                WHERE uid = $1;
-            "#,
-        )
-        .bind(account.id)
-        .bind(i64::unshift_signed(&money.vals))
-        .execute(&storage.pgconn)
-        .await?;
-    }
+        data
+    };
 
+    sqlx::query(
+        r#"
+        UPDATE public.player
+        SET vals=$2
+        WHERE uid = $1;
+    "#,
+    )
+    .bind(id)
+    .bind(i64::unshift_signed(&money.vals))
+    .execute(&storage.pgconn)
+    .await?;
     Ok(())
 }
 
@@ -510,25 +639,32 @@ pub async fn update_level(
     world: &GameWorld,
     entity: &crate::Entity,
 ) -> Result<()> {
-    let lock = world.read().await;
-    let mut query = lock.query_one::<(&Account, &Level, &Player, &Vitals)>(entity.0)?;
+    let (id, level, player, vitals) = {
+        let lock = world.write().await;
+        let mut query = lock.query_one::<(&Account, &Level, &Player, &Vitals)>(entity.0)?;
+        let data = if let Some((account, level, player, vitals)) = query.get() {
+            (account.id, *level, *player, *vitals)
+        } else {
+            return Ok(());
+        };
 
-    if let Some((account, level, player, vitals)) = query.get() {
-        sqlx::query(
-            r#"
+        data
+    };
+
+    sqlx::query(
+        r#"
                 UPDATE public.player
                 SET level=$2, levelexp=$3, vital=$4, vital_max=$5
                 WHERE uid = $1;
             "#,
-        )
-        .bind(account.id)
-        .bind(level.0)
-        .bind(i64::unshift_signed(&player.levelexp))
-        .bind(vitals.vital)
-        .bind(vitals.vitalmax)
-        .execute(&storage.pgconn)
-        .await?;
-    }
+    )
+    .bind(id)
+    .bind(level.0)
+    .bind(i64::unshift_signed(&player.levelexp))
+    .bind(vitals.vital)
+    .bind(vitals.vitalmax)
+    .execute(&storage.pgconn)
+    .await?;
 
     Ok(())
 }
@@ -538,22 +674,29 @@ pub async fn update_resetcount(
     world: &GameWorld,
     entity: &crate::Entity,
 ) -> Result<()> {
-    let lock = world.read().await;
-    let mut query = lock.query_one::<(&Account, &Player)>(entity.0)?;
+    let (id, player) = {
+        let lock = world.write().await;
+        let mut query = lock.query_one::<(&Account, &Player)>(entity.0)?;
+        let data = if let Some((account, player)) = query.get() {
+            (account.id, *player)
+        } else {
+            return Ok(());
+        };
 
-    if let Some((account, player)) = query.get() {
-        sqlx::query(
-            r#"
-                UPDATE public.player
-                SET resetcount=$2
-                WHERE uid = $1;
-            "#,
-        )
-        .bind(account.id)
-        .bind(player.resetcount)
-        .execute(&storage.pgconn)
-        .await?;
-    }
+        data
+    };
+
+    sqlx::query(
+        r#"
+            UPDATE public.player
+            SET resetcount=$2
+            WHERE uid = $1;
+        "#,
+    )
+    .bind(id)
+    .bind(player.resetcount)
+    .execute(&storage.pgconn)
+    .await?;
 
     Ok(())
 }

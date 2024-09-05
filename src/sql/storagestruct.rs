@@ -14,7 +14,7 @@ pub struct PGStorageItem {
 }
 
 impl PGStorageItem {
-    pub async fn new(storage_slot: &[Item], uid: i64) -> Vec<PGStorageItem> {
+    pub fn new(storage_slot: &[Item], uid: i64) -> Vec<PGStorageItem> {
         let mut items: Vec<PGStorageItem> = Vec::with_capacity(MAX_STORAGE);
 
         for (id, storageitem) in storage_slot.iter().enumerate() {
@@ -31,7 +31,7 @@ impl PGStorageItem {
         items
     }
 
-    pub async fn single(storage_slot: &[Item], uid: i64, slot: usize) -> PGStorageItem {
+    pub fn single(storage_slot: &[Item], uid: i64, slot: usize) -> PGStorageItem {
         PGStorageItem {
             uid,
             id: slot as i16,
@@ -51,23 +51,23 @@ impl PGStorageItem {
         storage_slot[slot].data = self.data[..5].try_into().unwrap_or([0; 5]);
     }
 
-    pub async fn array_into_items(items: Vec<PGStorageItem>, storage_slot: &mut [Item]) {
+    pub fn array_into_items(items: Vec<PGStorageItem>, storage_slot: &mut [Item]) {
         for slot in items {
             slot.into_item(storage_slot);
         }
     }
 
-    pub async fn into_insert_all(items: Vec<PGStorageItem>) -> Vec<String> {
+    pub fn into_insert_all(items: Vec<PGStorageItem>) -> Vec<String> {
         let mut vec = Vec::with_capacity(items.len());
 
         for item in items {
-            vec.push(item.into_insert().await)
+            vec.push(item.into_insert())
         }
 
         vec
     }
 
-    async fn into_insert(self) -> String {
+    fn into_insert(self) -> String {
         let data = self
             .data
             .iter()
@@ -83,17 +83,17 @@ impl PGStorageItem {
         )
     }
 
-    pub async fn into_update_all(items: Vec<PGStorageItem>) -> Vec<String> {
+    pub fn into_update_all(items: Vec<PGStorageItem>) -> Vec<String> {
         let mut vec = Vec::with_capacity(items.len());
 
         for item in items {
-            vec.push(item.into_update().await)
+            vec.push(item.into_update())
         }
 
         vec
     }
 
-    pub async fn into_update(self) -> String {
+    pub fn into_update(self) -> String {
         let data = self
             .data
             .iter()
