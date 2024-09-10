@@ -1,7 +1,7 @@
 use crate::{
     containers::{GameStore, GameWorld},
     gametypes::{AscendingError, MapPosition, Result},
-    socket::*,
+    network::*,
 };
 use indexmap::map::Entry;
 use log::warn;
@@ -80,23 +80,23 @@ impl DataTaskToken {
     }
 
     /// Id of the packet for the data type.
-    pub fn packet_id(&self) -> ServerPackets {
+    pub fn packet_id(&self) -> ServerPacketID {
         use DataTaskToken::*;
         match self {
-            Move(_) => ServerPackets::Move,
-            Warp(_) => ServerPackets::Warp,
-            Dir(_) => ServerPackets::Dir,
-            Death(_) => ServerPackets::Death,
-            Attack(_) => ServerPackets::Attack,
-            Vitals(_) => ServerPackets::Vitals,
-            EntityUnload(_) => ServerPackets::EntityUnload,
-            NpcSpawn(_) | NpcSpawnToEntity(_) => ServerPackets::NpcData,
-            PlayerSpawn(_) | PlayerSpawnToEntity(_) => ServerPackets::PlayerSpawn,
-            MapChat(_) => ServerPackets::ChatMsg,
-            GlobalChat => ServerPackets::ChatMsg,
-            ItemLoad(_) | ItemLoadToEntity(_) => ServerPackets::MapItems,
-            Damage(_) => ServerPackets::Damage,
-            PlayerLevel(_) => ServerPackets::PlayerLevel,
+            Move(_) => ServerPacketID::Move,
+            Warp(_) => ServerPacketID::Warp,
+            Dir(_) => ServerPacketID::Dir,
+            Death(_) => ServerPacketID::Death,
+            Attack(_) => ServerPacketID::Attack,
+            Vitals(_) => ServerPacketID::Vitals,
+            EntityUnload(_) => ServerPacketID::EntityUnload,
+            NpcSpawn(_) | NpcSpawnToEntity(_) => ServerPacketID::NpcData,
+            PlayerSpawn(_) | PlayerSpawnToEntity(_) => ServerPacketID::PlayerSpawn,
+            MapChat(_) => ServerPacketID::ChatMsg,
+            GlobalChat => ServerPacketID::ChatMsg,
+            ItemLoad(_) | ItemLoadToEntity(_) => ServerPacketID::MapItems,
+            Damage(_) => ServerPacketID::Damage,
+            PlayerLevel(_) => ServerPacketID::PlayerLevel,
         }
     }
 
@@ -145,7 +145,7 @@ pub async fn process_tasks(world: &GameWorld, storage: &GameStore) -> Result<()>
     Ok(())
 }
 
-pub fn new_cache(packet_id: ServerPackets) -> Result<MByteBuffer> {
+pub fn new_cache(packet_id: ServerPacketID) -> Result<MByteBuffer> {
     //Set it to the max packet size - the size holder - packet_id - count
     let mut buffer = MByteBuffer::new_packet()?;
     //Write the packet ID so we know where it goes.

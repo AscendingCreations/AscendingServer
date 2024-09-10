@@ -1,4 +1,4 @@
-use crate::{containers::GameWorld, gametypes::*, items::*, npcs::*, players::*, socket::*};
+use crate::{containers::GameWorld, gametypes::*, items::*, npcs::*, players::*, network::*};
 use hecs::NoSuchEntity;
 
 pub fn move_packet(

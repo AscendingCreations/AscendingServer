@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
     MByteBufferWrite,
     Hash,
 )]
-pub enum ServerPackets {
+pub enum ServerPacketID {
     OnlineCheck,
     AlertMsg,
     FltAlert,
@@ -71,11 +71,9 @@ pub enum ServerPackets {
     MByteBufferRead,
     MByteBufferWrite,
 )]
-pub enum ClientPacket {
+pub enum ClientPacketID {
     OnlineCheck,
-    Register,
     Login,
-    HandShake,
     Move,
     Dir,
     Attack,

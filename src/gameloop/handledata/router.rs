@@ -2,7 +2,7 @@ use super::packet_mapper;
 use crate::{
     containers::{GameStore, GameWorld},
     gametypes::Result,
-    socket::*,
+    network::*,
     AscendingError, Entity, OnlineType, WorldExtrasAsync,
 };
 
@@ -12,24 +12,24 @@ pub async fn handle_data(
     data: &mut MByteBuffer,
     entity: &Entity,
 ) -> Result<()> {
-    let id: ClientPacket = data.read()?;
+    let id: ClientPacketID = data.read()?;
 
     let onlinetype = world.get_or_err::<OnlineType>(entity).await?;
 
     match onlinetype {
         OnlineType::Online => match id {
-            ClientPacket::Login
-            | ClientPacket::Register
-            | ClientPacket::HandShake
-            | ClientPacket::OnlineCheck => return Err(AscendingError::MultiLogin),
+            ClientPacketID::Login
+            | ClientPacketID::Register
+            | ClientPacketID::HandShake
+            | ClientPacketID::OnlineCheck => return Err(AscendingError::MultiLogin),
             _ => {}
         },
         OnlineType::Accepted => match id {
-            ClientPacket::Login
-            | ClientPacket::Register
-            | ClientPacket::OnlineCheck
-            | ClientPacket::HandShake
-            | ClientPacket::Ping => {}
+            ClientPacketID::Login
+            | ClientPacketID::Register
+            | ClientPacketID::OnlineCheck
+            | ClientPacketID::HandShake
+            | ClientPacketID::Ping => {}
             _ => return Err(AscendingError::PacketManipulation { name: "".into() }),
         },
         OnlineType::None => return Err(AscendingError::PacketManipulation { name: "".into() }),

@@ -6,7 +6,7 @@ use crate::{
     items::Item,
     maps::*,
     players::*,
-    socket::*,
+    network::*,
     sql::*,
     tasks::*,
     WorldExtrasAsync,

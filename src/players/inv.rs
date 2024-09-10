@@ -3,7 +3,7 @@ use crate::{
     gametypes::*,
     items::*,
     players::*,
-    socket::*,
+    network::*,
     sql::*,
     tasks::{damage_packet, DataTaskToken},
 };

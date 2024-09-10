@@ -4,7 +4,7 @@ use crate::{
     maps::can_target,
     npcs::npc_clear_move_path,
     players::*,
-    socket::*,
+    network::*,
     sql::*,
     tasks::*,
 };

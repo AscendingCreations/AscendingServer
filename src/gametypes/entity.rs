@@ -1,4 +1,4 @@
-use crate::{containers::GameWorld, gametypes::*, socket::*, time_ext::MyInstant};
+use crate::{containers::GameWorld, gametypes::*, network::*, time_ext::MyInstant};
 use core::any::type_name;
 use educe::Educe;
 use hecs::{EntityRef, MissingComponent, World};

@@ -4,7 +4,7 @@ use crate::{
     maps::*,
     npcs::*,
     players::*,
-    socket::*,
+    network::*,
     sql::SqlRequests,
     tasks::{DataTaskToken, MapSwitchTasks},
     time_ext::MyInstant,

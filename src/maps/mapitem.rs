@@ -2,7 +2,7 @@ use crate::{
     containers::{GameStore, GameWorld},
     gametypes::*,
     items::Item,
-    socket::*,
+    network::*,
     tasks::{map_item_packet, unload_entity_packet, DataTaskToken},
     time_ext::MyInstant,
 };

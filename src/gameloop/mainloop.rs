@@ -3,7 +3,7 @@ use crate::{
     maps::{update_map_items, update_maps},
     npcs::*,
     players::*,
-    socket::*,
+    network::*,
     tasks::{process_data_lists, process_tasks},
     time_ext::MyInstant,
 };

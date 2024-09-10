@@ -22,6 +22,14 @@ pub enum AscendingError {
     PacketReject { num: usize, message: String },
     #[error("Packet id was invalid")]
     InvalidPacket,
+    #[error(
+        "Packet Length was too small or too big! Length {length} of limit 1..{max}, addr: {addr}"
+    )]
+    InvalidPacketSize {
+        length: u64,
+        addr: Arc<String>,
+        max: usize,
+    },
     #[error("Password was incorrect")]
     IncorrectPassword,
     #[error("No username was set.")]
@@ -133,9 +141,16 @@ pub enum AscendingError {
         backtrace: Box<Backtrace>,
     },
     #[error("Error: {error}, BackTrace: {backtrace}")]
-    TokioMPSCError {
+    TokioMPSCLoginError {
         #[from]
-        error: tokio::sync::mpsc::error::SendError<crate::sql::SqlRequests>,
+        error: tokio::sync::mpsc::error::SendError<crate::network::LoginIncomming>,
+        #[backtrace]
+        backtrace: Box<Backtrace>,
+    },
+    #[error("Error: {error}, BackTrace: {backtrace}")]
+    TokioMPSCPlayerError {
+        #[from]
+        error: tokio::sync::mpsc::error::SendError<crate::network::ClientPacket>,
         #[backtrace]
         backtrace: Box<Backtrace>,
     },
