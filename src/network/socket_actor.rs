@@ -29,42 +29,33 @@ impl SocketActor {
         let mut packet = MByteBuffer::new().unwrap();
 
         loop {
-            let is_closed = match self.rx.try_read(&mut buf) {
-                Err(ref err) if err.kind() == io::ErrorKind::WouldBlock => false,
-                Err(ref err) if err.kind() == io::ErrorKind::Interrupted => false,
-                Ok(0) => true,
+            match self.rx.try_read(&mut buf) {
+                Err(ref err) if err.kind() == io::ErrorKind::WouldBlock => {}
+                Err(ref err) if err.kind() == io::ErrorKind::Interrupted => {}
+                Ok(0) => return self.disconnect().await,
                 Err(e) => {
                     trace!("stream.read, error in socket read: {}", e);
-                    true
+                    return self.disconnect().await;
                 }
                 Ok(n) => {
                     let pos = self.buffer.cursor();
                     self.buffer.move_cursor_to_end();
 
-                    let mut ret = if let Err(e) = self.buffer.write_slice(&buf[0..size]) {
+                    if let Err(e) = self.buffer.write_slice(&buf[0..size]) {
                         trace!(
                             "buffer.write_slice, error in socket read: {} for addr: {}",
                             e,
                             &*self.addr
                         );
-                        true
-                    } else {
-                        false
-                    };
+                        return self.disconnect().await;
+                    }
 
                     if let Err(e) = self.buffer.move_cursor(pos) {
                         trace!("buffer move_cursor. error: {}", e);
-                        ret = true;
+                        return self.disconnect().await;
                     }
-
-                    ret
                 }
             };
-
-            if is_closed {
-                self.tx.send(ClientPacket::Disconnect).await?;
-                return Ok(());
-            }
 
             loop {
                 packet.move_cursor_to_start();
@@ -73,8 +64,7 @@ impl SocketActor {
                     Ok(n) => n,
                     Err(e) => {
                         error!("{}", e);
-                        self.tx.send(ClientPacket::Disconnect).await?;
-                        return Ok(());
+                        return self.disconnect().await;
                     }
                 };
 
@@ -97,17 +87,14 @@ impl SocketActor {
                                 "IP: {} was disconnected due to error on packet processing.",
                                 self.addr
                             );
-
-                            self.tx.send(ClientPacket::Disconnect).await?;
-                            return Ok(());
+                            return self.disconnect().await;
                         }
 
                         let processed_packet = match packet_translator(data) {
                             Ok(v) => v,
                             Err(e) => {
                                 error!("{}", e);
-                                self.tx.send(ClientPacket::Disconnect).await?;
-                                return Ok(());
+                                return self.disconnect().await;
                             }
                         };
 
@@ -124,8 +111,7 @@ impl SocketActor {
 
             if let Err(e) = self.buffer.move_cursor(cursor) {
                 error!("{}", e);
-                self.tx.send(ClientPacket::Disconnect).await?;
-                return Ok(());
+                return self.disconnect().await;
             }
 
             let buffer_len = self.buffer.length() - cursor;
@@ -133,8 +119,7 @@ impl SocketActor {
             if cursor == self.buffer.length() {
                 if let Err(e) = self.buffer.truncate(0) {
                     error!("{}", e);
-                    self.tx.send(ClientPacket::Disconnect).await?;
-                    return Ok(());
+                    return self.disconnect().await;
                 }
 
                 if self.buffer.capacity() > 500000 {
@@ -146,8 +131,7 @@ impl SocketActor {
 
                     if let Err(e) = self.buffer.resize(100000) {
                         error!("{}", e);
-                        self.tx.send(ClientPacket::Disconnect).await?;
-                        return Ok(());
+                        return self.disconnect().await;
                     }
                 }
             } else if self.buffer.capacity() > 500000 && buffer_len <= 100000 {
@@ -161,8 +145,7 @@ impl SocketActor {
                     Ok(v) => v,
                     Err(e) => {
                         error!("{}", e);
-                        self.tx.send(ClientPacket::Disconnect).await?;
-                        return Ok(());
+                        return self.disconnect().await;
                     }
                 };
 
@@ -170,15 +153,13 @@ impl SocketActor {
                     Ok(v) => v,
                     Err(e) => {
                         error!("{}", e);
-                        self.tx.send(ClientPacket::Disconnect).await?;
-                        return Ok(());
+                        return self.disconnect().await;
                     }
                 };
 
                 if let Err(e) = replacement.write_slice(slice) {
                     error!("{}", e);
-                    self.tx.send(ClientPacket::Disconnect).await?;
-                    return Ok(());
+                    return self.disconnect().await;
                 }
 
                 replacement.move_cursor_to_start();
@@ -186,13 +167,11 @@ impl SocketActor {
                 self.buffer = replacement;
             }
         }
-
-        //Ok(())
     }
 
     pub async fn disconnect(&self) -> Result<()> {
-        trace!("Players Disconnected IP: {} ", &socket.addr);
-
+        trace!("Players Disconnected IP: {} ", &self.addr);
+        self.tx.send(ClientPacket::Disconnect).await?;
         Ok(())
     }
 
