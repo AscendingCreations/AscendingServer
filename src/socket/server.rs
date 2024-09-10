@@ -4,9 +4,9 @@ use crate::{
     socket::{accept_connection, Client, ClientState},
 };
 use log::{trace, warn};
-use mio::{net::TcpListener, Events, Poll};
+//use mio::{net::TcpListener, Events, Poll};
 use std::{collections::VecDeque, io, sync::Arc, time::Duration};
-use tokio::sync::Mutex;
+use tokio::{net::TcpListener, sync::Mutex};
 
 pub const SERVER: mio::Token = mio::Token(0);
 
@@ -14,17 +14,11 @@ pub struct Server {
     pub listener: TcpListener,
     pub clients: HashMap<mio::Token, Mutex<Client>>,
     pub tokens: VecDeque<mio::Token>,
-    pub tls_config: Arc<rustls::ServerConfig>,
 }
 
 impl Server {
     #[inline]
-    pub fn new(
-        poll: &mut Poll,
-        addr: &str,
-        max: usize,
-        cfg: Arc<rustls::ServerConfig>,
-    ) -> Result<Server> {
+    pub fn new(poll: &mut Poll, addr: &str, max: usize) -> Result<Server> {
         /* Create a bag of unique tokens. */
         let mut tokens = VecDeque::with_capacity(max);
 
@@ -43,7 +37,6 @@ impl Server {
             listener,
             clients: HashMap::default(),
             tokens,
-            tls_config: cfg,
         })
     }
 
@@ -79,9 +72,8 @@ impl Server {
                     }
                 };
 
-                let tls_conn = rustls::ServerConnection::new(Arc::clone(&self.tls_config))?;
                 // Lets make the Client to handle hwo we send packets.
-                let mut client = Client::new(stream, token, entity, tls_conn);
+                let mut client = Client::new(stream, token, entity);
                 //Register the Poll to the client for recv and Sending
                 client.register(&*storage.poll.read().await)?;
 

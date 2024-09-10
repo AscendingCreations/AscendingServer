@@ -529,18 +529,10 @@ pub async fn send_swap_error(
         old_socket_id,
         "Server Error in player swap".into(),
         1,
-        true,
     )
     .await?;
 
-    send_infomsg(
-        storage,
-        socket_id,
-        "Server Error in player swap".into(),
-        1,
-        true,
-    )
-    .await
+    send_infomsg(storage, socket_id, "Server Error in player swap".into(), 1).await
 }
 
 pub async fn send_login_info(

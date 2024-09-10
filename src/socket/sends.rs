@@ -13,7 +13,6 @@ pub async fn send_infomsg(
     socket_id: usize,
     message: String,
     close_socket: u8,
-    tls_send: bool,
 ) -> Result<()> {
     let mut buf = MByteBuffer::new_packet()?;
 
@@ -22,11 +21,7 @@ pub async fn send_infomsg(
     buf.write(close_socket)?;
     buf.finish()?;
 
-    if tls_send {
-        tls_send_to(storage, socket_id, buf).await
-    } else {
-        send_to(storage, socket_id, buf).await
-    }
+    send_to(storage, socket_id, buf).await
 }
 
 #[inline]
@@ -69,7 +64,7 @@ pub async fn send_myindex(storage: &GameStore, socket_id: usize, entity: &Entity
     buf.write(*entity)?;
     buf.finish()?;
 
-    tls_send_to(storage, socket_id, buf).await
+    send_to(storage, socket_id, buf).await
 }
 
 pub async fn send_move_ok(storage: &GameStore, socket_id: usize, move_ok: bool) -> Result<()> {
@@ -79,7 +74,7 @@ pub async fn send_move_ok(storage: &GameStore, socket_id: usize, move_ok: bool) 
     buf.write(move_ok)?;
     buf.finish()?;
 
-    send_to_front(storage, socket_id, buf).await
+    send_to(storage, socket_id, buf).await
 }
 
 #[inline]
@@ -136,9 +131,7 @@ pub async fn send_codes(
     let lock = world.read().await;
     let id = lock.get::<&Socket>(entity.0)?.id;
 
-    // Once the codes are Sent we need to set this to unencrypted mode as the client will be un unencrypted mode.
-    set_encryption_status(storage, id, EncryptionState::WriteTransfering).await;
-    tls_send_to(storage, id, buf).await
+    send_to(storage, id, buf).await
 }
 
 pub async fn send_ping(world: &GameWorld, storage: &GameStore, entity: &Entity) -> Result<()> {

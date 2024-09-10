@@ -48,14 +48,7 @@ pub async fn handle_register(
         };
 
         if APP_MAJOR > appmajor && APP_MINOR > appminior && APP_REVISION > apprevision {
-            return send_infomsg(
-                storage,
-                socket_id,
-                "Client needs to be updated.".into(),
-                1,
-                true,
-            )
-            .await;
+            return send_infomsg(storage, socket_id, "Client needs to be updated.".into(), 1).await;
         }
 
         let email_regex = Regex::new(
@@ -70,7 +63,6 @@ pub async fn handle_register(
                 socket_id,
                 "Username or Password contains unaccepted Characters".into(),
                 0,
-                true,
             )
             .await;
         }
@@ -81,7 +73,6 @@ pub async fn handle_register(
                 socket_id,
                 "Username has too many Characters, 64 Characters Max".into(),
                 0,
-                true,
             )
             .await;
         }
@@ -92,7 +83,6 @@ pub async fn handle_register(
                 socket_id,
                 "Password has too many Characters, 128 Characters Max".into(),
                 0,
-                true,
             )
             .await;
         }
@@ -103,7 +93,6 @@ pub async fn handle_register(
                 socket_id,
                 "Email must be an actual email.".into(),
                 0,
-                true,
             )
             .await;
         }
@@ -117,7 +106,6 @@ pub async fn handle_register(
                         socket_id,
                         "Username Exists. Please try Another.".into(),
                         0,
-                        true,
                     )
                     .await;
                 }
@@ -127,7 +115,6 @@ pub async fn handle_register(
                         socket_id,
                         "Email Already Exists. Please Try Another.".into(),
                         0,
-                        true,
                     )
                     .await;
                 }
@@ -191,7 +178,6 @@ pub async fn handle_register(
                     "There was an Issue Creating the player account. Please Contact Support."
                         .into(),
                     0,
-                    true,
                 )
                 .await
             }
@@ -243,14 +229,7 @@ pub async fn handle_login(
 
     if !storage.player_ids.read().await.contains(entity) {
         if APP_MAJOR > appmajor && APP_MINOR > appminior && APP_REVISION > apprevision {
-            return send_infomsg(
-                storage,
-                socket_id,
-                "Client needs to be updated.".into(),
-                1,
-                true,
-            )
-            .await;
+            return send_infomsg(storage, socket_id, "Client needs to be updated.".into(), 1).await;
         }
 
         if email.len() >= 64 || password.len() >= 128 {
@@ -259,7 +238,6 @@ pub async fn handle_login(
                 socket_id,
                 "Account does not Exist or Password is not Correct.".into(),
                 0,
-                true,
             )
             .await;
         }
@@ -272,7 +250,6 @@ pub async fn handle_login(
                     socket_id,
                     "Account does not Exist or Password is not Correct.".into(),
                     1,
-                    true,
                 )
                 .await;
             }
@@ -320,7 +297,6 @@ pub async fn handle_login(
                         "User Already Online, If you think this is an error please report it."
                             .into(),
                         1,
-                        true,
                     )
                     .await;
                 }
@@ -333,7 +309,7 @@ pub async fn handle_login(
             .await?;
 
         if let Err(_e) = load_player(storage, world, entity, id).await {
-            return send_infomsg(storage, socket_id, "Error Loading User.".into(), 1, true).await;
+            return send_infomsg(storage, socket_id, "Error Loading User.".into(), 1).await;
         }
 
         let name = {
