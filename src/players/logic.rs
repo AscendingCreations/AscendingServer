@@ -2,9 +2,9 @@ use crate::{
     containers::{GameStore, GameWorld},
     gametypes::*,
     maps::can_target,
+    network::*,
     npcs::npc_clear_move_path,
     players::*,
-    network::*,
     sql::*,
     tasks::*,
 };
@@ -17,16 +17,16 @@ pub async fn update_players(world: &GameWorld, storage: &GameStore) -> Result<()
 
     for id in &*storage.player_ids.read().await {
         if world.get_or_err::<OnlineType>(id).await? == OnlineType::Online {
-            if world.get_or_err::<DeathType>(id).await? == DeathType::Spirit {
+            if world.get_or_err::<Death>(id).await? == Death::Spirit {
                 //timers
                 if world.get_or_err::<DeathTimer>(id).await?.0 < tick {
                     {
                         let lock = world.write().await;
-                        *lock.get::<&mut DeathType>(id.0)? = DeathType::Alive;
+                        *lock.get::<&mut Death>(id.0)? = Death::Alive;
                     }
 
                     DataTaskToken::Death(world.get_or_err::<Position>(id).await?.map)
-                        .add_task(storage, death_packet(*id, DeathType::Alive)?)
+                        .add_task(storage, death_packet(*id, Death::Alive)?)
                         .await?;
 
                     player_warp(
@@ -490,14 +490,14 @@ pub async fn remove_all_npc_target(world: &GameWorld, entity: &Entity) -> Result
     {
         let lock = world.read().await;
         for (entity, (worldentitytype, target)) in lock
-            .query::<(&WorldEntityType, &mut Target)>()
+            .query::<(&WorldEntityType, &mut Targeting)>()
             .iter()
             .filter(|(_entity, (worldentitytype, target))| {
                 let mut can_target = true;
                 if **worldentitytype != WorldEntityType::Npc {
                     can_target = false;
                 }
-                if let EntityType::Player(i, _) = target.target_type {
+                if let Target::Player(i, _) = target.target_type {
                     if i != *entity {
                         can_target = false;
                     }
@@ -505,7 +505,7 @@ pub async fn remove_all_npc_target(world: &GameWorld, entity: &Entity) -> Result
                 can_target
             })
         {
-            *target = Target::default();
+            *target = Targeting::default();
             clear_move_path.push((entity, *worldentitytype));
         }
     }
@@ -527,7 +527,7 @@ pub async fn init_trade(
     if can_target(
         world.get_or_err::<Position>(entity).await?,
         world.get_or_err::<Position>(target_entity).await?,
-        world.get_or_err::<DeathType>(target_entity).await?,
+        world.get_or_err::<Death>(target_entity).await?,
         1,
     ) {
         if world

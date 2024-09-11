@@ -11,13 +11,13 @@ pub async fn update_npcs(world: &GameWorld, storage: &GameStore) -> Result<()> {
     let mut unloadnpcs = Vec::new();
 
     for id in &*storage.npc_ids.read().await {
-        match world.get_or_err::<DeathType>(id).await? {
-            DeathType::Alive => {
+        match world.get_or_err::<Death>(id).await? {
+            Death::Alive => {
                 if world.get_or_err::<NpcDespawns>(id).await?.0
                     && world.get_or_err::<NpcTimer>(id).await?.despawntimer <= tick
                 {
                     let lock = world.write().await;
-                    *lock.get::<&mut DeathType>(id.0)? = DeathType::Dead;
+                    *lock.get::<&mut Death>(id.0)? = Death::Dead;
                     unloadnpcs.push(*id);
                     continue;
                 }
@@ -34,7 +34,7 @@ pub async fn update_npcs(world: &GameWorld, storage: &GameStore) -> Result<()> {
                         .in_range(npcdata.spawntime.0, npcdata.spawntime.1)
                     {
                         let lock = world.write().await;
-                        *lock.get::<&mut DeathType>(id.0)? = DeathType::Dead;
+                        *lock.get::<&mut Death>(id.0)? = Death::Dead;
                         unloadnpcs.push(*id);
                         continue;
                     }
@@ -83,8 +83,8 @@ pub async fn update_npcs(world: &GameWorld, storage: &GameStore) -> Result<()> {
                     {}
                 }
             }
-            DeathType::Dead => unloadnpcs.push(*id),
-            DeathType::Spawning => {
+            Death::Dead => unloadnpcs.push(*id),
+            Death::Spawning => {
                 if world.get_or_err::<NpcTimer>(id).await?.spawntimer < tick {
                     let map_data = match storage
                         .maps
@@ -101,7 +101,7 @@ pub async fn update_npcs(world: &GameWorld, storage: &GameStore) -> Result<()> {
                     ) {
                         {
                             let lock = world.write().await;
-                            *lock.get::<&mut DeathType>(id.0)? = DeathType::Alive;
+                            *lock.get::<&mut Death>(id.0)? = Death::Alive;
                         }
                         map_data
                             .write()

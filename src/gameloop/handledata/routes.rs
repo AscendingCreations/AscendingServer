@@ -338,7 +338,7 @@ pub async fn handle_move(
     entity: &Entity,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.read().await.get(entity) {
-        if !world.get_or_err::<DeathType>(entity).await?.is_alive()
+        if !world.get_or_err::<Death>(entity).await?.is_alive()
             || world.get_or_err::<IsUsingType>(entity).await?.inuse()
             || world.get_or_err::<Stunned>(entity).await?.0
         {
@@ -384,7 +384,7 @@ pub async fn handle_dir(
     entity: &Entity,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.read().await.get(entity) {
-        if !world.get_or_err::<DeathType>(entity).await?.is_alive()
+        if !world.get_or_err::<Death>(entity).await?.is_alive()
             || world.get_or_err::<IsUsingType>(entity).await?.inuse()
         {
             return Ok(());
@@ -418,7 +418,7 @@ pub async fn handle_attack(
     entity: &Entity,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.read().await.get(entity) {
-        if !world.get_or_err::<DeathType>(entity).await?.is_alive()
+        if !world.get_or_err::<Death>(entity).await?.is_alive()
             || world.get_or_err::<IsUsingType>(entity).await?.inuse()
             || world.get_or_err::<Attacking>(entity).await?.0
             || world.get_or_err::<AttackTimer>(entity).await?.0 > *storage.gettick.read().await
@@ -470,7 +470,7 @@ pub async fn handle_useitem(
     entity: &Entity,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.read().await.get(entity) {
-        if !world.get_or_err::<DeathType>(entity).await?.is_alive()
+        if !world.get_or_err::<Death>(entity).await?.is_alive()
             || world.get_or_err::<IsUsingType>(entity).await?.inuse()
             || world.get_or_err::<Attacking>(entity).await?.0
             || world.get_or_err::<Stunned>(entity).await?.0
@@ -501,7 +501,7 @@ pub async fn handle_unequip(
     entity: &Entity,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.read().await.get(entity) {
-        if !world.get_or_err::<DeathType>(entity).await?.is_alive()
+        if !world.get_or_err::<Death>(entity).await?.is_alive()
             || world.get_or_err::<IsUsingType>(entity).await?.inuse()
             || world.get_or_err::<Attacking>(entity).await?.0
             || world.get_or_err::<Stunned>(entity).await?.0
@@ -552,7 +552,7 @@ pub async fn handle_switchinvslot(
     entity: &Entity,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.read().await.get(entity) {
-        if !world.get_or_err::<DeathType>(entity).await?.is_alive()
+        if !world.get_or_err::<Death>(entity).await?.is_alive()
             || world.get_or_err::<Attacking>(entity).await?.0
             || world.get_or_err::<Stunned>(entity).await?.0
             || world.get_or_err::<PlayerItemTimer>(entity).await?.itemtimer
@@ -653,7 +653,7 @@ pub async fn handle_pickup(
     if let Some(entity) = storage.player_ids.read().await.get(entity) {
         let mut remove_id: Vec<(MapPosition, Entity)> = Vec::new();
 
-        if !world.get_or_err::<DeathType>(entity).await?.is_alive()
+        if !world.get_or_err::<Death>(entity).await?.is_alive()
             || world.get_or_err::<IsUsingType>(entity).await?.inuse()
             || world.get_or_err::<Attacking>(entity).await?.0
             || world.get_or_err::<Stunned>(entity).await?.0
@@ -810,7 +810,7 @@ pub async fn handle_dropitem(
     entity: &Entity,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.read().await.get(entity) {
-        if !world.get_or_err::<DeathType>(entity).await?.is_alive()
+        if !world.get_or_err::<Death>(entity).await?.is_alive()
             || world.get_or_err::<IsUsingType>(entity).await?.inuse()
             || world.get_or_err::<Attacking>(entity).await?.0
             || world.get_or_err::<Stunned>(entity).await?.0
@@ -891,7 +891,7 @@ pub async fn handle_deleteitem(
     entity: &Entity,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.read().await.get(entity) {
-        if !world.get_or_err::<DeathType>(entity).await?.is_alive()
+        if !world.get_or_err::<Death>(entity).await?.is_alive()
             || world.get_or_err::<IsUsingType>(entity).await?.inuse()
             || world.get_or_err::<Attacking>(entity).await?.0
             || world.get_or_err::<Stunned>(entity).await?.0
@@ -931,7 +931,7 @@ pub async fn handle_switchstorageslot(
     entity: &Entity,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.read().await.get(entity) {
-        if !world.get_or_err::<DeathType>(entity).await?.is_alive()
+        if !world.get_or_err::<Death>(entity).await?.is_alive()
             || !world.get_or_err::<IsUsingType>(entity).await?.is_bank()
             || world.get_or_err::<Attacking>(entity).await?.0
             || world.get_or_err::<Stunned>(entity).await?.0
@@ -1011,7 +1011,7 @@ pub async fn handle_deletestorageitem(
     entity: &Entity,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.read().await.get(entity) {
-        if !world.get_or_err::<DeathType>(entity).await?.is_alive()
+        if !world.get_or_err::<Death>(entity).await?.is_alive()
             || !world.get_or_err::<IsUsingType>(entity).await?.is_bank()
             || world.get_or_err::<Attacking>(entity).await?.0
             || world.get_or_err::<Stunned>(entity).await?.0
@@ -1050,7 +1050,7 @@ pub async fn handle_deposititem(
     entity: &Entity,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.read().await.get(entity) {
-        if !world.get_or_err::<DeathType>(entity).await?.is_alive()
+        if !world.get_or_err::<Death>(entity).await?.is_alive()
             || !world.get_or_err::<IsUsingType>(entity).await?.is_bank()
             || world.get_or_err::<Attacking>(entity).await?.0
             || world.get_or_err::<Stunned>(entity).await?.0
@@ -1122,7 +1122,7 @@ pub async fn handle_withdrawitem(
     entity: &Entity,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.read().await.get(entity) {
-        if !world.get_or_err::<DeathType>(entity).await?.is_alive()
+        if !world.get_or_err::<Death>(entity).await?.is_alive()
             || !world.get_or_err::<IsUsingType>(entity).await?.is_bank()
             || world.get_or_err::<Attacking>(entity).await?.0
             || world.get_or_err::<Stunned>(entity).await?.0
@@ -1195,7 +1195,7 @@ pub async fn handle_message(
     if let Some(entity) = storage.player_ids.read().await.get(entity) {
         let mut usersocket: Option<usize> = None;
 
-        if !world.get_or_err::<DeathType>(entity).await?.is_alive() {
+        if !world.get_or_err::<Death>(entity).await?.is_alive() {
             return Ok(());
         }
 
@@ -1330,7 +1330,7 @@ pub async fn handle_command(
                         && can_target(
                             world.get_or_err::<Position>(entity).await?,
                             world.get_or_err::<Position>(&target_entity).await?,
-                            world.get_or_err::<DeathType>(&target_entity).await?,
+                            world.get_or_err::<Death>(&target_entity).await?,
                             1,
                         )
                         && can_trade(world, storage, &target_entity).await?
@@ -1431,7 +1431,7 @@ pub async fn handle_closestorage(
     entity: &Entity,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.read().await.get(entity) {
-        if !world.get_or_err::<DeathType>(entity).await?.is_alive()
+        if !world.get_or_err::<Death>(entity).await?.is_alive()
             || !world.get_or_err::<IsUsingType>(entity).await?.is_bank()
         {
             return Ok(());
@@ -1456,7 +1456,7 @@ pub async fn handle_closeshop(
     entity: &Entity,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.read().await.get(entity) {
-        if !world.get_or_err::<DeathType>(entity).await?.is_alive()
+        if !world.get_or_err::<Death>(entity).await?.is_alive()
             || !world.get_or_err::<IsUsingType>(entity).await?.is_instore()
         {
             return Ok(());
@@ -1481,7 +1481,7 @@ pub async fn handle_closetrade(
     entity: &Entity,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.read().await.get(entity) {
-        if !world.get_or_err::<DeathType>(entity).await?.is_alive()
+        if !world.get_or_err::<Death>(entity).await?.is_alive()
             || !world.get_or_err::<IsUsingType>(entity).await?.is_trading()
         {
             return Ok(());
@@ -1531,7 +1531,7 @@ pub async fn handle_buy_item(
     entity: &Entity,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.read().await.get(entity) {
-        if !world.get_or_err::<DeathType>(entity).await?.is_alive()
+        if !world.get_or_err::<Death>(entity).await?.is_alive()
             || !world.get_or_err::<IsUsingType>(entity).await?.is_instore()
         {
             return Ok(());
@@ -1604,7 +1604,7 @@ pub async fn handle_sellitem(
     entity: &Entity,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.read().await.get(entity) {
-        if !world.get_or_err::<DeathType>(entity).await?.is_alive()
+        if !world.get_or_err::<Death>(entity).await?.is_alive()
             || !world.get_or_err::<IsUsingType>(entity).await?.is_instore()
         {
             return Ok(());
@@ -1667,7 +1667,7 @@ pub async fn handle_addtradeitem(
     entity: &Entity,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.read().await.get(entity) {
-        if !world.get_or_err::<DeathType>(entity).await?.is_alive()
+        if !world.get_or_err::<Death>(entity).await?.is_alive()
             || !world.get_or_err::<IsUsingType>(entity).await?.is_trading()
         {
             return Ok(());
@@ -1749,7 +1749,7 @@ pub async fn handle_removetradeitem(
     entity: &Entity,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.read().await.get(entity) {
-        if !world.get_or_err::<DeathType>(entity).await?.is_alive()
+        if !world.get_or_err::<Death>(entity).await?.is_alive()
             || !world.get_or_err::<IsUsingType>(entity).await?.is_trading()
         {
             return Ok(());
@@ -1806,7 +1806,7 @@ pub async fn handle_updatetrademoney(
     entity: &Entity,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.read().await.get(entity) {
-        if !world.get_or_err::<DeathType>(entity).await?.is_alive()
+        if !world.get_or_err::<Death>(entity).await?.is_alive()
             || !world.get_or_err::<IsUsingType>(entity).await?.is_trading()
         {
             return Ok(());
@@ -1847,7 +1847,7 @@ pub async fn handle_submittrade(
     entity: &Entity,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.read().await.get(entity) {
-        if !world.get_or_err::<DeathType>(entity).await?.is_alive()
+        if !world.get_or_err::<Death>(entity).await?.is_alive()
             || !world.get_or_err::<IsUsingType>(entity).await?.is_trading()
         {
             return Ok(());
@@ -1939,7 +1939,7 @@ pub async fn handle_accepttrade(
     entity: &Entity,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.read().await.get(entity) {
-        if !world.get_or_err::<DeathType>(entity).await?.is_alive()
+        if !world.get_or_err::<Death>(entity).await?.is_alive()
             || world.get_or_err::<IsUsingType>(entity).await?.inuse()
         {
             return Ok(());
@@ -2012,7 +2012,7 @@ pub async fn handle_declinetrade(
     entity: &Entity,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.read().await.get(entity) {
-        if !world.get_or_err::<DeathType>(entity).await?.is_alive()
+        if !world.get_or_err::<Death>(entity).await?.is_alive()
             || world.get_or_err::<IsUsingType>(entity).await?.inuse()
         {
             return Ok(());

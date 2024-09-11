@@ -46,7 +46,7 @@ pub async fn try_player_cast(
 
     let caster_pos = world.get_or_default::<Position>(caster).await;
     let target_pos = world.get_or_default::<Position>(target).await;
-    let life = world.get_or_default::<DeathType>(target).await;
+    let life = world.get_or_default::<Death>(target).await;
 
     if let Some(dir) = caster_pos.checkdirection(target_pos) {
         if is_dir_blocked(storage, caster_pos, dir as u8).await {
@@ -131,7 +131,7 @@ pub async fn player_combat(
                             world,
                             storage,
                             target_entity,
-                            EntityType::Player(*entity, acc_id),
+                            Target::Player(*entity, acc_id),
                         )
                         .await?;
                     } else {

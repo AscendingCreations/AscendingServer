@@ -1,3 +1,5 @@
+use std::{io, sync::Arc};
+
 use crate::{gametypes::*, network::*};
 use log::{error, trace, warn};
 use mmap_bytey::{MByteBuffer, BUFFER_SIZE};
@@ -37,7 +39,7 @@ impl SocketActor {
                     trace!("stream.read, error in socket read: {}", e);
                     return self.disconnect().await;
                 }
-                Ok(n) => {
+                Ok(size) => {
                     let pos = self.buffer.cursor();
                     self.buffer.move_cursor_to_end();
 
@@ -90,7 +92,7 @@ impl SocketActor {
                             return self.disconnect().await;
                         }
 
-                        let processed_packet = match packet_translator(data) {
+                        let processed_packet = match packet_translator(&mut packet) {
                             Ok(v) => v,
                             Err(e) => {
                                 error!("{}", e);

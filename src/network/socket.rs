@@ -1,10 +1,9 @@
-use crate::gametypes::Result;
-use bytey::ByteBuffer;
-use log::{trace, warn};
-use std::sync::Arc;
-use tokio::{net::tcp::OwnedWriteHalf, sync::mpsc};
-
 use super::ClientPacket;
+use crate::{gametypes::Result, AscendingError};
+use log::trace;
+use mmap_bytey::MByteBuffer;
+use std::{backtrace::Backtrace, sync::Arc};
+use tokio::{io::AsyncWriteExt, net::tcp::OwnedWriteHalf, sync::mpsc};
 
 pub struct Socket {
     pub tx: OwnedWriteHalf,
@@ -15,6 +14,18 @@ pub struct Socket {
 impl Socket {
     pub fn new(tx: OwnedWriteHalf, rx: mpsc::Receiver<ClientPacket>, addr: Arc<String>) -> Self {
         Self { tx, rx, addr }
+    }
+
+    pub async fn send(&mut self, packet: &mut MByteBuffer) -> Result<()> {
+        if let Err(error) = self.tx.write_all(packet.as_slice()).await {
+            trace!("Send error in socket write: {}", error);
+            return Err(AscendingError::Io {
+                error,
+                backtrace: Box::new(Backtrace::capture()),
+            });
+        }
+
+        Ok(())
     }
 }
 

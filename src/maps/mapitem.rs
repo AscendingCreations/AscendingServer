@@ -12,10 +12,11 @@ use super::{create_mapitem, MapAttribute};
 
 #[derive(Copy, Clone, PartialEq, Eq, Default, MByteBufferRead, MByteBufferWrite)]
 pub struct MapItem {
+    pub key: EntityKey,
     pub item: Item,
     pub despawn: Option<MyInstant>,
     pub ownertimer: Option<MyInstant>,
-    pub ownerid: Option<Entity>,
+    pub ownerid: Option<Target>,
     pub pos: Position,
 }
 
@@ -237,7 +238,7 @@ pub async fn try_drop_item(
                 } else {
                     DespawnTimer::default()
                 };
-                lock.insert(id, (EntityType::MapItem(Entity(id)), despawntimer))?;
+                lock.insert(id, (Target::MapItem(Entity(id)), despawntimer))?;
                 map_data.write().await.itemids.insert(Entity(id));
                 storage_mapitem.insert(found_pos.0, Entity(id));
                 DataTaskToken::ItemLoad(found_pos.0.map)

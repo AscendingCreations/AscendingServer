@@ -1,18 +1,24 @@
 mod entity;
 mod enums;
 mod error;
+mod game_time;
 mod map_position;
 mod position;
 mod rgb;
 mod sharedstructs;
+mod target;
 
-pub use entity::*;
+pub use entity::EntityKey;
 pub use enums::*;
 pub use error::{AscendingError, Result};
+pub use game_time::GameTime;
 pub use map_position::*;
 pub use position::*;
 pub use rgb::Rgba;
 pub use sharedstructs::*;
+pub use target::Targeting;
+
+type SlotMap<T> = slotmap::SlotMap<EntityKey, T>;
 
 pub const EQUIPMENT_TYPE_MAX: usize = EquipmentType::Count as usize;
 pub const VITALS_MAX: usize = VitalTypes::Count as usize;

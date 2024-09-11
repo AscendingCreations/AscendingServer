@@ -1,9 +1,10 @@
+use super::{MapBroadCasts, MapIncomming};
 use crate::{
-    containers::{GameStore, HashSet, IndexSet},
+    containers::{GameStore, HashSet, IndexMap},
     gametypes::*,
     time_ext::MyInstant,
 };
-use bit_op::{bit_u8::*, BitOp};
+use bit_op::bit_u8::*;
 use educe::Educe;
 use serde::{Deserialize, Serialize};
 use speedy::{Readable, Writable};
@@ -12,6 +13,7 @@ use std::{
     fs::{self, OpenOptions},
     io::Read,
 };
+use tokio::sync::{broadcast, mpsc};
 
 const MAP_PATH: &str = "./data/maps/";
 
@@ -65,17 +67,11 @@ pub struct GridTile {
     pub dir_block: u8,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, Readable, Writable)]
-pub struct Tile {
-    pub id: Vec<u32>,
-}
-
 //TODO: Update to use MAP (x,y,group) for map locations and Remove map links?
 #[derive(Clone, Educe, Serialize, Deserialize, Readable, Writable)]
 #[educe(Default(new))]
 pub struct Map {
     pub position: MapPosition,
-    pub tile: Vec<Tile>,
     pub dir_block: Vec<u8>,
     pub attribute: Vec<MapAttribute>,
     // Tiles for zone spawning. (x, y) using u8 to cut down the size and since maps should never Exceed 64x64
@@ -147,29 +143,26 @@ pub struct SpawnItemData {
     pub timer: MyInstant,
 }
 
-#[derive(Clone, Educe)]
-#[educe(Default(new))]
+#[derive(Debug)]
 pub struct MapData {
     pub position: MapPosition,
     //updated data for map seperate from Map itself as base should be Readonly / clone.
-    pub itemids: IndexSet<Entity>,
+    /*pub itemids: IndexSet<Entity>,
     pub npcs: IndexSet<Entity>,
-    pub players: IndexSet<Entity>,
+    pub players: IndexSet<Entity>,*/
     pub zones: [u64; 5], //contains the NPC spawn Count of each Zone.
-    #[educe(Default = [GridTile::default(); MAP_MAX_X * MAP_MAX_Y])]
     pub move_grid: [GridTile; MAP_MAX_X * MAP_MAX_Y],
-    pub players_on_map: u64,
     pub spawnable_item: Vec<SpawnItemData>,
+    pub move_grids: IndexMap<MapPosition, [GridTile; MAP_MAX_X * MAP_MAX_Y]>,
+    pub senders: IndexMap<MapPosition, mpsc::Sender<MapIncomming>>,
+    pub broadcast_tx: broadcast::Sender<MapBroadCasts>,
+    pub broadcast_rx: broadcast::Receiver<MapBroadCasts>,
+    pub receiver: mpsc::Receiver<MapIncomming>,
 }
 
 impl MapData {
     pub fn get_surrounding(&self, include_corners: bool) -> Vec<MapPosition> {
         get_surrounding(self.position, include_corners)
-    }
-
-    #[inline(always)]
-    pub fn players_on_map(&self) -> bool {
-        self.players_on_map > 0
     }
 
     pub fn add_spawnable_item(&mut self, pos: Position, index: u32, amount: u16, timer_set: u64) {
@@ -210,7 +203,7 @@ impl MapData {
         self.move_grid[pos.as_tile()].attr = GridAttribute::Entity;
     }
 
-    pub async fn add_player(&mut self, storage: &GameStore, id: Entity) {
+    /*pub async fn add_player(&mut self, storage: &GameStore, id: Entity) {
         self.players.insert(id);
 
         for i in self.get_surrounding(true) {
@@ -264,7 +257,7 @@ impl MapData {
 
         //self.items.remove(id);
         self.itemids.swap_remove(&id);
-    }
+    }*/
 }
 
 pub fn check_surrounding(

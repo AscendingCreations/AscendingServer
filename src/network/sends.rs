@@ -1,8 +1,8 @@
 use crate::{
     containers::{GameStore, GameWorld},
     gametypes::*,
+    network::*,
     players::*,
-    socket::*,
     tasks::*,
 };
 use std::ops::Range;
@@ -100,7 +100,7 @@ pub async fn send_playerdata(
     buf.write(equipment)?;
     buf.write(world.get_or_err::<Hidden>(entity).await?.0)?;
     buf.write(world.get_or_err::<Level>(entity).await?.0)?;
-    buf.write(world.get_or_err::<DeathType>(entity).await?)?;
+    buf.write(world.get_or_err::<Death>(entity).await?)?;
     buf.write(world.get_or_err::<Physical>(entity).await?.damage)?;
     buf.write(world.get_or_err::<Physical>(entity).await?.defense)?;
     buf.write(world.get_or_err::<Position>(entity).await?)?;

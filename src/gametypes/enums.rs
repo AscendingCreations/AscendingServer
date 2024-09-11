@@ -1,7 +1,27 @@
-use crate::{containers::*, gametypes::*, maps::MapItem};
+use crate::gametypes::*;
 use mmap_bytey::{MByteBufferRead, MByteBufferWrite};
 use serde::{Deserialize, Serialize};
-use speedy::{Readable, Writable};
+
+#[derive(
+    PartialEq,
+    Eq,
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    Deserialize,
+    Serialize,
+    bytey::ByteBufferRead,
+    bytey::ByteBufferWrite,
+    MByteBufferRead,
+    MByteBufferWrite,
+)]
+pub enum TradeStatus {
+    #[default]
+    None,
+    Accepted,
+    Submitted,
+}
 
 #[derive(
     Copy,
@@ -55,8 +75,8 @@ pub enum ChatChannel {
     Serialize,
     Deserialize,
     Default,
-    Readable,
-    Writable,
+    speedy::Readable,
+    speedy::Writable,
     MByteBufferRead,
     MByteBufferWrite,
 )]
@@ -149,55 +169,58 @@ pub enum WorldEntityType {
     MByteBufferRead,
     MByteBufferWrite,
 )]
-pub enum EntityType {
+pub enum Target {
     #[default]
     None,
-    Player(Entity, i64), //ArrID, AccID used for comparison if still same player.
-    Npc(Entity),
-    MapItem(Entity),
+    Player(EntityKey, i64, MapPosition), //ArrID, AccID used for comparison if still same player.
+    Npc(EntityKey, MapPosition),
+    MapItem(EntityKey, MapPosition),
     Map(Position),
 }
 
-impl EntityType {
-    pub fn get_id(&self) -> Entity {
+impl Target {
+    pub fn get_id(&self) -> EntityKey {
         match self {
-            EntityType::Player(i, _) | EntityType::Npc(i) | EntityType::MapItem(i) => *i,
-            _ => Entity(hecs::Entity::DANGLING),
+            Target::Player(i, _, _) | Target::Npc(i, _) | Target::MapItem(i, _) => *i,
+            _ => EntityKey::default(),
         }
     }
 
-    pub async fn get_pos(&self, world: &GameWorld, _storage: &GameStore) -> Option<Position> {
+    pub async fn get_pos(&self) -> Option<Position> {
         match self {
-            EntityType::Map(position) => Some(*position),
-            EntityType::Player(i, _) => world.get_or_err::<Position>(i).await.ok(),
-            EntityType::Npc(i) => world.get_or_err::<Position>(i).await.ok(),
-            EntityType::MapItem(i) => world
-                .get_or_err::<MapItem>(i)
-                .await
-                .map(|mapitem| mapitem.pos)
-                .ok(),
-            EntityType::None => None,
+            Target::Map(position) => Some(*position),
+            _ => None,
+        }
+    }
+
+    pub async fn get_map_pos(&self) -> Option<MapPosition> {
+        match self {
+            Target::Map(position) => Some(position.map),
+            Target::Player(_, _, pos)
+            | Target::Npc(_, pos)
+            | Target::MapItem(_, pos) => Some(*pos),
+            _ => None,
         }
     }
 
     pub fn is_player(&self) -> bool {
-        matches!(self, EntityType::Player(_, _))
+        matches!(self, Target::Player(_, _, _))
     }
 
     pub fn is_map(&self) -> bool {
-        matches!(self, EntityType::Map(_))
+        matches!(self, Target::Map(_))
     }
 
     pub fn is_npc(&self) -> bool {
-        matches!(self, EntityType::Npc(_))
+        matches!(self, Target::Npc(_, _))
     }
 
     pub fn is_mapitem(&self) -> bool {
-        matches!(self, EntityType::MapItem(_))
+        matches!(self, Target::MapItem(_, _))
     }
 
     pub fn is_none(&self) -> bool {
-        matches!(self, EntityType::None)
+        matches!(self, Target::None)
     }
 }
 
@@ -210,8 +233,8 @@ impl EntityType {
     Serialize,
     Deserialize,
     Default,
-    Readable,
-    Writable,
+    speedy::Readable,
+    speedy::Writable,
     MByteBufferRead,
     MByteBufferWrite,
 )]
@@ -276,8 +299,8 @@ pub enum VitalTypes {
     PartialEq,
     Eq,
     Default,
-    Readable,
-    Writable,
+    speedy::Readable,
+    speedy::Writable,
     MByteBufferRead,
     MByteBufferWrite,
 )]
@@ -401,7 +424,7 @@ pub enum IsUsingType {
     Bank,
     Fishing(i64),
     Crafting(i64),
-    Trading(Entity),
+    Trading(Target),
     Store(i64),
     Other(i64),
 }
@@ -454,7 +477,7 @@ impl IsUsingType {
     MByteBufferRead,
     MByteBufferWrite,
 )]
-pub enum DeathType {
+pub enum Death {
     #[default]
     Alive,
     Spirit,
@@ -462,21 +485,21 @@ pub enum DeathType {
     Spawning,
 }
 
-impl DeathType {
+impl Death {
     pub fn is_dead(self) -> bool {
-        !matches!(self, DeathType::Alive)
+        !matches!(self, Death::Alive)
     }
 
     pub fn is_spirit(self) -> bool {
-        matches!(self, DeathType::Spirit)
+        matches!(self, Death::Spirit)
     }
 
     pub fn is_alive(self) -> bool {
-        matches!(self, DeathType::Alive)
+        matches!(self, Death::Alive)
     }
 
     pub fn is_spawning(self) -> bool {
-        matches!(self, DeathType::Spawning)
+        matches!(self, Death::Spawning)
     }
 }
 

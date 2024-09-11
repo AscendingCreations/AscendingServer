@@ -12,40 +12,6 @@ pub struct PlayerWithPassword {
     pub password: String,
 }
 
-pub type PlayerQueryMut<'a> = (
-    &'a mut Account,
-    &'a mut Socket,
-    &'a mut Sprite,
-    &'a mut Spawn,
-    &'a mut PlayerItemTimer,
-    &'a mut Money,
-    &'a mut EntityData,
-    &'a mut UserAccess,
-    &'a mut Position,
-    &'a mut Vitals,
-    &'a mut DeathTimer,
-    &'a mut DeathType,
-    &'a mut Level,
-    &'a mut Player,
-);
-
-pub type PlayerQuery<'a> = (
-    &'a Account,
-    &'a Socket,
-    &'a Sprite,
-    &'a Spawn,
-    &'a PlayerItemTimer,
-    &'a Money,
-    &'a EntityData,
-    &'a UserAccess,
-    &'a Position,
-    &'a Vitals,
-    &'a DeathTimer,
-    &'a DeathType,
-    &'a Level,
-    &'a Player,
-);
-
 #[derive(Debug, PartialEq, Eq, FromRow)]
 pub struct PGPlayerWithID {
     pub uid: i64,
@@ -110,8 +76,8 @@ impl PGPlayerWithID {
                 .unwrap_or([0; VITALS_MAX]);
             death_timer.0 = self.deathtimer;
             *death_type = match self.indeath {
-                true => DeathType::Spirit,
-                false => DeathType::Alive,
+                true => Death::Spirit,
+                false => Death::Alive,
             };
             level.0 = self.level;
             player.levelexp = self.levelexp.shift_signed();

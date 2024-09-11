@@ -1,201 +1,90 @@
 use crate::{containers::*, gametypes::*, items::*, network::*, sql::*, tasks::*, time_ext::*};
 use educe::Educe;
 use hecs::Bundle;
-use mmap_bytey::{MByteBufferRead, MByteBufferWrite};
-use serde::{Deserialize, Serialize};
-use std::sync::Arc;
-use tokio::sync::RwLock;
 
-#[derive(Clone, Debug, Bundle)]
-pub struct Socket {
-    // IP address
-    pub addr: Arc<String>,
-    // Socket ID
-    pub id: usize,
-    // Packet Buffer
-    pub buffer: Arc<RwLock<ByteBuffer>>,
-}
-
-impl Socket {
-    #[inline(always)]
-    pub fn new(id: usize, addr: String) -> Result<Self> {
-        Ok(Self {
-            id,
-            addr: Arc::new(addr),
-            buffer: Arc::new(RwLock::new(ByteBuffer::with_capacity(8192)?)),
-        })
-    }
-}
-
-#[derive(Clone, Debug, Default)]
-pub struct Account {
-    pub username: String,
-    pub email: String,
-    pub passresetcode: Option<String>,
-    pub id: i64,
-}
-
-#[derive(Copy, Clone, Debug, Educe)]
+#[derive(Clone, Debug, Educe)]
 #[educe(Default)]
-pub struct PlayerItemTimer {
-    #[educe(Default = MyInstant::now())]
-    pub itemtimer: MyInstant,
-}
-
-#[derive(Copy, Clone, Debug, Educe)]
-#[educe(Default)]
-pub struct PlayerMapTimer {
-    #[educe(Default = MyInstant::now())]
-    pub mapitemtimer: MyInstant,
-}
-
-#[derive(
-    PartialEq,
-    Eq,
-    Clone,
-    Debug,
-    Educe,
-    Deserialize,
-    Serialize,
-    ByteBufferRead,
-    ByteBufferWrite,
-    MByteBufferRead,
-    MByteBufferWrite,
-)]
-#[educe(Default)]
-pub struct Inventory {
-    #[educe(Default = (0..MAX_INV).map(|_| Item::default()).collect())]
-    pub items: Vec<Item>,
-}
-
-#[derive(
-    PartialEq,
-    Eq,
-    Clone,
-    Debug,
-    Educe,
-    Deserialize,
-    Serialize,
-    ByteBufferRead,
-    ByteBufferWrite,
-    MByteBufferRead,
-    MByteBufferWrite,
-)]
-#[educe(Default)]
-pub struct TradeItem {
+pub struct Trade {
     #[educe(Default = (0..MAX_TRADE_SLOT).map(|_| Item::default()).collect())]
     pub items: Vec<Item>,
-}
-
-#[derive(Copy, Clone, Debug, Default)]
-pub struct TradeMoney {
+    pub status: TradeStatus,
     pub vals: u64,
 }
 
-#[derive(
-    PartialEq,
-    Eq,
-    Copy,
-    Clone,
-    Debug,
-    Default,
-    Deserialize,
-    Serialize,
-    ByteBufferRead,
-    ByteBufferWrite,
-    MByteBufferRead,
-    MByteBufferWrite,
-)]
-pub enum TradeStatus {
-    #[default]
-    None,
-    Accepted,
-    Submitted,
-}
-
 #[derive(Copy, Clone, Debug, Educe)]
 #[educe(Default)]
-pub struct TradeRequestEntity {
-    #[educe(Default = None)]
-    pub entity: Option<crate::Entity>,
+pub struct TradeRequest {
+    #[educe(Default = Target::None)]
+    pub entity: crate::Target,
     #[educe(Default = MyInstant::now())]
     pub requesttimer: MyInstant,
 }
 
-#[derive(
-    PartialEq,
-    Eq,
-    Clone,
-    Debug,
-    Educe,
-    Deserialize,
-    Serialize,
-    ByteBufferRead,
-    ByteBufferWrite,
-    MByteBufferRead,
-    MByteBufferWrite,
-)]
+#[derive(Clone, Debug, Educe)]
 #[educe(Default)]
-pub struct PlayerStorage {
-    #[educe(Default = (0..MAX_STORAGE).map(|_| Item::default()).collect())]
-    pub items: Vec<Item>,
-}
-
-#[derive(
-    PartialEq,
-    Eq,
-    Clone,
-    Debug,
-    Educe,
-    Deserialize,
-    Serialize,
-    ByteBufferRead,
-    ByteBufferWrite,
-    MByteBufferRead,
-    MByteBufferWrite,
-)]
-#[educe(Default)]
-pub struct Equipment {
-    #[educe(Default = (0..MAX_EQPT).map(|_| Item::default()).collect())]
-    pub items: Vec<Item>,
-}
-
-#[derive(Copy, Clone, Debug, Default)]
-pub struct Sprite {
-    pub id: u16,
-}
-
-#[derive(Copy, Clone, Debug, Default)]
-pub struct Money {
-    pub vals: u64,
-}
-
-#[derive(Clone, Debug, Default)]
-pub struct ReloginCode {
-    pub code: String,
-}
-
-#[derive(Clone, Debug, Default)]
-pub struct LoginHandShake {
-    pub handshake: String,
-}
-
-#[derive(Copy, Clone, Debug, Default)]
 pub struct Player {
+    pub uid: i64,
+    pub key: EntityKey,
+    pub username: String,
+    pub email: String,
+    pub vals: u64,
     pub levelexp: u64,
     pub useditemid: u32,
     pub resetcount: i16,
     pub pvpon: bool,
     pub pk: bool,
     pub movesavecount: u16,
-}
-
-pub async fn is_player_online(world: &GameWorld, entity: &crate::Entity) -> Result<bool> {
-    let lock = world.read().await;
-    let online = *lock.get::<&WorldEntityType>(entity.0)? == WorldEntityType::Player
-        && *lock.get::<&OnlineType>(entity.0)? == OnlineType::Online;
-
-    Ok(online)
+    pub sprite: u16,
+    #[educe(Default = (0..MAX_EQPT).map(|_| Item::default()).collect())]
+    pub equipment: Vec<Item>,
+    #[educe(Default = (0..MAX_STORAGE).map(|_| Item::default()).collect())]
+    pub storage: Vec<Item>,
+    #[educe(Default = (0..MAX_INV).map(|_| Item::default()).collect())]
+    pub inventory: Vec<Item>,
+    #[educe(Default = MyInstant::now())]
+    pub mapitemtimer: MyInstant,
+    #[educe(Default = MyInstant::now())]
+    pub itemtimer: MyInstant,
+    #[educe(Default = Position::new(10, 10, MapPosition::new(0,0,0)))]
+    pub spawn_pos: Position,
+    #[educe(Default  = MyInstant::now())]
+    pub just_spawned: MyInstant,
+    pub target: Targeting,
+    pub kill_count: u32,
+    #[educe(Default = MyInstant::now())]
+    pub kill_count_timer: MyInstant,
+    #[educe(Default = [25, 2, 100])]
+    pub vital: [i32; VITALS_MAX],
+    #[educe(Default = [25, 2, 100])]
+    pub vitalmax: [i32; VITALS_MAX],
+    #[educe(Default = [0; VITALS_MAX])]
+    pub vitalbuffs: [i32; VITALS_MAX],
+    #[educe(Default = [0; VITALS_MAX])]
+    pub regens: [u32; VITALS_MAX],
+    pub dir: u8,
+    #[educe(Default = MyInstant::now())]
+    pub despawn_timer: MyInstant,
+    #[educe(Default = MyInstant::now())]
+    pub attack_timer: MyInstant,
+    #[educe(Default = MyInstant::now())]
+    pub death_timer: MyInstant,
+    #[educe(Default = MyInstant::now())]
+    pub move_timer: MyInstant,
+    #[educe(Default = MyInstant::now())]
+    pub combat_timer: MyInstant,
+    pub damage: u32,
+    pub defense: u32,
+    pub data: [i64; 10],
+    pub hidden: bool,
+    pub stunned: bool,
+    pub attacking: bool,
+    pub in_combat: bool,
+    #[educe(Default = 1)]
+    pub level: i32,
+    pub position: Position,
+    pub access: UserAccess,
+    pub death: Death,
+    pub is_using: IsUsingType,
 }
 
 #[inline(always)]

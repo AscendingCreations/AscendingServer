@@ -2,62 +2,72 @@ use crate::{containers::*, gametypes::*, tasks::*, time_ext::MyInstant};
 use educe::Educe;
 use std::collections::VecDeque;
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Default)]
-pub struct NpcIndex(pub u64);
-
-#[derive(Educe, Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Educe)]
 #[educe(Default)]
-pub struct NpcTimer {
+pub struct Npc {
+    pub index: u64,
+    pub key: EntityKey,
     #[educe(Default = MyInstant::now())]
-    pub despawntimer: MyInstant,
+    pub spawn_timer: MyInstant,
     #[educe(Default = MyInstant::now())]
-    pub spawntimer: MyInstant,
-}
-
-#[derive(Educe, Debug, Copy, Clone, PartialEq, Eq)]
-#[educe(Default)]
-pub struct NpcAITimer(#[educe(Default = MyInstant::now())] pub MyInstant); //for rebuilding the a* paths
-
-#[derive(Educe, Debug, Copy, Clone, PartialEq, Eq)]
-#[educe(Default)]
-pub struct NpcPathTimer {
+    pub ai_timer: MyInstant,
     #[educe(Default = MyInstant::now())]
-    pub timer: MyInstant,
-    pub tries: usize,
+    pub path_timer: MyInstant,
+    pub path_tries: usize,
     //when failing to move due to blocks in movement.
-    pub fails: usize,
-} //for rebuilding the a* paths
-
-#[derive(Educe, Debug, Copy, Clone, PartialEq, Eq)]
-#[educe(Default)]
-pub struct NpcDespawns(#[educe(Default = false)] pub bool);
-
-#[derive(Educe, Debug, Copy, Clone, PartialEq, Eq)]
-#[educe(Default)]
-pub struct NpcMoving(#[educe(Default = false)] pub bool);
-
-#[derive(Educe, Debug, Copy, Clone, PartialEq, Eq)]
-#[educe(Default)]
-pub struct NpcRetreating(#[educe(Default = false)] pub bool);
-
-#[derive(Educe, Debug, Copy, Clone, PartialEq, Eq)]
-#[educe(Default)]
-pub struct NpcWalkToSpawn(#[educe(Default = false)] pub bool);
-
-#[derive(Educe, Debug, Clone, PartialEq, Eq)]
-#[educe(Default)]
-//offset for special things so the npc wont to events based on this spawn time.
-pub struct NpcHitBy(#[educe(Default = Vec::new())] pub Vec<(u32, u64, u64)>);
-
-#[derive(Educe, Debug, Clone, PartialEq, Eq)]
-#[educe(Default)]
-pub struct NpcMoves(#[educe(Default = VecDeque::new())] pub VecDeque<(Position, u8)>);
-
-#[derive(Default, Debug, Copy, Clone, PartialEq, Eq)]
-pub struct NpcSpawnedZone(pub Option<usize>);
-
-#[derive(Default, Debug, Copy, Clone, PartialEq, Eq)]
-pub struct NpcMovePos(pub Option<Position>);
+    pub path_fails: usize,
+    #[educe(Default = false)]
+    pub despawn: bool,
+    #[educe(Default = false)]
+    pub moving: bool,
+    #[educe(Default = false)]
+    pub retreating: bool,
+    #[educe(Default = VecDeque::new())]
+    pub npc_moves: VecDeque<(Position, u8)>,
+    pub spawn_zone: Option<usize>,
+    pub spawn_map: MapPosition,
+    pub move_pos_overide: Option<Position>,
+    #[educe(Default = Position::new(10, 10, MapPosition::new(0,0,0)))]
+    pub spawn_pos: Position,
+    #[educe(Default  = MyInstant::now())]
+    pub just_spawned: MyInstant,
+    pub target: Targeting,
+    pub kill_count: u32,
+    #[educe(Default = MyInstant::now())]
+    pub kill_count_timer: MyInstant,
+    #[educe(Default = [25, 2, 100])]
+    pub vital: [i32; VITALS_MAX],
+    #[educe(Default = [25, 2, 100])]
+    pub vitalmax: [i32; VITALS_MAX],
+    #[educe(Default = [0; VITALS_MAX])]
+    pub vitalbuffs: [i32; VITALS_MAX],
+    #[educe(Default = [0; VITALS_MAX])]
+    pub regens: [u32; VITALS_MAX],
+    pub dir: u8,
+    #[educe(Default = MyInstant::now())]
+    pub despawn_timer: MyInstant,
+    #[educe(Default = MyInstant::now())]
+    pub attack_timer: MyInstant,
+    #[educe(Default = MyInstant::now())]
+    pub death_timer: MyInstant,
+    #[educe(Default = MyInstant::now())]
+    pub move_timer: MyInstant,
+    #[educe(Default = MyInstant::now())]
+    pub combat_timer: MyInstant,
+    pub damage: u32,
+    pub defense: u32,
+    pub data: [i64; 10],
+    pub hidden: bool,
+    pub stunned: bool,
+    pub attacking: bool,
+    pub in_combat: bool,
+    #[educe(Default = 1)]
+    pub level: i32,
+    pub position: Position,
+    pub access: UserAccess,
+    pub death_type: Death,
+    pub is_using: IsUsingType,
+}
 
 #[inline(always)]
 pub fn is_npc_same(from_entity: &crate::Entity, to_entity: &crate::Entity) -> bool {

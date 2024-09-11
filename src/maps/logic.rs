@@ -116,10 +116,7 @@ pub async fn update_maps(world: &GameWorld, storage: &GameStore) -> Result<()> {
                         let map_item = create_mapitem(data.index, data.amount, data.pos);
                         let mut lock = world.write().await;
                         let id = lock.spawn((WorldEntityType::MapItem, map_item));
-                        lock.insert(
-                            id,
-                            (EntityType::MapItem(Entity(id)), DespawnTimer::default()),
-                        )?;
+                        lock.insert(id, (Target::MapItem(Entity(id)), DespawnTimer::default()))?;
                         storage_mapitem.insert(data.pos, Entity(id));
                         DataTaskToken::ItemLoad(data.pos.map)
                             .add_task(
@@ -174,7 +171,7 @@ pub async fn spawn_npc(
     *lock.get::<&mut Position>(entity.0)? = pos;
     lock.get::<&mut Spawn>(entity.0)?.pos = pos;
     lock.get::<&mut NpcSpawnedZone>(entity.0)?.0 = zone;
-    *lock.get::<&mut DeathType>(entity.0)? = DeathType::Spawning;
+    *lock.get::<&mut Death>(entity.0)? = Death::Spawning;
 
     Ok(())
 }
@@ -182,7 +179,7 @@ pub async fn spawn_npc(
 pub fn can_target(
     caster_pos: Position,
     target_pos: Position,
-    target_death: DeathType,
+    target_death: Death,
     range: i32,
 ) -> bool {
     let check = check_surrounding(caster_pos.map, target_pos.map, true);

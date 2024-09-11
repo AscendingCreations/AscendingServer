@@ -49,32 +49,32 @@ pub async fn npc_update_path(
     }
 
     let npc_moving = world.get_or_err::<NpcMoving>(entity).await?.0;
-    let target = world.get_or_err::<Target>(entity).await?;
+    let target = world.get_or_err::<Targeting>(entity).await?;
     let position = world.get_or_err::<Position>(entity).await?;
     let players_on_map = check_players_on_map(world, storage, &position.map).await;
     let mut new_target = target;
 
-    if target.target_type != EntityType::None {
+    if target.target_type != Target::None {
         new_target = update_target_pos(world, entity).await?;
     }
 
     if new_target.target_pos.map.group != position.map.group
-        || (new_target.target_type == EntityType::None && target.target_type != EntityType::None)
+        || (new_target.target_type == Target::None && target.target_type != Target::None)
     {
         {
             let lock = world.write().await;
             let mut path_tmr = lock.get::<&mut NpcPathTimer>(entity.0)?;
             path_tmr.tries = 0;
             path_tmr.fails = 0;
-            *lock.get::<&mut Target>(entity.0)? = Target::default();
+            *lock.get::<&mut Targeting>(entity.0)? = Targeting::default();
         }
 
-        new_target = Target::default();
+        new_target = Targeting::default();
         npc_clear_move_path(world, entity).await?;
     }
 
     //AI Timer is used to Reset the Moves every so offten to recalculate them for possible changes.
-    if new_target.target_type != EntityType::None
+    if new_target.target_type != Target::None
         && players_on_map
         && npc_moving
         && target.target_pos != new_target.target_pos
@@ -137,7 +137,7 @@ pub async fn npc_update_path(
                 + Duration::try_milliseconds(base.movement_wait + 750).unwrap_or_default();
             path_tmr.fails = 0;
         }
-    } else if new_target.target_type != EntityType::None && players_on_map {
+    } else if new_target.target_type != Target::None && players_on_map {
         if is_next_to_target(storage, position, new_target.target_pos, 1).await {
             let n_dir = get_target_direction(position, new_target.target_pos);
             if world.get_or_err::<Dir>(entity).await?.0 != n_dir {
@@ -185,7 +185,7 @@ pub async fn npc_update_path(
                     path_tmr.tries = 0;
                     path_tmr.fails = 0;
                 }
-                *lock.get::<&mut Target>(entity.0)? = Target::default();
+                *lock.get::<&mut Targeting>(entity.0)? = Targeting::default();
             }
 
             npc_clear_move_path(world, entity).await?;
@@ -248,7 +248,7 @@ pub async fn npc_movement(
 
         if map_path_blocked(storage, position, next.0, next.1, WorldEntityType::Npc).await {
             if world.get_or_err::<NpcMovePos>(entity).await?.0.is_some()
-                || world.get_or_err::<Target>(entity).await?.target_type != EntityType::None
+                || world.get_or_err::<Targeting>(entity).await?.target_type != Target::None
             {
                 if {
                     let lock = world.read().await;
@@ -287,10 +287,10 @@ pub async fn npc_movement(
                     return Ok(());
                 }
 
-                match world.get_or_err::<Target>(entity).await?.target_type {
-                    EntityType::Player(i, _) => {
+                match world.get_or_err::<Targeting>(entity).await?.target_type {
+                    Target::Player(i, _) => {
                         if world.contains(&i).await {
-                            if world.get_or_err::<DeathType>(&i).await?.is_alive()
+                            if world.get_or_err::<Death>(&i).await?.is_alive()
                                 && world.get_or_err::<Position>(&i).await? == next.0
                             {
                                 npc_clear_move_path(world, entity).await?;
@@ -303,9 +303,9 @@ pub async fn npc_movement(
                             npc_clear_move_path(world, entity).await?;
                         }
                     }
-                    EntityType::Npc(i) => {
+                    Target::Npc(i) => {
                         if world.contains(&i).await {
-                            if world.get_or_err::<DeathType>(&i).await?.is_alive()
+                            if world.get_or_err::<Death>(&i).await?.is_alive()
                                 && world.get_or_err::<Position>(&i).await? == next.0
                             {
                                 npc_clear_move_path(world, entity).await?;

@@ -13,7 +13,6 @@ pub async fn packet_mapper(
     id: ClientPacketID,
 ) -> Result<()> {
     match id {
-        ClientPacketID::Register => routes::handle_register(world, storage, data, entity).await,
         ClientPacketID::Login => routes::handle_login(world, storage, data, entity).await,
         ClientPacketID::Move => routes::handle_move(world, storage, data, entity).await,
         ClientPacketID::Dir => routes::handle_dir(world, storage, data, entity).await,

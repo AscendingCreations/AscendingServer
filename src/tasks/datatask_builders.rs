@@ -1,4 +1,4 @@
-use crate::{containers::GameWorld, gametypes::*, items::*, npcs::*, players::*, network::*};
+use crate::{containers::GameWorld, gametypes::*, items::*, network::*, npcs::*, players::*};
 use hecs::NoSuchEntity;
 
 pub fn move_packet(
@@ -33,7 +33,7 @@ pub fn dir_packet(entity: Entity, dir: u8) -> Result<MByteBuffer> {
     Ok(buffer)
 }
 
-pub fn death_packet(entity: Entity, life: DeathType) -> Result<MByteBuffer> {
+pub fn death_packet(entity: Entity, life: Death) -> Result<MByteBuffer> {
     let mut buffer = MByteBuffer::new()?;
     buffer.write(entity)?.write(life)?;
 
@@ -50,7 +50,7 @@ pub async fn npc_spawn_packet(
         &Dir,
         &Hidden,
         &Level,
-        &DeathType,
+        &Death,
         &Physical,
         &Position,
         &Sprite,
@@ -99,7 +99,7 @@ pub async fn player_spawn_packet(
         &Dir,
         &Hidden,
         &Level,
-        &DeathType,
+        &Death,
         &Physical,
         &Position,
         &Sprite,

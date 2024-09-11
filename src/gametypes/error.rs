@@ -1,5 +1,5 @@
 use crate::{gametypes::MapPosition, tasks::DataTaskToken};
-use std::backtrace::Backtrace;
+use std::{backtrace::Backtrace, sync::Arc};
 use thiserror::Error;
 
 pub type Result<T> = std::result::Result<T, AscendingError>;
@@ -151,6 +151,13 @@ pub enum AscendingError {
     TokioMPSCPlayerError {
         #[from]
         error: tokio::sync::mpsc::error::SendError<crate::network::ClientPacket>,
+        #[backtrace]
+        backtrace: Box<Backtrace>,
+    },
+    #[error("Error: {error}, BackTrace: {backtrace}")]
+    TokioBroadcastMapError {
+        #[from]
+        error: tokio::sync::broadcast::error::SendError<crate::maps::MapBroadCasts>,
         #[backtrace]
         backtrace: Box<Backtrace>,
     },

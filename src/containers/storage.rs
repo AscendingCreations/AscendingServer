@@ -2,9 +2,9 @@ use crate::{
     containers::{Bases, GameWorld, HashMap, IndexMap, IndexSet},
     gametypes::*,
     maps::*,
+    network::*,
     npcs::*,
     players::*,
-    network::*,
     sql::SqlRequests,
     tasks::{DataTaskToken, MapSwitchTasks},
     time_ext::MyInstant,
@@ -31,11 +31,12 @@ pub struct Storage {
     pub npc_ids: RwLock<IndexSet<Entity>>,
     pub player_usernames: RwLock<HashMap<String, Entity>>, //for player usernames to ID's
     pub player_emails: RwLock<HashMap<String, Entity>>,    //for player email to ID's
-    pub maps: IndexMap<MapPosition, RwLock<MapData>>,
+    pub maps: IndexMap<MapPosition, RwLock<MapActor>>,
     pub map_items: RwLock<IndexMap<Position, Entity>>,
     //This is for buffering the specific packets needing to send.
     #[allow(clippy::type_complexity)]
-    pub packet_cache: RwLock<IndexMap<DataTaskToken, VecDeque<(u32, MByteBuffer, bool)>>>,
+    //TODO Make this Per Map instead.
+    //pub packet_cache: RwLock<IndexMap<DataTaskToken, VecDeque<(u32, MByteBuffer, bool)>>>,
     //This keeps track of what Things need sending. So we can leave it loaded and only loop whats needed.
     pub packet_cache_ids: RwLock<IndexSet<DataTaskToken>>,
     pub poll: RwLock<mio::Poll>,
@@ -46,8 +47,6 @@ pub struct Storage {
     pub map_switch_tasks: RwLock<IndexMap<Entity, Vec<MapSwitchTasks>>>, //Data Tasks For dealing with Player Warp and MapSwitch
     pub bases: Bases,
     pub sql_request: Sender<SqlRequests>,
-    //pub rt: RefCell<Runtime>,
-    // pub local: RefCell<task::LocalSet>,
     pub config: Config,
 }
 
@@ -209,7 +208,7 @@ impl Storage {
                 group: map_data.position.group,
             };
 
-            let mut map = MapData {
+            let mut map = MapActor {
                 position,
                 ..Default::default()
             };
@@ -275,7 +274,7 @@ impl Storage {
         let socket = Socket::new(id, addr)?;
         let mut lock = world.write().await;
         let identity = lock.spawn((WorldEntityType::Player, socket, OnlineType::Accepted));
-        lock.insert_one(identity, EntityType::Player(Entity(identity), 0))?;
+        lock.insert_one(identity, Target::Player(Entity(identity), 0))?;
 
         Ok(Entity(identity))
     }
@@ -302,7 +301,7 @@ impl Storage {
                     Money::default(),
                     Player::default(),
                     Spawn::default(),
-                    Target::default(),
+                    Targeting::default(),
                     KillCount::default(),
                     Vitals::default(),
                     Dir::default(),
@@ -325,7 +324,7 @@ impl Storage {
                     EntityData::default(),
                     UserAccess::default(),
                     Position::default(),
-                    DeathType::default(),
+                    Death::default(),
                     IsUsingType::default(),
                     PlayerTarget::default(),
                 ),
@@ -409,9 +408,9 @@ impl Storage {
                     Level::default(),
                     Vitals::default(),
                     Physical::default(),
-                    DeathType::default(),
+                    Death::default(),
                     NpcMovePos::default(),
-                    Target::default(),
+                    Targeting::default(),
                     InCombat::default(),
                     AttackTimer::default(),
                     NpcPathTimer::default(),
@@ -423,7 +422,7 @@ impl Storage {
                     identity,
                     (
                         NpcHitBy::default(),
-                        Target::default(),
+                        Targeting::default(),
                         AttackTimer::default(),
                         DeathTimer::default(),
                         Combat::default(),
@@ -433,7 +432,7 @@ impl Storage {
                     ),
                 )?;
             }
-            lock.insert_one(identity, EntityType::Npc(Entity(identity)))?;
+            lock.insert_one(identity, Target::Npc(Entity(identity)))?;
 
             self.npc_ids.write().await.insert(Entity(identity));
 
