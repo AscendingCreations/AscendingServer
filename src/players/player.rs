@@ -86,7 +86,7 @@ pub struct Player {
     pub death: Death,
     pub is_using: IsUsingType,
 }
-
+/*
 #[inline(always)]
 pub async fn player_switch_maps(
     world: &GameWorld,
@@ -457,3 +457,4 @@ pub async fn send_login_info(
     send_myindex(storage, socket_id, entity).await?;
     send_codes(world, storage, entity, code, handshake).await
 }
+*/

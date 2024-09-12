@@ -68,7 +68,7 @@ pub struct Npc {
     pub death_type: Death,
     pub is_using: IsUsingType,
 }
-
+/*
 #[inline(always)]
 pub fn is_npc_same(from_entity: &crate::Entity, to_entity: &crate::Entity) -> bool {
     from_entity == to_entity
@@ -209,4 +209,4 @@ pub async fn npc_sethp(world: &GameWorld, entity: &crate::Entity, hp: i32) -> Re
     let lock = world.write().await;
     lock.get::<&mut Vitals>(entity.0)?.vital[VitalTypes::Hp as usize] = hp;
     Ok(())
-}
+}*/

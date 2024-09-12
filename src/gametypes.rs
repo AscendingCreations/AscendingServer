@@ -11,7 +11,7 @@ mod target;
 pub use entity::EntityKey;
 pub use enums::*;
 pub use error::{AscendingError, Result};
-pub use game_time::GameTime;
+pub use game_time::{GameTime, GameTimeActor};
 pub use map_position::*;
 pub use position::*;
 pub use rgb::Rgba;

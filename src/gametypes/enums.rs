@@ -196,9 +196,7 @@ impl Target {
     pub async fn get_map_pos(&self) -> Option<MapPosition> {
         match self {
             Target::Map(position) => Some(position.map),
-            Target::Player(_, _, pos)
-            | Target::Npc(_, pos)
-            | Target::MapItem(_, pos) => Some(*pos),
+            Target::Player(_, _, pos) | Target::Npc(_, pos) | Target::MapItem(_, pos) => Some(*pos),
             _ => None,
         }
     }
@@ -292,6 +290,7 @@ pub enum VitalTypes {
 }
 
 #[derive(
+    Debug,
     Copy,
     Clone,
     Serialize,

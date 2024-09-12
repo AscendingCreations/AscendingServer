@@ -6,7 +6,9 @@
 mod containers;
 mod gameloop;
 mod gametypes;
+mod ipc;
 mod items;
+mod logins;
 mod maps;
 mod network;
 mod npcs;
@@ -20,11 +22,10 @@ use backtrace::Backtrace;
 use containers::Storage;
 use gameloop::*;
 use gametypes::*;
-use hecs::World;
 use log::{error, info, Level, Metadata, Record};
-use sql::process_sql_requests;
+use logins::{LoginActor, LoginIncomming};
 use std::{env, fs::File, io::Write, panic, sync::Arc};
-use tokio::sync::RwLock;
+use tokio::sync::mpsc;
 
 use crate::containers::read_config;
 
@@ -75,8 +76,20 @@ impl log::Log for MyLogger {
 #[tokio::main]
 async fn main() {
     let config = read_config("settings.toml");
-
-    console_subscriber::init();
+    //we do this to ensure all ports are different.
+    assert_ne!(
+        config.listen_port, config.login_server_port,
+        "Listen Port and Login server port can not be the same."
+    );
+    assert_ne!(
+        config.listen_port, config.login_server_secure_port,
+        "Listen Port and Login server secure ports can not be the same."
+    );
+    assert_ne!(
+        config.login_server_port, config.login_server_secure_port,
+        "Login server port and Login server secure ports can not be the same."
+    );
+    //console_subscriber::init();
 
     log::set_logger(&MY_LOGGER).unwrap();
     // Set the Max level we accept logging to the file for.
@@ -101,18 +114,26 @@ async fn main() {
     }));
 
     info!("Starting up");
-    info!("Initializing Storage");
-    let (storage, sql_rx) = Storage::new(config).await.unwrap();
-    let storage = Arc::new(storage);
+    info!("Initializing Storage Data");
+    let mut storage = Storage::new(config).await.unwrap();
+
+    info!("Initializing Game Time Actor");
 
     info!("Initializing World");
-    let world = Arc::new(RwLock::new(World::new()));
+    // storage.generate_world_actors().await.unwrap();
 
-    info!("Initializing sql threads");
-    let cloned_world = world.clone();
-    let cloned_storage = storage.clone();
+    info!("Initializing Login Channels");
+    let (login_tx, login_rx): (mpsc::Sender<LoginIncomming>, mpsc::Receiver<LoginIncomming>) =
+        mpsc::channel(1000);
 
-    tokio::spawn(process_sql_requests(cloned_world, cloned_storage, sql_rx));
+    info!("Initializing Login Actor");
+    let mut login_actor = logins::LoginActor::new(&storage, login_rx);
+    tokio::spawn(login_actor.runner());
+
+    info!("Initializing Server Listener Actor");
+    let mut listening_actor = network::ServerListenActor::new(&storage, login_tx)
+        .await
+        .unwrap();
+
     info!("Game Server is Running.");
-    game_loop(&world, &storage).await;
 }

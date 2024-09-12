@@ -16,7 +16,7 @@ bit_op = "0.1.1"
 rand = "0.8.5"
 bytey = { version = "0.3.0", git = "https://github.com/Stefanowhb/bytey.git" }
 mmap_bytey = "0.2.0"
-indexmap = "2.4.0"
+indexmap = "2.5.0"
 argon2 = "0.5.3"
 password-hash = { version = "0.5.0", features = ["rand_core"] }
 hecs = { version = "0.10.5", features = [
@@ -62,6 +62,7 @@ futures = "0.3.30"
 tracing = "0.1.40"
 console-subscriber = "0.4.0"
 slotmap = { version = "1.0", features = ["serde"] }
+interprocess = { version =  "2.2.1", features = ["tokio"] }
 
 [profile.dev]
 opt-level = 0

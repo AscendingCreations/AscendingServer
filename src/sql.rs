@@ -1,4 +1,4 @@
-mod equipmentstruct;
+/*mod equipmentstruct;
 mod integers;
 mod invstruct;
 mod logstruct;
@@ -21,4 +21,4 @@ pub use schema::*;
 pub use schema_enums::*;
 #[allow(unused_imports)]
 pub use schema_structs::*;
-pub use storagestruct::PGStorageItem;
+pub use storagestruct::PGStorageItem;*/

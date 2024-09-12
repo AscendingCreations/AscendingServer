@@ -1,19 +1,12 @@
 use crate::{
+    containers::Storage,
     gametypes::Result,
+    logins::LoginIncomming,
     network::{Socket, SocketActor},
 };
 use log::trace;
-use std::{io, sync::Arc};
+use std::{io, net::SocketAddr, str::FromStr, sync::Arc};
 use tokio::{net::TcpListener, sync::mpsc};
-
-pub enum LoginIncomming {
-    GetSocket(Socket),
-}
-
-pub struct LoginActor {
-    pub login_rx: mpsc::Receiver<LoginIncomming>,
-    pub clients: Vec<Socket>,
-}
 
 pub struct ServerListenActor {
     pub listener: TcpListener,
@@ -23,15 +16,19 @@ pub struct ServerListenActor {
 impl ServerListenActor {
     #[inline]
     pub async fn new(
-        addr: &str,
+        storage: &Storage,
         login_tx: mpsc::Sender<LoginIncomming>,
     ) -> Result<ServerListenActor> {
+        let addr = SocketAddr::new(
+            std::net::IpAddr::from_str(&storage.config.listen_ip).unwrap(),
+            storage.config.listen_port,
+        );
         let listener = TcpListener::bind(addr).await?;
 
         Ok(ServerListenActor { listener, login_tx })
     }
 
-    pub async fn accept(&mut self) -> Result<()> {
+    pub async fn runner(&mut self) -> Result<()> {
         /* Wait for a new connection to accept and try to grab a token from the bag. */
         loop {
             let (stream, addr) = match self.listener.accept().await {

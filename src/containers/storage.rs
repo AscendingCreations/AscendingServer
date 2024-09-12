@@ -1,63 +1,42 @@
 use crate::{
-    containers::{Bases, GameWorld, HashMap, IndexMap, IndexSet},
+    containers::{Bases, IndexMap},
     gametypes::*,
     maps::*,
-    network::*,
-    npcs::*,
-    players::*,
-    sql::SqlRequests,
-    tasks::{DataTaskToken, MapSwitchTasks},
     time_ext::MyInstant,
 };
-use chrono::Duration;
 use log::LevelFilter;
-use mio::Poll;
-use rustls::{
-    crypto::{ring as provider, CryptoProvider},
-    pki_types::{CertificateDer, PrivateKeyDer},
-    ServerConfig,
-};
 use serde::{Deserialize, Serialize};
 use sqlx::{
     postgres::{PgConnectOptions, PgPoolOptions},
     ConnectOptions, PgPool,
 };
-use std::{collections::VecDeque, fs, io::BufReader, sync::Arc};
-use tokio::sync::{mpsc::*, RwLock};
+use std::{
+    fs,
+    sync::{atomic::AtomicU64, Arc},
+};
+use tokio::sync::{broadcast, mpsc};
 
+#[derive(Debug)]
 pub struct Storage {
-    pub player_ids: RwLock<IndexSet<Entity>>,
-    pub recv_ids: RwLock<IndexSet<Entity>>,
-    pub npc_ids: RwLock<IndexSet<Entity>>,
-    pub player_usernames: RwLock<HashMap<String, Entity>>, //for player usernames to ID's
-    pub player_emails: RwLock<HashMap<String, Entity>>,    //for player email to ID's
-    pub maps: IndexMap<MapPosition, RwLock<MapActor>>,
-    pub map_items: RwLock<IndexMap<Position, Entity>>,
-    //This is for buffering the specific packets needing to send.
     #[allow(clippy::type_complexity)]
-    //TODO Make this Per Map instead.
-    //pub packet_cache: RwLock<IndexMap<DataTaskToken, VecDeque<(u32, MByteBuffer, bool)>>>,
-    //This keeps track of what Things need sending. So we can leave it loaded and only loop whats needed.
-    pub packet_cache_ids: RwLock<IndexSet<DataTaskToken>>,
-    pub poll: RwLock<mio::Poll>,
-    pub server: RwLock<Server>,
-    pub gettick: RwLock<MyInstant>,
+    pub npc_count: Arc<AtomicU64>,
+    pub player_count: Arc<AtomicU64>,
+    pub map_senders: IndexMap<MapPosition, mpsc::Sender<MapIncomming>>,
+    pub map_broadcast_tx: broadcast::Sender<MapBroadCasts>,
+    pub map_broadcast_rx: broadcast::Receiver<MapBroadCasts>,
     pub pgconn: PgPool,
-    pub time: RwLock<GameTime>,
-    pub map_switch_tasks: RwLock<IndexMap<Entity, Vec<MapSwitchTasks>>>, //Data Tasks For dealing with Player Warp and MapSwitch
-    pub bases: Bases,
-    pub sql_request: Sender<SqlRequests>,
-    pub config: Config,
+    pub bases: Arc<Bases>,
+    pub config: Arc<Config>,
 }
 
 async fn establish_connection(config: &Config) -> Result<PgPool> {
     let mut connect_opts = PgConnectOptions::new();
     connect_opts = connect_opts.log_statements(log::LevelFilter::Debug);
-    connect_opts = connect_opts.database(&config.database);
-    connect_opts = connect_opts.username(&config.username);
-    connect_opts = connect_opts.password(&config.password);
-    connect_opts = connect_opts.host(&config.host);
-    connect_opts = connect_opts.port(config.port);
+    connect_opts = connect_opts.database(&config.sql_database);
+    connect_opts = connect_opts.username(&config.sql_username);
+    connect_opts = connect_opts.password(&config.sql_password);
+    connect_opts = connect_opts.host(&config.sql_host);
+    connect_opts = connect_opts.port(config.sql_port);
 
     Ok(PgPoolOptions::new()
         .max_connections(5)
@@ -94,20 +73,25 @@ impl ServerLevelFilter {
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct Config {
-    pub listen: String,
-    pub server_cert: String,
-    pub server_key: String,
-    pub ca_root: String,
-    pub maxconnections: usize,
-    pub database: String,
-    pub username: String,
-    pub password: String,
-    pub host: String,
-    pub port: u16,
+    pub login_server_ip: String,
+    pub login_server_port: u16,
+    pub login_server_secure_port: u16,
+    pub listen_ip: String,
+    pub listen_port: u16,
+    pub sql_database: String,
+    pub sql_username: String,
+    pub sql_password: String,
+    pub sql_host: String,
+    pub sql_port: u16,
     pub enable_backtrace: bool,
     pub level_filter: ServerLevelFilter,
+    pub max_npcs: u64,
+    pub max_players: u64,
+    pub map_buffer_size: usize,
+    pub map_broadcast_buffer_size: usize,
+    pub ipc_name: String,
 }
 
 pub fn read_config(path: &str) -> Config {
@@ -115,346 +99,121 @@ pub fn read_config(path: &str) -> Config {
     toml::from_str(&data).unwrap()
 }
 
-fn load_certs(filename: &str) -> Vec<CertificateDer<'static>> {
-    let certfile = fs::File::open(filename).expect("cannot open certificate file");
-    let mut reader = BufReader::new(certfile);
-    rustls_pemfile::certs(&mut reader)
-        .map(|result| result.unwrap())
-        .collect()
-}
-
-fn load_private_key(filename: &str) -> PrivateKeyDer<'static> {
-    let keyfile = fs::File::open(filename).expect("cannot open private key file");
-    let mut reader = BufReader::new(keyfile);
-
-    loop {
-        match rustls_pemfile::read_one(&mut reader).expect("cannot parse private key .pem file") {
-            Some(rustls_pemfile::Item::Pkcs1Key(key)) => return key.into(),
-            Some(rustls_pemfile::Item::Pkcs8Key(key)) => return key.into(),
-            Some(rustls_pemfile::Item::Sec1Key(key)) => return key.into(),
-            None => break,
-            _ => {}
-        }
-    }
-
-    panic!(
-        "no keys found in {:?} (encrypted keys not supported)",
-        filename
-    );
-}
-
-fn build_tls_config(
-    server_certs_path: &str,
-    server_key_path: &str,
-    _ca_root_path: &str,
-) -> Result<Arc<rustls::ServerConfig>> {
-    let certs = load_certs(server_certs_path);
-    let private_key = load_private_key(server_key_path);
-
-    let config = ServerConfig::builder_with_provider(
-        CryptoProvider {
-            cipher_suites: provider::ALL_CIPHER_SUITES.to_vec(),
-            ..provider::default_provider()
-        }
-        .into(),
-    )
-    .with_protocol_versions(rustls::ALL_VERSIONS)
-    .unwrap()
-    .with_no_client_auth()
-    .with_single_cert(certs, private_key)?;
-
-    Ok(Arc::new(config))
-}
-
 impl Storage {
-    pub async fn new(config: Config) -> Option<(Self, Receiver<SqlRequests>)> {
-        let mut poll = Poll::new().ok()?;
-        let server = Server::new(&mut poll, &config.listen, config.maxconnections).ok()?;
-
-        //let mut rt: Runtime = Runtime::new().unwrap();
-        //let local = task::LocalSet::new();
+    pub async fn new(config: Config) -> Option<Self> {
         let pgconn = establish_connection(&config).await.unwrap();
-        crate::sql::initiate(&pgconn).await.unwrap();
-        let (tx, rx) = channel(1000);
+        let mut bases = Bases::new()?;
+        let (map_broadcast_tx, map_broadcast_rx) =
+            broadcast::channel(config.map_broadcast_buffer_size);
 
-        let mut storage = Self {
-            player_ids: RwLock::new(IndexSet::default()),
-            recv_ids: RwLock::new(IndexSet::default()),
-            npc_ids: RwLock::new(IndexSet::default()),
-            player_usernames: RwLock::new(HashMap::default()), //for player names to ID's
-            player_emails: RwLock::new(HashMap::default()),    //for player names to ID's
-            maps: IndexMap::default(),
-            map_items: RwLock::new(IndexMap::default()),
-            packet_cache: RwLock::new(IndexMap::default()),
-            packet_cache_ids: RwLock::new(IndexSet::default()),
-            poll: RwLock::new(poll),
-            server: RwLock::new(server),
-            gettick: RwLock::new(MyInstant::now()),
-            pgconn,
-            time: RwLock::new(GameTime::default()),
-            map_switch_tasks: RwLock::new(IndexMap::default()),
-            bases: Bases::new()?,
-            sql_request: tx,
-            //rt: RefCell::new(rt),
-            //local: RefCell::new(local),
-            config,
-        };
+        crate::maps::get_maps().into_iter().for_each(|map_data| {
+            bases.maps.insert(map_data.position, map_data);
+        });
 
-        let mut map_data_entry = crate::maps::get_maps();
-        while let Some(map_data) = map_data_entry.pop() {
-            let position = MapPosition {
-                x: map_data.position.x,
-                y: map_data.position.y,
-                group: map_data.position.group,
-            };
-
-            let mut map = MapActor {
-                position,
-                ..Default::default()
-            };
-
-            for id in 0..MAP_MAX_X * MAP_MAX_Y {
-                match map_data.attribute[id].clone() {
-                    MapAttribute::Blocked | MapAttribute::Storage | MapAttribute::Shop(_) => {
-                        map.move_grid[id].attr = GridAttribute::Blocked;
-                    }
-                    MapAttribute::NpcBlocked => {
-                        map.move_grid[id].attr = GridAttribute::NpcBlock;
-                    }
-                    MapAttribute::ItemSpawn(itemdata) => {
-                        map.add_spawnable_item(
-                            Position::new(id as i32 % 32, id as i32 / 32, map_data.position),
-                            itemdata.index,
-                            itemdata.amount,
-                            itemdata.timer,
-                        );
-                    }
-                    _ => {}
-                }
-                map.move_grid[id].dir_block = map_data.dir_block[id];
-            }
-
-            storage.maps.insert(position, RwLock::new(map));
-            storage.bases.maps.insert(position, map_data);
-        }
-
-        let npc_data_entry = crate::npcs::get_npc();
-        npc_data_entry
-            .iter()
+        crate::npcs::get_npc()
+            .into_iter()
             .enumerate()
             .for_each(|(index, npc_data)| {
-                storage.bases.npcs[index] = npc_data.clone();
+                bases.npcs[index] = npc_data;
             });
 
-        let item_data_entry = crate::items::get_item();
-        item_data_entry
-            .iter()
+        crate::items::get_item()
+            .into_iter()
             .enumerate()
             .for_each(|(index, item_data)| {
-                storage.bases.items[index] = item_data.clone();
+                bases.items[index] = item_data;
             });
 
-        let shop_data_entry = crate::items::get_shop();
-        shop_data_entry
-            .iter()
+        crate::items::get_shop()
+            .into_iter()
             .enumerate()
             .for_each(|(index, shopdata)| {
-                storage.bases.shops[index] = shopdata.clone();
+                bases.shops[index] = shopdata;
             });
 
-        Some((storage, rx))
+        Some(Self {
+            npc_count: Arc::new(AtomicU64::new(0)),
+            player_count: Arc::new(AtomicU64::new(0)),
+            map_senders: IndexMap::default(),
+            pgconn,
+            map_broadcast_tx,
+            map_broadcast_rx,
+            bases: Arc::new(bases),
+            config: Arc::new(config),
+        })
     }
 
-    pub async fn add_empty_player(
+    pub fn get_map_sockets(
         &self,
-        world: &GameWorld,
-        id: usize,
-        addr: String,
-    ) -> Result<Entity> {
-        let socket = Socket::new(id, addr)?;
-        let mut lock = world.write().await;
-        let identity = lock.spawn((WorldEntityType::Player, socket, OnlineType::Accepted));
-        lock.insert_one(identity, Target::Player(Entity(identity), 0))?;
+    ) -> (
+        IndexMap<MapPosition, mpsc::Sender<MapIncomming>>,
+        IndexMap<MapPosition, mpsc::Receiver<MapIncomming>>,
+    ) {
+        let mut senders = IndexMap::default();
+        let mut receivers = IndexMap::default();
 
-        Ok(Entity(identity))
-    }
+        for (position, _) in &self.bases.maps {
+            let (tx, rx) = mpsc::channel(self.config.map_buffer_size);
 
-    pub async fn add_player_data(
-        &self,
-        world: &GameWorld,
-        entity: &Entity,
-        code: String,
-        handshake: String,
-        time: MyInstant,
-    ) -> Result<()> {
-        {
-            let mut lock = world.write().await;
-            lock.insert(
-                entity.0,
-                (
-                    Account::default(),
-                    PlayerItemTimer::default(),
-                    PlayerMapTimer::default(),
-                    Inventory::default(),
-                    Equipment::default(),
-                    Sprite::default(),
-                    Money::default(),
-                    Player::default(),
-                    Spawn::default(),
-                    Targeting::default(),
-                    KillCount::default(),
-                    Vitals::default(),
-                    Dir::default(),
-                    AttackTimer::default(),
-                    WorldEntityType::Player,
-                ),
-            )?;
-            lock.insert(
-                entity.0,
-                (
-                    DeathTimer::default(),
-                    MoveTimer::default(),
-                    Combat::default(),
-                    Physical::default(),
-                    Hidden::default(),
-                    Stunned::default(),
-                    Attacking::default(),
-                    Level::default(),
-                    InCombat::default(),
-                    EntityData::default(),
-                    UserAccess::default(),
-                    Position::default(),
-                    Death::default(),
-                    IsUsingType::default(),
-                    PlayerTarget::default(),
-                ),
-            )?;
-            lock.insert(
-                entity.0,
-                (
-                    PlayerStorage::default(),
-                    TradeItem::default(),
-                    ReloginCode { code },
-                    LoginHandShake { handshake },
-                    TradeMoney::default(),
-                    TradeStatus::default(),
-                    TradeRequestEntity::default(),
-                    ConnectionLoginTimer(
-                        time + Duration::try_milliseconds(600000).unwrap_or_default(),
-                    ),
-                ),
-            )?;
-        }
-        self.player_ids.write().await.insert(*entity);
-        Ok(())
-    }
-
-    pub async fn remove_player(
-        &self,
-        world: &GameWorld,
-        id: Entity,
-    ) -> Result<(Socket, Option<Position>)> {
-        let mut lock = world.write().await;
-        // only removes the Components in the Fisbone ::<>
-        let (socket,) = lock.remove::<(Socket,)>(id.0)?;
-        let pos = lock.remove::<(Position,)>(id.0).ok().map(|v| v.0);
-
-        if let Ok((account,)) = lock.remove::<(Account,)>(id.0) {
-            println!("Players Disconnected : {}", &account.username);
-            self.player_usernames
-                .write()
-                .await
-                .remove(&account.username);
-            self.player_emails.write().await.remove(&account.email);
+            senders.insert(*position, tx);
+            receivers.insert(*position, rx);
         }
 
-        //Removes Everything related to the Entity.
-        lock.despawn(id.0)?;
-
-        self.player_ids.write().await.swap_remove(&id);
-        Ok((socket, pos))
+        (senders, receivers)
     }
 
-    pub async fn add_npc(&self, world: &GameWorld, npc_id: u64) -> Result<Option<Entity>> {
-        if let Some(npcdata) = NpcData::load_npc(self, npc_id) {
-            let mut lock = world.write().await;
-            let identity = lock.spawn((
-                WorldEntityType::Npc,
-                Position::default(),
-                NpcIndex(npc_id),
-                NpcTimer {
-                    spawntimer: *self.gettick.write().await
-                        + Duration::try_milliseconds(npcdata.spawn_wait).unwrap_or_default(),
-                    ..Default::default()
-                },
-                NpcAITimer::default(),
-                NpcDespawns::default(),
-                NpcMoving::default(),
-                NpcRetreating::default(),
-                NpcWalkToSpawn::default(),
-                NpcMoves::default(),
-                NpcSpawnedZone::default(),
-                Dir::default(),
-                MoveTimer::default(),
-                EntityData::default(),
-                Sprite::default(),
-            ));
-            lock.insert(
-                identity,
-                (
-                    Spawn::default(),
-                    NpcMode::Normal,
-                    Hidden::default(),
-                    Level::default(),
-                    Vitals::default(),
-                    Physical::default(),
-                    Death::default(),
-                    NpcMovePos::default(),
-                    Targeting::default(),
-                    InCombat::default(),
-                    AttackTimer::default(),
-                    NpcPathTimer::default(),
-                ),
-            )?;
+    /*
+    pub async fn generate_world_actors(&mut self) -> Result<()> {
+        let (senders, receivers) = self.get_map_sockets();
 
-            if !npcdata.behaviour.is_friendly() {
-                lock.insert(
-                    identity,
-                    (
-                        NpcHitBy::default(),
-                        Targeting::default(),
-                        AttackTimer::default(),
-                        DeathTimer::default(),
-                        Combat::default(),
-                        Stunned::default(),
-                        Attacking::default(),
-                        InCombat::default(),
-                    ),
-                )?;
+        for (position, map_data) in &self.bases.maps {
+            if let Some(receiver) = receivers.swap_remove(key) {
+                let mut map = MapActor {
+                    position: *position,
+                    senders: senders.clone(),
+                    broadcast_rx: self.map_broadcast_tx.subscribe(),
+                    broadcast_tx: self.map_broadcast_tx.clone(),
+                    npc_count: self.npc_count.clone(),
+                    player_count: self.player_count.clone(),
+                    pgconn: self.pgconn.clone(),
+                    receiver,
+                    config: self.config.clone(),
+                    tick: MyInstant::now(),
+                    zones: [0, 0, 0, 0, 0],
+                    move_grid: [GridTile::default(); MAP_MAX_X * MAP_MAX_Y],
+                    spawnable_item: Vec::new(),
+                    move_grids: IndexMap::default(),
+                };
+
+                for id in 0..MAP_MAX_X * MAP_MAX_Y {
+                    match map_data.attribute[id] {
+                        MapAttribute::Blocked | MapAttribute::Storage | MapAttribute::Shop(_) => {
+                            map.move_grid[id].attr = GridAttribute::Blocked;
+                        }
+                        MapAttribute::NpcBlocked => {
+                            map.move_grid[id].attr = GridAttribute::NpcBlock;
+                        }
+                        MapAttribute::ItemSpawn(itemdata) => {
+                            map.add_spawnable_item(
+                                Position::new(id as i32 % 32, id as i32 / 32, map_data.position),
+                                itemdata.index,
+                                itemdata.amount,
+                                itemdata.timer,
+                            );
+                        }
+                        _ => {}
+                    }
+                    map.move_grid[id].dir_block = map_data.dir_block[id];
+                }
+
+                tokio::spawn(map.runner());
             }
-            lock.insert_one(identity, Target::Npc(Entity(identity)))?;
-
-            self.npc_ids.write().await.insert(Entity(identity));
-
-            Ok(Some(Entity(identity)))
-        } else {
-            Ok(None)
-        }
-    }
-
-    pub async fn remove_npc(&self, world: &GameWorld, id: Entity) -> Result<Position> {
-        let ret: Position = world.get_or_err::<Position>(&id).await?;
-        //Removes Everything related to the Entity.
-        let mut lock = world.write().await;
-        lock.despawn(id.0)?;
-        self.npc_ids.write().await.swap_remove(&id);
-
-        //Removes the NPC from the block map.
-        //TODO expand this to support larger npc's liek bosses basedon their Block size.
-        if let Some(map) = self.maps.get(&ret.map) {
-            map.write().await.remove_entity_from_grid(ret);
         }
 
-        Ok(ret)
-    }
+        let mut game_time_actor = GameTimeActor::new(self.map_broadcast_tx.clone());
+        tokio::spawn(game_time_actor.runner());
+
+        self.map_senders = senders;
+        Ok(())
+    }*/
 }

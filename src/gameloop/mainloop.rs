@@ -1,15 +1,13 @@
 use crate::{
     containers::{GameStore, GameWorld},
-    maps::{update_map_items, update_maps},
+    network::*,
     npcs::*,
     players::*,
-    network::*,
-    tasks::{process_data_lists, process_tasks},
     time_ext::MyInstant,
 };
 use chrono::Duration;
 
-pub async fn game_loop(world: &GameWorld, storage: &GameStore) {
+/*pub async fn game_loop(world: &GameWorld, storage: &GameStore) {
     let mut tick: MyInstant;
     let mut tmr100: MyInstant = MyInstant::now();
     let mut tmr500: MyInstant = MyInstant::now();
@@ -65,4 +63,4 @@ pub async fn game_loop(world: &GameWorld, storage: &GameStore) {
         process_tasks(world, storage).await.unwrap();
         std::thread::sleep(std::time::Duration::from_millis(1));
     }
-}
+}*/

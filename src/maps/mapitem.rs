@@ -3,9 +3,10 @@ use crate::{
     gametypes::*,
     items::Item,
     network::*,
-    tasks::{map_item_packet, unload_entity_packet, DataTaskToken},
+    //tasks::{map_item_packet, unload_entity_packet, DataTaskToken},
     time_ext::MyInstant,
 };
+use educe::Educe;
 use mmap_bytey::{MByteBufferRead, MByteBufferWrite};
 
 use super::{create_mapitem, MapAttribute};
@@ -29,6 +30,18 @@ impl MapItem {
     }
 }
 
+#[derive(Educe, Debug, Copy, Clone, PartialEq, Eq)]
+#[educe(Default)]
+pub struct SpawnItemData {
+    pub index: u32,
+    pub amount: u16,
+    pub pos: Position,
+    pub timer_set: u64,
+    // Editable
+    #[educe(Default = MyInstant::now())]
+    pub timer: MyInstant,
+}
+
 #[derive(Copy, Clone, PartialEq, Eq, Default)]
 pub struct DropItem {
     pub index: u32,
@@ -36,6 +49,7 @@ pub struct DropItem {
     pub pos: Position,
 }
 
+/*
 pub async fn update_map_items(world: &GameWorld, storage: &GameStore) -> Result<()> {
     let tick = *storage.gettick.read().await;
 
@@ -47,8 +61,10 @@ pub async fn update_map_items(world: &GameWorld, storage: &GameStore) -> Result<
         for id in &*storage.map_items.read().await {
             let mapitems = lock.get::<&MapItem>(id.1 .0)?;
 
-            if mapitems.despawn.is_some() && lock.get_or_err::<DespawnTimer>(id.1)?.0 <= tick {
-                to_remove.push((*id.1, *id.0))
+            if let Some(tmr) = mapitems.despawn {
+                if tmr <= tick {
+                    to_remove.push((*id.1, *id.0))
+                }
             }
         }
     }
@@ -336,3 +352,4 @@ pub async fn player_interact_object(
         Ok(())
     }
 }
+*/

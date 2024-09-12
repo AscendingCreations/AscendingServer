@@ -27,9 +27,14 @@ pub enum MapIncomming {
 pub enum MapBroadCasts {
     PlayerLoggedIn {
         map_id: MapPosition,
-        x: u32,
-        y: u32,
-        blocked: bool,
+        username: String,
+        access: UserAccess,
+        position: Position,
+    },
+    PlayerLoggedOut {
+        map_id: MapPosition,
+        username: String,
+        position: Position,
     },
     PlayerMessage {
         map_id: MapPosition,

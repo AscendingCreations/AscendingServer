@@ -1,4 +1,6 @@
 use crate::{containers::IndexMap, gametypes::*, items::*, maps::*, npcs::*};
+
+#[derive(Debug)]
 pub struct Bases {
     pub maps: IndexMap<MapPosition, Map>,
     pub npcs: Vec<NpcData>,

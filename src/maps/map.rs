@@ -68,7 +68,7 @@ pub struct GridTile {
 }
 
 //TODO: Update to use MAP (x,y,group) for map locations and Remove map links?
-#[derive(Clone, Educe, Serialize, Deserialize, Readable, Writable)]
+#[derive(Clone, Educe, Serialize, Deserialize, Readable, Writable, Debug)]
 #[educe(Default(new))]
 pub struct Map {
     pub position: MapPosition,
@@ -129,135 +129,6 @@ fn load_map(filename: String) -> Option<Map> {
             None
         }
     }
-}
-
-#[derive(Educe, Debug, Copy, Clone, PartialEq, Eq)]
-#[educe(Default)]
-pub struct SpawnItemData {
-    pub index: u32,
-    pub amount: u16,
-    pub pos: Position,
-    pub timer_set: u64,
-    // Editable
-    #[educe(Default = MyInstant::now())]
-    pub timer: MyInstant,
-}
-
-#[derive(Debug)]
-pub struct MapData {
-    pub position: MapPosition,
-    //updated data for map seperate from Map itself as base should be Readonly / clone.
-    /*pub itemids: IndexSet<Entity>,
-    pub npcs: IndexSet<Entity>,
-    pub players: IndexSet<Entity>,*/
-    pub zones: [u64; 5], //contains the NPC spawn Count of each Zone.
-    pub move_grid: [GridTile; MAP_MAX_X * MAP_MAX_Y],
-    pub spawnable_item: Vec<SpawnItemData>,
-    pub move_grids: IndexMap<MapPosition, [GridTile; MAP_MAX_X * MAP_MAX_Y]>,
-    pub senders: IndexMap<MapPosition, mpsc::Sender<MapIncomming>>,
-    pub broadcast_tx: broadcast::Sender<MapBroadCasts>,
-    pub broadcast_rx: broadcast::Receiver<MapBroadCasts>,
-    pub receiver: mpsc::Receiver<MapIncomming>,
-}
-
-impl MapData {
-    pub fn get_surrounding(&self, include_corners: bool) -> Vec<MapPosition> {
-        get_surrounding(self.position, include_corners)
-    }
-
-    pub fn add_spawnable_item(&mut self, pos: Position, index: u32, amount: u16, timer_set: u64) {
-        self.spawnable_item.push(SpawnItemData {
-            index,
-            amount,
-            pos,
-            timer_set,
-            ..Default::default()
-        });
-    }
-
-    pub fn is_blocked_tile(&self, pos: Position, entity_type: WorldEntityType) -> bool {
-        match self.move_grid[pos.as_tile()].attr {
-            GridAttribute::Walkable => false,
-            GridAttribute::Entity => {
-                if entity_type == WorldEntityType::MapItem {
-                    false
-                } else {
-                    self.move_grid[pos.as_tile()].count >= 1
-                }
-            }
-            GridAttribute::Blocked => true,
-            GridAttribute::NpcBlock => entity_type == WorldEntityType::Npc,
-        }
-    }
-
-    pub fn remove_entity_from_grid(&mut self, pos: Position) {
-        self.move_grid[pos.as_tile()].count = self.move_grid[pos.as_tile()].count.saturating_sub(1);
-
-        if self.move_grid[pos.as_tile()].count == 0 {
-            self.move_grid[pos.as_tile()].attr = GridAttribute::Walkable;
-        }
-    }
-
-    pub fn add_entity_to_grid(&mut self, pos: Position) {
-        self.move_grid[pos.as_tile()].count = self.move_grid[pos.as_tile()].count.saturating_add(1);
-        self.move_grid[pos.as_tile()].attr = GridAttribute::Entity;
-    }
-
-    /*pub async fn add_player(&mut self, storage: &GameStore, id: Entity) {
-        self.players.insert(id);
-
-        for i in self.get_surrounding(true) {
-            if i != self.position {
-                match storage.maps.get(&i) {
-                    Some(map) => {
-                        let mut map_lock = map.write().await;
-                        let count = map_lock.players_on_map.saturating_add(1);
-                        map_lock.players_on_map = count;
-                    }
-                    None => continue,
-                }
-            }
-        }
-
-        self.players_on_map = self.players_on_map.saturating_add(1);
-    }
-
-    pub fn add_npc(&mut self, id: Entity) {
-        self.npcs.insert(id);
-    }
-
-    pub async fn remove_player(&mut self, storage: &GameStore, id: Entity) {
-        self.players.swap_remove(&id);
-
-        //we set the surrounding maps to have players on them if the player is within 1 map of them.
-        for i in self.get_surrounding(true) {
-            if i != self.position {
-                match storage.maps.get(&i) {
-                    Some(map) => {
-                        let mut map_lock = map.write().await;
-                        let count = map_lock.players_on_map.saturating_sub(1);
-                        map_lock.players_on_map = count;
-                    }
-                    None => continue,
-                }
-            }
-        }
-
-        self.players_on_map = self.players_on_map.saturating_sub(1);
-    }
-
-    pub fn remove_npc(&mut self, id: Entity) {
-        self.npcs.swap_remove(&id);
-    }
-
-    pub fn remove_item(&mut self, id: Entity) {
-        /*if !self.items.contains(id) {
-            return;
-        }*/
-
-        //self.items.remove(id);
-        self.itemids.swap_remove(&id);
-    }*/
 }
 
 pub fn check_surrounding(
@@ -499,7 +370,7 @@ pub fn get_maps_in_range(storage: &GameStore, pos: &Position, range: i32) -> Vec
 
     arr
 }
-
+/*
 pub async fn is_dir_blocked(storage: &GameStore, cur_pos: Position, movedir: u8) -> bool {
     // Directional blocking might be in the wrong order as it should be.
     // 0 down, 1 right, 2 up, 3 left
@@ -567,3 +438,4 @@ pub async fn map_path_blocked(
 
     blocked
 }
+    */

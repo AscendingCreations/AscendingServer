@@ -1,10 +1,7 @@
 use crate::{
-    containers::{GameStore, GameWorld},
     gametypes::*,
     items::Item,
-    maps::is_dir_blocked,
-    npcs::NpcSpawnedZone,
-    tasks::{map_item_packet, DataTaskToken},
+    //tasks::{map_item_packet, DataTaskToken},
 };
 use chrono::Duration;
 use rand::{thread_rng, Rng};
@@ -12,142 +9,7 @@ use std::cmp::min;
 
 use super::{check_surrounding, MapItem};
 
-pub async fn update_maps(world: &GameWorld, storage: &GameStore) -> Result<()> {
-    let mut rng = thread_rng();
-    let mut spawnable = Vec::new();
-    let mut len = storage.npc_ids.read().await.len();
-    let tick = *storage.gettick.read().await;
-
-    for (position, map_data) in &storage.maps {
-        // Only Spawn is a player is on or near a the map.
-        if map_data.read().await.players_on_map() {
-            //get this so we can Add to it each time without needing to borrow() npcs again.
-
-            let mut count = 0;
-
-            //Spawn NPC's if the max npc's per world is not yet reached.
-            if len < MAX_WORLD_NPCS {
-                let map = storage
-                    .bases
-                    .maps
-                    .get(position)
-                    .ok_or(AscendingError::MapNotFound(*position))?;
-
-                for (id, (max_npcs, zone_npcs)) in map.zones.iter().enumerate() {
-                    let data = map_data.read().await;
-                    //We want to only allow this many npcs per map to spawn at a time.
-                    if count >= NPCS_SPAWNCAP {
-                        break;
-                    }
-
-                    if !map.zonespawns[id].is_empty() && data.zones[id] < *max_npcs {
-                        // Set the Max allowed to spawn by either spawn cap or npc spawn limit.
-                        let max_spawnable =
-                            min((*max_npcs - data.zones[id]) as usize, NPCS_SPAWNCAP);
-
-                        //Lets Do this for each npc;
-                        for npc_id in zone_npcs
-                            .iter()
-                            .filter(|v| v.is_some())
-                            .map(|v| v.unwrap_or_default())
-                        {
-                            let game_time = storage.time.read().await;
-                            let (from, to) = storage
-                                .bases
-                                .npcs
-                                .get(npc_id as usize)
-                                .ok_or(AscendingError::NpcNotFound(npc_id))?
-                                .spawntime;
-
-                            //Give them a percentage chance to actually spawn
-                            //or see if we can spawn them yet within the time frame.
-                            if rng.gen_range(0..2) > 0 || !game_time.in_range(from, to) {
-                                continue;
-                            }
-
-                            //Lets only allow spawning of a set amount each time. keep from over burdening the system.
-                            if count >= max_spawnable || len >= MAX_WORLD_NPCS {
-                                break;
-                            }
-
-                            let mut loop_count = 0;
-
-                            //Only try to find a spot so many times randomly.
-                            if !map.zonespawns[id].is_empty() {
-                                while loop_count < 10 {
-                                    let pos_id = rng.gen_range(0..map.zonespawns[id].len());
-                                    let (x, y) = map.zonespawns[id][pos_id];
-                                    let spawn = Position::new(x as i32, y as i32, *position);
-
-                                    loop_count += 1;
-
-                                    //Check if the tile is blocked or not.
-                                    if !data.is_blocked_tile(spawn, WorldEntityType::Npc) {
-                                        //Set NPC as spawnable and to do further checks later.
-                                        //Doing this to make the code more readable.
-                                        spawnable.push((spawn, id, npc_id));
-                                        count = count.saturating_add(1);
-                                        len = len.saturating_add(1);
-                                        break;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                let mut data = map_data.write().await;
-                //Lets Spawn the npcs here;
-                for (spawn, zone, npc_id) in spawnable.drain(..) {
-                    if let Ok(Some(id)) = storage.add_npc(world, npc_id).await {
-                        data.add_npc(id);
-                        data.zones[zone] = data.zones[zone].saturating_add(1);
-                        spawn_npc(world, spawn, Some(zone), id).await?;
-                    }
-                }
-            }
-
-            let mut add_items = Vec::new();
-
-            for data in map_data.write().await.spawnable_item.iter_mut() {
-                let mut storage_mapitem = storage.map_items.write().await;
-                if !storage_mapitem.contains_key(&data.pos) {
-                    if data.timer <= tick {
-                        let map_item = create_mapitem(data.index, data.amount, data.pos);
-                        let mut lock = world.write().await;
-                        let id = lock.spawn((WorldEntityType::MapItem, map_item));
-                        lock.insert(id, (Target::MapItem(Entity(id)), DespawnTimer::default()))?;
-                        storage_mapitem.insert(data.pos, Entity(id));
-                        DataTaskToken::ItemLoad(data.pos.map)
-                            .add_task(
-                                storage,
-                                map_item_packet(
-                                    Entity(id),
-                                    map_item.pos,
-                                    map_item.item,
-                                    map_item.ownerid,
-                                    true,
-                                )?,
-                            )
-                            .await?;
-                        add_items.push(Entity(id));
-                    }
-                } else {
-                    data.timer = tick
-                        + Duration::try_milliseconds(data.timer_set as i64).unwrap_or_default();
-                }
-            }
-
-            for entity in add_items {
-                map_data.write().await.itemids.insert(entity);
-            }
-        }
-    }
-
-    Ok(())
-}
-
-pub fn create_mapitem(index: u32, value: u16, pos: Position) -> MapItem {
+pub fn create_mapitem(key: EntityKey, index: u32, value: u16, pos: Position) -> MapItem {
     MapItem {
         item: Item {
             num: index,
@@ -158,9 +20,10 @@ pub fn create_mapitem(index: u32, value: u16, pos: Position) -> MapItem {
         ownertimer: None,
         ownerid: None,
         pos,
+        key,
     }
 }
-
+/*
 pub async fn spawn_npc(
     world: &GameWorld,
     pos: Position,
@@ -204,3 +67,4 @@ pub async fn in_dir_attack_zone(
         false
     }
 }
+*/

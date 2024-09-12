@@ -6,7 +6,7 @@ use crate::{
     tasks::*,
 };
 use std::ops::Range;
-
+/*
 #[inline]
 pub async fn send_infomsg(
     storage: &GameStore,
@@ -537,3 +537,4 @@ pub async fn send_gameping(world: &GameWorld, storage: &GameStore, entity: &Enti
     let id = lock.get::<&Socket>(entity.0)?.id;
     send_to(storage, id, buf).await
 }
+*/

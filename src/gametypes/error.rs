@@ -1,4 +1,4 @@
-use crate::{gametypes::MapPosition, tasks::DataTaskToken};
+use crate::{gametypes::MapPosition};
 use std::{backtrace::Backtrace, sync::Arc};
 use thiserror::Error;
 
@@ -40,8 +40,8 @@ pub enum AscendingError {
     MapNotFound(MapPosition),
     #[error("NPC ID {0:?} not found")]
     NpcNotFound(u64),
-    #[error("Packet buffer {0:?} not found")]
-    PacketCacheNotFound(DataTaskToken),
+   // #[error("Packet buffer {0:?} not found")]
+    //PacketCacheNotFound(DataTaskToken),
     #[error("Error: {error}, BackTrace: {backtrace}")]
     AddrParseError {
         #[from]
@@ -141,23 +141,51 @@ pub enum AscendingError {
         backtrace: Box<Backtrace>,
     },
     #[error("Error: {error}, BackTrace: {backtrace}")]
-    TokioMPSCLoginError {
+    TokioMPSCLoginSendError {
         #[from]
-        error: tokio::sync::mpsc::error::SendError<crate::network::LoginIncomming>,
+        error: tokio::sync::mpsc::error::SendError<crate::logins::LoginIncomming>,
         #[backtrace]
         backtrace: Box<Backtrace>,
     },
     #[error("Error: {error}, BackTrace: {backtrace}")]
-    TokioMPSCPlayerError {
+    TokioMPSCPlayerSendError {
         #[from]
         error: tokio::sync::mpsc::error::SendError<crate::network::ClientPacket>,
         #[backtrace]
         backtrace: Box<Backtrace>,
     },
     #[error("Error: {error}, BackTrace: {backtrace}")]
-    TokioBroadcastMapError {
+    TokioBroadcastMapSendError {
         #[from]
         error: tokio::sync::broadcast::error::SendError<crate::maps::MapBroadCasts>,
+        #[backtrace]
+        backtrace: Box<Backtrace>,
+    },
+    #[error("Error: {error}, BackTrace: {backtrace}")]
+    TokioOneShotInfoRecvError {
+        #[from]
+        error: tokio::sync::oneshot::error::RecvError,
+        #[backtrace]
+        backtrace: Box<Backtrace>,
+    },
+    #[error("Error: {error}, BackTrace: {backtrace}")]
+    TokioMPSCInfoSendError {
+        #[from]
+        error: tokio::sync::mpsc::error::SendError<crate::ipc::InfoIncomming>,
+        #[backtrace]
+        backtrace: Box<Backtrace>,
+    },
+    #[error("Error: {error}, BackTrace: {backtrace}")]
+    TokioMPSCRecvTryError {
+        #[from]
+        error: tokio::sync::mpsc::error::TryRecvError,
+        #[backtrace]
+        backtrace: Box<Backtrace>,
+    },
+    #[error("Error: {error}, BackTrace: {backtrace}")]
+    TokioBroadcastRecvError {
+        #[from]
+        error: tokio::sync::broadcast::error::RecvError,
         #[backtrace]
         backtrace: Box<Backtrace>,
     },
