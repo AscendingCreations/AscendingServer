@@ -15,7 +15,7 @@ pub enum MapIncomming {
     },
     MovePlayer {
         map_id: MapPosition,
-        position: Player,
+        player: Box<Player>,
         old_id: EntityKey,
     },
     PlayerMessage {
@@ -46,7 +46,7 @@ pub enum MapBroadCasts {
     },
     MovePlayer {
         map_id: MapPosition,
-        position: Player,
+        player: Box<Player>,
         old_id: EntityKey,
     },
     TimeUpdate {

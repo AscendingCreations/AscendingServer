@@ -2,6 +2,7 @@ use crate::{
     containers::{Bases, IndexMap},
     gametypes::*,
     maps::*,
+    time_ext::MyInstant,
 };
 use log::LevelFilter;
 use serde::{Deserialize, Serialize};
@@ -101,7 +102,8 @@ impl Storage {
     pub async fn new(config: Config) -> Option<Self> {
         let pgconn = establish_connection(&config).await.unwrap();
         let mut bases = Bases::new()?;
-        let (map_broadcast_tx, _) = broadcast::channel(config.map_broadcast_buffer_size);
+        let (map_broadcast_tx, _map_broadcast_rx) =
+            broadcast::channel(config.map_broadcast_buffer_size);
 
         crate::maps::get_maps().into_iter().for_each(|map_data| {
             bases.maps.insert(map_data.position, map_data);
@@ -158,22 +160,18 @@ impl Storage {
         (senders, receivers)
     }
 
-    /*
     pub async fn generate_world_actors(&mut self) -> Result<()> {
-        let (senders, receivers) = self.get_map_sockets();
+        let (senders, mut receivers) = self.get_map_sockets();
+
+        self.map_senders = senders;
 
         for (position, map_data) in &self.bases.maps {
-            if let Some(receiver) = receivers.swap_remove(key) {
+            if let Some(receiver) = receivers.swap_remove(position) {
                 let mut map = MapActor {
                     position: *position,
-                    senders: senders.clone(),
+                    storage: self.clone(),
                     broadcast_rx: self.map_broadcast_tx.subscribe(),
-                    broadcast_tx: self.map_broadcast_tx.clone(),
-                    npc_count: self.npc_count.clone(),
-                    player_count: self.player_count.clone(),
-                    pgconn: self.pgconn.clone(),
                     receiver,
-                    config: self.config.clone(),
                     tick: MyInstant::now(),
                     zones: [0, 0, 0, 0, 0],
                     move_grid: [GridTile::default(); MAP_MAX_X * MAP_MAX_Y],
@@ -182,20 +180,20 @@ impl Storage {
                 };
 
                 for id in 0..MAP_MAX_X * MAP_MAX_Y {
-                    match map_data.attribute[id] {
+                    match &map_data.attribute[id] {
                         MapAttribute::Blocked | MapAttribute::Storage | MapAttribute::Shop(_) => {
                             map.move_grid[id].attr = GridAttribute::Blocked;
                         }
                         MapAttribute::NpcBlocked => {
                             map.move_grid[id].attr = GridAttribute::NpcBlock;
                         }
-                        MapAttribute::ItemSpawn(itemdata) => {
-                            map.add_spawnable_item(
+                        MapAttribute::ItemSpawn(_itemdata) => {
+                            /* map.add_spawnable_item(
                                 Position::new(id as i32 % 32, id as i32 / 32, map_data.position),
                                 itemdata.index,
                                 itemdata.amount,
                                 itemdata.timer,
-                            );
+                            );*/
                         }
                         _ => {}
                     }
@@ -206,10 +204,9 @@ impl Storage {
             }
         }
 
-        let mut game_time_actor = GameTimeActor::new(self.map_broadcast_tx.clone());
+        let game_time_actor = GameTimeActor::new(self.map_broadcast_tx.clone());
         tokio::spawn(game_time_actor.runner());
 
-        self.map_senders = senders;
         Ok(())
-    }*/
+    }
 }

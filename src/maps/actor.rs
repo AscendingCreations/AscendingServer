@@ -1,6 +1,6 @@
 use super::{MapBroadCasts, MapIncomming, *};
 use crate::{
-    containers::{Config, GameStore, HashSet, IndexMap},
+    containers::{Config, GameStore, HashSet, IndexMap, Storage},
     gametypes::*,
     time_ext::MyInstant,
 };
@@ -22,25 +22,19 @@ use tokio::sync::{broadcast, mpsc};
 #[derive(Debug)]
 pub struct MapActor {
     pub position: MapPosition,
-    pub npc_count: Arc<AtomicU64>,
-    pub player_count: Arc<AtomicU64>,
-    pub pgconn: PgPool,
+    pub storage: Storage,
     pub tick: MyInstant,
     pub zones: [u64; 5], //contains the NPC spawn Count of each Zone.
     pub move_grid: [GridTile; MAP_MAX_X * MAP_MAX_Y],
     pub spawnable_item: Vec<SpawnItemData>,
     pub move_grids: IndexMap<MapPosition, [GridTile; MAP_MAX_X * MAP_MAX_Y]>,
-    pub senders: IndexMap<MapPosition, mpsc::Sender<MapIncomming>>,
-    pub broadcast_tx: broadcast::Sender<MapBroadCasts>,
     pub broadcast_rx: broadcast::Receiver<MapBroadCasts>,
     pub receiver: mpsc::Receiver<MapIncomming>,
-    pub config: Arc<Config>,
 }
 
 impl MapActor {
-    /*
     pub async fn runner(mut self) -> Result<()> {
-        let mut rng = thread_rng();
+        /*let mut rng = thread_rng();
         let mut spawnable = Vec::new();
         let mut len = storage.npc_ids.read().await.len();
 
@@ -165,11 +159,11 @@ impl MapActor {
             for entity in add_items {
                 map_data.write().await.itemids.insert(entity);
             }
-        }
+        }*/
         Ok(())
     }
 
-    pub fn get_surrounding(&self, include_corners: bool) -> Vec<MapPosition> {
+    /*pub fn get_surrounding(&self, include_corners: bool) -> Vec<MapPosition> {
         get_surrounding(self.position, include_corners)
     }
 
