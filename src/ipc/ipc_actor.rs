@@ -21,7 +21,7 @@ impl IPCActor {
         }
     }
 
-    pub async fn runner(self, conn: Stream) -> Result<()> {
+    pub async fn runner(mut self, conn: Stream) -> Result<()> {
         let (rx, mut tx) = conn.split();
         let mut rx = BufReader::new(&rx);
         let mut buffer = ByteBuffer::new()?;
@@ -160,7 +160,7 @@ impl IPCActor {
         }
     }
 
-    pub async fn get_length(&self, buffer: &mut ByteBuffer) -> Result<Option<u64>> {
+    pub async fn get_length(&mut self, buffer: &mut ByteBuffer) -> Result<Option<u64>> {
         if buffer.length() - buffer.cursor() >= 8 {
             let length = buffer.read::<u64>()?;
 
@@ -178,7 +178,11 @@ impl IPCActor {
         Ok(None)
     }
 
-    pub async fn packet_translator(&self, data: &mut MByteBuffer, tx: &mut SendHalf) -> Result<()> {
+    pub async fn packet_translator(
+        &mut self,
+        data: &mut MByteBuffer,
+        tx: &mut SendHalf,
+    ) -> Result<()> {
         let id: ClientIPCID = data.read()?;
 
         match id {

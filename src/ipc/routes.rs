@@ -30,7 +30,7 @@ pub fn finish_cache(buffer: &mut ByteBuffer, count: u32, is_finished: bool) -> R
 }
 
 pub async fn handle_get_users(
-    store: &IPCActor,
+    store: &mut IPCActor,
     _data: &mut MByteBuffer,
     tx: &mut SendHalf,
 ) -> Result<()> {
