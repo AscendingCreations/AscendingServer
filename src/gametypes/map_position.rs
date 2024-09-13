@@ -1,4 +1,5 @@
 use crate::gametypes::*;
+use bytey::{ByteBufferRead, ByteBufferWrite};
 use mmap_bytey::{MByteBufferRead, MByteBufferWrite};
 use serde::{Deserialize, Serialize};
 use speedy::{Readable, Writable};
@@ -18,6 +19,8 @@ use sqlx::Postgres;
     Writable,
     MByteBufferRead,
     MByteBufferWrite,
+    ByteBufferRead,
+    ByteBufferWrite,
 )]
 pub struct MapPosition {
     pub x: i32,

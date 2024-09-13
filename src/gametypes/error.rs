@@ -1,4 +1,4 @@
-use crate::{gametypes::MapPosition};
+use crate::gametypes::MapPosition;
 use std::{backtrace::Backtrace, sync::Arc};
 use thiserror::Error;
 
@@ -40,7 +40,7 @@ pub enum AscendingError {
     MapNotFound(MapPosition),
     #[error("NPC ID {0:?} not found")]
     NpcNotFound(u64),
-   // #[error("Packet buffer {0:?} not found")]
+    // #[error("Packet buffer {0:?} not found")]
     //PacketCacheNotFound(DataTaskToken),
     #[error("Error: {error}, BackTrace: {backtrace}")]
     AddrParseError {
@@ -143,21 +143,21 @@ pub enum AscendingError {
     #[error("Error: {error}, BackTrace: {backtrace}")]
     TokioMPSCLoginSendError {
         #[from]
-        error: tokio::sync::mpsc::error::SendError<crate::logins::LoginIncomming>,
+        error: Box<tokio::sync::mpsc::error::SendError<crate::logins::LoginIncomming>>,
         #[backtrace]
         backtrace: Box<Backtrace>,
     },
     #[error("Error: {error}, BackTrace: {backtrace}")]
     TokioMPSCPlayerSendError {
         #[from]
-        error: tokio::sync::mpsc::error::SendError<crate::network::ClientPacket>,
+        error: Box<tokio::sync::mpsc::error::SendError<crate::network::ClientPacket>>,
         #[backtrace]
         backtrace: Box<Backtrace>,
     },
     #[error("Error: {error}, BackTrace: {backtrace}")]
     TokioBroadcastMapSendError {
         #[from]
-        error: tokio::sync::broadcast::error::SendError<crate::maps::MapBroadCasts>,
+        error: Box<tokio::sync::broadcast::error::SendError<crate::maps::MapBroadCasts>>,
         #[backtrace]
         backtrace: Box<Backtrace>,
     },
@@ -171,7 +171,7 @@ pub enum AscendingError {
     #[error("Error: {error}, BackTrace: {backtrace}")]
     TokioMPSCInfoSendError {
         #[from]
-        error: tokio::sync::mpsc::error::SendError<crate::ipc::InfoIncomming>,
+        error: Box<tokio::sync::mpsc::error::SendError<crate::ipc::InfoIncomming>>,
         #[backtrace]
         backtrace: Box<Backtrace>,
     },

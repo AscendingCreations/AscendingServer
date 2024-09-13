@@ -1,6 +1,7 @@
 use crate::{
     containers::HashMap, gametypes::Result, maps::MapBroadCasts, GameTime, Position, UserAccess,
 };
+use bytey::{ByteBufferRead, ByteBufferWrite};
 use tokio::{
     select,
     sync::{broadcast, mpsc, oneshot},
@@ -8,15 +9,17 @@ use tokio::{
 
 #[derive(Debug)]
 pub enum InfoIncomming {
+    None,
     GetOnlineUsers(oneshot::Sender<InfoOutGoing>),
 }
 
 #[derive(Debug, Clone)]
 pub enum InfoOutGoing {
+    None,
     SendOnlineUsers(Vec<PlayerInfo>),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, ByteBufferRead, ByteBufferWrite)]
 pub struct PlayerInfo {
     pub username: String,
     pub access: UserAccess,
@@ -104,19 +107,16 @@ impl InfoActor {
     }
 
     pub fn handle_request(&mut self, packet: InfoIncomming) -> Result<()> {
+        #[allow(clippy::single_match)]
         match packet {
             InfoIncomming::GetOnlineUsers(tx) => {
-                let users: Vec<PlayerInfo> = self
-                    .usernames
-                    .iter()
-                    .map(|(_, info)| info)
-                    .cloned()
-                    .collect();
+                let users: Vec<PlayerInfo> = self.usernames.values().cloned().collect();
 
-                if let Err(_) = tx.send(InfoOutGoing::SendOnlineUsers(users)) {
+                if tx.send(InfoOutGoing::SendOnlineUsers(users)).is_err() {
                     log::trace!("Could not send InfoOutGoing as oneshot errored.");
                 }
             }
+            _ => {}
         }
 
         Ok(())

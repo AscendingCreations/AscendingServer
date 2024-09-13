@@ -1,4 +1,4 @@
-use std::{io, sync::Arc};
+use std::{backtrace::Backtrace, io, sync::Arc};
 
 use crate::{gametypes::*, network::*};
 use log::{error, trace, warn};
@@ -100,7 +100,12 @@ impl SocketActor {
                             }
                         };
 
-                        self.tx.send(processed_packet).await?;
+                        if let Err(e) = self.tx.send(processed_packet).await {
+                            return Err(AscendingError::TokioMPSCPlayerSendError {
+                                error: Box::new(e),
+                                backtrace: Box::new(Backtrace::capture()),
+                            });
+                        }
                     } else {
                         break;
                     }
@@ -173,7 +178,12 @@ impl SocketActor {
 
     pub async fn disconnect(&self) -> Result<()> {
         trace!("Players Disconnected IP: {} ", &self.addr);
-        self.tx.send(ClientPacket::Disconnect).await?;
+        if let Err(e) = self.tx.send(ClientPacket::Disconnect).await {
+            return Err(AscendingError::TokioMPSCPlayerSendError {
+                error: Box::new(e),
+                backtrace: Box::new(Backtrace::capture()),
+            });
+        }
         Ok(())
     }
 

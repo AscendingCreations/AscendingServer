@@ -1,3 +1,5 @@
+use std::backtrace::Backtrace;
+
 use crate::{maps::MapBroadCasts, time_ext::MyInstant, Result};
 use chrono::{Duration, NaiveTime};
 use log::error;
@@ -75,8 +77,12 @@ impl GameTimeActor {
                     }
                 }
                 game_time_timer = tick + Duration::try_milliseconds(60000).unwrap_or_default();
-                self.tx
-                    .send(MapBroadCasts::TimeUpdate { time: self.time })?;
+                if let Err(e) = self.tx.send(MapBroadCasts::TimeUpdate { time: self.time }) {
+                    return Err(super::AscendingError::TokioBroadcastMapSendError {
+                        error: Box::new(e),
+                        backtrace: Box::new(Backtrace::capture()),
+                    });
+                }
             }
         }
     }

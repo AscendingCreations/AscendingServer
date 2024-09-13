@@ -2,7 +2,6 @@ use crate::{
     containers::{Bases, IndexMap},
     gametypes::*,
     maps::*,
-    time_ext::MyInstant,
 };
 use log::LevelFilter;
 use serde::{Deserialize, Serialize};

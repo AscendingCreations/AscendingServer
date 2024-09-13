@@ -5,7 +5,7 @@ use crate::{
     network::{Socket, SocketActor},
 };
 use log::trace;
-use std::{io, net::SocketAddr, str::FromStr, sync::Arc};
+use std::{backtrace::Backtrace, io, net::SocketAddr, str::FromStr, sync::Arc};
 use tokio::{net::TcpListener, sync::mpsc};
 
 pub struct ServerListenActor {
@@ -28,7 +28,7 @@ impl ServerListenActor {
         Ok(ServerListenActor { listener, login_tx })
     }
 
-    pub async fn runner(&mut self) -> Result<()> {
+    pub async fn runner(self) -> Result<()> {
         /* Wait for a new connection to accept and try to grab a token from the bag. */
         loop {
             let (stream, addr) = match self.listener.accept().await {
@@ -47,9 +47,12 @@ impl ServerListenActor {
             let socket_actor = SocketActor::new(owned_rx, tx, addr.clone())?;
             let socket = Socket::new(owned_tx, rx, addr);
 
-            self.login_tx
-                .send(LoginIncomming::GetSocket(socket))
-                .await?;
+            if let Err(e) = self.login_tx.send(LoginIncomming::GetSocket(socket)).await {
+                return Err(crate::AscendingError::TokioMPSCLoginSendError {
+                    error: Box::new(e),
+                    backtrace: Box::new(Backtrace::capture()),
+                });
+            }
             tokio::spawn(socket_actor.process());
         }
     }

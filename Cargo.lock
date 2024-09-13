@@ -312,7 +312,7 @@ checksum = "8318a53db07bb3f8dca91a600466bdb3f2eaadeedfdbcf02e1accbad9271ba50"
 [[package]]
 name = "bytey"
 version = "0.3.0"
-source = "git+https://github.com/Stefanowhb/bytey.git#5b435a905d9aee06f32c86998a617bcd06c919f5"
+source = "git+https://github.com/Stefanowhb/bytey.git#bf2d0b6130a5c27bbb3f5d0513c4700289e5e9e3"
 dependencies = [
  "bytey_byte_buffer",
  "bytey_derive",
@@ -321,7 +321,7 @@ dependencies = [
 [[package]]
 name = "bytey_byte_buffer"
 version = "0.2.1"
-source = "git+https://github.com/Stefanowhb/bytey.git#5b435a905d9aee06f32c86998a617bcd06c919f5"
+source = "git+https://github.com/Stefanowhb/bytey.git#bf2d0b6130a5c27bbb3f5d0513c4700289e5e9e3"
 dependencies = [
  "thiserror",
 ]
@@ -329,7 +329,7 @@ dependencies = [
 [[package]]
 name = "bytey_derive"
 version = "0.2.0"
-source = "git+https://github.com/Stefanowhb/bytey.git#5b435a905d9aee06f32c86998a617bcd06c919f5"
+source = "git+https://github.com/Stefanowhb/bytey.git#bf2d0b6130a5c27bbb3f5d0513c4700289e5e9e3"
 dependencies = [
  "proc-macro2",
  "quote",

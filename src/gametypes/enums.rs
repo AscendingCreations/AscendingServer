@@ -1,4 +1,5 @@
 use crate::gametypes::*;
+use bytey::{ByteBufferRead, ByteBufferWrite};
 use mmap_bytey::{MByteBufferRead, MByteBufferWrite};
 use serde::{Deserialize, Serialize};
 
@@ -11,8 +12,8 @@ use serde::{Deserialize, Serialize};
     Default,
     Deserialize,
     Serialize,
-    bytey::ByteBufferRead,
-    bytey::ByteBufferWrite,
+    ByteBufferRead,
+    ByteBufferWrite,
     MByteBufferRead,
     MByteBufferWrite,
 )]
@@ -34,6 +35,8 @@ pub enum TradeStatus {
     Default,
     MByteBufferRead,
     MByteBufferWrite,
+    ByteBufferRead,
+    ByteBufferWrite,
     sqlx::Type,
 )]
 #[sqlx(type_name = "user_access")]

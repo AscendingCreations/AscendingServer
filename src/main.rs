@@ -20,11 +20,12 @@ mod time_ext;
 #[allow(unused_imports)]
 use backtrace::Backtrace;
 use containers::Storage;
-use gameloop::*;
+//use gameloop::*;
 use gametypes::*;
+use ipc::ipc_runner;
 use log::{error, info, Level, Metadata, Record};
-use logins::{LoginActor, LoginIncomming};
-use std::{env, fs::File, io::Write, panic, sync::Arc};
+use logins::LoginIncomming;
+use std::{env, fs::File, io::Write, panic};
 use tokio::sync::mpsc;
 
 use crate::containers::read_config;
@@ -115,7 +116,7 @@ async fn main() {
 
     info!("Starting up");
     info!("Initializing Storage Data");
-    let mut storage = Storage::new(config).await.unwrap();
+    let storage = Storage::new(config).await.unwrap();
 
     info!("Initializing Game Time Actor");
 
@@ -127,13 +128,15 @@ async fn main() {
         mpsc::channel(1000);
 
     info!("Initializing Login Actor");
-    let mut login_actor = logins::LoginActor::new(&storage, login_rx);
+    let login_actor = logins::LoginActor::new(&storage, login_rx);
     tokio::spawn(login_actor.runner());
 
     info!("Initializing Server Listener Actor");
-    let mut listening_actor = network::ServerListenActor::new(&storage, login_tx)
+    let listening_actor = network::ServerListenActor::new(&storage, login_tx)
         .await
         .unwrap();
-
+    tokio::spawn(listening_actor.runner());
     info!("Game Server is Running.");
+
+    ipc_runner(&storage).await.unwrap();
 }

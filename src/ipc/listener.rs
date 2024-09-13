@@ -1,54 +1,5 @@
-use crate::{containers::*, gametypes::*, ipc::*, maps::*};
-use bytey::ByteBuffer;
-use interprocess::local_socket::{
-    tokio::{prelude::*, RecvHalf, SendHalf, Stream},
-    GenericNamespaced, ListenerOptions,
-};
-use mmap_bytey::{MByteBuffer, BUFFER_SIZE};
-use sqlx::PgPool;
-use std::{
-    io::{Read, Write},
-    sync::{atomic::AtomicU64, Arc},
-};
-use tokio::{
-    // io::{AsyncReadExt, AsyncWriteExt, BufReader},
-    sync::{broadcast, mpsc},
-};
-
-pub struct IPCActor {
-    pub conn: Stream,
-    pub npc_count: Arc<AtomicU64>,
-    pub player_count: Arc<AtomicU64>,
-    pub map_senders: IndexMap<MapPosition, mpsc::Sender<MapIncomming>>,
-    pub map_broadcast_tx: broadcast::Sender<MapBroadCasts>,
-    pub map_broadcast_rx: broadcast::Sender<MapBroadCasts>,
-    pub pgconn: PgPool,
-    pub bases: Arc<Bases>,
-    pub config: Arc<Config>,
-}
-
-async fn handle_conn(conn: Stream) -> Result<()> {
-    let (mut rx, mut tx) = conn.split();
-    let mut buffer = ByteBuffer::new();
-
-    // Allocate a sizeable buffer for receiving. This size should be big enough and easy to
-    // find for the allocator.
-    let mut buf: [u8; 4096] = [0; 4096];
-
-    // Describe the send operation as sending our whole message.
-    //let send = tx.write_all(b"Hello from server!\n");
-    // Describe the receive operation as receiving a line into our big buffer.
-    let recv = rx.read(&mut buf);
-
-    match recv {
-        Ok(v) => {}
-        Err(e) => {}
-    };
-
-    // Produce our output!
-    //println!("Client answered: {}", buffer.trim());
-    Ok(())
-}
+use crate::{containers::*, gametypes::*, ipc::*};
+use interprocess::local_socket::{tokio::prelude::*, GenericNamespaced, ListenerOptions};
 
 pub async fn ipc_runner(storage: &Storage) -> Result<()> {
     let name = (*storage.config.ipc_name).to_ns_name::<GenericNamespaced>()?;
@@ -86,9 +37,11 @@ pub async fn ipc_runner(storage: &Storage) -> Result<()> {
             }
         };
 
+        let ipc_actor = IPCActor::new(storage, info_tx.clone());
+
         tokio::spawn(async move {
-            if let Err(e) = handle_conn(conn).await {
-                eprintln!("Error while handling connection: {e}");
+            if let Err(e) = ipc_actor.runner(conn).await {
+                log::error!("Error while handling connection: {}", e);
             }
         });
     }
