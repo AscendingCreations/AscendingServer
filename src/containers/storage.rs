@@ -15,14 +15,13 @@ use std::{
 };
 use tokio::sync::{broadcast, mpsc};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Storage {
     #[allow(clippy::type_complexity)]
     pub npc_count: Arc<AtomicU64>,
     pub player_count: Arc<AtomicU64>,
     pub map_senders: IndexMap<MapPosition, mpsc::Sender<MapIncomming>>,
     pub map_broadcast_tx: broadcast::Sender<MapBroadCasts>,
-    pub map_broadcast_rx: broadcast::Receiver<MapBroadCasts>,
     pub pgconn: PgPool,
     pub bases: Arc<Bases>,
     pub config: Arc<Config>,
@@ -102,8 +101,7 @@ impl Storage {
     pub async fn new(config: Config) -> Option<Self> {
         let pgconn = establish_connection(&config).await.unwrap();
         let mut bases = Bases::new()?;
-        let (map_broadcast_tx, map_broadcast_rx) =
-            broadcast::channel(config.map_broadcast_buffer_size);
+        let (map_broadcast_tx, _) = broadcast::channel(config.map_broadcast_buffer_size);
 
         crate::maps::get_maps().into_iter().for_each(|map_data| {
             bases.maps.insert(map_data.position, map_data);
@@ -136,7 +134,6 @@ impl Storage {
             map_senders: IndexMap::default(),
             pgconn,
             map_broadcast_tx,
-            map_broadcast_rx,
             bases: Arc::new(bases),
             config: Arc::new(config),
         })

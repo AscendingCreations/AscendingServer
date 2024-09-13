@@ -2,8 +2,7 @@ use crate::{containers::*, gametypes::*, ipc::*};
 use bytey::ByteBuffer;
 use interprocess::local_socket::tokio::{prelude::*, SendHalf, Stream};
 use mmap_bytey::{MByteBuffer, BUFFER_SIZE};
-use sqlx::PgPool;
-use std::sync::{atomic::AtomicU64, Arc};
+use std::sync::Arc;
 use tokio::{
     io::{AsyncReadExt, BufReader},
     sync::mpsc,
@@ -11,22 +10,14 @@ use tokio::{
 
 pub struct IPCActor {
     pub info_tx: mpsc::Sender<InfoIncomming>,
-    pub npc_count: Arc<AtomicU64>,
-    pub player_count: Arc<AtomicU64>,
-    pub pgconn: PgPool,
-    pub bases: Arc<Bases>,
-    pub config: Arc<Config>,
+    pub storage: Storage,
 }
 
 impl IPCActor {
     pub fn new(storage: &Storage, info_tx: mpsc::Sender<InfoIncomming>) -> Self {
         Self {
             info_tx,
-            npc_count: storage.npc_count.clone(),
-            player_count: storage.player_count.clone(),
-            pgconn: storage.pgconn.clone(),
-            bases: storage.bases.clone(),
-            config: storage.config.clone(),
+            storage: storage.clone(),
         }
     }
 
