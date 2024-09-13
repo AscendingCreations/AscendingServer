@@ -14,7 +14,7 @@ chrono = { version = "0.4.38", features = ["serde"] }
 regex = "1.10.6"
 bit_op = "0.1.1"
 rand = "0.8.5"
-bytey = { version = "0.3.0", git = "https://github.com/Stefanowhb/bytey.git" }
+bytey = { version = "0.4.0", git = "https://github.com/Stefanowhb/bytey.git" }
 mmap_bytey = "0.2.0"
 indexmap = "2.5.0"
 argon2 = "0.5.3"
@@ -24,7 +24,7 @@ hecs = { version = "0.10.5", features = [
     "row-serialize",
     "macros",
 ] }
-sqlx = { version = "0.8.1", features = [
+sqlx = { version = "0.8.2", features = [
     "runtime-tokio",
     "postgres",
     "chrono",
