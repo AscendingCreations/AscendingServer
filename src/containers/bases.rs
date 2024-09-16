@@ -1,4 +1,4 @@
-use crate::{containers::IndexMap, gametypes::*, items::*, maps::*, npcs::*};
+use crate::{gametypes::*, items::*, maps::*, npcs::*};
 
 #[derive(Debug)]
 pub struct Bases {

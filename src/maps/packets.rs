@@ -1,5 +1,7 @@
 use crate::{players::Player, EntityKey, GameTime, MapPosition, Position, UserAccess};
 
+use super::DropItem;
+
 #[derive(Clone, Debug)]
 pub enum MapIncomming {
     SendBlockUpdate {
@@ -20,6 +22,16 @@ pub enum MapIncomming {
     },
     PlayerMessage {
         map_id: MapPosition,
+    },
+    DropItem {
+        map_id: MapPosition,
+        item: DropItem,
+        claim_id: EntityKey,
+    },
+    RequestItemDrop {
+        map_id: MapPosition,
+        item: DropItem,
+        channel: tokio::sync::mpsc::Sender<MapQuickResponse>,
     },
 }
 
@@ -51,5 +63,16 @@ pub enum MapBroadCasts {
     },
     TimeUpdate {
         time: GameTime,
+    },
+}
+
+#[derive(Clone, Debug)]
+pub enum MapQuickResponse {
+    None,
+    DropItem {
+        map_id: MapPosition,
+        item: DropItem,
+        drop_amount: u16,
+        claim_id: EntityKey,
     },
 }

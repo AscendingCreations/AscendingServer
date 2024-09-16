@@ -155,6 +155,20 @@ pub enum AscendingError {
         backtrace: Box<Backtrace>,
     },
     #[error("Error: {error}, BackTrace: {backtrace}")]
+    TokioMPSCMapQuickSendError {
+        #[from]
+        error: Box<tokio::sync::mpsc::error::SendError<crate::maps::MapQuickResponse>>,
+        #[backtrace]
+        backtrace: Box<Backtrace>,
+    },
+    #[error("Error: {error}, BackTrace: {backtrace}")]
+    TokioMPSCMapSendError {
+        #[from]
+        error: Box<tokio::sync::mpsc::error::SendError<crate::maps::MapIncomming>>,
+        #[backtrace]
+        backtrace: Box<Backtrace>,
+    },
+    #[error("Error: {error}, BackTrace: {backtrace}")]
     TokioBroadcastMapSendError {
         #[from]
         error: Box<tokio::sync::broadcast::error::SendError<crate::maps::MapBroadCasts>>,

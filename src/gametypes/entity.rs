@@ -1,14 +1,10 @@
-use crate::{gametypes::*, network::*, time_ext::MyInstant};
-use educe::Educe;
+use crate::network::*;
 use slotmap::{new_key_type, Key, KeyData};
 
-#[derive(Educe, Debug, Copy, Clone, PartialEq, Eq)]
-#[educe(Default)]
-pub struct Targeting {
-    pub target_type: Target,
-    pub target_pos: Position,
-    #[educe(Default = MyInstant::now())]
-    pub target_timer: MyInstant,
+#[derive(Default, Debug, Copy, Clone, PartialEq, Eq, MByteBufferRead, MByteBufferWrite)]
+pub struct OwnerID {
+    key: EntityKey,
+    user_id: u64,
 }
 
 new_key_type! {

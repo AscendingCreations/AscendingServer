@@ -1,15 +1,14 @@
 use super::{MapBroadCasts, MapIncomming, *};
 use crate::{
-    containers::{Config, GameStore, HashSet, IndexMap, Storage},
-    gametypes::*,
-    time_ext::MyInstant,
+    containers::*, gametypes::*, maps::GridTile, npcs::Npc, players::Player, time_ext::MyInstant,
 };
-use bit_op::bit_u8::*;
+use bit_op::{bit_u8::*, BitOp};
 use educe::Educe;
 use serde::{Deserialize, Serialize};
 use speedy::{Readable, Writable};
 use sqlx::PgPool;
 use std::{
+    cell::RefCell,
     fs::{self, OpenOptions},
     io::Read,
 };
@@ -25,11 +24,16 @@ pub struct MapActor {
     pub storage: Storage,
     pub tick: MyInstant,
     pub zones: [u64; 5], //contains the NPC spawn Count of each Zone.
-    pub move_grid: [GridTile; MAP_MAX_X * MAP_MAX_Y],
+    //pub move_grid: [GridTile; MAP_MAX_X * MAP_MAX_Y],
     pub spawnable_item: Vec<SpawnItemData>,
     pub move_grids: IndexMap<MapPosition, [GridTile; MAP_MAX_X * MAP_MAX_Y]>,
     pub broadcast_rx: broadcast::Receiver<MapBroadCasts>,
     pub receiver: mpsc::Receiver<MapIncomming>,
+    pub players: HopSlotMap<RefCell<Player>>,
+    pub npcs: HopSlotMap<RefCell<Npc>>,
+    pub items: HopSlotMap<MapItem>,
+    pub claims: HopSlotMap<MapClaims>,
+    pub claims_by_position: HashMap<Position, EntityKey>,
 }
 
 impl MapActor {
@@ -163,7 +167,100 @@ impl MapActor {
         Ok(())
     }
 
-    /*pub fn get_surrounding(&self, include_corners: bool) -> Vec<MapPosition> {
+    pub fn update_map_items(&mut self) -> Result<()> {
+        let mut to_remove = Vec::new();
+
+        for (key, item) in &self.items {
+            if let Some(tmr) = item.despawn {
+                if tmr <= self.tick {
+                    to_remove.push(key)
+                }
+            }
+        }
+
+        for key in to_remove.into_iter() {
+            if let Some(_item) = self.remove_item(key) {
+                //DataTaskToken::EntityUnload(e_pos.map)
+                //.add_task(storage, unload_entity_packet(*entity)?)
+                //.await?;
+            }
+        }
+
+        Ok(())
+    }
+
+    pub fn map_path_blocked(
+        &self,
+        cur_pos: Position,
+        next_pos: Position,
+        movedir: u8,
+        entity_type: WorldEntityType,
+    ) -> bool {
+        // Directional blocking might be in the wrong order as it should be.
+        // 0 down, 1 right, 2 up, 3 left
+        let blocked = self.is_dir_blocked(cur_pos, movedir);
+
+        if !blocked {
+            return self.is_blocked_tile(next_pos, entity_type);
+        }
+
+        blocked
+    }
+
+    pub fn is_dir_blocked(&self, cur_pos: Position, movedir: u8) -> bool {
+        // Directional blocking might be in the wrong order as it should be.
+        // 0 down, 1 right, 2 up, 3 left
+        match movedir {
+            0 => {
+                if let Some(grid) = self.move_grids.get(&cur_pos.map) {
+                    grid[cur_pos.as_tile()].dir_block.get(B0) == 0b00000001
+                } else {
+                    true
+                }
+            }
+            1 => {
+                if let Some(grid) = self.move_grids.get(&cur_pos.map) {
+                    grid[cur_pos.as_tile()].dir_block.get(B3) == 0b00001000
+                } else {
+                    true
+                }
+            }
+            2 => {
+                if let Some(grid) = self.move_grids.get(&cur_pos.map) {
+                    grid[cur_pos.as_tile()].dir_block.get(B1) == 0b00000010
+                } else {
+                    true
+                }
+            }
+            _ => {
+                if let Some(grid) = self.move_grids.get(&cur_pos.map) {
+                    grid[cur_pos.as_tile()].dir_block.get(B2) == 0b00000100
+                } else {
+                    true
+                }
+            }
+        }
+    }
+
+    pub fn is_blocked_tile(&self, pos: Position, entity_type: WorldEntityType) -> bool {
+        match self.move_grids.get(&pos.map) {
+            Some(grid) => match grid[pos.as_tile()].attr {
+                GridAttribute::Walkable => false,
+                GridAttribute::Entity => {
+                    if entity_type == WorldEntityType::MapItem {
+                        false
+                    } else {
+                        grid[pos.as_tile()].count >= 1
+                    }
+                }
+                GridAttribute::Blocked => true,
+                GridAttribute::NpcBlock => entity_type == WorldEntityType::Npc,
+            },
+            None => true,
+        }
+    }
+
+    pub fn get_surrounding(&self, include_corners: bool) -> Vec<MapPosition> {
         get_surrounding(self.position, include_corners)
     }
 
@@ -177,87 +274,66 @@ impl MapActor {
         });
     }
 
-    pub fn is_blocked_tile(&self, pos: Position, entity_type: WorldEntityType) -> bool {
-        match self.move_grid[pos.as_tile()].attr {
-            GridAttribute::Walkable => false,
-            GridAttribute::Entity => {
-                if entity_type == WorldEntityType::MapItem {
-                    false
-                } else {
-                    self.move_grid[pos.as_tile()].count >= 1
-                }
-            }
-            GridAttribute::Blocked => true,
-            GridAttribute::NpcBlock => entity_type == WorldEntityType::Npc,
-        }
-    }
-
     pub fn remove_entity_from_grid(&mut self, pos: Position) {
-        self.move_grid[pos.as_tile()].count = self.move_grid[pos.as_tile()].count.saturating_sub(1);
+        if let Some(grid) = self.move_grids.get_mut(&pos.map) {
+            grid[pos.as_tile()].count = grid[pos.as_tile()].count.saturating_sub(1);
 
-        if self.move_grid[pos.as_tile()].count == 0 {
-            self.move_grid[pos.as_tile()].attr = GridAttribute::Walkable;
+            if grid[pos.as_tile()].count == 0 {
+                grid[pos.as_tile()].attr = GridAttribute::Walkable;
+            }
         }
     }
 
     pub fn add_entity_to_grid(&mut self, pos: Position) {
-        self.move_grid[pos.as_tile()].count = self.move_grid[pos.as_tile()].count.saturating_add(1);
-        self.move_grid[pos.as_tile()].attr = GridAttribute::Entity;
-    }
-
-    pub async fn add_player(&mut self, storage: &GameStore, id: Entity) {
-        self.players.insert(id);
-
-        for i in self.get_surrounding(true) {
-            if i != self.position {
-                match storage.maps.get(&i) {
-                    Some(map) => {
-                        let mut map_lock = map.write().await;
-                        let count = map_lock.players_on_map.saturating_add(1);
-                        map_lock.players_on_map = count;
-                    }
-                    None => continue,
-                }
-            }
+        if let Some(grid) = self.move_grids.get_mut(&pos.map) {
+            grid[pos.as_tile()].count = grid[pos.as_tile()].count.saturating_add(1);
+            grid[pos.as_tile()].attr = GridAttribute::Entity;
         }
-
-        self.players_on_map = self.players_on_map.saturating_add(1);
     }
 
-    pub fn add_npc(&mut self, id: Entity) {
-        self.npcs.insert(id);
-    }
+    pub fn add_player(&mut self, player: Player) {
+        let key = self.players.insert(RefCell::new(player));
 
-    pub async fn remove_player(&mut self, storage: &GameStore, id: Entity) {
-        self.players.swap_remove(&id);
-
-        //we set the surrounding maps to have players on them if the player is within 1 map of them.
-        for i in self.get_surrounding(true) {
-            if i != self.position {
-                match storage.maps.get(&i) {
-                    Some(map) => {
-                        let mut map_lock = map.write().await;
-                        let count = map_lock.players_on_map.saturating_sub(1);
-                        map_lock.players_on_map = count;
-                    }
-                    None => continue,
-                }
-            }
+        if let Some(player) = self.players.get_mut(key) {
+            player.borrow_mut().key = key;
         }
-
-        self.players_on_map = self.players_on_map.saturating_sub(1);
     }
 
-    pub fn remove_npc(&mut self, id: Entity) {
-        self.npcs.swap_remove(&id);
+    pub fn add_npc(&mut self, npc: Npc) {
+        let key = self.npcs.insert(RefCell::new(npc));
+
+        if let Some(npc) = self.npcs.get_mut(key) {
+            npc.borrow_mut().key = key;
+        }
     }
 
-    pub fn remove_item(&mut self, id: Entity) {
-        /*if !self.items.contains(id) {
-            return;
-        }*/
+    pub fn remove_player(&mut self, key: EntityKey) -> Option<Player> {
+        self.players.remove(key).map(|p| p.take())
+    }
 
-        //self.items.remove(id);
-        self.itemids.swap_remove(&id);
-    }*/
+    pub fn remove_npc(&mut self, key: EntityKey) -> Option<Npc> {
+        self.npcs.remove(key).map(|n| n.take())
+    }
+
+    pub fn remove_item(&mut self, key: EntityKey) -> Option<MapItem> {
+        self.items.remove(key)
+    }
+
+    pub fn remove_item_from_grid(&mut self, pos: Position) {
+        if let Some(grid) = self.move_grids.get_mut(&pos.map) {
+            grid[pos.as_tile()].item = None;
+        }
+    }
+
+    pub fn add_item_to_grid(&mut self, pos: Position, key: EntityKey, num: u32, amount: u16) {
+        if let Some(grid) = self.move_grids.get_mut(&pos.map) {
+            grid[pos.as_tile()].item = Some((key, num, amount));
+        }
+    }
+
+    pub fn get_dir_mapid(&self, position: MapPosition, dir: MapPosDir) -> Option<MapPosition> {
+        let offset = position.map_offset(dir);
+        self.move_grids.get(&offset)?;
+        Some(offset)
+    }
 }

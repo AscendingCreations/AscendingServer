@@ -8,7 +8,7 @@ mod rgb;
 mod sharedstructs;
 mod target;
 
-pub use entity::EntityKey;
+pub use entity::*;
 pub use enums::*;
 pub use error::{AscendingError, Result};
 pub use game_time::{GameTime, GameTimeActor};
@@ -18,7 +18,13 @@ pub use rgb::Rgba;
 pub use sharedstructs::*;
 pub use target::Targeting;
 
-type SlotMap<T> = slotmap::SlotMap<EntityKey, T>;
+pub type SlotMap<T> = slotmap::SlotMap<EntityKey, T>;
+pub type HopSlotMap<T> = slotmap::HopSlotMap<EntityKey, T>;
+//We redefine these here so it is easier to update the hash style later if we need too.
+pub type IndexMap<K, V> = indexmap::IndexMap<K, V, ahash::RandomState>;
+pub type IndexSet<T> = indexmap::IndexSet<T, ahash::RandomState>;
+pub type HashSet<T> = std::collections::HashSet<T, ahash::RandomState>;
+pub type HashMap<K, V> = std::collections::HashMap<K, V, ahash::RandomState>;
 
 pub const EQUIPMENT_TYPE_MAX: usize = EquipmentType::Count as usize;
 pub const VITALS_MAX: usize = VitalTypes::Count as usize;

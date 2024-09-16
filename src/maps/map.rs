@@ -1,10 +1,4 @@
-use super::{MapBroadCasts, MapIncomming};
-use crate::{
-    containers::{GameStore, HashSet, IndexMap},
-    gametypes::*,
-    time_ext::MyInstant,
-};
-use bit_op::bit_u8::*;
+use crate::{containers::*, gametypes::*};
 use educe::Educe;
 use serde::{Deserialize, Serialize};
 use speedy::{Readable, Writable};
@@ -13,7 +7,6 @@ use std::{
     fs::{self, OpenOptions},
     io::Read,
 };
-use tokio::sync::{broadcast, mpsc};
 
 const MAP_PATH: &str = "./data/maps/";
 
@@ -64,6 +57,7 @@ pub enum GridAttribute {
 pub struct GridTile {
     pub count: u8,
     pub attr: GridAttribute,
+    pub item: Option<(EntityKey, u32, u16)>,
     pub dir_block: u8,
 }
 
@@ -164,16 +158,6 @@ pub fn check_surrounding(
     } else {
         MapPos::None
     }
-}
-
-pub fn get_dir_mapid(
-    storage: &GameStore,
-    position: MapPosition,
-    dir: MapPosDir,
-) -> Option<MapPosition> {
-    let offset = position.map_offset(dir);
-    storage.bases.maps.get(&offset)?;
-    Some(offset)
 }
 
 pub fn get_surrounding(position: MapPosition, include_corners: bool) -> Vec<MapPosition> {
@@ -295,7 +279,7 @@ pub fn map_offset_range(
     None
 }
 
-pub fn get_maps_in_range(storage: &GameStore, pos: &Position, range: i32) -> Vec<MapPos> {
+pub fn get_maps_in_range(storage: &Storage, pos: &Position, range: i32) -> Vec<MapPos> {
     let mut arr: Vec<MapPos> = Vec::new();
 
     if storage.bases.maps.get(&pos.map).is_none() {
@@ -370,72 +354,3 @@ pub fn get_maps_in_range(storage: &GameStore, pos: &Position, range: i32) -> Vec
 
     arr
 }
-/*
-pub async fn is_dir_blocked(storage: &GameStore, cur_pos: Position, movedir: u8) -> bool {
-    // Directional blocking might be in the wrong order as it should be.
-    // 0 down, 1 right, 2 up, 3 left
-    match movedir {
-        0 => {
-            if let Some(map) = storage.maps.get(&cur_pos.map) {
-                map.read().await.move_grid[cur_pos.as_tile()]
-                    .dir_block
-                    .get(B0)
-                    == 0b00000001
-            } else {
-                true
-            }
-        }
-        1 => {
-            if let Some(map) = storage.maps.get(&cur_pos.map) {
-                map.read().await.move_grid[cur_pos.as_tile()]
-                    .dir_block
-                    .get(B3)
-                    == 0b00001000
-            } else {
-                true
-            }
-        }
-        2 => {
-            if let Some(map) = storage.maps.get(&cur_pos.map) {
-                map.read().await.move_grid[cur_pos.as_tile()]
-                    .dir_block
-                    .get(B1)
-                    == 0b00000010
-            } else {
-                true
-            }
-        }
-        _ => {
-            if let Some(map) = storage.maps.get(&cur_pos.map) {
-                map.read().await.move_grid[cur_pos.as_tile()]
-                    .dir_block
-                    .get(B2)
-                    == 0b00000100
-            } else {
-                true
-            }
-        }
-    }
-}
-
-pub async fn map_path_blocked(
-    storage: &GameStore,
-    cur_pos: Position,
-    next_pos: Position,
-    movedir: u8,
-    entity_type: WorldEntityType,
-) -> bool {
-    // Directional blocking might be in the wrong order as it should be.
-    // 0 down, 1 right, 2 up, 3 left
-    let blocked = is_dir_blocked(storage, cur_pos, movedir).await;
-
-    if !blocked {
-        return match storage.maps.get(&next_pos.map) {
-            Some(map) => map.read().await.is_blocked_tile(next_pos, entity_type),
-            None => true,
-        };
-    }
-
-    blocked
-}
-    */

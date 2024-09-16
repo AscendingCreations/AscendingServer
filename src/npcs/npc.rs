@@ -25,7 +25,6 @@ pub struct Npc {
     #[educe(Default = VecDeque::new())]
     pub npc_moves: VecDeque<(Position, u8)>,
     pub spawn_zone: Option<usize>,
-    pub spawn_map: MapPosition,
     pub move_pos_overide: Option<Position>,
     #[educe(Default = Position::new(10, 10, MapPosition::new(0,0,0)))]
     pub spawn_pos: Position,

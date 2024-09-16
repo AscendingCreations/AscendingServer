@@ -72,6 +72,38 @@ impl Position {
         Position { x, y, map }
     }
 
+    pub fn new_offset(mut x: i32, mut y: i32, mut map: MapPosition) -> Position {
+        if x < 0 {
+            x = 31;
+            map.x -= 1;
+        }
+
+        if x >= 32 {
+            x = 0;
+            map.x += 1;
+        }
+
+        if y < 0 {
+            y = 31;
+            map.y -= 1;
+        }
+
+        if y >= 32 {
+            y = 0;
+            map.y += 1;
+        }
+
+        Position { x, y, map }
+    }
+
+    pub fn new_checked(x: i32, y: i32, map: MapPosition) -> Option<Position> {
+        if x < 0 || x >= 32 || y < 0 || y >= 32 {
+            None
+        } else {
+            Some(Position { x, y, map })
+        }
+    }
+
     pub fn left_map(&self) -> bool {
         self.x < 0 || self.x >= MAP_MAX_X as i32 || self.y < 0 || self.y >= MAP_MAX_Y as i32
     }

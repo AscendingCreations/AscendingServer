@@ -1,7 +1,8 @@
 use crate::{
-    containers::{Bases, IndexMap},
+    containers::*,
     gametypes::*,
     maps::*,
+    maps::{GridAttribute, GridTile, MapAttribute},
     time_ext::MyInstant,
 };
 use log::LevelFilter;
@@ -11,6 +12,7 @@ use sqlx::{
     ConnectOptions, PgPool,
 };
 use std::{
+    collections::HashMap,
     fs,
     sync::{atomic::AtomicU64, Arc},
 };
@@ -174,32 +176,39 @@ impl Storage {
                     receiver,
                     tick: MyInstant::now(),
                     zones: [0, 0, 0, 0, 0],
-                    move_grid: [GridTile::default(); MAP_MAX_X * MAP_MAX_Y],
                     spawnable_item: Vec::new(),
                     move_grids: IndexMap::default(),
+                    players: HopSlotMap::default(),
+                    npcs: HopSlotMap::default(),
+                    items: HopSlotMap::default(),
+                    claims: HopSlotMap::default(),
+                    claims_by_position: HashMap::default(),
                 };
+
+                let mut move_grid = [GridTile::default(); MAP_MAX_X * MAP_MAX_Y];
 
                 for id in 0..MAP_MAX_X * MAP_MAX_Y {
                     match &map_data.attribute[id] {
                         MapAttribute::Blocked | MapAttribute::Storage | MapAttribute::Shop(_) => {
-                            map.move_grid[id].attr = GridAttribute::Blocked;
+                            move_grid[id].attr = GridAttribute::Blocked;
                         }
                         MapAttribute::NpcBlocked => {
-                            map.move_grid[id].attr = GridAttribute::NpcBlock;
+                            move_grid[id].attr = GridAttribute::NpcBlock;
                         }
-                        MapAttribute::ItemSpawn(_itemdata) => {
-                            /* map.add_spawnable_item(
+                        MapAttribute::ItemSpawn(itemdata) => {
+                            map.add_spawnable_item(
                                 Position::new(id as i32 % 32, id as i32 / 32, map_data.position),
                                 itemdata.index,
                                 itemdata.amount,
                                 itemdata.timer,
-                            );*/
+                            );
                         }
                         _ => {}
                     }
-                    map.move_grid[id].dir_block = map_data.dir_block[id];
+                    move_grid[id].dir_block = map_data.dir_block[id];
                 }
 
+                map.move_grids.insert(map.position, move_grid);
                 tokio::spawn(map.runner());
             }
         }
