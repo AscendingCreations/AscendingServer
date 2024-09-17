@@ -1,4 +1,4 @@
-use crate::{gametypes::*, maps::MapBroadCasts, GameTime, Position, UserAccess};
+use crate::{gametypes::*, maps::MapBroadCasts, GameTime, GlobalKey, UserAccess};
 use bytey::{ByteBufferRead, ByteBufferWrite};
 use tokio::{
     select,
@@ -19,9 +19,9 @@ pub enum InfoOutGoing {
 
 #[derive(Debug, Clone, ByteBufferRead, ByteBufferWrite)]
 pub struct PlayerInfo {
+    pub key: GlobalKey,
     pub username: String,
     pub access: UserAccess,
-    pub login_position: Position,
 }
 
 pub struct InfoActor {
@@ -77,21 +77,23 @@ impl InfoActor {
         match packet {
             MapBroadCasts::PlayerLoggedIn {
                 map_id: _,
+                key,
                 username,
                 access,
-                position,
+                position: _,
             } => {
                 self.usernames.insert(
                     username.clone(),
                     PlayerInfo {
+                        key,
                         username,
                         access,
-                        login_position: position,
                     },
                 );
             }
             MapBroadCasts::PlayerLoggedOut {
                 map_id: _,
+                key: _,
                 username,
                 position: _,
             } => {

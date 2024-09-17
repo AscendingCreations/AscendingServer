@@ -1,11 +1,5 @@
 use super::{MapActor, MapAttribute, MapQuickResponse};
-use crate::{
-    gametypes::*,
-    items::Item,
-    network::*,
-    //tasks::{map_item_packet, unload_entity_packet, DataTaskToken},
-    time_ext::MyInstant,
-};
+use crate::{gametypes::*, identity::GlobalKey, items::Item, network::*, time_ext::MyInstant};
 use educe::Educe;
 use mmap_bytey::{MByteBufferRead, MByteBufferWrite};
 use std::backtrace::Backtrace;
@@ -13,11 +7,11 @@ use tokio::sync::mpsc;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Default, MByteBufferRead, MByteBufferWrite)]
 pub struct MapItem {
-    pub key: EntityKey,
+    pub key: GlobalKey,
     pub item: Item,
     pub despawn: Option<MyInstant>,
     pub ownertimer: Option<MyInstant>,
-    pub ownerid: Option<OwnerID>,
+    pub ownerid: Option<GlobalKey>,
     pub pos: Position,
 }
 
@@ -33,7 +27,7 @@ impl MapItem {
         item: Item,
         pos: Position,
         despawn: Option<MyInstant>,
-        ownerid: Option<OwnerID>,
+        ownerid: Option<GlobalKey>,
         ownertimer: Option<MyInstant>,
     ) -> MapItem {
         MapItem {
@@ -42,7 +36,7 @@ impl MapItem {
             ownertimer,
             ownerid,
             pos,
-            key: EntityKey::default(),
+            key: GlobalKey::default(),
         }
     }
 }
@@ -61,7 +55,7 @@ pub struct SpawnItemData {
 
 #[derive(Copy, Clone, PartialEq, Eq, Default, Debug)]
 pub struct DropItem {
-    pub player: OwnerID,
+    pub player: GlobalKey,
     pub index: u32,
     pub amount: u16,
     pub pos: Position,
@@ -85,7 +79,7 @@ pub enum MapClaims {
 pub fn find_drop_pos(
     map: &MapActor,
     drop_item: DropItem,
-) -> Result<Vec<(Position, Option<(EntityKey, u16)>)>> {
+) -> Result<Vec<(Position, Option<(GlobalKey, u16)>)>> {
     let mut result = Vec::new();
     let mut process_more = false;
 
@@ -191,7 +185,7 @@ pub async fn try_drop_item(
     drop_item: DropItem,
     despawn: Option<MyInstant>,
     ownertimer: Option<MyInstant>,
-    ownerid: Option<OwnerID>,
+    ownerid: Option<GlobalKey>,
 ) -> Result<(bool, u16)> {
     let mut sent_requests = false;
     let (stack_limit, stackable) = match map.storage.bases.items.get(drop_item.index as usize) {
@@ -355,7 +349,7 @@ pub async fn try_drop_item(
     Ok((true, waited_leftover))
 }
 
-pub async fn player_interact_object(map: &MapActor, key: EntityKey) -> Result<()> {
+pub async fn player_interact_object(map: &MapActor, key: GlobalKey) -> Result<()> {
     if let Some(player) = map.players.get(key) {
         let target_pos = {
             let player = player.borrow();

@@ -1,8 +1,4 @@
-use crate::{
-    containers::{GameStore, GameWorld},
-    gametypes::{AscendingError, MapPosition, Result},
-    network::*,
-};
+use crate::{containers::*, gametypes::*, network::*};
 use indexmap::map::Entry;
 use log::warn;
 use mmap_bytey::BUFFER_SIZE;
@@ -28,9 +24,9 @@ pub enum DataTaskToken {
     MapChat(MapPosition),
     ItemLoad(MapPosition),
     EntityUnload(MapPosition),
-    PlayerSpawnToEntity(usize), //SocketID
-    NpcSpawnToEntity(usize),    //SocketID
-    ItemLoadToEntity(usize),    //SocketID
+    PlayerSpawnToEntity(GlobalKey),
+    NpcSpawnToEntity(GlobalKey),
+    ItemLoadToEntity(GlobalKey),
     GlobalChat,
 }
 

@@ -97,7 +97,7 @@ impl Position {
     }
 
     pub fn new_checked(x: i32, y: i32, map: MapPosition) -> Option<Position> {
-        if x < 0 || x >= 32 || y < 0 || y >= 32 {
+        if !(0..32).contains(&x) || !(0..32).contains(&y) {
             None
         } else {
             Some(Position { x, y, map })

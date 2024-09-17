@@ -6,6 +6,7 @@
 mod containers;
 mod gameloop;
 mod gametypes;
+mod identity;
 mod ipc;
 mod items;
 mod logins;
@@ -20,8 +21,8 @@ mod time_ext;
 #[allow(unused_imports)]
 use backtrace::Backtrace;
 use containers::Storage;
-//use gameloop::*;
 use gametypes::*;
+use identity::*;
 use ipc::ipc_runner;
 use log::{error, info, Level, Metadata, Record};
 use logins::LoginIncomming;
@@ -115,20 +116,26 @@ async fn main() {
     }));
 
     info!("Starting up");
-    info!("Initializing Storage Data");
-    let storage = Storage::new(config).await.unwrap();
+    let (id_tx, id_rx) = mpsc::channel::<IDIncomming>(config.map_buffer_size);
 
-    info!("Initializing Game Time Actor");
+    info!("Initializing Storage Data");
+    let storage = Storage::new(config, id_tx).await.unwrap();
 
     info!("Initializing World");
-    // storage.generate_world_actors().await.unwrap();
+    storage.generate_world_actors().await.unwrap();
+
+    info!("Initializing Game Time Actor");
+    let time_actor = GameTimeActor::new(storage.map_broadcast_tx.clone());
+    tokio::spawn(time_actor.runner());
+
+    let id_actor = IDActor::new(&storage, id_rx);
+    tokio::spawn(id_actor.runner());
 
     info!("Initializing Login Channels");
-    let (login_tx, login_rx): (mpsc::Sender<LoginIncomming>, mpsc::Receiver<LoginIncomming>) =
-        mpsc::channel(1000);
+    let (login_tx, login_rx) = mpsc::channel::<LoginIncomming>(1000);
 
     info!("Initializing Login Actor");
-    let login_actor = logins::LoginActor::new(&storage, login_rx);
+    let login_actor = logins::LoginActor::new(&storage, login_rx).await;
     tokio::spawn(login_actor.runner());
 
     info!("Initializing Server Listener Actor");

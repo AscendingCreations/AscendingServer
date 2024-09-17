@@ -1,14 +1,24 @@
 use super::{MapBroadCasts, MapIncomming, *};
 use crate::{
-    containers::*, gametypes::*, maps::GridTile, npcs::Npc, players::Player, time_ext::MyInstant,
+    containers::*,
+    gametypes::*,
+    identity::ClaimsKey,
+    maps::GridTile,
+    npcs::Npc,
+    players::Player,
+    tasks::{DataTaskToken, MapSwitchTasks},
+    time_ext::MyInstant,
+    GlobalKey, HopSlotMap,
 };
 use bit_op::{bit_u8::*, BitOp};
 use educe::Educe;
+use mmap_bytey::MByteBuffer;
 use serde::{Deserialize, Serialize};
 use speedy::{Readable, Writable};
 use sqlx::PgPool;
 use std::{
     cell::RefCell,
+    collections::VecDeque,
     fs::{self, OpenOptions},
     io::Read,
 };
@@ -29,14 +39,45 @@ pub struct MapActor {
     pub move_grids: IndexMap<MapPosition, [GridTile; MAP_MAX_X * MAP_MAX_Y]>,
     pub broadcast_rx: broadcast::Receiver<MapBroadCasts>,
     pub receiver: mpsc::Receiver<MapIncomming>,
-    pub players: HopSlotMap<RefCell<Player>>,
-    pub npcs: HopSlotMap<RefCell<Npc>>,
-    pub items: HopSlotMap<MapItem>,
-    pub claims: HopSlotMap<MapClaims>,
-    pub claims_by_position: HashMap<Position, EntityKey>,
+    pub players: IndexMap<GlobalKey, RefCell<Player>>,
+    pub npcs: IndexMap<GlobalKey, RefCell<Npc>>,
+    pub items: IndexMap<GlobalKey, MapItem>,
+    //used for internal processes to pass around for resource locking purposes.
+    pub claims: slotmap::HopSlotMap<ClaimsKey, MapClaims>,
+    pub claims_by_position: HashMap<Position, ClaimsKey>,
+    pub time: GameTime,
+    pub packet_cache: IndexMap<DataTaskToken, VecDeque<(u32, MByteBuffer, bool)>>,
+    //This keeps track of what Things need sending. So we can leave it loaded and only loop whats needed.
+    pub packet_cache_ids: IndexSet<DataTaskToken>,
 }
 
 impl MapActor {
+    pub fn new(
+        position: MapPosition,
+        storage: Storage,
+        broadcast_rx: broadcast::Receiver<MapBroadCasts>,
+        receiver: mpsc::Receiver<MapIncomming>,
+    ) -> Self {
+        MapActor {
+            position,
+            storage,
+            broadcast_rx,
+            receiver,
+            tick: MyInstant::now(),
+            zones: [0, 0, 0, 0, 0],
+            spawnable_item: Vec::new(),
+            move_grids: IndexMap::default(),
+            players: IndexMap::default(),
+            npcs: IndexMap::default(),
+            items: IndexMap::default(),
+            claims: slotmap::HopSlotMap::default(),
+            claims_by_position: HashMap::default(),
+            time: GameTime::default(),
+            packet_cache: IndexMap::default(),
+            packet_cache_ids: IndexSet::default(),
+        }
+    }
+
     pub async fn runner(mut self) -> Result<()> {
         /*let mut rng = thread_rng();
         let mut spawnable = Vec::new();
@@ -45,124 +86,6 @@ impl MapActor {
         loop {
             self.tick = MyInstant::now();
 
-            let mut count = 0;
-
-            //Spawn NPC's if the max npc's per world is not yet reached.
-            if len < MAX_WORLD_NPCS {
-                let map = storage
-                    .bases
-                    .maps
-                    .get(position)
-                    .ok_or(AscendingError::MapNotFound(*position))?;
-
-                for (id, (max_npcs, zone_npcs)) in self.zones.iter().enumerate() {
-                    let data = map_data.read().await;
-                    //We want to only allow this many npcs per map to spawn at a time.
-                    if count >= NPCS_SPAWNCAP {
-                        break;
-                    }
-
-                    if !map.zonespawns[id].is_empty() && data.zones[id] < *max_npcs {
-                        // Set the Max allowed to spawn by either spawn cap or npc spawn limit.
-                        let max_spawnable =
-                            min((*max_npcs - data.zones[id]) as usize, NPCS_SPAWNCAP);
-
-                        //Lets Do this for each npc;
-                        for npc_id in zone_npcs
-                            .iter()
-                            .filter(|v| v.is_some())
-                            .map(|v| v.unwrap_or_default())
-                        {
-                            let game_time = storage.time.read().await;
-                            let (from, to) = storage
-                                .bases
-                                .npcs
-                                .get(npc_id as usize)
-                                .ok_or(AscendingError::NpcNotFound(npc_id))?
-                                .spawntime;
-
-                            //Give them a percentage chance to actually spawn
-                            //or see if we can spawn them yet within the time frame.
-                            if rng.gen_range(0..2) > 0 || !game_time.in_range(from, to) {
-                                continue;
-                            }
-
-                            //Lets only allow spawning of a set amount each time. keep from over burdening the system.
-                            if count >= max_spawnable || len >= MAX_WORLD_NPCS {
-                                break;
-                            }
-
-                            let mut loop_count = 0;
-
-                            //Only try to find a spot so many times randomly.
-                            if !map.zonespawns[id].is_empty() {
-                                while loop_count < 10 {
-                                    let pos_id = rng.gen_range(0..map.zonespawns[id].len());
-                                    let (x, y) = map.zonespawns[id][pos_id];
-                                    let spawn = Position::new(x as i32, y as i32, *position);
-
-                                    loop_count += 1;
-
-                                    //Check if the tile is blocked or not.
-                                    if !data.is_blocked_tile(spawn, WorldEntityType::Npc) {
-                                        //Set NPC as spawnable and to do further checks later.
-                                        //Doing this to make the code more readable.
-                                        spawnable.push((spawn, id, npc_id));
-                                        count = count.saturating_add(1);
-                                        len = len.saturating_add(1);
-                                        break;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                let mut data = map_data.write().await;
-                //Lets Spawn the npcs here;
-                for (spawn, zone, npc_id) in spawnable.drain(..) {
-                    if let Ok(Some(id)) = storage.add_npc(world, npc_id).await {
-                        data.add_npc(id);
-                        data.zones[zone] = data.zones[zone].saturating_add(1);
-                        spawn_npc(world, spawn, Some(zone), id).await?;
-                    }
-                }
-            }
-
-            let mut add_items = Vec::new();
-
-            for data in map_data.write().await.spawnable_item.iter_mut() {
-                let mut storage_mapitem = storage.map_items.write().await;
-                if !storage_mapitem.contains_key(&data.pos) {
-                    if data.timer <= tick {
-                        let map_item = create_mapitem(data.index, data.amount, data.pos);
-                        let mut lock = world.write().await;
-                        let id = lock.spawn((WorldEntityType::MapItem, map_item));
-                        lock.insert(id, (Target::MapItem(Entity(id)), DespawnTimer::default()))?;
-                        storage_mapitem.insert(data.pos, Entity(id));
-                        DataTaskToken::ItemLoad(data.pos.map)
-                            .add_task(
-                                storage,
-                                map_item_packet(
-                                    Entity(id),
-                                    map_item.pos,
-                                    map_item.item,
-                                    map_item.ownerid,
-                                    true,
-                                )?,
-                            )
-                            .await?;
-                        add_items.push(Entity(id));
-                    }
-                } else {
-                    data.timer = tick
-                        + Duration::try_milliseconds(data.timer_set as i64).unwrap_or_default();
-                }
-            }
-
-            for entity in add_items {
-                map_data.write().await.itemids.insert(entity);
-            }
         }*/
         Ok(())
     }
@@ -307,15 +230,15 @@ impl MapActor {
         }
     }
 
-    pub fn remove_player(&mut self, key: EntityKey) -> Option<Player> {
+    pub fn remove_player(&mut self, key: GlobalKey) -> Option<Player> {
         self.players.remove(key).map(|p| p.take())
     }
 
-    pub fn remove_npc(&mut self, key: EntityKey) -> Option<Npc> {
+    pub fn remove_npc(&mut self, key: GlobalKey) -> Option<Npc> {
         self.npcs.remove(key).map(|n| n.take())
     }
 
-    pub fn remove_item(&mut self, key: EntityKey) -> Option<MapItem> {
+    pub fn remove_item(&mut self, key: GlobalKey) -> Option<MapItem> {
         self.items.remove(key)
     }
 
@@ -325,7 +248,7 @@ impl MapActor {
         }
     }
 
-    pub fn add_item_to_grid(&mut self, pos: Position, key: EntityKey, num: u32, amount: u16) {
+    pub fn add_item_to_grid(&mut self, pos: Position, key: GlobalKey, num: u32, amount: u16) {
         if let Some(grid) = self.move_grids.get_mut(&pos.map) {
             grid[pos.as_tile()].item = Some((key, num, amount));
         }

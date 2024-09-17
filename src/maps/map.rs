@@ -1,4 +1,4 @@
-use crate::{containers::*, gametypes::*};
+use crate::{containers::*, gametypes::*, GlobalKey};
 use educe::Educe;
 use serde::{Deserialize, Serialize};
 use speedy::{Readable, Writable};
@@ -57,7 +57,7 @@ pub enum GridAttribute {
 pub struct GridTile {
     pub count: u8,
     pub attr: GridAttribute,
-    pub item: Option<(EntityKey, u32, u16)>,
+    pub item: Option<(GlobalKey, u32, u16)>,
     pub dir_block: u8,
 }
 

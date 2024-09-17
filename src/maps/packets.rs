@@ -1,9 +1,22 @@
-use crate::{players::Player, EntityKey, GameTime, MapPosition, Position, UserAccess};
+use crate::{
+    npcs::Npc, players::Player, ClaimsKey, GameTime, GlobalKey, MapPosition, Position, UserAccess,
+};
 
-use super::DropItem;
+use super::{DropItem, MapItem};
 
 #[derive(Clone, Debug)]
 pub enum MapIncomming {
+    SpawnNpc {
+        npc: Npc,
+        claimkey: ClaimsKey,
+    },
+    SpawnMapItem {
+        item: MapItem,
+        claimkey: ClaimsKey,
+    },
+    SpawnPlayer {
+        player: Player,
+    },
     SendBlockUpdate {
         map_id: MapPosition,
         x: u32,
@@ -13,12 +26,12 @@ pub enum MapIncomming {
     VerifyPlayerMove {
         map_id: MapPosition,
         position: Position,
-        id: EntityKey,
+        id: GlobalKey,
     },
     MovePlayer {
         map_id: MapPosition,
         player: Box<Player>,
-        old_id: EntityKey,
+        old_id: GlobalKey,
     },
     PlayerMessage {
         map_id: MapPosition,
@@ -26,7 +39,7 @@ pub enum MapIncomming {
     DropItem {
         map_id: MapPosition,
         item: DropItem,
-        claim_id: EntityKey,
+        claim_id: GlobalKey,
     },
     RequestItemDrop {
         map_id: MapPosition,
@@ -39,12 +52,14 @@ pub enum MapIncomming {
 pub enum MapBroadCasts {
     PlayerLoggedIn {
         map_id: MapPosition,
+        key: GlobalKey,
         username: String,
         access: UserAccess,
         position: Position,
     },
     PlayerLoggedOut {
         map_id: MapPosition,
+        key: GlobalKey,
         username: String,
         position: Position,
     },
@@ -54,12 +69,11 @@ pub enum MapBroadCasts {
         message: String,
         sender_name: String,
         sender_access: UserAccess,
-        sender_id: EntityKey,
+        sender_id: GlobalKey,
     },
     MovePlayer {
         map_id: MapPosition,
         player: Box<Player>,
-        old_id: EntityKey,
     },
     TimeUpdate {
         time: GameTime,
@@ -73,6 +87,6 @@ pub enum MapQuickResponse {
         map_id: MapPosition,
         item: DropItem,
         drop_amount: u16,
-        claim_id: EntityKey,
+        claim_id: GlobalKey,
     },
 }

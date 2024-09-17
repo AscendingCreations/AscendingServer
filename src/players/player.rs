@@ -1,4 +1,6 @@
-use crate::{containers::*, gametypes::*, items::*, network::*, sql::*, tasks::*, time_ext::*};
+use crate::{
+    containers::*, gametypes::*, items::*, network::*, sql::*, tasks::*, time_ext::*, GlobalKey,
+};
 use educe::Educe;
 use hecs::Bundle;
 
@@ -24,7 +26,7 @@ pub struct TradeRequest {
 #[educe(Default)]
 pub struct Player {
     pub uid: i64,
-    pub key: EntityKey,
+    pub key: GlobalKey,
     pub username: String,
     pub email: String,
     pub vals: u64,
@@ -85,7 +87,9 @@ pub struct Player {
     pub access: UserAccess,
     pub death: Death,
     pub is_using: IsUsingType,
+    pub switch_tasks: Option<PlayerSwitchTasks>,
 }
+
 /*
 #[inline(always)]
 pub async fn player_switch_maps(

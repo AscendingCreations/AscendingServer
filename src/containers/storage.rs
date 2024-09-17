@@ -1,10 +1,10 @@
 use crate::{
     containers::*,
     gametypes::*,
-    maps::*,
-    maps::{GridAttribute, GridTile, MapAttribute},
-    time_ext::MyInstant,
+    maps::{GridAttribute, GridTile, MapAttribute, *},
+    IDIncomming,
 };
+use core::hint::spin_loop;
 use log::LevelFilter;
 use serde::{Deserialize, Serialize};
 use sqlx::{
@@ -12,9 +12,12 @@ use sqlx::{
     ConnectOptions, PgPool,
 };
 use std::{
-    collections::HashMap,
+    //collections::HashMap,
     fs,
-    sync::{atomic::AtomicU64, Arc},
+    sync::{
+        atomic::{AtomicU64, Ordering},
+        Arc,
+    },
 };
 use tokio::sync::{broadcast, mpsc};
 
@@ -25,6 +28,7 @@ pub struct Storage {
     pub player_count: Arc<AtomicU64>,
     pub map_senders: IndexMap<MapPosition, mpsc::Sender<MapIncomming>>,
     pub map_broadcast_tx: broadcast::Sender<MapBroadCasts>,
+    pub id_sender: mpsc::Sender<IDIncomming>,
     pub pgconn: PgPool,
     pub bases: Arc<Bases>,
     pub config: Arc<Config>,
@@ -101,7 +105,7 @@ pub fn read_config(path: &str) -> Config {
 }
 
 impl Storage {
-    pub async fn new(config: Config) -> Option<Self> {
+    pub async fn new(config: Config, id_sender: mpsc::Sender<IDIncomming>) -> Option<Self> {
         let pgconn = establish_connection(&config).await.unwrap();
         let mut bases = Bases::new()?;
         let (map_broadcast_tx, _map_broadcast_rx) =
@@ -137,6 +141,7 @@ impl Storage {
             player_count: Arc::new(AtomicU64::new(0)),
             map_senders: IndexMap::default(),
             pgconn,
+            id_sender,
             map_broadcast_tx,
             bases: Arc::new(bases),
             config: Arc::new(config),
@@ -169,31 +174,22 @@ impl Storage {
 
         for (position, map_data) in &self.bases.maps {
             if let Some(receiver) = receivers.swap_remove(position) {
-                let mut map = MapActor {
-                    position: *position,
-                    storage: self.clone(),
-                    broadcast_rx: self.map_broadcast_tx.subscribe(),
+                let mut map = MapActor::new(
+                    *position,
+                    self.clone(),
+                    self.map_broadcast_tx.subscribe(),
                     receiver,
-                    tick: MyInstant::now(),
-                    zones: [0, 0, 0, 0, 0],
-                    spawnable_item: Vec::new(),
-                    move_grids: IndexMap::default(),
-                    players: HopSlotMap::default(),
-                    npcs: HopSlotMap::default(),
-                    items: HopSlotMap::default(),
-                    claims: HopSlotMap::default(),
-                    claims_by_position: HashMap::default(),
-                };
+                );
 
                 let mut move_grid = [GridTile::default(); MAP_MAX_X * MAP_MAX_Y];
 
-                for id in 0..MAP_MAX_X * MAP_MAX_Y {
+                for (id, grid) in move_grid.iter_mut().enumerate() {
                     match &map_data.attribute[id] {
                         MapAttribute::Blocked | MapAttribute::Storage | MapAttribute::Shop(_) => {
-                            move_grid[id].attr = GridAttribute::Blocked;
+                            grid.attr = GridAttribute::Blocked;
                         }
                         MapAttribute::NpcBlocked => {
-                            move_grid[id].attr = GridAttribute::NpcBlock;
+                            grid.attr = GridAttribute::NpcBlock;
                         }
                         MapAttribute::ItemSpawn(itemdata) => {
                             map.add_spawnable_item(
@@ -205,7 +201,7 @@ impl Storage {
                         }
                         _ => {}
                     }
-                    move_grid[id].dir_block = map_data.dir_block[id];
+                    grid.dir_block = map_data.dir_block[id];
                 }
 
                 map.move_grids.insert(map.position, move_grid);
@@ -217,5 +213,69 @@ impl Storage {
         tokio::spawn(game_time_actor.runner());
 
         Ok(())
+    }
+
+    pub fn npc_count_add(&mut self, amount: u64) {
+        let mut len = self.npc_count.load(Ordering::SeqCst);
+        let mut new_len = len.saturating_add(amount);
+
+        while let Err(_) =
+            self.npc_count
+                .compare_exchange(len, new_len, Ordering::SeqCst, Ordering::SeqCst)
+        {
+            spin_loop();
+            len = self.npc_count.load(Ordering::SeqCst);
+            new_len = len.saturating_add(amount);
+        }
+    }
+
+    pub fn npc_count_remove(&mut self, amount: u64) {
+        let mut len = self.npc_count.load(Ordering::SeqCst);
+        let mut new_len = len.saturating_sub(amount);
+
+        while let Err(_) =
+            self.npc_count
+                .compare_exchange(len, new_len, Ordering::SeqCst, Ordering::SeqCst)
+        {
+            spin_loop();
+            len = self.npc_count.load(Ordering::SeqCst);
+            new_len = len.saturating_sub(amount);
+        }
+    }
+
+    pub fn player_count_add(&mut self, amount: u64) {
+        let mut len = self.player_count.load(Ordering::SeqCst);
+        let mut new_len = len.saturating_add(amount);
+
+        while let Err(_) =
+            self.player_count
+                .compare_exchange(len, new_len, Ordering::SeqCst, Ordering::SeqCst)
+        {
+            spin_loop();
+            len = self.player_count.load(Ordering::SeqCst);
+            new_len = len.saturating_add(amount);
+        }
+    }
+
+    pub fn player_count_remove(&mut self, amount: u64) {
+        let mut len = self.player_count.load(Ordering::SeqCst);
+        let mut new_len = len.saturating_sub(amount);
+
+        while let Err(_) =
+            self.player_count
+                .compare_exchange(len, new_len, Ordering::SeqCst, Ordering::SeqCst)
+        {
+            spin_loop();
+            len = self.player_count.load(Ordering::SeqCst);
+            new_len = len.saturating_sub(amount);
+        }
+    }
+
+    pub fn get_npc_count(&mut self) -> u64 {
+        self.npc_count.load(Ordering::SeqCst)
+    }
+
+    pub fn get_player_count(&mut self) -> u64 {
+        self.player_count.load(Ordering::SeqCst)
     }
 }

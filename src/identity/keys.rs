@@ -1,17 +1,15 @@
 use crate::network::*;
 use slotmap::{new_key_type, Key, KeyData};
 
-#[derive(Default, Debug, Copy, Clone, PartialEq, Eq, MByteBufferRead, MByteBufferWrite)]
-pub struct OwnerID {
-    key: EntityKey,
-    user_id: u64,
+new_key_type! {
+    pub struct ClaimsKey;
 }
 
 new_key_type! {
-    pub struct EntityKey;
+    pub struct GlobalKey;
 }
 
-impl ByteBufferWrite for EntityKey {
+impl ByteBufferWrite for GlobalKey {
     fn write_to_bytey_buffer(&self, buffer: &mut ByteBuffer) -> bytey::Result<()> {
         self.data().as_ffi().write_to_bytey_buffer(buffer)
     }
@@ -25,7 +23,7 @@ impl ByteBufferWrite for EntityKey {
     }
 }
 
-impl ByteBufferWrite for &EntityKey {
+impl ByteBufferWrite for &GlobalKey {
     fn write_to_bytey_buffer(&self, buffer: &mut ByteBuffer) -> bytey::Result<()> {
         self.data().as_ffi().write_to_bytey_buffer(buffer)
     }
@@ -39,30 +37,30 @@ impl ByteBufferWrite for &EntityKey {
     }
 }
 
-impl ByteBufferRead for EntityKey {
+impl ByteBufferRead for GlobalKey {
     fn read_from_bytey_buffer(buffer: &mut ByteBuffer) -> bytey::Result<Self>
     where
         Self: Sized,
     {
-        Ok(EntityKey::from(KeyData::from_ffi(buffer.read::<u64>()?)))
+        Ok(GlobalKey::from(KeyData::from_ffi(buffer.read::<u64>()?)))
     }
 
     fn read_from_bytey_buffer_le(buffer: &mut ByteBuffer) -> bytey::Result<Self>
     where
         Self: Sized,
     {
-        Ok(EntityKey::from(KeyData::from_ffi(buffer.read_le::<u64>()?)))
+        Ok(GlobalKey::from(KeyData::from_ffi(buffer.read_le::<u64>()?)))
     }
 
     fn read_from_bytey_buffer_be(buffer: &mut ByteBuffer) -> bytey::Result<Self>
     where
         Self: Sized,
     {
-        Ok(EntityKey::from(KeyData::from_ffi(buffer.read_be::<u64>()?)))
+        Ok(GlobalKey::from(KeyData::from_ffi(buffer.read_be::<u64>()?)))
     }
 }
 
-impl MByteBufferWrite for EntityKey {
+impl MByteBufferWrite for GlobalKey {
     fn write_to_mbuffer(&self, buffer: &mut MByteBuffer) -> mmap_bytey::Result<()> {
         self.data().as_ffi().write_to_mbuffer(buffer)
     }
@@ -76,7 +74,7 @@ impl MByteBufferWrite for EntityKey {
     }
 }
 
-impl MByteBufferWrite for &EntityKey {
+impl MByteBufferWrite for &GlobalKey {
     fn write_to_mbuffer(&self, buffer: &mut MByteBuffer) -> mmap_bytey::Result<()> {
         self.data().as_ffi().write_to_mbuffer(buffer)
     }
@@ -90,25 +88,25 @@ impl MByteBufferWrite for &EntityKey {
     }
 }
 
-impl MByteBufferRead for EntityKey {
+impl MByteBufferRead for GlobalKey {
     fn read_from_mbuffer(buffer: &mut MByteBuffer) -> mmap_bytey::Result<Self>
     where
         Self: Sized,
     {
-        Ok(EntityKey::from(KeyData::from_ffi(buffer.read::<u64>()?)))
+        Ok(GlobalKey::from(KeyData::from_ffi(buffer.read::<u64>()?)))
     }
 
     fn read_from_mbuffer_le(buffer: &mut MByteBuffer) -> mmap_bytey::Result<Self>
     where
         Self: Sized,
     {
-        Ok(EntityKey::from(KeyData::from_ffi(buffer.read_le::<u64>()?)))
+        Ok(GlobalKey::from(KeyData::from_ffi(buffer.read_le::<u64>()?)))
     }
 
     fn read_from_mbuffer_be(buffer: &mut MByteBuffer) -> mmap_bytey::Result<Self>
     where
         Self: Sized,
     {
-        Ok(EntityKey::from(KeyData::from_ffi(buffer.read_be::<u64>()?)))
+        Ok(GlobalKey::from(KeyData::from_ffi(buffer.read_be::<u64>()?)))
     }
 }

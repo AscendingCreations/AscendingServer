@@ -1,4 +1,4 @@
-use crate::gametypes::*;
+use crate::{gametypes::*, identity::GlobalKey};
 use bytey::{ByteBufferRead, ByteBufferWrite};
 use mmap_bytey::{MByteBufferRead, MByteBufferWrite};
 use serde::{Deserialize, Serialize};
@@ -156,7 +156,6 @@ pub enum WorldEntityType {
     Player,
     Npc,
     MapItem,
-    Map,
 }
 
 //used to pass and to Target Entity's
@@ -175,17 +174,17 @@ pub enum WorldEntityType {
 pub enum Target {
     #[default]
     None,
-    Player(EntityKey, i64, MapPosition), //ArrID, AccID used for comparison if still same player.
-    Npc(EntityKey, MapPosition),
-    MapItem(EntityKey, MapPosition),
+    Player(GlobalKey, i64, MapPosition), //ArrID, AccID used for comparison if still same player.
+    Npc(GlobalKey, MapPosition),
+    MapItem(GlobalKey, MapPosition),
     Map(Position),
 }
 
 impl Target {
-    pub fn get_id(&self) -> EntityKey {
+    pub fn get_id(&self) -> GlobalKey {
         match self {
             Target::Player(i, _, _) | Target::Npc(i, _) | Target::MapItem(i, _) => *i,
-            _ => EntityKey::default(),
+            _ => GlobalKey::default(),
         }
     }
 
