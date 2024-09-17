@@ -236,7 +236,7 @@ pub async fn try_drop_item(
                     leftover -= amount;
                 }
             } else {
-                let (key, num, val) = if let Some(item) = map.items.get_mut(key) {
+                let (key, num, val) = if let Some(item) = map.items.get_mut(&key) {
                     let fits = stack_limit - item.item.val;
                     let amount = fits.min(leftover);
                     item.item.val = item.item.val.saturating_add(amount);
@@ -285,12 +285,20 @@ pub async fn try_drop_item(
                     ownertimer,
                 );
 
-                let key = map.items.insert(map_item);
+                let claim = map.claims.insert(MapClaims::Tile(position));
+                map.claims_by_position.insert(position, claim);
 
-                let mapitem = map.items.get_mut(key).unwrap();
-                mapitem.key = key;
+                map.storage
+                    .id_sender
+                    .send(crate::IDIncomming::RequestItemSpawn {
+                        spawn_map: position.map,
+                        item: map_item,
+                        claim,
+                    })
+                    .await
+                    .unwrap();
 
-                map.add_item_to_grid(position, key, drop_item.index, drop_item.amount);
+                //map.add_item_to_grid(position, key, drop_item.index, drop_item.amount);
                 /*DataTaskToken::ItemLoad(found_pos.0.map)
                 .add_task(
                     storage,
@@ -350,7 +358,7 @@ pub async fn try_drop_item(
 }
 
 pub async fn player_interact_object(map: &MapActor, key: GlobalKey) -> Result<()> {
-    if let Some(player) = map.players.get(key) {
+    if let Some(player) = map.players.get(&key) {
         let target_pos = {
             let player = player.borrow();
             let mut next_pos = player.position;

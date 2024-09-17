@@ -22,7 +22,7 @@ pub struct TradeRequest {
     pub requesttimer: MyInstant,
 }
 
-#[derive(Clone, Debug, Educe)]
+#[derive(Debug, Educe)]
 #[educe(Default)]
 pub struct Player {
     pub uid: i64,
@@ -88,6 +88,8 @@ pub struct Player {
     pub death: Death,
     pub is_using: IsUsingType,
     pub switch_tasks: Option<PlayerSwitchTasks>,
+    //needs to be optional or we cant build a player until we have it.
+    pub socket: Option<Socket>,
 }
 
 /*

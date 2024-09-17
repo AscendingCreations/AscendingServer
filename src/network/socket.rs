@@ -5,6 +5,7 @@ use mmap_bytey::MByteBuffer;
 use std::{backtrace::Backtrace, sync::Arc};
 use tokio::{io::AsyncWriteExt, net::tcp::OwnedWriteHalf, sync::mpsc};
 
+#[derive(Debug)]
 pub struct Socket {
     pub tx: OwnedWriteHalf,
     pub rx: mpsc::Receiver<ClientPacket>,
@@ -16,8 +17,8 @@ impl Socket {
         Self { tx, rx, addr }
     }
 
-    pub async fn send(&mut self, packet: &mut MByteBuffer) -> Result<()> {
-        if let Err(error) = self.tx.write_all(packet.as_slice()).await {
+    pub async fn send(&mut self, mut buffer: MByteBuffer) -> Result<()> {
+        if let Err(error) = self.tx.write_all(buffer.as_slice()).await {
             trace!("Send error in socket write: {}", error);
             return Err(AscendingError::Io {
                 error,

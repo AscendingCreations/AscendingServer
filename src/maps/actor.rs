@@ -90,13 +90,13 @@ impl MapActor {
         Ok(())
     }
 
-    pub fn update_map_items(&mut self) -> Result<()> {
+    pub async fn update_map_items(&mut self) -> Result<()> {
         let mut to_remove = Vec::new();
 
         for (key, item) in &self.items {
             if let Some(tmr) = item.despawn {
                 if tmr <= self.tick {
-                    to_remove.push(key)
+                    to_remove.push(*key)
                 }
             }
         }
@@ -106,6 +106,12 @@ impl MapActor {
                 //DataTaskToken::EntityUnload(e_pos.map)
                 //.add_task(storage, unload_entity_packet(*entity)?)
                 //.await?;
+
+                self.storage
+                    .id_sender
+                    .send(crate::IDIncomming::RemoveEntity { key })
+                    .await
+                    .unwrap();
             }
         }
 
@@ -214,32 +220,24 @@ impl MapActor {
         }
     }
 
-    pub fn add_player(&mut self, player: Player) {
-        let key = self.players.insert(RefCell::new(player));
-
-        if let Some(player) = self.players.get_mut(key) {
-            player.borrow_mut().key = key;
-        }
+    pub fn add_player(&mut self, player: Player, key: GlobalKey) {
+        self.players.insert(key, RefCell::new(player));
     }
 
-    pub fn add_npc(&mut self, npc: Npc) {
-        let key = self.npcs.insert(RefCell::new(npc));
-
-        if let Some(npc) = self.npcs.get_mut(key) {
-            npc.borrow_mut().key = key;
-        }
+    pub fn add_npc(&mut self, npc: Npc, key: GlobalKey) {
+        self.npcs.insert(key, RefCell::new(npc));
     }
 
     pub fn remove_player(&mut self, key: GlobalKey) -> Option<Player> {
-        self.players.remove(key).map(|p| p.take())
+        self.players.swap_remove(&key).map(|p| p.take())
     }
 
     pub fn remove_npc(&mut self, key: GlobalKey) -> Option<Npc> {
-        self.npcs.remove(key).map(|n| n.take())
+        self.npcs.swap_remove(&key).map(|n| n.take())
     }
 
     pub fn remove_item(&mut self, key: GlobalKey) -> Option<MapItem> {
-        self.items.remove(key)
+        self.items.swap_remove(&key)
     }
 
     pub fn remove_item_from_grid(&mut self, pos: Position) {

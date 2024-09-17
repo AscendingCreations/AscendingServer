@@ -1,10 +1,12 @@
+use mmap_bytey::MByteBuffer;
+
 use crate::{
     npcs::Npc, players::Player, ClaimsKey, GameTime, GlobalKey, MapPosition, Position, UserAccess,
 };
 
 use super::{DropItem, MapItem};
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub enum MapIncomming {
     SpawnNpc {
         npc: Npc,
@@ -48,7 +50,7 @@ pub enum MapIncomming {
     },
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub enum MapBroadCasts {
     PlayerLoggedIn {
         map_id: MapPosition,
@@ -77,6 +79,9 @@ pub enum MapBroadCasts {
     },
     TimeUpdate {
         time: GameTime,
+    },
+    SendPacketToAll {
+        buffer: MByteBuffer,
     },
 }
 

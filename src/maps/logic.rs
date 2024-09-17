@@ -1,6 +1,7 @@
 use super::{check_surrounding, MapActor};
-use crate::gametypes::*;
+use crate::{gametypes::*, GlobalKey};
 use core::hint::spin_loop;
+use mmap_bytey::MByteBuffer;
 use rand::{thread_rng, Rng};
 use std::{cmp::min, sync::atomic::Ordering};
 
@@ -171,6 +172,92 @@ impl MapActor {
         } else {
             false
         }
+    }
+
+    pub async fn send_to(&mut self, key: GlobalKey, mut buf: MByteBuffer) -> Result<()> {
+        if let Some(player) = self.players.get(&key) {
+            let mut borrow = player.borrow_mut();
+            if let Some(socket) = &mut borrow.socket {
+                return socket.send(&mut buf).await;
+            }
+        } else {
+            //send to surrounding maps incase they moved?
+        }
+
+        Ok(())
+    }
+
+    #[inline]
+    pub async fn send_to_all(&mut self, buf: MByteBuffer) -> Result<()> {
+        let lock = world.read().await;
+        for (_entity, (_, socket)) in lock
+            .query::<((&WorldEntityType, &OnlineType), &Socket)>()
+            .iter()
+            .filter(|(_entity, ((worldentitytype, onlinetype), _))| {
+                **worldentitytype == WorldEntityType::Player && **onlinetype == OnlineType::Online
+            })
+        {
+            if let Some(client) = storage
+                .server
+                .read()
+                .await
+                .clients
+                .get(&mio::Token(socket.id))
+            {
+                client
+                    .lock()
+                    .await
+                    .send(&*storage.poll.read().await, buf.try_clone()?)?;
+            }
+        }
+
+        Ok(())
+    }
+
+    #[inline]
+    pub async fn send_to_maps(
+        world: &GameWorld,
+        storage: &GameStore,
+        position: MapPosition,
+        buf: MByteBuffer,
+        avoidindex: Option<Entity>,
+    ) -> Result<()> {
+        for m in get_surrounding(position, true) {
+            let map = match storage.maps.get(&m) {
+                Some(map) => map,
+                None => continue,
+            }
+            .read()
+            .await;
+
+            for entity in &map.players {
+                if avoidindex.map(|value| value == *entity).unwrap_or(false) {
+                    continue;
+                }
+
+                let lock = world.read().await;
+                let mut query = lock.query_one::<(&OnlineType, &Socket)>(entity.0)?;
+
+                if let Some((status, socket)) = query.get() {
+                    if *status == OnlineType::Online {
+                        if let Some(client) = storage
+                            .server
+                            .read()
+                            .await
+                            .clients
+                            .get(&mio::Token(socket.id))
+                        {
+                            client
+                                .lock()
+                                .await
+                                .send(&*storage.poll.read().await, buf.try_clone()?)?;
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(())
     }
 }
 

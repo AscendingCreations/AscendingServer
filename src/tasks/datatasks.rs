@@ -1,4 +1,4 @@
-use crate::{containers::*, gametypes::*, network::*};
+use crate::{containers::*, gametypes::*, maps::MapActor, network::*, GlobalKey};
 use indexmap::map::Entry;
 use log::warn;
 use mmap_bytey::BUFFER_SIZE;
@@ -34,9 +34,9 @@ pub enum DataTaskToken {
 pub const PACKET_DATA_LIMIT: usize = 1400;
 
 impl DataTaskToken {
-    pub async fn add_task(self, storage: &GameStore, mut data: MByteBuffer) -> Result<()> {
+    pub async fn add_task(self, map: &mut MapActor, mut data: MByteBuffer) -> Result<()> {
         //Newer packets get pushed to the back.
-        match storage.packet_cache.write().await.entry(self) {
+        match map.packet_cache.entry(self) {
             Entry::Vacant(v) => {
                 let mut buffer = new_cache(self.packet_id())?;
                 buffer.write_slice(data.as_slice())?;
@@ -70,7 +70,7 @@ impl DataTaskToken {
             }
         }
 
-        storage.packet_cache_ids.write().await.insert(self);
+        map.packet_cache_ids.insert(self);
 
         Ok(())
     }
@@ -96,12 +96,7 @@ impl DataTaskToken {
         }
     }
 
-    pub async fn send(
-        &self,
-        world: &GameWorld,
-        storage: &GameStore,
-        buf: MByteBuffer,
-    ) -> Result<()> {
+    pub async fn send(&self, map: &mut MapActor, buf: MByteBuffer) -> Result<()> {
         use DataTaskToken::*;
         match self {
             GlobalChat => send_to_all(world, storage, buf).await,
@@ -117,13 +112,14 @@ impl DataTaskToken {
     }
 }
 
-pub async fn process_tasks(world: &GameWorld, storage: &GameStore) -> Result<()> {
-    for id in storage.packet_cache_ids.write().await.drain(..) {
-        if let Some(buffers) = storage.packet_cache.write().await.get_mut(&id) {
-            //We send the older packets first hence pop front as they are the oldest.
+pub async fn process_tasks(map: &mut MapActor) -> Result<()> {
+    let mut sends = Vec::with_capacity(128);
+
+    for id in map.packet_cache_ids.drain(..) {
+        if let Some(buffers) = map.packet_cache.get_mut(&id) {
             for (count, mut buffer, is_finished) in buffers.drain(..) {
                 finish_cache(&mut buffer, count, is_finished)?;
-                id.send(world, storage, buffer).await?;
+                sends.push((id, buffer));
             }
 
             //lets resize these if they get to unruly.
@@ -136,6 +132,10 @@ pub async fn process_tasks(world: &GameWorld, storage: &GameStore) -> Result<()>
                 buffers.shrink_to(100);
             }
         }
+    }
+
+    for (id, buffer) in sends.into_iter() {
+        id.send(map, buffer).await?;
     }
 
     Ok(())

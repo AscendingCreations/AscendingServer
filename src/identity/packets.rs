@@ -1,7 +1,7 @@
 use super::{ClaimsKey, GlobalKey};
 use crate::{maps::MapItem, npcs::Npc, players::Player, MapPosition};
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub enum IDIncomming {
     RequestNpcSpawn {
         spawn_map: MapPosition,

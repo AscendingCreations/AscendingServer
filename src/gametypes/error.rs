@@ -1,4 +1,4 @@
-use crate::gametypes::MapPosition;
+use crate::{gametypes::MapPosition, tasks::DataTaskToken};
 use std::{backtrace::Backtrace, sync::Arc};
 use thiserror::Error;
 
@@ -40,8 +40,8 @@ pub enum AscendingError {
     MapNotFound(MapPosition),
     #[error("NPC ID {0:?} not found")]
     NpcNotFound(u64),
-    // #[error("Packet buffer {0:?} not found")]
-    //PacketCacheNotFound(DataTaskToken),
+    #[error("Packet buffer {0:?} not found")]
+    PacketCacheNotFound(DataTaskToken),
     #[error("Error: {error}, BackTrace: {backtrace}")]
     AddrParseError {
         #[from]
