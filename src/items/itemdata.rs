@@ -26,14 +26,14 @@ pub struct ItemData {
     pub sound_index: Option<String>,
 }
 
-pub fn get_item() -> Vec<ItemData> {
+pub fn load_items() -> Vec<ItemData> {
     let mut item_data: Vec<ItemData> = Vec::new();
 
     let mut count = 0;
     let mut got_data = true;
 
     while got_data {
-        if let Some(data) = load_file(count) {
+        if let Some(data) = load_item(count) {
             item_data.push(data);
             count += 1;
             got_data = true;
@@ -45,7 +45,7 @@ pub fn get_item() -> Vec<ItemData> {
     item_data
 }
 
-fn load_file(id: usize) -> Option<ItemData> {
+fn load_item(id: usize) -> Option<ItemData> {
     let name = format!("./data/items/{}.bin", id);
 
     match OpenOptions::new().read(true).open(name) {

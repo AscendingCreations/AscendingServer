@@ -83,7 +83,7 @@ impl Map {
     }
 }
 
-pub fn get_maps() -> Vec<Map> {
+pub fn load_maps() -> Vec<Map> {
     let entries = fs::read_dir(MAP_PATH).unwrap();
 
     let mut map_data: Vec<Map> = Vec::new();

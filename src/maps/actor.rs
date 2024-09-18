@@ -1,14 +1,7 @@
 use super::{MapBroadCasts, MapIncomming, *};
 use crate::{
-    containers::*,
-    gametypes::*,
-    identity::ClaimsKey,
-    maps::GridTile,
-    npcs::Npc,
-    players::Player,
-    tasks::{DataTaskToken, MapSwitchTasks},
-    time_ext::MyInstant,
-    GlobalKey, HopSlotMap,
+    containers::*, gametypes::*, identity::ClaimsKey, maps::GridTile, npcs::Npc, players::Player,
+    tasks::DataTaskToken, time_ext::MyInstant, GlobalKey, HopSlotMap,
 };
 use bit_op::{bit_u8::*, BitOp};
 use educe::Educe;
@@ -24,6 +17,7 @@ use std::{
 };
 use std::{
     path::Path,
+    rc::Rc,
     sync::{atomic::AtomicU64, Arc},
 };
 use tokio::sync::{broadcast, mpsc};
@@ -39,16 +33,70 @@ pub struct MapActor {
     pub move_grids: IndexMap<MapPosition, [GridTile; MAP_MAX_X * MAP_MAX_Y]>,
     pub broadcast_rx: broadcast::Receiver<MapBroadCasts>,
     pub receiver: mpsc::Receiver<MapIncomming>,
+}
+
+#[derive(Debug, Default)]
+pub struct MapActorStore {
     pub players: IndexMap<GlobalKey, RefCell<Player>>,
     pub npcs: IndexMap<GlobalKey, RefCell<Npc>>,
     pub items: IndexMap<GlobalKey, MapItem>,
     //used for internal processes to pass around for resource locking purposes.
     pub claims: slotmap::HopSlotMap<ClaimsKey, MapClaims>,
-    pub claims_by_position: HashMap<Position, ClaimsKey>,
+    pub entity_claims_by_position: HashMap<Position, ClaimsKey>,
+    pub item_claims_by_position: HashMap<Position, ClaimsKey>,
     pub time: GameTime,
     pub packet_cache: IndexMap<DataTaskToken, VecDeque<(u32, MByteBuffer, bool)>>,
     //This keeps track of what Things need sending. So we can leave it loaded and only loop whats needed.
     pub packet_cache_ids: IndexSet<DataTaskToken>,
+    pub player_switch_processing: IndexSet<GlobalKey>,
+}
+
+impl MapActorStore {
+    pub async fn send_to(&mut self, key: GlobalKey, buffer: MByteBuffer) -> Result<()> {
+        if let Some(player) = self.players.get(&key) {
+            let mut borrow = player.borrow_mut();
+            if let Some(socket) = &mut borrow.socket {
+                return socket.send(buffer).await;
+            }
+        } else {
+            //send to surrounding maps incase they moved?
+        }
+
+        Ok(())
+    }
+
+    #[inline]
+    pub async fn send_to_all_local(&mut self, buffer: MByteBuffer) -> Result<()> {
+        //Send to all of our users first.
+        for (_key, player) in &self.players {
+            let mut borrow = player.borrow_mut();
+            if let Some(socket) = &mut borrow.socket {
+                return socket.send(buffer.clone()).await;
+            }
+        }
+
+        Ok(())
+    }
+
+    pub fn add_player(&mut self, player: Player, key: GlobalKey) {
+        self.players.insert(key, RefCell::new(player));
+    }
+
+    pub fn add_npc(&mut self, npc: Npc, key: GlobalKey) {
+        self.npcs.insert(key, RefCell::new(npc));
+    }
+
+    pub fn remove_player(&mut self, key: GlobalKey) -> Option<Player> {
+        self.players.swap_remove(&key).map(|p| p.take())
+    }
+
+    pub fn remove_npc(&mut self, key: GlobalKey) -> Option<Npc> {
+        self.npcs.swap_remove(&key).map(|n| n.take())
+    }
+
+    pub fn remove_item(&mut self, key: GlobalKey) -> Option<MapItem> {
+        self.items.swap_remove(&key)
+    }
 }
 
 impl MapActor {
@@ -67,18 +115,11 @@ impl MapActor {
             zones: [0, 0, 0, 0, 0],
             spawnable_item: Vec::new(),
             move_grids: IndexMap::default(),
-            players: IndexMap::default(),
-            npcs: IndexMap::default(),
-            items: IndexMap::default(),
-            claims: slotmap::HopSlotMap::default(),
-            claims_by_position: HashMap::default(),
-            time: GameTime::default(),
-            packet_cache: IndexMap::default(),
-            packet_cache_ids: IndexSet::default(),
         }
     }
 
     pub async fn runner(mut self) -> Result<()> {
+        let mut store = MapActorStore::default();
         /*let mut rng = thread_rng();
         let mut spawnable = Vec::new();
         let mut len = storage.npc_ids.read().await.len();
@@ -90,10 +131,10 @@ impl MapActor {
         Ok(())
     }
 
-    pub async fn update_map_items(&mut self) -> Result<()> {
+    pub async fn update_map_items(&self, store: &mut MapActorStore) -> Result<()> {
         let mut to_remove = Vec::new();
 
-        for (key, item) in &self.items {
+        for (key, item) in &store.items {
             if let Some(tmr) = item.despawn {
                 if tmr <= self.tick {
                     to_remove.push(*key)
@@ -102,7 +143,7 @@ impl MapActor {
         }
 
         for key in to_remove.into_iter() {
-            if let Some(_item) = self.remove_item(key) {
+            if let Some(_item) = store.remove_item(key) {
                 //DataTaskToken::EntityUnload(e_pos.map)
                 //.add_task(storage, unload_entity_packet(*entity)?)
                 //.await?;
@@ -218,26 +259,6 @@ impl MapActor {
             grid[pos.as_tile()].count = grid[pos.as_tile()].count.saturating_add(1);
             grid[pos.as_tile()].attr = GridAttribute::Entity;
         }
-    }
-
-    pub fn add_player(&mut self, player: Player, key: GlobalKey) {
-        self.players.insert(key, RefCell::new(player));
-    }
-
-    pub fn add_npc(&mut self, npc: Npc, key: GlobalKey) {
-        self.npcs.insert(key, RefCell::new(npc));
-    }
-
-    pub fn remove_player(&mut self, key: GlobalKey) -> Option<Player> {
-        self.players.swap_remove(&key).map(|p| p.take())
-    }
-
-    pub fn remove_npc(&mut self, key: GlobalKey) -> Option<Npc> {
-        self.npcs.swap_remove(&key).map(|n| n.take())
-    }
-
-    pub fn remove_item(&mut self, key: GlobalKey) -> Option<MapItem> {
-        self.items.swap_remove(&key)
     }
 
     pub fn remove_item_from_grid(&mut self, pos: Position) {

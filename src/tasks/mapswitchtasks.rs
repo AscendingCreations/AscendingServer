@@ -4,19 +4,13 @@ use crate::{
     containers::*,
     gametypes::*,
     maps::*,
+    npcs::Npc,
     players::*,
     tasks::{map_item_packet, npc_spawn_packet, player_spawn_packet, DataTaskToken},
+    GlobalKey,
 };
 
-//types to buffer load when loading a map.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum MapSwitchTasks {
-    Npc(Vec<GlobalKey>),    //0
-    Player(Vec<GlobalKey>), //1
-    Items(Vec<GlobalKey>),  //2
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct PlayerSwitchTasks {
     //So we know we got events back from the maps we sent them before disposing of this data.
     requests: u64,
@@ -25,90 +19,47 @@ pub struct PlayerSwitchTasks {
     items: Vec<MapItem>,
 }
 
-const PROCESS_LIMIT: usize = 1000;
+impl MapActor {
+    pub async fn process_data_lists(&mut self, store: &mut MapActorStore) -> Result<()> {
+        let keys: Vec<GlobalKey> = store.player_switch_processing.iter().copied().collect();
 
-pub async fn process_data_lists(player: &mut Player) -> Result<()> {
-    if let Some(task) = player.switch_tasks {
-        let mut count = task.npcs.len() + task.players.len() + task.items.len();
+        for key in keys {
+            let rc_player = store.players.get(&key).cloned();
+            if let Some(player) = rc_player {
+                let task = player.borrow_mut().switch_tasks.take();
+                if let Some(mut task) = task {
+                    let mut count = task.npcs.len() + task.players.len() + task.items.len();
 
-
-        for npc in task.npcs.drain(..task.npcs.len().min(50)) {
-                DataTaskToken::NpcSpawnToEntity(socket_id)
-                    .add_task(
-                        storage,
-                        npc_spawn_packet(world, &entity, false).await?,
-                    )
-                    .await?;
-        }
-
-
-        if let Ok(socket_id) = socket_id {
-            for task in tasks {
-                let amount_left = match task {
-                    MapSwitchTasks::Npc(entities) => {
-                        let cursor = entities.len().saturating_sub(process_limit);
-
-                        for entity in entities.drain(cursor..) {
-                            if world.contains(&entity).await {
-                                DataTaskToken::NpcSpawnToEntity(socket_id)
-                                    .add_task(
-                                        storage,
-                                        npc_spawn_packet(world, &entity, false).await?,
-                                    )
-                                    .await?;
-                            }
-                        }
-
-                        entities.len()
+                    for npc in task.npcs.drain(..task.npcs.len().min(50)) {
+                        count -= 1;
+                        DataTaskToken::NpcSpawnToEntity(key)
+                            .add_task(store, npc_spawn_packet(&npc, false)?)
+                            .await?;
                     }
-                    MapSwitchTasks::Player(entities) => {
-                        let cursor = entities.len().saturating_sub(process_limit);
 
-                        for entity in entities.drain(cursor..) {
-                            if world.contains(&entity).await {
-                                DataTaskToken::PlayerSpawnToEntity(socket_id)
-                                    .add_task(
-                                        storage,
-                                        player_spawn_packet(world, &entity, false).await?,
-                                    )
-                                    .await?;
-                            }
-                        }
-
-                        entities.len()
+                    for player in task.players.drain(..task.players.len().min(50)) {
+                        count -= 1;
+                        DataTaskToken::PlayerSpawnToEntity(key)
+                            .add_task(store, player_spawn_packet(&player, false)?)
+                            .await?;
                     }
-                    MapSwitchTasks::Items(entities) => {
-                        let cursor = entities.len().saturating_sub(process_limit);
 
-                        for entity in entities.drain(cursor..) {
-                            let lock = world.read().await;
-                            let map_item = lock.get::<&MapItem>(entity.0);
-                            if let Ok(map_item) = map_item {
-                                DataTaskToken::ItemLoadToEntity(socket_id)
-                                    .add_task(
-                                        storage,
-                                        map_item_packet(
-                                            entity,
-                                            map_item.pos,
-                                            map_item.item,
-                                            map_item.ownerid,
-                                            false,
-                                        )?,
-                                    )
-                                    .await?;
-                            }
-                        }
-
-                        entities.len()
+                    for item in task.items.drain(..task.items.len().min(50)) {
+                        count -= 1;
+                        DataTaskToken::ItemLoadToEntity(key)
+                            .add_task(store, map_item_packet(&item, false)?)
+                            .await?;
                     }
-                };
 
-                if amount_left > 0 {
-                    contains_data = true;
+                    if count == 0 {
+                        store.player_switch_processing.swap_remove(&key);
+                    }
+
+                    let _ = player.borrow_mut().switch_tasks.insert(task);
                 }
             }
         }
-    }
 
-    Ok(())
+        Ok(())
+    }
 }

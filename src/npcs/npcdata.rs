@@ -90,19 +90,9 @@ impl NpcData {
     pub fn is_friendly(&self) -> bool {
         self.behaviour.is_friendly()
     }
-
-    /// load npc data from json with serdes.
-    /// if ID does not exist or file nto found return None.
-    pub fn load_npc(storage: &Storage, id: u64) -> Option<NpcData> {
-        let npc_data = storage.bases.npcs.get(id as usize);
-        if let Some(data) = npc_data {
-            return Some(data.clone());
-        }
-        None
-    }
 }
 
-pub fn get_npc() -> Vec<NpcData> {
+pub fn load_npcs() -> Vec<NpcData> {
     let mut npc_data: Vec<NpcData> = Vec::new();
 
     let mut count = 0;

@@ -1,5 +1,7 @@
-use super::{MapActor, MapAttribute, MapQuickResponse};
-use crate::{gametypes::*, identity::GlobalKey, items::Item, network::*, time_ext::MyInstant};
+use super::{MapActor, MapActorStore, MapAttribute, MapIncomming, MapQuickResponse};
+use crate::{
+    gametypes::*, identity::GlobalKey, items::Item, network::*, time_ext::MyInstant, IDIncomming,
+};
 use educe::Educe;
 use mmap_bytey::{MByteBufferRead, MByteBufferWrite};
 use std::backtrace::Backtrace;
@@ -72,8 +74,9 @@ pub enum MapClaims {
         item: DropItem,
         requests_sent: usize,
     },
+    ItemSpawn,
     ItemPickup(MapItem),
-    Tile(Position),
+    Tile,
 }
 
 pub fn find_drop_pos(
@@ -182,6 +185,7 @@ pub fn find_drop_pos(
 
 pub async fn try_drop_item(
     map: &mut MapActor,
+    store: &mut MapActorStore,
     drop_item: DropItem,
     despawn: Option<MyInstant>,
     ownertimer: Option<MyInstant>,
@@ -219,7 +223,7 @@ pub async fn try_drop_item(
 
                 if let Some(sender) = map.storage.map_senders.get(&position.map) {
                     if let Err(e) = sender
-                        .send(super::MapIncomming::RequestItemDrop {
+                        .send(MapIncomming::RequestItemDrop {
                             map_id: map.position,
                             item: drop,
                             channel: map_tx.clone(),
@@ -236,7 +240,7 @@ pub async fn try_drop_item(
                     leftover -= amount;
                 }
             } else {
-                let (key, num, val) = if let Some(item) = map.items.get_mut(&key) {
+                let (key, num, val) = if let Some(item) = store.items.get_mut(&key) {
                     let fits = stack_limit - item.item.val;
                     let amount = fits.min(leftover);
                     item.item.val = item.item.val.saturating_add(amount);
@@ -257,7 +261,7 @@ pub async fn try_drop_item(
 
                 if let Some(sender) = map.storage.map_senders.get(&position.map) {
                     if let Err(e) = sender
-                        .send(super::MapIncomming::RequestItemDrop {
+                        .send(MapIncomming::RequestItemDrop {
                             map_id: map.position,
                             item: drop,
                             channel: map_tx.clone(),
@@ -285,14 +289,14 @@ pub async fn try_drop_item(
                     ownertimer,
                 );
 
-                let claim = map.claims.insert(MapClaims::Tile(position));
-                map.claims_by_position.insert(position, claim);
+                let claim = store.claims.insert(MapClaims::Tile);
+                store.item_claims_by_position.insert(position, claim);
 
                 map.storage
                     .id_sender
-                    .send(crate::IDIncomming::RequestItemSpawn {
+                    .send(IDIncomming::RequestItemSpawn {
                         spawn_map: position.map,
-                        item: map_item,
+                        item: Box::new(map_item),
                         claim,
                     })
                     .await
@@ -335,7 +339,7 @@ pub async fn try_drop_item(
 
                         if let Some(sender) = map.storage.map_senders.get(&map_id) {
                             if let Err(e) = sender
-                                .send(super::MapIncomming::DropItem {
+                                .send(MapIncomming::DropItem {
                                     map_id: map.position,
                                     item,
                                     claim_id,
@@ -357,8 +361,12 @@ pub async fn try_drop_item(
     Ok((true, waited_leftover))
 }
 
-pub async fn player_interact_object(map: &MapActor, key: GlobalKey) -> Result<()> {
-    if let Some(player) = map.players.get(&key) {
+pub async fn player_interact_object(
+    map: &MapActor,
+    store: &mut MapActorStore,
+    key: GlobalKey,
+) -> Result<()> {
+    if let Some(player) = store.players.get(&key) {
         let target_pos = {
             let player = player.borrow();
             let mut next_pos = player.position;

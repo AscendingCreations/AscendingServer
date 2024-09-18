@@ -1,6 +1,11 @@
-use crate::{containers::*, gametypes::*, maps::MapActor, tasks::*, time_ext::MyInstant, GlobalKey};
+use crate::{
+    containers::*, gametypes::*, maps::MapActor, tasks::*, time_ext::MyInstant, GlobalKey,
+};
+use chrono::Duration;
 use educe::Educe;
 use std::collections::VecDeque;
+
+use super::NpcData;
 
 #[derive(Debug, Clone, PartialEq, Eq, Educe)]
 #[educe(Default)]
@@ -64,7 +69,7 @@ pub struct Npc {
     pub level: i32,
     pub position: Position,
     pub access: UserAccess,
-    pub death_type: Death,
+    pub death: Death,
     pub is_using: IsUsingType,
     pub mode: NpcMode,
     pub sprite: u16,
@@ -76,6 +81,30 @@ pub fn is_npc_same(from_entity: &GlobalKey, to_entity: &GlobalKey) -> bool {
 }
 
 impl Npc {
+    pub fn new_from(
+        map: &MapActor,
+        index: u64,
+        spawn_pos: Position,
+        spawn_zone: Option<usize>,
+    ) -> Option<Self> {
+        if let Some(npc_data) = map.storage.get_npc(index) {
+            Some(Self {
+                index,
+                key: GlobalKey::default(),
+                spawn_timer: map.tick
+                    + Duration::try_milliseconds(npc_data.spawn_wait).unwrap_or_default(),
+                spawn_zone,
+                spawn_pos,
+                position: spawn_pos,
+                mode: NpcMode::Normal,
+                death: Death::Spawning,
+                ..Default::default()
+            })
+        } else {
+            None
+        }
+    }
+
     #[inline(always)]
     pub fn npc_set_move_path(&mut self, path: VecDeque<(Position, u8)>) {
         self.npc_moves = path;

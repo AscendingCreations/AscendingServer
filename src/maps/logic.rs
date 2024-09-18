@@ -1,5 +1,6 @@
-use super::{check_surrounding, MapActor};
-use crate::{gametypes::*, GlobalKey};
+use super::{check_surrounding, MapActor, MapActorStore, MapBroadCasts, MapClaims, MapIncomming};
+use crate::{gametypes::*, items::Item, maps::MapItem, npcs::Npc, GlobalKey, IDIncomming};
+use chrono::Duration;
 use core::hint::spin_loop;
 use mmap_bytey::MByteBuffer;
 use rand::{thread_rng, Rng};
@@ -22,7 +23,7 @@ use std::{cmp::min, sync::atomic::Ordering};
 }*/
 
 impl MapActor {
-    pub async fn map_spawns(&mut self) -> Result<()> {
+    pub async fn map_spawns(&mut self, store: &mut MapActorStore) -> Result<()> {
         let mut count = 0;
         let mut rng = thread_rng();
         let mut spawnable = Vec::new();
@@ -52,7 +53,7 @@ impl MapActor {
                         .filter(|v| v.is_some())
                         .map(|v| v.unwrap_or_default())
                     {
-                        let game_time = self.time;
+                        let game_time = store.time;
                         let (from, to) = bases
                             .npcs
                             .get(npc_id as usize)
@@ -101,26 +102,58 @@ impl MapActor {
 
             //Lets Spawn the npcs here;
             for (spawn, zone, npc_id) in spawnable.drain(..) {
-                if let Ok(Some(id)) = storage.add_npc(world, npc_id).await {
-                    data.add_npc(id);
-                    data.zones[zone] = data.zones[zone].saturating_add(1);
-                    spawn_npc(world, spawn, Some(zone), id).await?;
+                if let Some(npc) = Npc::new_from(self, npc_id, spawn, Some(zone)) {
+                    if !store.entity_claims_by_position.contains_key(&spawn) {
+                        continue;
+                    }
+
+                    let claim = store.claims.insert(MapClaims::Tile);
+                    store.item_claims_by_position.insert(spawn, claim);
+
+                    self.storage
+                        .id_sender
+                        .send(crate::IDIncomming::RequestNpcSpawn {
+                            spawn_map: self.position,
+                            npc: Box::new(npc),
+                            claim,
+                        })
+                        .await
+                        .unwrap();
                 }
             }
         }
 
-        let mut add_items = Vec::new();
+        for data in self.spawnable_item.iter_mut() {
+            //should never fail.
+            let gridtile = self.move_grids.get(&self.position).unwrap();
 
-        for data in map_data.write().await.spawnable_item.iter_mut() {
-            let mut storage_mapitem = storage.map_items.write().await;
-            if !storage_mapitem.contains_key(&data.pos) {
+            if !gridtile[data.pos.as_tile()].item.is_some() {
                 if data.timer <= self.tick {
-                    let map_item = create_mapitem(data.index, data.amount, data.pos);
-                    let mut lock = world.write().await;
-                    let id = lock.spawn((WorldEntityType::MapItem, map_item));
-                    lock.insert(id, (Target::MapItem(Entity(id)), DespawnTimer::default()))?;
-                    storage_mapitem.insert(data.pos, Entity(id));
-                    DataTaskToken::ItemLoad(data.pos.map)
+                    if !store.item_claims_by_position.contains_key(&data.pos) {
+                        continue;
+                    }
+
+                    let item = MapItem::new_with(
+                        Item::new(data.index, data.amount),
+                        data.pos,
+                        None,
+                        None,
+                        None,
+                    );
+                    let claim = store.claims.insert(MapClaims::ItemSpawn);
+
+                    store.item_claims_by_position.insert(data.pos, claim);
+                    self.storage
+                        .id_sender
+                        .send(IDIncomming::RequestItemSpawn {
+                            spawn_map: self.position,
+                            item: Box::new(item),
+                            claim,
+                        })
+                        .await
+                        .unwrap();
+
+                    /*DataTaskToken::ItemLoad(data.pos.map)
                         .add_task(
                             storage,
                             map_item_packet(
@@ -132,27 +165,12 @@ impl MapActor {
                             )?,
                         )
                         .await?;
-                    add_items.push(Entity(id));
+                    add_items.push(Entity(id));*/
                 }
             } else {
                 data.timer = self.tick
                     + Duration::try_milliseconds(data.timer_set as i64).unwrap_or_default();
             }
-        }
-
-        for entity in add_items {
-            map_data.write().await.itemids.insert(entity);
-        }
-    }
-
-    pub fn spawn_npc(&mut self, pos: Position, zone: Option<usize>, key: GlobalKey) -> Result<()> {
-        if let Some(npc) = self.npcs.get(key) {
-            let mut npc = npc.borrow_mut();
-            npc.key = key;
-            npc.spawn_zone = zone;
-            npc.position = pos;
-            npc.spawn_pos = pos;
-            npc.death_type = Death::Spawning;
         }
 
         Ok(())
@@ -174,87 +192,58 @@ impl MapActor {
         }
     }
 
-    pub async fn send_to(&mut self, key: GlobalKey, mut buf: MByteBuffer) -> Result<()> {
-        if let Some(player) = self.players.get(&key) {
-            let mut borrow = player.borrow_mut();
-            if let Some(socket) = &mut borrow.socket {
-                return socket.send(&mut buf).await;
-            }
-        } else {
-            //send to surrounding maps incase they moved?
-        }
-
-        Ok(())
-    }
-
     #[inline]
-    pub async fn send_to_all(&mut self, buf: MByteBuffer) -> Result<()> {
-        let lock = world.read().await;
-        for (_entity, (_, socket)) in lock
-            .query::<((&WorldEntityType, &OnlineType), &Socket)>()
-            .iter()
-            .filter(|(_entity, ((worldentitytype, onlinetype), _))| {
-                **worldentitytype == WorldEntityType::Player && **onlinetype == OnlineType::Online
-            })
-        {
-            if let Some(client) = storage
-                .server
-                .read()
-                .await
-                .clients
-                .get(&mio::Token(socket.id))
-            {
-                client
-                    .lock()
-                    .await
-                    .send(&*storage.poll.read().await, buf.try_clone()?)?;
-            }
-        }
+    pub async fn send_to_all_global(
+        &mut self,
+        store: &mut MapActorStore,
+        buffer: MByteBuffer,
+    ) -> Result<()> {
+        //Send to all of our users first.
+        store.send_to_all_local(buffer.clone()).await?;
+
+        //translate to a clonable value and send as
+        let _ = self
+            .storage
+            .map_broadcast_tx
+            .send(MapBroadCasts::SendPacketToAll {
+                map_id: self.position,
+                buffer,
+            });
 
         Ok(())
     }
 
     #[inline]
     pub async fn send_to_maps(
-        world: &GameWorld,
-        storage: &GameStore,
-        position: MapPosition,
-        buf: MByteBuffer,
-        avoidindex: Option<Entity>,
+        &mut self,
+        store: &mut MapActorStore,
+        buffer: MByteBuffer,
+        avoid: Option<GlobalKey>,
     ) -> Result<()> {
-        for m in get_surrounding(position, true) {
-            let map = match storage.maps.get(&m) {
+        for (key, player) in &store.players {
+            if Some(*key) == avoid {
+                continue;
+            }
+
+            let mut borrow = player.borrow_mut();
+            if let Some(socket) = &mut borrow.socket {
+                return socket.send(buffer.clone()).await;
+            }
+        }
+
+        for m in self.get_surrounding(true) {
+            let tx = match self.storage.map_senders.get(&m) {
                 Some(map) => map,
                 None => continue,
-            }
-            .read()
-            .await;
+            };
 
-            for entity in &map.players {
-                if avoidindex.map(|value| value == *entity).unwrap_or(false) {
-                    continue;
-                }
-
-                let lock = world.read().await;
-                let mut query = lock.query_one::<(&OnlineType, &Socket)>(entity.0)?;
-
-                if let Some((status, socket)) = query.get() {
-                    if *status == OnlineType::Online {
-                        if let Some(client) = storage
-                            .server
-                            .read()
-                            .await
-                            .clients
-                            .get(&mio::Token(socket.id))
-                        {
-                            client
-                                .lock()
-                                .await
-                                .send(&*storage.poll.read().await, buf.try_clone()?)?;
-                        }
-                    }
-                }
-            }
+            tx.send(MapIncomming::SendPacketToAll {
+                map_id: self.position,
+                buffer: buffer.clone(),
+                avoid,
+            })
+            .await
+            .unwrap();
         }
 
         Ok(())

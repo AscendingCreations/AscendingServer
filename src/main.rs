@@ -119,7 +119,7 @@ async fn main() {
     let (id_tx, id_rx) = mpsc::channel::<IDIncomming>(config.map_buffer_size);
 
     info!("Initializing Storage Data");
-    let storage = Storage::new(config, id_tx).await.unwrap();
+    let mut storage = Storage::new(config, id_tx).await.unwrap();
 
     info!("Initializing World");
     storage.generate_world_actors().await.unwrap();

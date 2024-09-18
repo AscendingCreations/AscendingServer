@@ -28,9 +28,10 @@ pub struct Item {
 }
 
 impl Item {
-    pub fn new(num: u32) -> Self {
+    pub fn new(num: u32, val: u16) -> Self {
         Item {
             num,
+            val,
             ..Default::default()
         }
     }

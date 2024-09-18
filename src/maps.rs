@@ -4,7 +4,7 @@ mod map;
 mod mapitem;
 mod packets;
 
-pub use actor::MapActor;
+pub use actor::*;
 pub use logic::*;
 pub use map::*;
 pub use mapitem::*;

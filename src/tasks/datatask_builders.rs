@@ -39,14 +39,14 @@ pub fn death_packet(entity: GlobalKey, life: Death) -> Result<MByteBuffer> {
     Ok(buffer)
 }
 
-pub async fn npc_spawn_packet(npc: &Npc, did_spawn: bool) -> Result<MByteBuffer> {
+pub fn npc_spawn_packet(npc: &Npc, did_spawn: bool) -> Result<MByteBuffer> {
     let mut buffer = MByteBuffer::new()?;
     buffer
         .write(npc.dir)?
         .write(npc.hidden)?
         .write(npc.key)?
         .write(npc.level)?
-        .write(npc.death_type)?
+        .write(npc.death)?
         .write(npc.mode)?
         .write(npc.index)?
         .write(npc.damage)?
@@ -60,7 +60,7 @@ pub async fn npc_spawn_packet(npc: &Npc, did_spawn: bool) -> Result<MByteBuffer>
     Ok(buffer)
 }
 
-pub async fn player_spawn_packet(player: &Player, did_spawn: bool) -> Result<MByteBuffer> {
+pub fn player_spawn_packet(player: &Player, did_spawn: bool) -> Result<MByteBuffer> {
     let mut buffer = MByteBuffer::new()?;
     buffer
         .write(&player.username)?

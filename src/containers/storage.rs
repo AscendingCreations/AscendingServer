@@ -1,7 +1,9 @@
 use crate::{
     containers::*,
     gametypes::*,
+    items::{ItemData, ShopData},
     maps::{GridAttribute, GridTile, MapAttribute, *},
+    npcs::NpcData,
     IDIncomming,
 };
 use core::hint::spin_loop;
@@ -111,25 +113,25 @@ impl Storage {
         let (map_broadcast_tx, _map_broadcast_rx) =
             broadcast::channel(config.map_broadcast_buffer_size);
 
-        crate::maps::get_maps().into_iter().for_each(|map_data| {
+        crate::maps::load_maps().into_iter().for_each(|map_data| {
             bases.maps.insert(map_data.position, map_data);
         });
 
-        crate::npcs::get_npc()
+        crate::npcs::load_npcs()
             .into_iter()
             .enumerate()
             .for_each(|(index, npc_data)| {
                 bases.npcs[index] = npc_data;
             });
 
-        crate::items::get_item()
+        crate::items::load_items()
             .into_iter()
             .enumerate()
             .for_each(|(index, item_data)| {
                 bases.items[index] = item_data;
             });
 
-        crate::items::get_shop()
+        crate::items::load_shops()
             .into_iter()
             .enumerate()
             .for_each(|(index, shopdata)| {
@@ -277,5 +279,21 @@ impl Storage {
 
     pub fn get_player_count(&mut self) -> u64 {
         self.player_count.load(Ordering::SeqCst)
+    }
+
+    pub fn get_npc(&self, id: u64) -> Option<&NpcData> {
+        self.bases.npcs.get(id as usize)
+    }
+
+    pub fn get_shop(&self, id: u64) -> Option<&ShopData> {
+        self.bases.shops.get(id as usize)
+    }
+
+    pub fn get_item(&self, id: u64) -> Option<&ItemData> {
+        self.bases.items.get(id as usize)
+    }
+
+    pub fn get_map(&self, map_position: &MapPosition) -> Option<&Map> {
+        self.bases.maps.get(map_position)
     }
 }

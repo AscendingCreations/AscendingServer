@@ -6,18 +6,18 @@ use crate::{
 
 use super::{DropItem, MapItem};
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum MapIncomming {
     SpawnNpc {
-        npc: Npc,
+        npc: Box<Npc>,
         claimkey: ClaimsKey,
     },
     SpawnMapItem {
-        item: MapItem,
+        item: Box<MapItem>,
         claimkey: ClaimsKey,
     },
     SpawnPlayer {
-        player: Player,
+        player: Box<Player>,
     },
     SendBlockUpdate {
         map_id: MapPosition,
@@ -33,7 +33,6 @@ pub enum MapIncomming {
     MovePlayer {
         map_id: MapPosition,
         player: Box<Player>,
-        old_id: GlobalKey,
     },
     PlayerMessage {
         map_id: MapPosition,
@@ -48,9 +47,14 @@ pub enum MapIncomming {
         item: DropItem,
         channel: tokio::sync::mpsc::Sender<MapQuickResponse>,
     },
+    SendPacketToAll {
+        map_id: MapPosition,
+        buffer: MByteBuffer,
+        avoid: Option<GlobalKey>,
+    },
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum MapBroadCasts {
     PlayerLoggedIn {
         map_id: MapPosition,
@@ -73,14 +77,11 @@ pub enum MapBroadCasts {
         sender_access: UserAccess,
         sender_id: GlobalKey,
     },
-    MovePlayer {
-        map_id: MapPosition,
-        player: Box<Player>,
-    },
     TimeUpdate {
         time: GameTime,
     },
     SendPacketToAll {
+        map_id: MapPosition,
         buffer: MByteBuffer,
     },
 }

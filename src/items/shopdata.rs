@@ -21,14 +21,14 @@ pub struct ShopData {
     pub item: [ShopItem; MAX_SHOP_ITEM],
 }
 
-pub fn get_shop() -> Vec<ShopData> {
+pub fn load_shops() -> Vec<ShopData> {
     let mut shop_data: Vec<ShopData> = Vec::new();
 
     let mut count = 0;
     let mut got_data = true;
 
     while got_data {
-        if let Some(data) = load_file(count) {
+        if let Some(data) = load_shop(count) {
             shop_data.push(data);
             count += 1;
             got_data = true;
@@ -40,7 +40,7 @@ pub fn get_shop() -> Vec<ShopData> {
     shop_data
 }
 
-fn load_file(id: usize) -> Option<ShopData> {
+fn load_shop(id: usize) -> Option<ShopData> {
     let name = format!("./data/shops/{}.bin", id);
 
     match OpenOptions::new().read(true).open(name) {

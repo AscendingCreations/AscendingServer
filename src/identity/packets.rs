@@ -5,16 +5,16 @@ use crate::{maps::MapItem, npcs::Npc, players::Player, MapPosition};
 pub enum IDIncomming {
     RequestNpcSpawn {
         spawn_map: MapPosition,
-        npc: Npc,
+        npc: Box<Npc>,
         claim: ClaimsKey,
     },
     RequestPlayerSpawn {
         spawn_map: MapPosition,
-        player: Player,
+        player: Box<Player>,
     },
     RequestItemSpawn {
         spawn_map: MapPosition,
-        item: MapItem,
+        item: Box<MapItem>,
         claim: ClaimsKey,
     },
     RemoveEntity {

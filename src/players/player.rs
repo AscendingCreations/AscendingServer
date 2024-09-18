@@ -2,7 +2,6 @@ use crate::{
     containers::*, gametypes::*, items::*, network::*, sql::*, tasks::*, time_ext::*, GlobalKey,
 };
 use educe::Educe;
-use hecs::Bundle;
 
 #[derive(Clone, Debug, Educe)]
 #[educe(Default)]
@@ -92,6 +91,58 @@ pub struct Player {
     pub socket: Option<Socket>,
 }
 
+impl Clone for Player {
+    fn clone(&self) -> Self {
+        Self {
+            uid: self.uid,
+            key: self.key,
+            username: self.username.clone(),
+            email: self.email.clone(),
+            vals: self.vals,
+            levelexp: self.levelexp,
+            useditemid: self.useditemid,
+            resetcount: self.resetcount,
+            pvpon: self.pvpon,
+            pk: self.pk,
+            movesavecount: self.movesavecount,
+            sprite: self.sprite,
+            equipment: self.equipment.clone(),
+            storage: self.storage.clone(),
+            inventory: self.inventory.clone(),
+            mapitemtimer: self.mapitemtimer,
+            itemtimer: self.itemtimer,
+            spawn_pos: self.spawn_pos,
+            just_spawned: self.just_spawned,
+            target: self.target,
+            kill_count: self.kill_count,
+            kill_count_timer: self.kill_count_timer,
+            vital: self.vital,
+            vitalmax: self.vitalmax,
+            vitalbuffs: self.vitalbuffs,
+            regens: self.regens,
+            dir: self.dir,
+            despawn_timer: self.despawn_timer,
+            attack_timer: self.attack_timer,
+            death_timer: self.death_timer,
+            move_timer: self.move_timer,
+            combat_timer: self.combat_timer,
+            damage: self.damage,
+            defense: self.defense,
+            data: self.data,
+            hidden: self.hidden,
+            stunned: self.stunned,
+            attacking: self.attacking,
+            in_combat: self.in_combat,
+            level: self.level,
+            position: self.position,
+            access: self.access,
+            death: self.death,
+            is_using: self.is_using,
+            switch_tasks: None,
+            socket: None,
+        }
+    }
+}
 /*
 #[inline(always)]
 pub async fn player_switch_maps(
