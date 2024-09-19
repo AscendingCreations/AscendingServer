@@ -19,95 +19,91 @@ impl IDActor {
     }
 
     pub async fn runner(mut self) -> Result<()> {
-        loop {
-            if let Some(packet) = self.receiver.recv().await {
-                match packet {
-                    IDIncomming::RequestNpcSpawn {
-                        spawn_map,
-                        mut npc,
-                        claim,
-                    } => {
-                        let key = self.entitys.insert(WorldEntityType::Npc);
-                        npc.key = key;
+        while let Some(packet) = self.receiver.recv().await {
+            match packet {
+                IDIncomming::RequestNpcSpawn {
+                    spawn_map,
+                    mut npc,
+                    claim,
+                } => {
+                    let key = self.entitys.insert(WorldEntityType::Npc);
+                    npc.key = key;
 
-                        if let Some(map_sender) = self.storage.map_senders.get(&spawn_map) {
-                            if let Err(e) = map_sender
-                                .send(crate::maps::MapIncomming::SpawnNpc {
-                                    npc,
-                                    claimkey: claim,
-                                })
-                                .await
-                            {
-                                log::error!("Error: {e}");
-                            } else {
-                                continue;
-                            }
+                    if let Some(map_sender) = self.storage.map_senders.get(&spawn_map) {
+                        if let Err(e) = map_sender
+                            .send(crate::maps::MapIncomming::SpawnNpc {
+                                npc,
+                                claimkey: claim,
+                            })
+                            .await
+                        {
+                            log::error!("Error: {e}");
+                        } else {
+                            continue;
                         }
-
-                        log::warn!(
-                            "NPC could not be sent to map {:?}. Deleting entry",
-                            spawn_map
-                        );
-                        self.entitys.remove(key);
                     }
-                    IDIncomming::RequestPlayerSpawn {
-                        spawn_map,
-                        mut player,
-                    } => {
-                        let key = self.entitys.insert(WorldEntityType::Player);
-                        player.key = key;
 
-                        if let Some(map_sender) = self.storage.map_senders.get(&spawn_map) {
-                            if let Err(e) = map_sender
-                                .send(crate::maps::MapIncomming::SpawnPlayer { player })
-                                .await
-                            {
-                                log::error!("Error: {e}");
-                            } else {
-                                continue;
-                            }
-                        }
-
-                        log::warn!(
-                            "Player could not be sent to map {:?}. Deleting entry",
-                            spawn_map
-                        );
-                        self.entitys.remove(key);
-                    }
-                    IDIncomming::RequestItemSpawn {
-                        spawn_map,
-                        mut item,
-                        claim,
-                    } => {
-                        let key = self.entitys.insert(WorldEntityType::MapItem);
-                        item.key = key;
-
-                        if let Some(map_sender) = self.storage.map_senders.get(&spawn_map) {
-                            if let Err(e) = map_sender
-                                .send(crate::maps::MapIncomming::SpawnMapItem {
-                                    item,
-                                    claimkey: claim,
-                                })
-                                .await
-                            {
-                                log::error!("Error: {e}");
-                            } else {
-                                continue;
-                            }
-                        }
-
-                        log::warn!(
-                            "MapItem could not be sent to map {:?}. Deleting entry",
-                            spawn_map
-                        );
-                        self.entitys.remove(key);
-                    }
-                    IDIncomming::RemoveEntity { key } => {
-                        self.entitys.remove(key);
-                    }
+                    log::warn!(
+                        "NPC could not be sent to map {:?}. Deleting entry",
+                        spawn_map
+                    );
+                    self.entitys.remove(key);
                 }
-            } else {
-                break;
+                IDIncomming::RequestPlayerSpawn {
+                    spawn_map,
+                    mut player,
+                } => {
+                    let key = self.entitys.insert(WorldEntityType::Player);
+                    player.key = key;
+
+                    if let Some(map_sender) = self.storage.map_senders.get(&spawn_map) {
+                        if let Err(e) = map_sender
+                            .send(crate::maps::MapIncomming::SpawnPlayer { player })
+                            .await
+                        {
+                            log::error!("Error: {e}");
+                        } else {
+                            continue;
+                        }
+                    }
+
+                    log::warn!(
+                        "Player could not be sent to map {:?}. Deleting entry",
+                        spawn_map
+                    );
+                    self.entitys.remove(key);
+                }
+                IDIncomming::RequestItemSpawn {
+                    spawn_map,
+                    mut item,
+                    claim,
+                } => {
+                    let key = self.entitys.insert(WorldEntityType::MapItem);
+                    item.key = key;
+
+                    if let Some(map_sender) = self.storage.map_senders.get(&spawn_map) {
+                        if let Err(e) = map_sender
+                            .send(crate::maps::MapIncomming::SpawnMapItem {
+                                item,
+                                claimkey: claim,
+                            })
+                            .await
+                        {
+                            log::error!("Error: {e}");
+                        } else {
+                            continue;
+                        }
+                    }
+
+                    log::warn!(
+                        "MapItem could not be sent to map {:?}. Deleting entry",
+                        spawn_map
+                    );
+                    self.entitys.remove(key);
+                }
+                IDIncomming::RemoveEntity { key } => {
+                    self.entitys.remove(key);
+                }
             }
         }
 

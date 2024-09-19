@@ -99,6 +99,7 @@ pub struct Config {
     pub map_buffer_size: usize,
     pub map_broadcast_buffer_size: usize,
     pub ipc_name: String,
+    pub server_name: String,
 }
 
 pub fn read_config(path: &str) -> Config {
@@ -221,9 +222,10 @@ impl Storage {
         let mut len = self.npc_count.load(Ordering::SeqCst);
         let mut new_len = len.saturating_add(amount);
 
-        while let Err(_) =
-            self.npc_count
-                .compare_exchange(len, new_len, Ordering::SeqCst, Ordering::SeqCst)
+        while self
+            .npc_count
+            .compare_exchange(len, new_len, Ordering::SeqCst, Ordering::SeqCst)
+            .is_err()
         {
             spin_loop();
             len = self.npc_count.load(Ordering::SeqCst);
@@ -235,9 +237,10 @@ impl Storage {
         let mut len = self.npc_count.load(Ordering::SeqCst);
         let mut new_len = len.saturating_sub(amount);
 
-        while let Err(_) =
-            self.npc_count
-                .compare_exchange(len, new_len, Ordering::SeqCst, Ordering::SeqCst)
+        while self
+            .npc_count
+            .compare_exchange(len, new_len, Ordering::SeqCst, Ordering::SeqCst)
+            .is_err()
         {
             spin_loop();
             len = self.npc_count.load(Ordering::SeqCst);
@@ -249,9 +252,10 @@ impl Storage {
         let mut len = self.player_count.load(Ordering::SeqCst);
         let mut new_len = len.saturating_add(amount);
 
-        while let Err(_) =
-            self.player_count
-                .compare_exchange(len, new_len, Ordering::SeqCst, Ordering::SeqCst)
+        while self
+            .player_count
+            .compare_exchange(len, new_len, Ordering::SeqCst, Ordering::SeqCst)
+            .is_err()
         {
             spin_loop();
             len = self.player_count.load(Ordering::SeqCst);
@@ -263,9 +267,10 @@ impl Storage {
         let mut len = self.player_count.load(Ordering::SeqCst);
         let mut new_len = len.saturating_sub(amount);
 
-        while let Err(_) =
-            self.player_count
-                .compare_exchange(len, new_len, Ordering::SeqCst, Ordering::SeqCst)
+        while self
+            .player_count
+            .compare_exchange(len, new_len, Ordering::SeqCst, Ordering::SeqCst)
+            .is_err()
         {
             spin_loop();
             len = self.player_count.load(Ordering::SeqCst);

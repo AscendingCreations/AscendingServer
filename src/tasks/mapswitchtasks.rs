@@ -21,41 +21,50 @@ pub struct PlayerSwitchTasks {
 
 impl MapActor {
     pub async fn process_data_lists(&mut self, store: &mut MapActorStore) -> Result<()> {
-        let keys: Vec<GlobalKey> = store.player_switch_processing.iter().copied().collect();
+        let keys: Vec<GlobalKey> = self.player_switch_processing.iter().copied().collect();
+        let mut packets = Vec::with_capacity(50);
 
         for key in keys {
-            let rc_player = store.players.get(&key).cloned();
-            if let Some(player) = rc_player {
-                let task = player.borrow_mut().switch_tasks.take();
+            if let Some(player) = store.players.get_mut(&key) {
+                let task = player.switch_tasks.take();
                 if let Some(mut task) = task {
                     let mut count = task.npcs.len() + task.players.len() + task.items.len();
 
                     for npc in task.npcs.drain(..task.npcs.len().min(50)) {
                         count -= 1;
-                        DataTaskToken::NpcSpawnToEntity(key)
-                            .add_task(store, npc_spawn_packet(&npc, false)?)
-                            .await?;
+                        packets.push(npc_spawn_packet(&npc, false)?);
                     }
+
+                    DataTaskToken::NpcSpawnToEntity(key)
+                        .add_tasks(self, &mut packets)
+                        .await?;
+                    packets.clear();
 
                     for player in task.players.drain(..task.players.len().min(50)) {
                         count -= 1;
-                        DataTaskToken::PlayerSpawnToEntity(key)
-                            .add_task(store, player_spawn_packet(&player, false)?)
-                            .await?;
+                        packets.push(player_spawn_packet(&player, false)?);
                     }
+
+                    DataTaskToken::PlayerSpawnToEntity(key)
+                        .add_tasks(self, &mut packets)
+                        .await?;
+                    packets.clear();
 
                     for item in task.items.drain(..task.items.len().min(50)) {
                         count -= 1;
-                        DataTaskToken::ItemLoadToEntity(key)
-                            .add_task(store, map_item_packet(&item, false)?)
-                            .await?;
+
+                        packets.push(map_item_packet(&item, false)?);
                     }
+
+                    DataTaskToken::ItemLoadToEntity(key)
+                        .add_tasks(self, &mut packets)
+                        .await?;
 
                     if count == 0 {
-                        store.player_switch_processing.swap_remove(&key);
+                        self.player_switch_processing.swap_remove(&key);
                     }
 
-                    let _ = player.borrow_mut().switch_tasks.insert(task);
+                    let _ = player.switch_tasks.insert(task);
                 }
             }
         }

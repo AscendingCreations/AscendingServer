@@ -40,9 +40,9 @@ pub enum DataTaskToken {
 pub const PACKET_DATA_LIMIT: usize = 1400;
 
 impl DataTaskToken {
-    pub async fn add_task(self, store: &mut MapActorStore, mut data: MByteBuffer) -> Result<()> {
+    pub async fn add_task(self, map: &mut MapActor, mut data: MByteBuffer) -> Result<()> {
         //Newer packets get pushed to the back.
-        match store.packet_cache.entry(self) {
+        match map.packet_cache.entry(self) {
             Entry::Vacant(v) => {
                 let mut buffer = new_cache(self.packet_id())?;
                 buffer.write_slice(data.as_slice())?;
@@ -76,7 +76,50 @@ impl DataTaskToken {
             }
         }
 
-        store.packet_cache_ids.insert(self);
+        map.packet_cache_ids.insert(self);
+
+        Ok(())
+    }
+
+    pub async fn add_tasks(self, map: &mut MapActor, data: &mut Vec<MByteBuffer>) -> Result<()> {
+        //Newer packets get pushed to the back.
+        for data in data {
+            match map.packet_cache.entry(self) {
+                Entry::Vacant(v) => {
+                    let mut buffer = new_cache(self.packet_id())?;
+                    buffer.write_slice(data.as_slice())?;
+                    v.insert(VecDeque::from_iter([(1, buffer, false)]));
+                }
+                Entry::Occupied(mut o) => {
+                    let buffers = o.get_mut();
+
+                    if buffers.is_empty() {
+                        let mut buffer = new_cache(self.packet_id())?;
+                        buffer.write_slice(data.as_slice())?;
+                        buffers.push_back((1, buffer, false));
+                    } else {
+                        let (count, buffer, is_finished) = buffers
+                            .back_mut()
+                            .ok_or(AscendingError::PacketCacheNotFound(self))?;
+
+                        if data.length() + buffer.length() > BUFFER_SIZE {
+                            *is_finished = true;
+                            finish_cache(buffer, *count, false)?;
+
+                            let mut buffer = new_cache(self.packet_id())?;
+
+                            buffer.write_slice(data.as_slice())?;
+                            buffers.push_back((1, buffer, false));
+                        } else {
+                            buffer.write_slice(data.as_slice())?;
+                            *count += 1;
+                        }
+                    }
+                }
+            }
+        }
+
+        map.packet_cache_ids.insert(self);
 
         Ok(())
     }
@@ -125,8 +168,8 @@ impl DataTaskToken {
 pub async fn process_tasks(map: &mut MapActor, store: &mut MapActorStore) -> Result<()> {
     let mut sends = Vec::with_capacity(128);
 
-    for id in store.packet_cache_ids.drain(..) {
-        if let Some(buffers) = store.packet_cache.get_mut(&id) {
+    for id in map.packet_cache_ids.drain(..) {
+        if let Some(buffers) = map.packet_cache.get_mut(&id) {
             for (count, mut buffer, is_finished) in buffers.drain(..) {
                 finish_cache(&mut buffer, count, is_finished)?;
                 sends.push((id, buffer));

@@ -1,7 +1,6 @@
 use super::{check_surrounding, MapActor, MapActorStore, MapBroadCasts, MapClaims, MapIncomming};
 use crate::{gametypes::*, items::Item, maps::MapItem, npcs::Npc, GlobalKey, IDIncomming};
 use chrono::Duration;
-use core::hint::spin_loop;
 use mmap_bytey::MByteBuffer;
 use rand::{thread_rng, Rng};
 use std::{cmp::min, sync::atomic::Ordering};
@@ -127,7 +126,7 @@ impl MapActor {
             //should never fail.
             let gridtile = self.move_grids.get(&self.position).unwrap();
 
-            if !gridtile[data.pos.as_tile()].item.is_some() {
+            if gridtile[data.pos.as_tile()].item.is_none() {
                 if data.timer <= self.tick {
                     if !store.item_claims_by_position.contains_key(&data.pos) {
                         continue;
@@ -220,13 +219,12 @@ impl MapActor {
         buffer: MByteBuffer,
         avoid: Option<GlobalKey>,
     ) -> Result<()> {
-        for (key, player) in &store.players {
+        for (key, player) in &mut store.players {
             if Some(*key) == avoid {
                 continue;
             }
 
-            let mut borrow = player.borrow_mut();
-            if let Some(socket) = &mut borrow.socket {
+            if let Some(socket) = &mut player.socket {
                 return socket.send(buffer.clone()).await;
             }
         }

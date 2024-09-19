@@ -33,11 +33,15 @@ pub struct MapActor {
     pub move_grids: IndexMap<MapPosition, [GridTile; MAP_MAX_X * MAP_MAX_Y]>,
     pub broadcast_rx: broadcast::Receiver<MapBroadCasts>,
     pub receiver: mpsc::Receiver<MapIncomming>,
+    pub packet_cache: IndexMap<DataTaskToken, VecDeque<(u32, MByteBuffer, bool)>>,
+    //This keeps track of what Things need sending. So we can leave it loaded and only loop whats needed.
+    pub packet_cache_ids: IndexSet<DataTaskToken>,
+    pub player_switch_processing: IndexSet<GlobalKey>,
 }
 
 #[derive(Debug, Default)]
 pub struct MapActorStore {
-    pub players: IndexMap<GlobalKey, RefCell<Player>>,
+    pub players: IndexMap<GlobalKey, Player>,
     pub npcs: IndexMap<GlobalKey, RefCell<Npc>>,
     pub items: IndexMap<GlobalKey, MapItem>,
     //used for internal processes to pass around for resource locking purposes.
@@ -45,17 +49,12 @@ pub struct MapActorStore {
     pub entity_claims_by_position: HashMap<Position, ClaimsKey>,
     pub item_claims_by_position: HashMap<Position, ClaimsKey>,
     pub time: GameTime,
-    pub packet_cache: IndexMap<DataTaskToken, VecDeque<(u32, MByteBuffer, bool)>>,
-    //This keeps track of what Things need sending. So we can leave it loaded and only loop whats needed.
-    pub packet_cache_ids: IndexSet<DataTaskToken>,
-    pub player_switch_processing: IndexSet<GlobalKey>,
 }
 
 impl MapActorStore {
     pub async fn send_to(&mut self, key: GlobalKey, buffer: MByteBuffer) -> Result<()> {
-        if let Some(player) = self.players.get(&key) {
-            let mut borrow = player.borrow_mut();
-            if let Some(socket) = &mut borrow.socket {
+        if let Some(player) = self.players.get_mut(&key) {
+            if let Some(socket) = &mut player.socket {
                 return socket.send(buffer).await;
             }
         } else {
@@ -68,9 +67,8 @@ impl MapActorStore {
     #[inline]
     pub async fn send_to_all_local(&mut self, buffer: MByteBuffer) -> Result<()> {
         //Send to all of our users first.
-        for (_key, player) in &self.players {
-            let mut borrow = player.borrow_mut();
-            if let Some(socket) = &mut borrow.socket {
+        for (_key, player) in &mut self.players {
+            if let Some(socket) = &mut player.socket {
                 return socket.send(buffer.clone()).await;
             }
         }
@@ -79,7 +77,7 @@ impl MapActorStore {
     }
 
     pub fn add_player(&mut self, player: Player, key: GlobalKey) {
-        self.players.insert(key, RefCell::new(player));
+        self.players.insert(key, player);
     }
 
     pub fn add_npc(&mut self, npc: Npc, key: GlobalKey) {
@@ -87,7 +85,7 @@ impl MapActorStore {
     }
 
     pub fn remove_player(&mut self, key: GlobalKey) -> Option<Player> {
-        self.players.swap_remove(&key).map(|p| p.take())
+        self.players.swap_remove(&key)
     }
 
     pub fn remove_npc(&mut self, key: GlobalKey) -> Option<Npc> {
@@ -111,10 +109,13 @@ impl MapActor {
             storage,
             broadcast_rx,
             receiver,
-            tick: MyInstant::now(),
             zones: [0, 0, 0, 0, 0],
             spawnable_item: Vec::new(),
             move_grids: IndexMap::default(),
+            packet_cache: IndexMap::default(),
+            packet_cache_ids: IndexSet::default(),
+            player_switch_processing: IndexSet::default(),
+            tick: MyInstant::now(),
         }
     }
 

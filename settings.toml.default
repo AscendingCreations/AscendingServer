@@ -1,3 +1,4 @@
+server_name = 'Main Server'
 login_server_ip = '127.0.0.1'
 login_server_port = 7005
 login_server_secure_port =  7004

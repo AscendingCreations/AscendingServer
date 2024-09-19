@@ -1,6 +1,17 @@
-use crate::{gametypes::*, maps::MapBroadCasts, GameTime, GlobalKey, UserAccess};
+use crate::{
+    containers::{Config, Storage},
+    gametypes::*,
+    logins::LoginIncomming,
+    maps::MapBroadCasts,
+    network::MByteBufferExt,
+    GameTime, GlobalKey, UserAccess,
+};
 use bytey::{ByteBufferRead, ByteBufferWrite};
+use mmap_bytey::MByteBuffer;
+use std::{net::SocketAddr, str::FromStr, sync::Arc};
 use tokio::{
+    io::AsyncWriteExt,
+    net::{TcpSocket, TcpStream},
     select,
     sync::{broadcast, mpsc, oneshot},
 };
@@ -29,21 +40,27 @@ pub struct InfoActor {
     pub usernames: HashMap<String, PlayerInfo>,
     pub game_time: GameTime,
     pub info_rx: mpsc::Receiver<InfoIncomming>,
+    pub login_tx: mpsc::Sender<LoginIncomming>,
+    pub config: Arc<Config>,
 }
 
 impl InfoActor {
     pub fn new(
+        login_tx: mpsc::Sender<LoginIncomming>,
         map_broadcast_rx: broadcast::Receiver<MapBroadCasts>,
+        storage: &Storage,
     ) -> (mpsc::Sender<InfoIncomming>, Self) {
         let (info_tx, info_rx) = mpsc::channel(100);
 
         (
             info_tx,
             Self {
+                login_tx,
                 map_broadcast_rx,
                 usernames: HashMap::default(),
                 info_rx,
                 game_time: GameTime::default(),
+                config: storage.config.clone(),
             },
         )
     }
@@ -62,7 +79,7 @@ impl InfoActor {
                 }
                 packet = self.map_broadcast_rx.recv() => {
                     match packet {
-                        Ok(packet) => self.update_info(packet),
+                        Ok(packet) => self.update_info(packet).await,
                         Err(e) => {
                             log::info!("map_broadcast_rx was closed. {e}");
                             return Err(crate::AscendingError::from(e));
@@ -73,7 +90,7 @@ impl InfoActor {
         }
     }
 
-    pub fn update_info(&mut self, packet: MapBroadCasts) {
+    pub async fn update_info(&mut self, packet: MapBroadCasts) {
         match packet {
             MapBroadCasts::PlayerLoggedIn {
                 map_id: _,
@@ -90,6 +107,13 @@ impl InfoActor {
                         access,
                     },
                 );
+
+                self.login_tx
+                    .send(LoginIncomming::UpdateLoginServer {
+                        users_len: self.usernames.len() as u64,
+                    })
+                    .await
+                    .unwrap();
             }
             MapBroadCasts::PlayerLoggedOut {
                 map_id: _,
@@ -98,6 +122,13 @@ impl InfoActor {
                 position: _,
             } => {
                 self.usernames.remove(&username);
+
+                self.login_tx
+                    .send(LoginIncomming::UpdateLoginServer {
+                        users_len: self.usernames.len() as u64,
+                    })
+                    .await
+                    .unwrap();
             }
             MapBroadCasts::TimeUpdate { time } => {
                 self.game_time = time;

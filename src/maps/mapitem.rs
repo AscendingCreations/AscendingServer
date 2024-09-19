@@ -79,10 +79,23 @@ pub enum MapClaims {
     Tile,
 }
 
-pub fn find_drop_pos(
-    map: &MapActor,
-    drop_item: DropItem,
-) -> Result<Vec<(Position, Option<(GlobalKey, u16)>)>> {
+pub struct DropPos {
+    position: Position,
+    item_stack: Option<GlobalKey>,
+    stacked_amount: u16,
+}
+
+impl DropPos {
+    pub fn new(position: Position, item_stack: Option<GlobalKey>, stacked_amount: u16) -> Self {
+        Self {
+            position,
+            item_stack,
+            stacked_amount,
+        }
+    }
+}
+
+pub fn find_drop_pos(map: &MapActor, drop_item: DropItem) -> Result<Vec<DropPos>> {
     let mut result = Vec::new();
     let mut process_more = false;
 
@@ -99,7 +112,7 @@ pub fn find_drop_pos(
                     if grid[drop_item.pos.as_tile()].item.is_none()
                         && !map.is_blocked_tile(check_pos, WorldEntityType::MapItem)
                     {
-                        result.push((check_pos, None));
+                        result.push(DropPos::new(check_pos, None, 0));
                         break 'endcheck;
                     }
                 }
@@ -120,7 +133,7 @@ pub fn find_drop_pos(
                     if grid[drop_item.pos.as_tile()].item.is_none()
                         && !map.is_blocked_tile(check_pos, WorldEntityType::MapItem)
                     {
-                        result.push((check_pos, None));
+                        result.push(DropPos::new(check_pos, None, 0));
                         break 'endcheck;
                     }
                 }
@@ -139,7 +152,7 @@ pub fn find_drop_pos(
                             if item_id == drop_item.index && item_val < item_base.stacklimit {
                                 let remaining_val = item_base.stacklimit - item_val;
                                 leftover = leftover.saturating_sub(remaining_val);
-                                result.push((check_pos, Some((key, remaining_val))));
+                                result.push(DropPos::new(check_pos, Some(key), remaining_val));
 
                                 if leftover == 0 {
                                     break 'endcheck;
@@ -168,7 +181,7 @@ pub fn find_drop_pos(
                         if item_id == drop_item.index && item_val < item_base.stacklimit {
                             let remaining_val = item_base.stacklimit - item_val;
                             leftover = leftover.saturating_sub(remaining_val);
-                            result.push((check_pos, Some((key, remaining_val))));
+                            result.push(DropPos::new(check_pos, Some(key), remaining_val));
 
                             if leftover == 0 {
                                 break 'endcheck;
@@ -208,20 +221,20 @@ pub async fn try_drop_item(
     let mut leftover = drop_item.amount;
     let mut waited_leftover = 0;
 
-    for (position, details) in found_positions.into_iter() {
-        if stackable && let Some((key, fits)) = details {
-            if position.map != map.position {
-                let amount = fits.min(leftover);
+    for drop_pos in found_positions.into_iter() {
+        if stackable && let Some(key) = drop_pos.item_stack {
+            if drop_pos.position.map != map.position {
+                let amount = drop_pos.stacked_amount.min(leftover);
 
                 let drop = DropItem {
                     amount,
-                    pos: position,
+                    pos: drop_pos.position,
                     ..drop_item
                 };
 
                 waited_leftover += amount;
 
-                if let Some(sender) = map.storage.map_senders.get(&position.map) {
+                if let Some(sender) = map.storage.map_senders.get(&drop_pos.position.map) {
                     if let Err(e) = sender
                         .send(MapIncomming::RequestItemDrop {
                             map_id: map.position,
@@ -250,16 +263,16 @@ pub async fn try_drop_item(
                     return Ok((false, 0));
                 };
 
-                map.add_item_to_grid(position, key, num, val);
+                map.add_item_to_grid(drop_pos.position, key, num, val);
             }
         } else {
-            if position.map != map.position {
+            if drop_pos.position.map != map.position {
                 let drop = DropItem {
-                    pos: position,
+                    pos: drop_pos.position,
                     ..drop_item
                 };
 
-                if let Some(sender) = map.storage.map_senders.get(&position.map) {
+                if let Some(sender) = map.storage.map_senders.get(&drop_pos.position.map) {
                     if let Err(e) = sender
                         .send(MapIncomming::RequestItemDrop {
                             map_id: map.position,
@@ -283,19 +296,21 @@ pub async fn try_drop_item(
                         val: drop_item.amount,
                         ..Item::default()
                     },
-                    position,
+                    drop_pos.position,
                     despawn,
                     ownerid,
                     ownertimer,
                 );
 
                 let claim = store.claims.insert(MapClaims::Tile);
-                store.item_claims_by_position.insert(position, claim);
+                store
+                    .item_claims_by_position
+                    .insert(drop_pos.position, claim);
 
                 map.storage
                     .id_sender
                     .send(IDIncomming::RequestItemSpawn {
-                        spawn_map: position.map,
+                        spawn_map: drop_pos.position.map,
                         item: Box::new(map_item),
                         claim,
                     })
@@ -366,9 +381,8 @@ pub async fn player_interact_object(
     store: &mut MapActorStore,
     key: GlobalKey,
 ) -> Result<()> {
-    if let Some(player) = store.players.get(&key) {
+    if let Some(player) = store.players.get_mut(&key) {
         let target_pos = {
-            let player = player.borrow();
             let mut next_pos = player.position;
 
             match player.dir {
@@ -409,23 +423,23 @@ pub async fn player_interact_object(
             next_pos
         };
 
-        if let Some(map) = map.storage.bases.maps.get(&map.position) {
-            match map.attribute[target_pos.as_tile()] {
+        if let Some(map_base) = map.storage.bases.maps.get(&map.position) {
+            match map_base.attribute[target_pos.as_tile()] {
                 MapAttribute::Storage => {
                     {
-                        player.borrow_mut().is_using = IsUsingType::Bank;
+                        player.is_using = IsUsingType::Bank;
                     }
 
-                    //send_storage(world, storage, entity, 0..35).await?;
-                    //send_storage(world, storage, entity, 35..MAX_STORAGE).await?;
-                    //send_openstorage(world, storage, entity).await
+                    store.send_store(key, 0..35).await?;
+                    store.send_store(key, 35..MAX_STORAGE).await?;
+                    store.send_openstore(key).await?;
                 }
                 MapAttribute::Shop(shop_index) => {
                     {
-                        player.borrow_mut().is_using = IsUsingType::Store(shop_index as i64);
+                        player.is_using = IsUsingType::Store(shop_index as i64);
                     }
 
-                    //send_openshop(world, storage, entity, shop_index).await
+                    store.send_openshop(key, shop_index).await?;
                 }
                 _ => {}
             }

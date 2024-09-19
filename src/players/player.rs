@@ -89,6 +89,8 @@ pub struct Player {
     pub switch_tasks: Option<PlayerSwitchTasks>,
     //needs to be optional or we cant build a player until we have it.
     pub socket: Option<Socket>,
+    pub trade: Option<Trade>,
+    pub trade_request: Option<TradeRequest>,
 }
 
 impl Clone for Player {
@@ -140,6 +142,8 @@ impl Clone for Player {
             is_using: self.is_using,
             switch_tasks: None,
             socket: None,
+            trade: None,
+            trade_request: None,
         }
     }
 }

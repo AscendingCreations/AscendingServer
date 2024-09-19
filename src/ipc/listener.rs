@@ -1,11 +1,12 @@
-use crate::{containers::*, gametypes::*, ipc::*};
+use crate::{containers::*, gametypes::*, ipc::*, LoginIncomming};
 use interprocess::local_socket::{tokio::prelude::*, GenericNamespaced, ListenerOptions};
+use tokio::sync::mpsc;
 
-pub async fn ipc_runner(storage: &Storage) -> Result<()> {
+pub async fn ipc_runner(storage: &Storage, login_tx: mpsc::Sender<LoginIncomming>) -> Result<()> {
     let name = (*storage.config.ipc_name).to_ns_name::<GenericNamespaced>()?;
     let opts = ListenerOptions::new().name(name);
 
-    let (info_tx, actor) = InfoActor::new(storage.map_broadcast_tx.subscribe());
+    let (info_tx, actor) = InfoActor::new(login_tx, storage.map_broadcast_tx.subscribe(), &storage);
 
     log::info!("Initializing Info Actor");
     tokio::spawn(actor.runner());
