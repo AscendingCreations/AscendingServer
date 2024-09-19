@@ -139,11 +139,11 @@ async fn main() {
     tokio::spawn(login_actor.runner());
 
     info!("Initializing Server Listener Actor");
-    let listening_actor = network::ServerListenActor::new(&storage, login_tx)
+    let listening_actor = network::ServerListenActor::new(&storage, login_tx.clone())
         .await
         .unwrap();
     tokio::spawn(listening_actor.runner());
     info!("Game Server is Running.");
 
-    ipc_runner(&storage).await.unwrap();
+    ipc_runner(&storage, login_tx).await.unwrap();
 }
