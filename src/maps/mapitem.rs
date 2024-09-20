@@ -383,9 +383,9 @@ pub async fn player_interact_object(
 ) -> Result<()> {
     if let Some(player) = store.players.get_mut(&key) {
         let target_pos = {
-            let mut next_pos = player.position;
+            let mut next_pos = player.lock().await.position;
 
-            match player.dir {
+            match player.lock().await.dir {
                 1 => {
                     next_pos.x += 1;
 
@@ -426,19 +426,13 @@ pub async fn player_interact_object(
         if let Some(map_base) = map.storage.bases.maps.get(&map.position) {
             match map_base.attribute[target_pos.as_tile()] {
                 MapAttribute::Storage => {
-                    {
-                        player.is_using = IsUsingType::Bank;
-                    }
-
+                    player.lock().await.is_using = IsUsingType::Bank;
                     store.send_store(key, 0..35).await?;
                     store.send_store(key, 35..MAX_STORAGE).await?;
                     store.send_openstore(key).await?;
                 }
                 MapAttribute::Shop(shop_index) => {
-                    {
-                        player.is_using = IsUsingType::Store(shop_index as i64);
-                    }
-
+                    player.lock().await.is_using = IsUsingType::Store(shop_index as i64);
                     store.send_openshop(key, shop_index).await?;
                 }
                 _ => {}

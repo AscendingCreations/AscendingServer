@@ -3,7 +3,7 @@ use crate::{
 };
 use chrono::Duration;
 use educe::Educe;
-use std::collections::VecDeque;
+use std::{collections::VecDeque, default};
 
 use super::NpcData;
 
@@ -73,6 +73,27 @@ pub struct Npc {
     pub is_using: IsUsingType,
     pub mode: NpcMode,
     pub sprite: u16,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Default)]
+pub struct NpcMapInfo {
+    pub index: u64,
+    pub key: GlobalKey,
+    pub position: Position,
+    pub death: Death,
+    pub dir: u8,
+}
+
+impl NpcMapInfo {
+    pub fn new_from(npc: &Npc) -> Self {
+        Self {
+            index: npc.index,
+            key: npc.key,
+            position: npc.position,
+            death: npc.death,
+            dir: npc.dir,
+        }
+    }
 }
 
 #[inline(always)]

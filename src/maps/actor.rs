@@ -1,7 +1,14 @@
 use super::{MapBroadCasts, MapIncomming, *};
 use crate::{
-    containers::*, gametypes::*, identity::ClaimsKey, maps::GridTile, npcs::Npc, players::Player,
-    tasks::DataTaskToken, time_ext::MyInstant, GlobalKey, HopSlotMap,
+    containers::*,
+    gametypes::*,
+    identity::ClaimsKey,
+    maps::GridTile,
+    npcs::{Npc, NpcMapInfo},
+    players::{Player, PlayerMapInfo},
+    tasks::DataTaskToken,
+    time_ext::MyInstant,
+    GlobalKey, HopSlotMap,
 };
 use bit_op::{bit_u8::*, BitOp};
 use educe::Educe;
@@ -20,7 +27,7 @@ use std::{
     rc::Rc,
     sync::{atomic::AtomicU64, Arc},
 };
-use tokio::sync::{broadcast, mpsc};
+use tokio::sync::{broadcast, mpsc, Mutex};
 
 #[derive(Debug)]
 pub struct MapActor {
@@ -41,8 +48,8 @@ pub struct MapActor {
 
 #[derive(Debug, Default)]
 pub struct MapActorStore {
-    pub players: IndexMap<GlobalKey, Player>,
-    pub npcs: IndexMap<GlobalKey, RefCell<Npc>>,
+    pub players: IndexMap<GlobalKey, Arc<Mutex<Player>>>,
+    pub npcs: IndexMap<GlobalKey, Arc<Mutex<Npc>>>,
     pub items: IndexMap<GlobalKey, MapItem>,
     //used for internal processes to pass around for resource locking purposes.
     pub claims: slotmap::HopSlotMap<ClaimsKey, MapClaims>,
@@ -54,7 +61,7 @@ pub struct MapActorStore {
 impl MapActorStore {
     pub async fn send_to(&mut self, key: GlobalKey, buffer: MByteBuffer) -> Result<()> {
         if let Some(player) = self.players.get_mut(&key) {
-            if let Some(socket) = &mut player.socket {
+            if let Some(socket) = &mut player.lock().await.socket {
                 return socket.send(buffer).await;
             }
         } else {
@@ -68,7 +75,7 @@ impl MapActorStore {
     pub async fn send_to_all_local(&mut self, buffer: MByteBuffer) -> Result<()> {
         //Send to all of our users first.
         for (_key, player) in &mut self.players {
-            if let Some(socket) = &mut player.socket {
+            if let Some(socket) = &mut player.lock().await.socket {
                 return socket.send(buffer.clone()).await;
             }
         }
@@ -77,19 +84,23 @@ impl MapActorStore {
     }
 
     pub fn add_player(&mut self, player: Player, key: GlobalKey) {
-        self.players.insert(key, player);
+        self.players.insert(key, Arc::new(Mutex::new(player)));
     }
 
     pub fn add_npc(&mut self, npc: Npc, key: GlobalKey) {
-        self.npcs.insert(key, RefCell::new(npc));
+        self.npcs.insert(key, Arc::new(Mutex::new(npc)));
     }
 
     pub fn remove_player(&mut self, key: GlobalKey) -> Option<Player> {
-        self.players.swap_remove(&key)
+        self.players
+            .swap_remove(&key)
+            .map(|n| Arc::try_unwrap(n).unwrap().into_inner())
     }
 
     pub fn remove_npc(&mut self, key: GlobalKey) -> Option<Npc> {
-        self.npcs.swap_remove(&key).map(|n| n.take())
+        self.npcs
+            .swap_remove(&key)
+            .map(|n| Arc::try_unwrap(n).unwrap().into_inner())
     }
 
     pub fn remove_item(&mut self, key: GlobalKey) -> Option<MapItem> {

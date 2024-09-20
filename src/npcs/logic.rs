@@ -1,16 +1,22 @@
 use crate::{
-    containers::{GameStore, GameWorld},
     gametypes::*,
+    maps::{MapActor, MapActorStore},
     npcs::*,
     tasks::*,
+    GlobalKey,
 };
 use chrono::Duration;
 
-pub async fn update_npcs(world: &GameWorld, storage: &GameStore) -> Result<()> {
-    let tick = *storage.gettick.read().await;
+pub async fn update_npcs(map: &mut MapActor, store: &mut MapActorStore) -> Result<()> {
     let mut unloadnpcs = Vec::new();
+    let npc_ids = store
+        .npcs
+        .iter()
+        .map(|(key, npc)| key)
+        .copied()
+        .collect::<Vec<GlobalKey>>();
 
-    for id in &*storage.npc_ids.read().await {
+    for id in npc_ids {
         match world.get_or_err::<Death>(id).await? {
             Death::Alive => {
                 if world.get_or_err::<NpcDespawns>(id).await?.0

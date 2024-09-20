@@ -1,21 +1,16 @@
 use std::borrow::Borrow;
 
-use crate::{
-    containers::{GameStore, GameWorld},
-    gametypes::*,
-    maps::*,
-    npcs::*,
-    players::*,
-    tasks::*,
-};
+use crate::{gametypes::*, maps::*, npcs::*, players::*, tasks::*, GlobalKey};
 use rand::{thread_rng, Rng};
 
 #[inline(always)]
-pub async fn damage_npc(world: &GameWorld, entity: &crate::Entity, damage: i32) -> Result<()> {
-    let lock = world.read().await;
-    let mut vital = lock.get::<&mut Vitals>(entity.0)?;
-    vital.vital[VitalTypes::Hp as usize] =
-        vital.vital[VitalTypes::Hp as usize].saturating_sub(damage);
+pub fn damage_npc(store: &mut MapActorStore, key: GlobalKey, damage: i32) -> Result<()> {
+    if let Some(npc) = store.npcs.get(&key) {
+        let mut npc = npc.borrow_mut();
+        npc.vital[VitalTypes::Hp as usize] =
+            npc.vital[VitalTypes::Hp as usize].saturating_sub(damage);
+    }
+
     Ok(())
 }
 
@@ -31,72 +26,95 @@ fn entity_cast_check(
     range >= caster_pos.checkdistance(pos) && target_death.is_alive()
 }
 
-pub async fn try_cast(
-    world: &GameWorld,
-    storage: &GameStore,
-    caster: &Entity,
+pub fn try_cast(
+    map: &mut MapActor,
+    store: &mut MapActorStore,
+    caster_key: GlobalKey,
     base: &NpcData,
     target: Target,
     range: i32,
     casttype: NpcCastType,
 ) -> Result<bool> {
-    if !world.contains(caster).await {
-        return Ok(false);
-    }
+    if let Some(npc) = store.npcs.get(&caster_key) {
+        let caster_pos = npc.borrow().position;
+        let npc_mode = npc.borrow().mode;
 
-    let caster_pos = world.get_or_default::<Position>(caster).await;
-    let npc_mode = world.get_or_default::<NpcMode>(caster).await;
-
-    match target {
-        Target::Player(i, _accid) => {
-            if world.contains(&i).await
-                && (base.can_attack_player || matches!(npc_mode, NpcMode::Pet | NpcMode::Summon))
-                && !world.get_or_err::<IsUsingType>(&i).await?.inuse()
-            {
-                let target_pos = world.get_or_default::<Position>(&i).await;
-                let life = world.get_or_default::<Death>(&i).await;
-
-                if let Some(dir) = caster_pos.checkdirection(target_pos) {
-                    if is_dir_blocked(storage, caster_pos, dir as u8).await {
-                        return Ok(false);
-                    }
+        match target {
+            Target::Player(key, _accid, _map_pos) => {
+                let data = if let Some(player) = store.players.get(&key) {
+                    Some((
+                        player.borrow().is_using.inuse(),
+                        player.borrow().position,
+                        player.borrow().death,
+                    ))
+                } else if let Some(player) = store.player_info.get(&key) {
+                    Some((player.is_using.inuse(), player.position, player.death))
                 } else {
-                    return Ok(false);
-                }
+                    None
+                };
 
-                return Ok(entity_cast_check(caster_pos, target_pos, life, range));
-            }
-        }
-        Target::Npc(i) => {
-            let npc_index = world.get_or_default::<NpcIndex>(&i).await.0;
-            if base.has_enemies
-                && casttype == NpcCastType::Enemy
-                && base.enemies.iter().any(|e| *e == npc_index)
-            {
-                let target_pos = world.get_or_default::<Position>(&i).await;
-                let life = world.get_or_default::<Death>(&i).await;
+                if let Some((inuse, position, death)) = data {
+                    if (base.can_attack_player
+                        || matches!(npc_mode, NpcMode::Pet | NpcMode::Summon))
+                        && !inuse
+                    {
+                        if let Some(dir) = caster_pos.checkdirection(position) {
+                            if map.is_dir_blocked(caster_pos, dir as u8) {
+                                return Ok(false);
+                            }
+                        } else {
+                            return Ok(false);
+                        }
 
-                if let Some(dir) = caster_pos.checkdirection(target_pos) {
-                    if is_dir_blocked(storage, caster_pos, dir as u8).await {
-                        return Ok(false);
+                        return Ok(entity_cast_check(caster_pos, position, death, range));
                     }
-                } else {
-                    return Ok(false);
                 }
-
-                return Ok(entity_cast_check(caster_pos, target_pos, life, range));
             }
+            Target::Npc(key, _map_pos) => {
+                let data = if let Some(npc) = store.npcs.get(&key) {
+                    Some((
+                        npc.borrow().index,
+                        npc.borrow().position,
+                        npc.borrow().death,
+                    ))
+                } else if let Some(npc) = store.npc_info.get(&key) {
+                    Some((npc.index, npc.position, npc.death))
+                } else {
+                    None
+                };
+
+                if let Some((index, position, death)) = data {
+                    if base.has_enemies
+                        && casttype == NpcCastType::Enemy
+                        && base.enemies.iter().any(|e| *e == index)
+                    {
+                        if let Some(dir) = caster_pos.checkdirection(position) {
+                            if map.is_dir_blocked(caster_pos, dir as u8) {
+                                return Ok(false);
+                            }
+                        } else {
+                            return Ok(false);
+                        }
+
+                        return Ok(entity_cast_check(caster_pos, position, death, range));
+                    }
+                }
+            }
+            Target::Map(_) | Target::None | Target::MapItem(_, _) => {}
         }
-        Target::Map(_) | Target::None | Target::MapItem(_) => {}
     }
 
     Ok(false)
 }
 
+pub enum NpcPackets {
+    NpcCast {},
+}
+
 pub async fn npc_cast(
-    world: &GameWorld,
-    storage: &GameStore,
-    npc: &Entity,
+    map: &mut MapActor,
+    store: &mut MapActorStore,
+    key: GlobalKey,
     base: &NpcData,
 ) -> Result<Target> {
     match base.behaviour {
@@ -105,26 +123,22 @@ pub async fn npc_cast(
         | AIBehavior::ReactiveHealer
         | AIBehavior::HelpReactive
         | AIBehavior::Reactive => {
-            let target_type = {
-                let lock = world.read().await;
-                let target_type = lock.get::<&Targeting>(npc.0).map(|t| t.target_type);
-                target_type
+            let target_type = if let Some(npc) = store.npcs.get(&key) {
+                npc.borrow().target.target_type
+            } else {
+                return Ok(Target::None);
             };
 
-            if let Ok(targettype) = target_type {
-                if try_cast(
-                    world,
-                    storage,
-                    npc,
-                    base,
-                    targettype,
-                    base.range,
-                    NpcCastType::Enemy,
-                )
-                .await?
-                {
-                    return Ok(targettype);
-                }
+            if try_cast(
+                map,
+                store,
+                key,
+                base,
+                target_type,
+                base.range,
+                NpcCastType::Enemy,
+            )? {
+                return Ok(target_type);
             }
 
             Ok(Target::None)
@@ -133,9 +147,20 @@ pub async fn npc_cast(
     }
 }
 
-pub async fn can_attack_npc(world: &GameWorld, storage: &GameStore, npc: &Entity) -> Result<bool> {
-    let npc_index = world.get_or_err::<NpcIndex>(npc).await?.0;
-    let base = &storage.bases.npcs[npc_index as usize];
+pub async fn can_attack_npc(
+    map: &mut MapActor,
+    store: &mut MapActorStore,
+    key: GlobalKey,
+) -> Result<bool> {
+    let index = if let Some(npc) = store.npcs.get(&key) {
+        npc.borrow().index
+    } else if let Some(npc) = store.npc_info.get(&key) {
+        npc.index
+    } else {
+        return Ok(false);
+    };
+
+    let base = &map.storage.bases.npcs[index as usize];
 
     match base.behaviour {
         AIBehavior::Agressive
@@ -148,14 +173,16 @@ pub async fn can_attack_npc(world: &GameWorld, storage: &GameStore, npc: &Entity
 }
 
 pub async fn npc_combat(
-    world: &GameWorld,
-    storage: &GameStore,
-    entity: &Entity,
+    map: &mut MapActor,
+    store: &mut MapActorStore,
+    key: GlobalKey,
     base: &NpcData,
 ) -> Result<()> {
-    match npc_cast(world, storage, entity, base).await? {
-        Target::Player(i, _accid) => {
-            if world.contains(&i).await {
+    match npc_cast(map, store, key, base).await? {
+        Target::Player(player_key, _accid, _map_pos) => {
+            if store.players.contains_key(&player_key)
+                || store.player_info.contains_key(&player_key)
+            {
                 let damage = npc_combat_damage(world, storage, entity, &i, base).await?;
                 damage_player(world, &i, damage).await?;
                 DataTaskToken::Damage(world.get_or_default::<Position>(entity).await.map)
@@ -187,7 +214,7 @@ pub async fn npc_combat(
                 }
             }
         }
-        Target::Npc(i) => {
+        Target::Npc(npc_key, _map_pos) => {
             if world.contains(&i).await {
                 let damage = npc_combat_damage(world, storage, entity, &i, base).await?;
                 damage_npc(world, &i, damage).await?;
@@ -227,14 +254,26 @@ pub async fn npc_combat(
 }
 
 pub async fn npc_combat_damage(
-    world: &GameWorld,
-    storage: &GameStore,
-    entity: &Entity,
-    enemy_entity: &Entity,
+    map: &mut MapActor,
+    store: &mut MapActorStore,
+    key: &GlobalKey,
+    enemy_key: &GlobalKey,
     base: &NpcData,
+    entity_type: WorldEntityType,
 ) -> Result<i32> {
-    let def = if world.get_or_err::<WorldEntityType>(enemy_entity).await? == WorldEntityType::Player
-    {
+    let def = match entity_type {
+        WorldEntityType::Player => {
+            let def = if let Some(player) = store.players.get(&enemy_key) {
+                player.defense
+            } else if let Some(player) = store.player_info.get(&enemy_key) {
+                player.defense
+            };
+        }
+        WorldEntityType::Npc => todo!(),
+        _ => return Ok(0),
+    };
+
+    if world.get_or_err::<WorldGlobalKeyType>(enemy_entity).await? == WorldGlobalKeyType::Player {
         world.get_or_err::<Physical>(enemy_entity).await?.defense
             + player_get_armor_defense(world, storage, entity).await?.0 as u32
             + world
@@ -250,7 +289,7 @@ pub async fn npc_combat_damage(
     let data = lock.entity(entity.0)?;
     let edata = lock.entity(enemy_entity.0)?;
 
-    let offset = if edata.get_or_err::<WorldEntityType>()? == WorldEntityType::Player {
+    let offset = if edata.get_or_err::<WorldGlobalKeyType>()? == WorldGlobalKeyType::Player {
         4
     } else {
         2
@@ -285,7 +324,11 @@ pub async fn npc_combat_damage(
     Ok(damage as i32)
 }
 
-pub async fn kill_npc(world: &GameWorld, storage: &GameStore, entity: &Entity) -> Result<()> {
+pub async fn kill_npc(
+    store: &mut MapActorStore,
+    storage: &GameStore,
+    key: &GlobalKey,
+) -> Result<()> {
     let npc_index = world.get_or_err::<NpcIndex>(entity).await?.0;
     let npc_pos = world.get_or_err::<Position>(entity).await?;
     let npcbase = storage.bases.npcs[npc_index as usize].borrow();

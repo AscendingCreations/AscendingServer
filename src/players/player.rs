@@ -147,6 +147,42 @@ impl Clone for Player {
         }
     }
 }
+
+#[derive(Clone, Debug, Educe)]
+#[educe(Default)]
+pub struct PlayerMapInfo {
+    pub key: GlobalKey,
+    pub dir: u8,
+    pub position: Position,
+    pub access: UserAccess,
+    pub death: Death,
+    pub is_using: IsUsingType,
+    pub hidden: bool,
+    pub damage: u32,
+    pub defense: u32,
+    #[educe(Default = (0..MAX_EQPT).map(|_| Item::default()).collect())]
+    pub equipment: Vec<Item>,
+    pub level: i32,
+}
+
+impl PlayerMapInfo {
+    pub fn new_from(player: Player) -> Self {
+        Self {
+            key: player.key,
+            dir: player.dir,
+            position: player.position,
+            access: player.access,
+            death: player.death,
+            is_using: player.is_using,
+            hidden: player.hidden,
+            damage: player.damage,
+            defense: player.defense,
+            equipment: player.equipment.clone(),
+            level: player.level,
+        }
+    }
+}
+
 /*
 #[inline(always)]
 pub async fn player_switch_maps(
