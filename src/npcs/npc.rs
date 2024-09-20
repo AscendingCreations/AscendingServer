@@ -1,11 +1,7 @@
-use crate::{
-    containers::*, gametypes::*, maps::MapActor, tasks::*, time_ext::MyInstant, GlobalKey,
-};
+use crate::{gametypes::*, maps::MapActor, time_ext::MyInstant, GlobalKey};
 use chrono::Duration;
 use educe::Educe;
-use std::{collections::VecDeque, default};
-
-use super::NpcData;
+use std::collections::VecDeque;
 
 #[derive(Debug, Clone, PartialEq, Eq, Educe)]
 #[educe(Default)]

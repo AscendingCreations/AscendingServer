@@ -17,6 +17,8 @@ pub async fn update_npcs(map: &mut MapActor, store: &mut MapActorStore) -> Resul
         .collect::<Vec<GlobalKey>>();
 
     for id in npc_ids {
+        let npc = store.npcs.get(&id).cloned();
+
         match world.get_or_err::<Death>(id).await? {
             Death::Alive => {
                 if world.get_or_err::<NpcDespawns>(id).await?.0

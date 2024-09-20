@@ -1,14 +1,8 @@
-use crate::{
-    containers::{GameStore, GameWorld},
-    gametypes::*,
-    maps::*,
-    npcs::*,
-    tasks::*,
-};
+use crate::{gametypes::*, maps::*, npcs::*, tasks::*, GlobalKey};
 use chrono::Duration;
 
-pub async fn is_next_to_target(
-    storage: &GameStore,
+pub fn is_next_to_target(
+    map: &MapActor,
     entity_pos: Position,
     target_pos: Position,
     range: i32,
@@ -17,8 +11,7 @@ pub async fn is_next_to_target(
     let pos = target_pos.map_offset(check.into());
 
     if let Some(dir) = entity_pos.checkdirection(pos) {
-        !is_dir_blocked(storage, entity_pos, dir as u8).await
-            && range >= entity_pos.checkdistance(pos)
+        !map.is_dir_blocked(entity_pos, dir as u8) && range >= entity_pos.checkdistance(pos)
     } else {
         false
     }
@@ -37,176 +30,175 @@ pub fn get_target_direction(entity_pos: Position, target_pos: Position) -> u8 {
 }
 
 pub async fn npc_update_path(
-    world: &GameWorld,
-    storage: &GameStore,
-    entity: &Entity,
+    map: &MapActor,
+    store: &MapActorStore,
+    key: GlobalKey,
     base: &NpcData,
 ) -> Result<()> {
-    let path_timer = world.get_or_err::<NpcPathTimer>(entity).await?;
+    if let Some(npc) = store.npcs.get(&key).cloned() {
+        let path_timer = npc.lock().await.path_timer;
 
-    if path_timer.timer > *storage.gettick.read().await {
-        return Ok(());
-    }
-
-    let npc_moving = world.get_or_err::<NpcMoving>(entity).await?.0;
-    let target = world.get_or_err::<Targeting>(entity).await?;
-    let position = world.get_or_err::<Position>(entity).await?;
-    let players_on_map = check_players_on_map(world, storage, &position.map).await;
-    let mut new_target = target;
-
-    if target.target_type != Target::None {
-        new_target = update_target_pos(world, entity).await?;
-    }
-
-    if new_target.target_pos.map.group != position.map.group
-        || (new_target.target_type == Target::None && target.target_type != Target::None)
-    {
-        {
-            let lock = world.write().await;
-            let mut path_tmr = lock.get::<&mut NpcPathTimer>(entity.0)?;
-            path_tmr.tries = 0;
-            path_tmr.fails = 0;
-            *lock.get::<&mut Targeting>(entity.0)? = Targeting::default();
+        if path_timer > map.tick {
+            return Ok(());
         }
 
-        new_target = Targeting::default();
-        npc_clear_move_path(world, entity).await?;
-    }
+        let npc_moving = npc.lock().await.moving;
+        let target = npc.lock().await.target;
+        let position = npc.lock().await.position;
+        let mut new_target = target;
 
-    //AI Timer is used to Reset the Moves every so offten to recalculate them for possible changes.
-    if new_target.target_type != Target::None
-        && players_on_map
-        && npc_moving
-        && target.target_pos != new_target.target_pos
-    {
-        if is_next_to_target(storage, position, new_target.target_pos, 1).await {
-            let n_dir = get_target_direction(position, new_target.target_pos);
-            if world.get_or_err::<Dir>(entity).await?.0 != n_dir {
-                set_npc_dir(world, storage, entity, n_dir).await?;
-            }
-        } else if let Some(path) = a_star_path(
-            storage,
-            position,
-            world.get_or_err::<Dir>(entity).await?.0,
-            new_target.target_pos,
-        )
-        .await
+        if target.target_type != Target::None {
+            new_target = update_target_pos(world, key).await?;
+        }
+
+        if new_target.target_pos.map.group != position.map.group
+            || (new_target.target_type == Target::None && target.target_type != Target::None)
         {
-            npc_set_move_path(world, entity, path).await?;
             {
                 let lock = world.write().await;
-                let mut path_tmr = lock.get::<&mut NpcPathTimer>(entity.0)?;
+                let mut path_tmr = lock.get::<&mut NpcPathTimer>(key.0)?;
                 path_tmr.tries = 0;
-                path_tmr.timer = *storage.gettick.read().await
-                    + Duration::try_milliseconds(100).unwrap_or_default();
                 path_tmr.fails = 0;
+                *lock.get::<&mut Targeting>(key.0)? = Targeting::default();
             }
+
+            new_target = Targeting::default();
+            npc_clear_move_path(world, key).await?;
         }
 
-        return Ok(());
-    }
-
-    if npc_moving
-        && !{
-            let lock = world.read().await;
-            let is_empty = lock.get::<&NpcMoves>(entity.0)?.0.is_empty();
-            is_empty
-        }
-    {
-        return Ok(());
-    }
-
-    if let Some(movepos) = world.get_or_err::<NpcMovePos>(entity).await?.0 {
-        //Move pos overrides targeting pos movement.
-        if let Some(path) = a_star_path(
-            storage,
-            world.get_or_err::<Position>(entity).await?,
-            world.get_or_err::<Dir>(entity).await?.0,
-            movepos,
-        )
-        .await
+        //AI Timer is used to Reset the Moves every so offten to recalculate them for possible changes.
+        if new_target.target_type != Target::None
+            && npc_moving
+            && target.target_pos != new_target.target_pos
         {
-            npc_set_move_path(world, entity, path).await?;
-        }
-
-        {
-            let lock = world.write().await;
-            let mut path_tmr = lock.get::<&mut NpcPathTimer>(entity.0)?;
-            path_tmr.tries = 0;
-            path_tmr.timer = *storage.gettick.read().await
-                + Duration::try_milliseconds(base.movement_wait + 750).unwrap_or_default();
-            path_tmr.fails = 0;
-        }
-    } else if new_target.target_type != Target::None && players_on_map {
-        if is_next_to_target(storage, position, new_target.target_pos, 1).await {
-            let n_dir = get_target_direction(position, new_target.target_pos);
-            if world.get_or_err::<Dir>(entity).await?.0 != n_dir {
-                set_npc_dir(world, storage, entity, n_dir).await?;
-            }
-        } else if let Some(path) = a_star_path(
-            storage,
-            position,
-            world.get_or_err::<Dir>(entity).await?.0,
-            new_target.target_pos,
-        )
-        .await
-        {
-            npc_set_move_path(world, entity, path).await?;
+            if is_next_to_target(storage, position, new_target.target_pos, 1).await {
+                let n_dir = get_target_direction(position, new_target.target_pos);
+                if world.get_or_err::<Dir>(key).await?.0 != n_dir {
+                    set_npc_dir(world, storage, key, n_dir).await?;
+                }
+            } else if let Some(path) = a_star_path(
+                storage,
+                position,
+                world.get_or_err::<Dir>(key).await?.0,
+                new_target.target_pos,
+            )
+            .await
             {
-                let lock = world.write().await;
-                let mut path_tmr = lock.get::<&mut NpcPathTimer>(entity.0)?;
-                path_tmr.tries = 0;
-                path_tmr.timer = *storage.gettick.read().await
-                    + Duration::try_milliseconds(100).unwrap_or_default();
-                path_tmr.fails = 0;
-            }
-        } else if path_timer.tries + 1 < 10 {
-            let moves =
-                npc_rand_movement(storage, world.get_or_err::<Position>(entity).await?).await;
-            npc_set_move_path(world, entity, moves).await?;
-
-            {
-                let lock = world.write().await;
-                let mut path_tmr = lock.get::<&mut NpcPathTimer>(entity.0)?;
-                path_tmr.tries += 1;
-                path_tmr.timer = *storage.gettick.read().await
-                    + Duration::try_milliseconds(
-                        base.movement_wait + ((path_timer.tries + 1) as i64 * 250),
-                    )
-                    .unwrap_or_default();
-                lock.get::<&mut NpcAITimer>(entity.0)?.0 = *storage.gettick.read().await
-                    + Duration::try_milliseconds(3000).unwrap_or_default();
-            }
-        } else {
-            {
-                let lock = world.write().await;
+                npc_set_move_path(world, key, path).await?;
                 {
-                    let mut path_tmr = lock.get::<&mut NpcPathTimer>(entity.0)?;
+                    let lock = world.write().await;
+                    let mut path_tmr = lock.get::<&mut NpcPathTimer>(key.0)?;
                     path_tmr.tries = 0;
+                    path_tmr.timer = *storage.gettick.read().await
+                        + Duration::try_milliseconds(100).unwrap_or_default();
                     path_tmr.fails = 0;
                 }
-                *lock.get::<&mut Targeting>(entity.0)? = Targeting::default();
             }
 
-            npc_clear_move_path(world, entity).await?;
+            return Ok(());
         }
-    //no special movement lets give them some if we can;
-    } else if world.get_or_err::<NpcAITimer>(entity).await?.0 <= *storage.gettick.read().await
-        && check_players_on_map(
-            world,
-            storage,
-            &world.get_or_err::<Position>(entity).await?.map,
-        )
-        .await
-    {
-        let moves = npc_rand_movement(storage, world.get_or_err::<Position>(entity).await?).await;
 
-        npc_set_move_path(world, entity, moves).await?;
-        let lock = world.write().await;
-        lock.get::<&mut NpcAITimer>(entity.0)?.0 =
-            *storage.gettick.read().await + Duration::try_milliseconds(3000).unwrap_or_default();
+        if npc_moving
+            && !{
+                let lock = world.read().await;
+                let is_empty = lock.get::<&NpcMoves>(key.0)?.0.is_empty();
+                is_empty
+            }
+        {
+            return Ok(());
+        }
+
+        if let Some(movepos) = world.get_or_err::<NpcMovePos>(key).await?.0 {
+            //Move pos overrides targeting pos movement.
+            if let Some(path) = a_star_path(
+                storage,
+                world.get_or_err::<Position>(key).await?,
+                world.get_or_err::<Dir>(key).await?.0,
+                movepos,
+            )
+            .await
+            {
+                npc_set_move_path(world, key, path).await?;
+            }
+
+            {
+                let lock = world.write().await;
+                let mut path_tmr = lock.get::<&mut NpcPathTimer>(key.0)?;
+                path_tmr.tries = 0;
+                path_tmr.timer = *storage.gettick.read().await
+                    + Duration::try_milliseconds(base.movement_wait + 750).unwrap_or_default();
+                path_tmr.fails = 0;
+            }
+        } else if new_target.target_type != Target::None && players_on_map {
+            if is_next_to_target(storage, position, new_target.target_pos, 1).await {
+                let n_dir = get_target_direction(position, new_target.target_pos);
+                if world.get_or_err::<Dir>(key).await?.0 != n_dir {
+                    set_npc_dir(world, storage, key, n_dir).await?;
+                }
+            } else if let Some(path) = a_star_path(
+                storage,
+                position,
+                world.get_or_err::<Dir>(key).await?.0,
+                new_target.target_pos,
+            )
+            .await
+            {
+                npc_set_move_path(world, key, path).await?;
+                {
+                    let lock = world.write().await;
+                    let mut path_tmr = lock.get::<&mut NpcPathTimer>(key.0)?;
+                    path_tmr.tries = 0;
+                    path_tmr.timer = *storage.gettick.read().await
+                        + Duration::try_milliseconds(100).unwrap_or_default();
+                    path_tmr.fails = 0;
+                }
+            } else if path_timer.tries + 1 < 10 {
+                let moves =
+                    npc_rand_movement(storage, world.get_or_err::<Position>(key).await?).await;
+                npc_set_move_path(world, key, moves).await?;
+
+                {
+                    let lock = world.write().await;
+                    let mut path_tmr = lock.get::<&mut NpcPathTimer>(key.0)?;
+                    path_tmr.tries += 1;
+                    path_tmr.timer = *storage.gettick.read().await
+                        + Duration::try_milliseconds(
+                            base.movement_wait + ((path_timer.tries + 1) as i64 * 250),
+                        )
+                        .unwrap_or_default();
+                    lock.get::<&mut NpcAITimer>(key.0)?.0 = *storage.gettick.read().await
+                        + Duration::try_milliseconds(3000).unwrap_or_default();
+                }
+            } else {
+                {
+                    let lock = world.write().await;
+                    {
+                        let mut path_tmr = lock.get::<&mut NpcPathTimer>(key.0)?;
+                        path_tmr.tries = 0;
+                        path_tmr.fails = 0;
+                    }
+                    *lock.get::<&mut Targeting>(key.0)? = Targeting::default();
+                }
+
+                npc_clear_move_path(world, key).await?;
+            }
+        //no special movement lets give them some if we can;
+        } else if world.get_or_err::<NpcAITimer>(key).await?.0 <= *storage.gettick.read().await
+            && check_players_on_map(
+                world,
+                storage,
+                &world.get_or_err::<Position>(key).await?.map,
+            )
+            .await
+        {
+            let moves = npc_rand_movement(storage, world.get_or_err::<Position>(key).await?).await;
+
+            npc_set_move_path(world, key, moves).await?;
+            let lock = world.write().await;
+            lock.get::<&mut NpcAITimer>(key.0)?.0 = *storage.gettick.read().await
+                + Duration::try_milliseconds(3000).unwrap_or_default();
+        }
     }
-
     Ok(())
 }
 

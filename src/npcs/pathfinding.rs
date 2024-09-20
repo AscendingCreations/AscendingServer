@@ -1,4 +1,4 @@
-use crate::{containers::*, gametypes::*, maps::*};
+use crate::{gametypes::*, maps::*};
 use rand::{thread_rng, Rng};
 use std::{
     cmp::Reverse,
@@ -31,7 +31,7 @@ impl PathNode {
 }
 
 pub fn path_map_switch(
-    storage: &GameStore,
+    map: &MapActor,
     allowed_maps: &HashSet<MapPosition>,
     cur_pos: Position,
     next_pos: &mut Position,
@@ -40,7 +40,7 @@ pub fn path_map_switch(
     //Checks if the Map Exists within our MapDir and if so sets and returns true if it was successful
     //or false if we can not switch the map.
     let set_pos = |next_pos: &mut Position, mappos, x, y| -> bool {
-        let mapid = match get_dir_mapid(storage, next_pos.map, mappos) {
+        let mapid = match map.get_dir_mapid(next_pos.map, mappos) {
             Some(id) => id,
             None => return false,
         };
@@ -66,7 +66,7 @@ pub fn path_map_switch(
 }
 
 pub async fn a_star_path(
-    storage: &GameStore,
+    map: &MapActor,
     start: Position,
     dir: u8,
     stop: Position,
@@ -104,16 +104,14 @@ pub async fn a_star_path(
         //If we hit the Final location we then go backwards from the current node
         //And follow the Parents till the Start location. if the final location is blocked we will
         //find a location within a range of 1 regardless if blocked or not.
-        if let Some(map) = storage.maps.get(&current_node.pos.map) {
-            if map.read().await.is_blocked_tile(stop, WorldEntityType::Npc)
-                && in_dir_attack_zone(storage, current_node.pos, stop, 1).await
-            {
-                return npc_path_gather(&nodes, &current_node, start).await;
-            }
+        if map.is_blocked_tile(stop, WorldEntityType::Npc)
+            && map.in_dir_attack_zone(current_node.pos, stop, 1)
+        {
+            return npc_path_gather(&nodes, &current_node, start);
         }
 
         if current_node.pos == stop {
-            return npc_path_gather(&nodes, &current_node, start).await;
+            return npc_path_gather(&nodes, &current_node, start);
         }
 
         //Cycle each direction to get a Rated path ontop of each current location.
@@ -135,13 +133,7 @@ pub async fn a_star_path(
             );
 
             //Check if it will be a map switch and if so generate the correct location for node_pos.
-            if !path_map_switch(
-                storage,
-                &allowed_maps,
-                current_node.pos,
-                &mut node_pos,
-                i as u8,
-            ) {
+            if !path_map_switch(map, &allowed_maps, current_node.pos, &mut node_pos, i as u8) {
                 continue;
             }
 
@@ -151,15 +143,7 @@ pub async fn a_star_path(
             }
 
             //Make sure the node is not blocked otherwise we wont count it in our node list.
-            if map_path_blocked(
-                storage,
-                current_node.pos,
-                node_pos,
-                i as u8,
-                WorldEntityType::Npc,
-            )
-            .await
-            {
+            if map.map_path_blocked(current_node.pos, node_pos, i as u8, WorldEntityType::Npc) {
                 continue;
             }
 
@@ -212,7 +196,7 @@ pub async fn a_star_path(
     None
 }
 
-pub async fn npc_path_gather(
+pub fn npc_path_gather(
     nodes: &[PathNode],
     current_node: &PathNode,
     start: Position,
@@ -237,7 +221,7 @@ pub async fn npc_path_gather(
     }
 }
 
-pub async fn npc_rand_movement(storage: &GameStore, pos: Position) -> VecDeque<(Position, u8)> {
+pub async fn npc_rand_movement(map: &MapActor, pos: Position) -> VecDeque<(Position, u8)> {
     let mut rng = thread_rng();
     //down, right, up, left
     let adjacent = [(0, -1), (1, 0), (0, 1), (-1, 0)];
@@ -254,25 +238,11 @@ pub async fn npc_rand_movement(storage: &GameStore, pos: Position) -> VecDeque<(
             lastpos.map,
         );
 
-        if !path_map_switch(
-            storage,
-            &allowed_maps,
-            lastpos,
-            &mut node_pos,
-            movedir as u8,
-        ) {
+        if !path_map_switch(map, &allowed_maps, lastpos, &mut node_pos, movedir as u8) {
             continue;
         }
 
-        if map_path_blocked(
-            storage,
-            lastpos,
-            node_pos,
-            movedir as u8,
-            WorldEntityType::Npc,
-        )
-        .await
-        {
+        if map.map_path_blocked(lastpos, node_pos, movedir as u8, WorldEntityType::Npc) {
             path.push_back((lastpos, movedir as u8));
         } else {
             path.push_back((node_pos, movedir as u8));

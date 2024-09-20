@@ -4,6 +4,7 @@ use crate::{
     maps::*,
     npcs::*,
     players::*,
+    GlobalKey,
 };
 use chrono::Duration;
 use rand::{thread_rng, Rng};
@@ -132,11 +133,12 @@ pub async fn targeting(
 }
 
 pub async fn try_target_entity(
-    world: &GameWorld,
-    storage: &GameStore,
-    entity: &Entity,
+    map: &mut MapActor,
+    store: &mut MapActorStore,
+    Key: GlobalKey,
     entitytype: Target,
 ) -> Result<()> {
+    if let Some(npc) 
     let target = world.get_or_err::<Targeting>(entity).await?;
     let pos = world.get_or_err::<Position>(entity).await?;
     let new_target = match entitytype {

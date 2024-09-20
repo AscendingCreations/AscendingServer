@@ -180,6 +180,25 @@ pub enum Target {
     Map(Position),
 }
 
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    PartialEq,
+    Eq,
+    Default,
+    Deserialize,
+    Serialize,
+    MByteBufferRead,
+    MByteBufferWrite,
+)]
+pub enum EntityType {
+    #[default]
+    None,
+    Player(GlobalKey),
+    Npc(GlobalKey),
+}
+
 impl Target {
     pub fn get_id(&self) -> GlobalKey {
         match self {

@@ -57,7 +57,7 @@ pub struct SpawnItemData {
 
 #[derive(Copy, Clone, PartialEq, Eq, Default, Debug)]
 pub struct DropItem {
-    pub player: GlobalKey,
+    pub player: Option<GlobalKey>,
     pub index: u32,
     pub amount: u16,
     pub pos: Position,
