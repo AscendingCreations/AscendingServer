@@ -3,14 +3,14 @@ use crate::{
     containers::{GameStore, GameWorld},
     gametypes::Result,
     network::*,
-    AscendingError, Entity, OnlineType, WorldExtrasAsync,
+    AscendingError, GlobalKey, OnlineType, WorldExtrasAsync,
 };
 
 pub async fn handle_data(
     world: &GameWorld,
     storage: &GameStore,
     data: &mut MByteBuffer,
-    entity: &Entity,
+    entity: &GlobalKey,
 ) -> Result<()> {
     let id: ClientPacketID = data.read()?;
 

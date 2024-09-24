@@ -79,7 +79,7 @@ pub async fn send_to_maps(
     storage: &GameStore,
     position: MapPosition,
     buf: MByteBuffer,
-    avoidindex: Option<Entity>,
+    avoidindex: Option<GlobalKey>,
 ) -> Result<()> {
     for m in get_surrounding(position, true) {
         let map = match storage.maps.get(&m) {

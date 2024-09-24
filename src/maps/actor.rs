@@ -228,7 +228,7 @@ impl MapActor {
         match self.move_grids.get(&pos.map) {
             Some(grid) => match grid[pos.as_tile()].attr {
                 GridAttribute::Walkable => false,
-                GridAttribute::Entity => {
+                GridAttribute::GlobalKey => {
                     if entity_type == WorldEntityType::MapItem {
                         false
                     } else {
@@ -269,7 +269,7 @@ impl MapActor {
     pub fn add_entity_to_grid(&mut self, pos: Position) {
         if let Some(grid) = self.move_grids.get_mut(&pos.map) {
             grid[pos.as_tile()].count = grid[pos.as_tile()].count.saturating_add(1);
-            grid[pos.as_tile()].attr = GridAttribute::Entity;
+            grid[pos.as_tile()].attr = GridAttribute::GlobalKey;
         }
     }
 

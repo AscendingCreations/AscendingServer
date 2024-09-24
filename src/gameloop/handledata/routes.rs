@@ -21,7 +21,7 @@ pub async fn handle_ping(
     world: &GameWorld,
     storage: &GameStore,
     _data: &mut MByteBuffer,
-    entity: &Entity,
+    entity: &GlobalKey,
 ) -> Result<()> {
     send_gameping(world, storage, entity).await
 }
@@ -30,7 +30,7 @@ pub async fn handle_register(
     world: &GameWorld,
     storage: &GameStore,
     data: &mut MByteBuffer,
-    entity: &Entity,
+    entity: &GlobalKey,
 ) -> Result<()> {
     let username = data.read::<String>()?;
     let password = data.read::<String>()?;
@@ -191,7 +191,7 @@ pub async fn handle_handshake(
     world: &GameWorld,
     storage: &GameStore,
     data: &mut MByteBuffer,
-    entity: &Entity,
+    entity: &GlobalKey,
 ) -> Result<()> {
     let handshake = data.read::<String>()?;
     let user_handshake = world.cloned_get_or_err::<LoginHandShake>(entity).await?;
@@ -212,7 +212,7 @@ pub async fn handle_login(
     world: &GameWorld,
     storage: &GameStore,
     data: &mut MByteBuffer,
-    entity: &Entity,
+    entity: &GlobalKey,
 ) -> Result<()> {
     let email = data.read::<String>()?;
     let password = data.read::<String>()?;
@@ -335,7 +335,7 @@ pub async fn handle_move(
     world: &GameWorld,
     storage: &GameStore,
     data: &mut MByteBuffer,
-    entity: &Entity,
+    entity: &GlobalKey,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.read().await.get(entity) {
         if !world.get_or_err::<Death>(entity).await?.is_alive()
@@ -381,7 +381,7 @@ pub async fn handle_dir(
     world: &GameWorld,
     storage: &GameStore,
     data: &mut MByteBuffer,
-    entity: &Entity,
+    entity: &GlobalKey,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.read().await.get(entity) {
         if !world.get_or_err::<Death>(entity).await?.is_alive()
@@ -415,7 +415,7 @@ pub async fn handle_attack(
     world: &GameWorld,
     storage: &GameStore,
     data: &mut MByteBuffer,
-    entity: &Entity,
+    entity: &GlobalKey,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.read().await.get(entity) {
         if !world.get_or_err::<Death>(entity).await?.is_alive()
@@ -427,7 +427,7 @@ pub async fn handle_attack(
         }
 
         let dir = data.read::<u8>()?;
-        let target = data.read::<Option<Entity>>()?;
+        let target = data.read::<Option<GlobalKey>>()?;
 
         if dir > 3 {
             return Err(AscendingError::InvalidPacket);
@@ -467,7 +467,7 @@ pub async fn handle_useitem(
     world: &GameWorld,
     storage: &GameStore,
     data: &mut MByteBuffer,
-    entity: &Entity,
+    entity: &GlobalKey,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.read().await.get(entity) {
         if !world.get_or_err::<Death>(entity).await?.is_alive()
@@ -498,7 +498,7 @@ pub async fn handle_unequip(
     world: &GameWorld,
     storage: &GameStore,
     data: &mut MByteBuffer,
-    entity: &Entity,
+    entity: &GlobalKey,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.read().await.get(entity) {
         if !world.get_or_err::<Death>(entity).await?.is_alive()
@@ -549,7 +549,7 @@ pub async fn handle_switchinvslot(
     world: &GameWorld,
     storage: &GameStore,
     data: &mut MByteBuffer,
-    entity: &Entity,
+    entity: &GlobalKey,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.read().await.get(entity) {
         if !world.get_or_err::<Death>(entity).await?.is_alive()
@@ -648,10 +648,10 @@ pub async fn handle_pickup(
     world: &GameWorld,
     storage: &GameStore,
     _data: &mut MByteBuffer,
-    entity: &Entity,
+    entity: &GlobalKey,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.read().await.get(entity) {
-        let mut remove_id: Vec<(MapPosition, Entity)> = Vec::new();
+        let mut remove_id: Vec<(MapPosition, GlobalKey)> = Vec::new();
 
         if !world.get_or_err::<Death>(entity).await?.is_alive()
             || world.get_or_err::<IsUsingType>(entity).await?.inuse()
@@ -807,7 +807,7 @@ pub async fn handle_dropitem(
     world: &GameWorld,
     storage: &GameStore,
     data: &mut MByteBuffer,
-    entity: &Entity,
+    entity: &GlobalKey,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.read().await.get(entity) {
         if !world.get_or_err::<Death>(entity).await?.is_alive()
@@ -888,7 +888,7 @@ pub async fn handle_deleteitem(
     world: &GameWorld,
     storage: &GameStore,
     data: &mut MByteBuffer,
-    entity: &Entity,
+    entity: &GlobalKey,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.read().await.get(entity) {
         if !world.get_or_err::<Death>(entity).await?.is_alive()
@@ -928,7 +928,7 @@ pub async fn handle_switchstorageslot(
     world: &GameWorld,
     storage: &GameStore,
     data: &mut MByteBuffer,
-    entity: &Entity,
+    entity: &GlobalKey,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.read().await.get(entity) {
         if !world.get_or_err::<Death>(entity).await?.is_alive()
@@ -1008,7 +1008,7 @@ pub async fn handle_deletestorageitem(
     world: &GameWorld,
     storage: &GameStore,
     data: &mut MByteBuffer,
-    entity: &Entity,
+    entity: &GlobalKey,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.read().await.get(entity) {
         if !world.get_or_err::<Death>(entity).await?.is_alive()
@@ -1047,7 +1047,7 @@ pub async fn handle_deposititem(
     world: &GameWorld,
     storage: &GameStore,
     data: &mut MByteBuffer,
-    entity: &Entity,
+    entity: &GlobalKey,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.read().await.get(entity) {
         if !world.get_or_err::<Death>(entity).await?.is_alive()
@@ -1119,7 +1119,7 @@ pub async fn handle_withdrawitem(
     world: &GameWorld,
     storage: &GameStore,
     data: &mut MByteBuffer,
-    entity: &Entity,
+    entity: &GlobalKey,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.read().await.get(entity) {
         if !world.get_or_err::<Death>(entity).await?.is_alive()
@@ -1190,7 +1190,7 @@ pub async fn handle_message(
     world: &GameWorld,
     storage: &GameStore,
     data: &mut MByteBuffer,
-    entity: &Entity,
+    entity: &GlobalKey,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.read().await.get(entity) {
         let mut usersocket: Option<usize> = None;
@@ -1292,7 +1292,7 @@ pub async fn handle_command(
     world: &GameWorld,
     storage: &GameStore,
     data: &mut MByteBuffer,
-    entity: &Entity,
+    entity: &GlobalKey,
 ) -> Result<()> {
     if let Some(_p) = storage.player_ids.read().await.get(entity) {
         let command = data.read::<Command>()?;
@@ -1404,10 +1404,10 @@ pub async fn handle_settarget(
     world: &GameWorld,
     storage: &GameStore,
     data: &mut MByteBuffer,
-    entity: &Entity,
+    entity: &GlobalKey,
 ) -> Result<()> {
     if let Some(_p) = storage.player_ids.read().await.get(entity) {
-        let target = data.read::<Option<Entity>>()?;
+        let target = data.read::<Option<GlobalKey>>()?;
 
         if let Some(target_entity) = target {
             if !world.contains(&target_entity).await {
@@ -1428,7 +1428,7 @@ pub async fn handle_closestorage(
     world: &GameWorld,
     storage: &GameStore,
     _data: &mut MByteBuffer,
-    entity: &Entity,
+    entity: &GlobalKey,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.read().await.get(entity) {
         if !world.get_or_err::<Death>(entity).await?.is_alive()
@@ -1453,7 +1453,7 @@ pub async fn handle_closeshop(
     world: &GameWorld,
     storage: &GameStore,
     _data: &mut MByteBuffer,
-    entity: &Entity,
+    entity: &GlobalKey,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.read().await.get(entity) {
         if !world.get_or_err::<Death>(entity).await?.is_alive()
@@ -1478,7 +1478,7 @@ pub async fn handle_closetrade(
     world: &GameWorld,
     storage: &GameStore,
     _data: &mut MByteBuffer,
-    entity: &Entity,
+    entity: &GlobalKey,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.read().await.get(entity) {
         if !world.get_or_err::<Death>(entity).await?.is_alive()
@@ -1528,7 +1528,7 @@ pub async fn handle_buy_item(
     world: &GameWorld,
     storage: &GameStore,
     data: &mut MByteBuffer,
-    entity: &Entity,
+    entity: &GlobalKey,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.read().await.get(entity) {
         if !world.get_or_err::<Death>(entity).await?.is_alive()
@@ -1601,7 +1601,7 @@ pub async fn handle_sellitem(
     world: &GameWorld,
     storage: &GameStore,
     data: &mut MByteBuffer,
-    entity: &Entity,
+    entity: &GlobalKey,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.read().await.get(entity) {
         if !world.get_or_err::<Death>(entity).await?.is_alive()
@@ -1664,7 +1664,7 @@ pub async fn handle_addtradeitem(
     world: &GameWorld,
     storage: &GameStore,
     data: &mut MByteBuffer,
-    entity: &Entity,
+    entity: &GlobalKey,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.read().await.get(entity) {
         if !world.get_or_err::<Death>(entity).await?.is_alive()
@@ -1746,7 +1746,7 @@ pub async fn handle_removetradeitem(
     world: &GameWorld,
     storage: &GameStore,
     data: &mut MByteBuffer,
-    entity: &Entity,
+    entity: &GlobalKey,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.read().await.get(entity) {
         if !world.get_or_err::<Death>(entity).await?.is_alive()
@@ -1803,7 +1803,7 @@ pub async fn handle_updatetrademoney(
     world: &GameWorld,
     storage: &GameStore,
     data: &mut MByteBuffer,
-    entity: &Entity,
+    entity: &GlobalKey,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.read().await.get(entity) {
         if !world.get_or_err::<Death>(entity).await?.is_alive()
@@ -1844,7 +1844,7 @@ pub async fn handle_submittrade(
     world: &GameWorld,
     storage: &GameStore,
     _data: &mut MByteBuffer,
-    entity: &Entity,
+    entity: &GlobalKey,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.read().await.get(entity) {
         if !world.get_or_err::<Death>(entity).await?.is_alive()
@@ -1936,7 +1936,7 @@ pub async fn handle_accepttrade(
     world: &GameWorld,
     storage: &GameStore,
     _data: &mut MByteBuffer,
-    entity: &Entity,
+    entity: &GlobalKey,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.read().await.get(entity) {
         if !world.get_or_err::<Death>(entity).await?.is_alive()
@@ -2009,7 +2009,7 @@ pub async fn handle_declinetrade(
     world: &GameWorld,
     storage: &GameStore,
     _data: &mut MByteBuffer,
-    entity: &Entity,
+    entity: &GlobalKey,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.read().await.get(entity) {
         if !world.get_or_err::<Death>(entity).await?.is_alive()

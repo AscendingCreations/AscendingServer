@@ -4,7 +4,7 @@ use crate::{containers::*, gametypes::*, items::*, players::*, network::*, sql::
 pub async fn save_storage_item(
     world: &GameWorld,
     storage: &GameStore,
-    entity: &Entity,
+    entity: &GlobalKey,
     slot: usize,
 ) -> Result<()> {
     storage
@@ -52,7 +52,7 @@ pub fn find_storage_slot(item: &Item, storage: &[Item], base: &ItemData) -> Opti
 pub async fn auto_set_storage_item(
     world: &GameWorld,
     storage: &GameStore,
-    entity: &crate::Entity,
+    entity: &crate::GlobalKey,
     item: &mut Item,
     base: &ItemData,
 ) -> Result<()> {
@@ -107,7 +107,7 @@ pub async fn auto_set_storage_item(
 
 pub async fn check_storage_space(
     world: &GameWorld,
-    entity: &crate::Entity,
+    entity: &crate::GlobalKey,
     item: &mut Item,
     base: &ItemData,
 ) -> Result<bool> {
@@ -142,7 +142,7 @@ pub async fn check_storage_space(
 
 pub async fn check_storage_item_partial_space(
     world: &GameWorld,
-    entity: &crate::Entity,
+    entity: &crate::GlobalKey,
     item: &mut Item,
     base: &ItemData,
 ) -> Result<(u16, u16)> {
@@ -181,7 +181,7 @@ pub async fn check_storage_item_partial_space(
 pub async fn check_storage_partial_space(
     world: &GameWorld,
     storage: &GameStore,
-    entity: &crate::Entity,
+    entity: &crate::GlobalKey,
     item: &mut Item,
 ) -> Result<(bool, u16, u16)> {
     let base = &storage.bases.items[item.num as usize];
@@ -200,7 +200,7 @@ pub async fn check_storage_partial_space(
 pub async fn set_storage_item(
     world: &GameWorld,
     storage: &GameStore,
-    entity: &crate::Entity,
+    entity: &crate::GlobalKey,
     item: &mut Item,
     base: &ItemData,
     slot: usize,
@@ -242,7 +242,7 @@ pub async fn set_storage_item(
 pub async fn give_storage_item(
     world: &GameWorld,
     storage: &GameStore,
-    entity: &crate::Entity,
+    entity: &crate::GlobalKey,
     item: &mut Item,
 ) -> Result<()> {
     let base = &storage.bases.items[item.num as usize];
@@ -254,7 +254,7 @@ pub async fn give_storage_item(
 pub async fn check_storage_item_fits(
     world: &GameWorld,
     storage: &GameStore,
-    entity: &crate::Entity,
+    entity: &crate::GlobalKey,
     item: &mut Item,
 ) -> Result<bool> {
     let base = &storage.bases.items[item.num as usize];
@@ -266,7 +266,7 @@ pub async fn check_storage_item_fits(
 pub async fn set_storage_slot(
     world: &GameWorld,
     storage: &GameStore,
-    entity: &crate::Entity,
+    entity: &crate::GlobalKey,
     item: &mut Item,
     slot: usize,
     amount: u16,
@@ -280,7 +280,7 @@ pub async fn set_storage_slot(
 pub async fn take_storage_items(
     world: &GameWorld,
     storage: &GameStore,
-    entity: &crate::Entity,
+    entity: &crate::GlobalKey,
     num: u32,
     mut amount: u16,
 ) -> Result<u16> {
@@ -310,7 +310,7 @@ pub async fn take_storage_items(
 pub async fn take_storage_itemslot(
     world: &GameWorld,
     storage: &GameStore,
-    entity: &crate::Entity,
+    entity: &crate::GlobalKey,
     slot: usize,
     mut amount: u16,
 ) -> Result<u16> {

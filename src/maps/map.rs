@@ -47,7 +47,7 @@ pub enum MapAttribute {
 pub enum GridAttribute {
     #[default]
     Walkable,
-    Entity,
+    GlobalKey,
     Blocked,
     NpcBlock,
 }

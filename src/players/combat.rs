@@ -10,7 +10,7 @@ use rand::*;
 use std::cmp;
 
 #[inline]
-pub async fn damage_player(world: &GameWorld, entity: &crate::Entity, damage: i32) -> Result<()> {
+pub async fn damage_player(world: &GameWorld, entity: &crate::GlobalKey, damage: i32) -> Result<()> {
     let lock = world.write().await;
     let mut query = lock.query_one::<&mut Vitals>(entity.0)?;
 
@@ -31,8 +31,8 @@ pub fn get_damage_percentage(damage: u32, hp: (u32, u32)) -> f64 {
 pub async fn try_player_cast(
     world: &GameWorld,
     storage: &GameStore,
-    caster: &Entity,
-    target: &Entity,
+    caster: &GlobalKey,
+    target: &GlobalKey,
 ) -> bool {
     if !world.contains(caster).await || !world.contains(target).await {
         return false;
@@ -62,8 +62,8 @@ pub async fn try_player_cast(
 pub async fn player_combat(
     world: &GameWorld,
     storage: &GameStore,
-    entity: &Entity,
-    target_entity: &Entity,
+    entity: &GlobalKey,
+    target_entity: &GlobalKey,
 ) -> Result<bool> {
     if try_player_cast(world, storage, entity, target_entity).await {
         let world_entity_type = world.get_or_default::<WorldEntityType>(target_entity).await;
@@ -158,8 +158,8 @@ pub async fn player_combat(
 pub async fn player_combat_damage(
     world: &GameWorld,
     storage: &GameStore,
-    entity: &Entity,
-    target_entity: &Entity,
+    entity: &GlobalKey,
+    target_entity: &GlobalKey,
 ) -> Result<i32> {
     let def =
         if world.get_or_err::<WorldEntityType>(target_entity).await? == WorldEntityType::Player {
@@ -209,7 +209,7 @@ pub async fn player_combat_damage(
     Ok(damage as i32)
 }
 
-pub async fn kill_player(world: &GameWorld, storage: &GameStore, entity: &Entity) -> Result<()> {
+pub async fn kill_player(world: &GameWorld, storage: &GameStore, entity: &GlobalKey) -> Result<()> {
     {
         let lock = world.write().await;
         if let Ok(mut vitals) = lock.get::<&mut Vitals>(entity.0) {

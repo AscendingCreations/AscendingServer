@@ -188,7 +188,7 @@ impl PlayerMapInfo {
 pub async fn player_switch_maps(
     world: &GameWorld,
     storage: &GameStore,
-    entity: &crate::Entity,
+    entity: &crate::GlobalKey,
     new_pos: Position,
 ) -> Result<(Position, bool)> {
     let old_position = world.get_or_err::<Position>(entity).await?;
@@ -225,7 +225,7 @@ pub async fn player_switch_maps(
 pub async fn player_swap_pos(
     world: &GameWorld,
     storage: &GameStore,
-    entity: &crate::Entity,
+    entity: &crate::GlobalKey,
     pos: Position,
 ) -> Result<Position> {
     let lock = world.write().await;
@@ -255,7 +255,7 @@ pub async fn player_swap_pos(
 
 pub async fn player_add_up_vital(
     world: &GameWorld,
-    entity: &crate::Entity,
+    entity: &crate::GlobalKey,
     vital: usize,
 ) -> Result<i32> {
     let lock = world.write().await;
@@ -278,7 +278,7 @@ pub async fn player_add_up_vital(
 pub async fn player_set_dir(
     world: &GameWorld,
     storage: &GameStore,
-    entity: &crate::Entity,
+    entity: &crate::GlobalKey,
     dir: u8,
 ) -> Result<()> {
     let lock = world.read().await;
@@ -297,7 +297,7 @@ pub async fn player_set_dir(
     Ok(())
 }
 
-pub async fn player_getx(world: &GameWorld, entity: &crate::Entity) -> Result<i32> {
+pub async fn player_getx(world: &GameWorld, entity: &crate::GlobalKey) -> Result<i32> {
     let lock = world.read().await;
     let mut query = lock.query_one::<&Position>(entity.0)?;
 
@@ -308,7 +308,7 @@ pub async fn player_getx(world: &GameWorld, entity: &crate::Entity) -> Result<i3
     })
 }
 
-pub async fn player_gety(world: &GameWorld, entity: &crate::Entity) -> Result<i32> {
+pub async fn player_gety(world: &GameWorld, entity: &crate::GlobalKey) -> Result<i32> {
     let lock = world.read().await;
     let mut query = lock.query_one::<&Position>(entity.0)?;
 
@@ -319,7 +319,7 @@ pub async fn player_gety(world: &GameWorld, entity: &crate::Entity) -> Result<i3
     })
 }
 
-pub async fn player_getmap(world: &GameWorld, entity: &crate::Entity) -> Result<MapPosition> {
+pub async fn player_getmap(world: &GameWorld, entity: &crate::GlobalKey) -> Result<MapPosition> {
     let lock = world.read().await;
     let mut query = lock.query_one::<&Position>(entity.0)?;
 
@@ -330,7 +330,7 @@ pub async fn player_getmap(world: &GameWorld, entity: &crate::Entity) -> Result<
     })
 }
 
-pub async fn player_gethp(world: &GameWorld, entity: &crate::Entity) -> Result<i32> {
+pub async fn player_gethp(world: &GameWorld, entity: &crate::GlobalKey) -> Result<i32> {
     let lock = world.read().await;
     let mut query = lock.query_one::<&Vitals>(entity.0)?;
 
@@ -341,7 +341,7 @@ pub async fn player_gethp(world: &GameWorld, entity: &crate::Entity) -> Result<i
     })
 }
 
-pub async fn player_setx(world: &GameWorld, entity: &crate::Entity, x: i32) -> Result<()> {
+pub async fn player_setx(world: &GameWorld, entity: &crate::GlobalKey, x: i32) -> Result<()> {
     let lock = world.write().await;
     let mut query = lock.query_one::<&mut Position>(entity.0)?;
 
@@ -352,7 +352,7 @@ pub async fn player_setx(world: &GameWorld, entity: &crate::Entity, x: i32) -> R
     Ok(())
 }
 
-pub async fn player_sety(world: &GameWorld, entity: &crate::Entity, y: i32) -> Result<()> {
+pub async fn player_sety(world: &GameWorld, entity: &crate::GlobalKey, y: i32) -> Result<()> {
     let lock = world.write().await;
     let mut query = lock.query_one::<&mut Position>(entity.0)?;
 
@@ -365,7 +365,7 @@ pub async fn player_sety(world: &GameWorld, entity: &crate::Entity, y: i32) -> R
 
 pub async fn player_setmap(
     world: &GameWorld,
-    entity: &crate::Entity,
+    entity: &crate::GlobalKey,
     map: MapPosition,
 ) -> Result<()> {
     let lock = world.write().await;
@@ -381,7 +381,7 @@ pub async fn player_setmap(
 pub async fn player_set_vital(
     world: &GameWorld,
     storage: &GameStore,
-    entity: &crate::Entity,
+    entity: &crate::GlobalKey,
     vital: VitalTypes,
     amount: i32,
 ) -> Result<()> {
@@ -409,7 +409,7 @@ pub async fn player_set_vital(
 pub async fn player_give_vals(
     world: &GameWorld,
     storage: &GameStore,
-    entity: &crate::Entity,
+    entity: &crate::GlobalKey,
     amount: u64,
 ) -> Result<u64> {
     let player_money = world.get_or_err::<Money>(entity).await?;
@@ -462,7 +462,7 @@ pub async fn player_give_vals(
 pub async fn player_take_vals(
     world: &GameWorld,
     storage: &GameStore,
-    entity: &crate::Entity,
+    entity: &crate::GlobalKey,
     amount: u64,
 ) -> Result<()> {
     let mut cur = amount;
@@ -524,7 +524,7 @@ pub async fn send_swap_error(
 pub async fn send_login_info(
     world: &GameWorld,
     storage: &GameStore,
-    entity: &Entity,
+    entity: &GlobalKey,
     code: String,
     handshake: String,
     socket_id: usize,

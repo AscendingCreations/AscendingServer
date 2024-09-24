@@ -2,8 +2,8 @@ use crate::{
     containers::*,
     gametypes::*,
     items::*,
-    players::*,
     network::*,
+    players::*,
     sql::*,
     tasks::{damage_packet, DataTaskToken},
 };
@@ -12,7 +12,7 @@ use crate::{
 pub async fn save_inv_item(
     world: &GameWorld,
     storage: &GameStore,
-    entity: &Entity,
+    entity: &GlobalKey,
     slot: usize,
 ) -> Result<()> {
     storage
@@ -57,7 +57,7 @@ pub fn find_inv_slot(item: &Item, inv: &[Item], base: &ItemData) -> Option<usize
 pub async fn auto_set_inv_item(
     world: &GameWorld,
     storage: &GameStore,
-    entity: &crate::Entity,
+    entity: &crate::GlobalKey,
     item: &mut Item,
     base: &ItemData,
 ) -> Result<()> {
@@ -112,7 +112,7 @@ pub async fn auto_set_inv_item(
 
 pub async fn check_inv_item_space(
     world: &GameWorld,
-    entity: &crate::Entity,
+    entity: &crate::GlobalKey,
     item: &mut Item,
     base: &ItemData,
 ) -> Result<bool> {
@@ -147,7 +147,7 @@ pub async fn check_inv_item_space(
 
 pub async fn check_inv_item_partial_space(
     world: &GameWorld,
-    entity: &crate::Entity,
+    entity: &crate::GlobalKey,
     item: &mut Item,
     base: &ItemData,
 ) -> Result<(u16, u16)> {
@@ -186,7 +186,7 @@ pub async fn check_inv_item_partial_space(
 pub async fn set_inv_item(
     world: &GameWorld,
     storage: &GameStore,
-    entity: &crate::Entity,
+    entity: &crate::GlobalKey,
     item: &mut Item,
     base: &ItemData,
     slot: usize,
@@ -229,7 +229,7 @@ pub async fn set_inv_item(
 pub async fn give_inv_item(
     world: &GameWorld,
     storage: &GameStore,
-    entity: &crate::Entity,
+    entity: &crate::GlobalKey,
     item: &mut Item,
 ) -> Result<()> {
     let base = &storage.bases.items[item.num as usize];
@@ -240,7 +240,7 @@ pub async fn give_inv_item(
 pub async fn check_inv_space(
     world: &GameWorld,
     storage: &GameStore,
-    entity: &crate::Entity,
+    entity: &crate::GlobalKey,
     item: &mut Item,
 ) -> Result<bool> {
     let base = &storage.bases.items[item.num as usize];
@@ -253,7 +253,7 @@ pub async fn check_inv_space(
 pub async fn check_inv_partial_space(
     world: &GameWorld,
     storage: &GameStore,
-    entity: &crate::Entity,
+    entity: &crate::GlobalKey,
     item: &mut Item,
 ) -> Result<(bool, u16, u16)> {
     let base = &storage.bases.items[item.num as usize];
@@ -271,7 +271,7 @@ pub async fn check_inv_partial_space(
 pub async fn set_inv_slot(
     world: &GameWorld,
     storage: &GameStore,
-    entity: &crate::Entity,
+    entity: &crate::GlobalKey,
     item: &mut Item,
     slot: usize,
     amount: u16,
@@ -285,7 +285,7 @@ pub async fn set_inv_slot(
 pub async fn take_inv_items(
     world: &GameWorld,
     storage: &GameStore,
-    entity: &crate::Entity,
+    entity: &crate::GlobalKey,
     num: u32,
     mut amount: u16,
 ) -> Result<u16> {
@@ -324,7 +324,7 @@ pub async fn take_inv_items(
 pub async fn take_inv_itemslot(
     world: &GameWorld,
     storage: &GameStore,
-    entity: &crate::Entity,
+    entity: &crate::GlobalKey,
     slot: usize,
     mut amount: u16,
 ) -> Result<u16> {
@@ -378,7 +378,7 @@ pub fn find_trade_slot(item: &Item, trade_slot: &[Item], base: &ItemData) -> Opt
 #[inline]
 pub async fn auto_set_trade_item(
     world: &GameWorld,
-    entity: &crate::Entity,
+    entity: &crate::GlobalKey,
     item: &mut Item,
     base: &ItemData,
 ) -> Result<Vec<usize>> {
@@ -415,7 +415,7 @@ pub async fn auto_set_trade_item(
 pub async fn give_trade_item(
     world: &GameWorld,
     storage: &GameStore,
-    entity: &crate::Entity,
+    entity: &crate::GlobalKey,
     item: &mut Item,
 ) -> Result<Vec<usize>> {
     let base = &storage.bases.items[item.num as usize];
@@ -523,7 +523,7 @@ pub async fn give_temp_inv_item(
 pub async fn player_unequip(
     world: &GameWorld,
     storage: &GameStore,
-    entity: &crate::Entity,
+    entity: &crate::GlobalKey,
     slot: usize,
 ) -> Result<bool> {
     let has_none = {
@@ -566,7 +566,7 @@ pub async fn player_unequip(
 pub async fn player_equip(
     world: &GameWorld,
     storage: &GameStore,
-    entity: &crate::Entity,
+    entity: &crate::GlobalKey,
     item: Item,
     slot: usize,
 ) -> Result<()> {
@@ -586,7 +586,7 @@ pub async fn player_equip(
 pub async fn player_use_item(
     world: &GameWorld,
     storage: &GameStore,
-    entity: &crate::Entity,
+    entity: &crate::GlobalKey,
     slot: u16,
 ) -> Result<()> {
     if slot as usize >= MAX_INV {

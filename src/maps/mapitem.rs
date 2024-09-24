@@ -322,7 +322,7 @@ pub async fn try_drop_item(
                 .add_task(
                     storage,
                     map_item_packet(
-                        Entity(id),
+                        GlobalKey(id),
                         map_item.pos,
                         map_item.item,
                         map_item.ownerid,

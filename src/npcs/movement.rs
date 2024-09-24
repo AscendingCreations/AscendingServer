@@ -217,7 +217,7 @@ pub async fn check_players_on_map(
 pub async fn npc_movement(
     world: &GameWorld,
     storage: &GameStore,
-    entity: &Entity,
+    entity: &GlobalKey,
     _base: &NpcData,
 ) -> Result<()> {
     if world.get_or_err::<NpcMoving>(entity).await?.0 {

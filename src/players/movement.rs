@@ -11,7 +11,7 @@ use crate::{
 pub async fn player_warp(
     world: &GameWorld,
     storage: &GameStore,
-    entity: &Entity,
+    entity: &GlobalKey,
     new_pos: &Position,
     spawn: bool,
 ) -> Result<()> {
@@ -58,7 +58,7 @@ pub async fn player_warp(
 pub async fn player_movement(
     world: &GameWorld,
     storage: &GameStore,
-    entity: &Entity,
+    entity: &GlobalKey,
     dir: u8,
 ) -> Result<bool> {
     //Down, Right, Up, Left

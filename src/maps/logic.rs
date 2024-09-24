@@ -156,7 +156,7 @@ impl MapActor {
                         .add_task(
                             storage,
                             map_item_packet(
-                                Entity(id),
+                                GlobalKey(id),
                                 map_item.pos,
                                 map_item.item,
                                 map_item.ownerid,
@@ -164,7 +164,7 @@ impl MapActor {
                             )?,
                         )
                         .await?;
-                    add_items.push(Entity(id));*/
+                    add_items.push(GlobalKey(id));*/
                 }
             } else {
                 data.timer = self.tick

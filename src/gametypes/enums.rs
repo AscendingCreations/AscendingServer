@@ -1,7 +1,10 @@
-use crate::{gametypes::*, identity::GlobalKey};
+use std::sync::Arc;
+
+use crate::{gametypes::*, identity::GlobalKey, npcs::Npc, players::Player};
 use bytey::{ByteBufferRead, ByteBufferWrite};
 use mmap_bytey::{MByteBufferRead, MByteBufferWrite};
 use serde::{Deserialize, Serialize};
+use tokio::sync::Mutex;
 
 #[derive(
     PartialEq,
@@ -149,7 +152,7 @@ impl AIBehavior {
     MByteBufferRead,
     MByteBufferWrite,
 )]
-// Used to seperate Entity data within Hecs World.
+// Used to seperate GlobalKey data within Hecs World.
 pub enum WorldEntityType {
     #[default]
     None,
@@ -158,7 +161,7 @@ pub enum WorldEntityType {
     MapItem,
 }
 
-//used to pass and to Target Entity's
+//used to pass and to Target GlobalKey's
 #[derive(
     Copy,
     Clone,
@@ -178,25 +181,6 @@ pub enum Target {
     Npc(GlobalKey, MapPosition),
     MapItem(GlobalKey, MapPosition),
     Map(Position),
-}
-
-#[derive(
-    Copy,
-    Clone,
-    Debug,
-    PartialEq,
-    Eq,
-    Default,
-    Deserialize,
-    Serialize,
-    MByteBufferRead,
-    MByteBufferWrite,
-)]
-pub enum EntityType {
-    #[default]
-    None,
-    Player(GlobalKey),
-    Npc(GlobalKey),
 }
 
 impl Target {
@@ -241,6 +225,53 @@ impl Target {
     pub fn is_none(&self) -> bool {
         matches!(self, Target::None)
     }
+}
+
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    PartialEq,
+    Eq,
+    Default,
+    Deserialize,
+    Serialize,
+    MByteBufferRead,
+    MByteBufferWrite,
+)]
+pub enum EntityType {
+    #[default]
+    None,
+    Player(GlobalKey),
+    Npc(GlobalKey),
+}
+
+#[derive(Clone, Debug, Default)]
+pub enum Entity {
+    #[default]
+    None,
+    Player(Arc<Mutex<Player>>),
+    Npc(Arc<Mutex<Npc>>),
+}
+
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    PartialEq,
+    Eq,
+    Default,
+    Deserialize,
+    Serialize,
+    MByteBufferRead,
+    MByteBufferWrite,
+)]
+pub enum NpcStages {
+    #[default]
+    None,
+    Targeting,
+    Combat,
+    Movement,
 }
 
 #[derive(

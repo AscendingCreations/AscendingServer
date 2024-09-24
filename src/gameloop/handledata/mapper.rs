@@ -9,7 +9,7 @@ pub async fn packet_mapper(
     world: &GameWorld,
     storage: &GameStore,
     data: &mut MByteBuffer,
-    entity: &Entity,
+    entity: &GlobalKey,
     id: ClientPacketID,
 ) -> Result<()> {
     match id {

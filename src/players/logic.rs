@@ -101,7 +101,7 @@ pub async fn check_player_connection(world: &GameWorld, storage: &GameStore) -> 
 
     for i in remove_player_list.iter() {
         // Close Socket
-        disconnect(Entity(*i), world, storage).await?;
+        disconnect(GlobalKey(*i), world, storage).await?;
     }
     Ok(())
 }
@@ -120,7 +120,7 @@ pub async fn send_connection_pings(world: &GameWorld, storage: &GameStore) -> Re
 pub async fn player_earn_exp(
     world: &GameWorld,
     storage: &GameStore,
-    entity: &Entity,
+    entity: &GlobalKey,
     victimlevel: i32,
     expval: i64,
     spercent: f64,
@@ -225,7 +225,7 @@ pub async fn player_earn_exp(
     Ok(())
 }
 
-pub async fn player_get_next_lvl_exp(world: &GameWorld, entity: &Entity) -> Result<u64> {
+pub async fn player_get_next_lvl_exp(world: &GameWorld, entity: &GlobalKey) -> Result<u64> {
     let lock = world.read().await;
     let mut query = lock.query_one::<&Level>(entity.0)?;
 
@@ -253,7 +253,7 @@ pub async fn player_get_next_lvl_exp(world: &GameWorld, entity: &Entity) -> Resu
     }
 }
 
-pub async fn player_calc_max_hp(world: &GameWorld, entity: &Entity) -> Result<i32> {
+pub async fn player_calc_max_hp(world: &GameWorld, entity: &GlobalKey) -> Result<i32> {
     let lock = world.read().await;
     let mut query = lock.query_one::<&Level>(entity.0)?;
 
@@ -264,7 +264,7 @@ pub async fn player_calc_max_hp(world: &GameWorld, entity: &Entity) -> Result<i3
     }
 }
 
-pub async fn player_calc_max_mp(world: &GameWorld, entity: &Entity) -> Result<i32> {
+pub async fn player_calc_max_mp(world: &GameWorld, entity: &GlobalKey) -> Result<i32> {
     let lock = world.read().await;
     let mut query = lock.query_one::<&Level>(entity.0)?;
 
@@ -278,7 +278,7 @@ pub async fn player_calc_max_mp(world: &GameWorld, entity: &Entity) -> Result<i3
 pub async fn player_get_weapon_damage(
     world: &GameWorld,
     storage: &GameStore,
-    entity: &Entity,
+    entity: &GlobalKey,
 ) -> Result<(i16, i16)> {
     let lock = world.write().await;
     let mut query = lock.query_one::<&mut Equipment>(entity.0)?;
@@ -305,7 +305,7 @@ pub async fn player_get_weapon_damage(
 pub async fn player_get_armor_defense(
     world: &GameWorld,
     storage: &GameStore,
-    entity: &Entity,
+    entity: &GlobalKey,
 ) -> Result<(i16, i16)> {
     let lock = world.write().await;
     let mut query = lock.query_one::<&mut Equipment>(entity.0)?;
@@ -333,7 +333,7 @@ pub async fn player_get_armor_defense(
 pub async fn player_repair_equipment(
     world: &GameWorld,
     storage: &GameStore,
-    entity: &Entity,
+    entity: &GlobalKey,
     slot: usize,
     repair_per: f32,
 ) -> Result<()> {
@@ -394,7 +394,7 @@ pub fn get_next_stat_exp(level: u32) -> u64 {
     level as u64 * exp_per_level as u64
 }
 
-pub async fn joingame(world: &GameWorld, storage: &GameStore, entity: &Entity) -> Result<()> {
+pub async fn joingame(world: &GameWorld, storage: &GameStore, entity: &GlobalKey) -> Result<()> {
     let socket_id = {
         let lock = world.write().await;
         let socket_id = lock.get::<&Socket>(entity.0)?.id;
@@ -451,7 +451,7 @@ pub async fn joingame(world: &GameWorld, storage: &GameStore, entity: &Entity) -
     .await
 }
 
-pub async fn left_game(world: &GameWorld, storage: &GameStore, entity: &Entity) -> Result<()> {
+pub async fn left_game(world: &GameWorld, storage: &GameStore, entity: &GlobalKey) -> Result<()> {
     if world.get_or_err::<OnlineType>(entity).await? != OnlineType::Online {
         return Ok(());
     }
@@ -485,7 +485,7 @@ pub async fn left_game(world: &GameWorld, storage: &GameStore, entity: &Entity) 
     Ok(())
 }
 
-pub async fn remove_all_npc_target(world: &GameWorld, entity: &Entity) -> Result<()> {
+pub async fn remove_all_npc_target(world: &GameWorld, entity: &GlobalKey) -> Result<()> {
     let mut clear_move_path = Vec::new();
     {
         let lock = world.read().await;
@@ -512,7 +512,7 @@ pub async fn remove_all_npc_target(world: &GameWorld, entity: &Entity) -> Result
 
     for (entity, targettype) in clear_move_path {
         if targettype == WorldEntityType::Npc {
-            npc_clear_move_path(world, &Entity(entity)).await?;
+            npc_clear_move_path(world, &GlobalKey(entity)).await?;
         }
     }
     Ok(())
@@ -521,8 +521,8 @@ pub async fn remove_all_npc_target(world: &GameWorld, entity: &Entity) -> Result
 pub async fn init_trade(
     world: &GameWorld,
     storage: &GameStore,
-    entity: &Entity,
-    target_entity: &Entity,
+    entity: &GlobalKey,
+    target_entity: &GlobalKey,
 ) -> Result<()> {
     if can_target(
         world.get_or_err::<Position>(entity).await?,
@@ -566,8 +566,8 @@ pub async fn init_trade(
 pub async fn process_player_trade(
     world: &GameWorld,
     storage: &GameStore,
-    entity: &Entity,
-    target_entity: &Entity,
+    entity: &GlobalKey,
+    target_entity: &GlobalKey,
 ) -> Result<bool> {
     let entity_item = world.cloned_get_or_err::<TradeItem>(entity).await?;
     let target_item = world.cloned_get_or_err::<TradeItem>(target_entity).await?;
@@ -625,7 +625,7 @@ pub async fn process_player_trade(
     Ok(true)
 }
 
-pub async fn close_trade(world: &GameWorld, storage: &GameStore, entity: &Entity) -> Result<()> {
+pub async fn close_trade(world: &GameWorld, storage: &GameStore, entity: &GlobalKey) -> Result<()> {
     {
         let lock = world.write().await;
         *lock.get::<&mut IsUsingType>(entity.0)? = IsUsingType::None;
@@ -637,7 +637,7 @@ pub async fn close_trade(world: &GameWorld, storage: &GameStore, entity: &Entity
     send_clearisusingtype(world, storage, entity).await
 }
 
-pub async fn can_trade(world: &GameWorld, storage: &GameStore, entity: &Entity) -> Result<bool> {
+pub async fn can_trade(world: &GameWorld, storage: &GameStore, entity: &GlobalKey) -> Result<bool> {
     Ok(!world.get_or_err::<IsUsingType>(entity).await?.inuse()
         && world
             .get_or_err::<TradeRequestEntity>(entity)

@@ -14,18 +14,18 @@ pub struct Check {
 
 //Used for SQL Thread Update Requests.
 pub enum SqlRequests {
-    Player(Entity),
-    Inv((Entity, usize)),
-    Storage((Entity, usize)),
-    Equipment((Entity, usize)),
-    Address(Entity),
-    PlayerData(Entity),
-    PassReset((Entity, Option<String>)),
-    Spawn(Entity),
-    Position(Entity),
-    Currency(Entity),
-    Level(Entity),
-    ResetCount(Entity),
+    Player(GlobalKey),
+    Inv((GlobalKey, usize)),
+    Storage((GlobalKey, usize)),
+    Equipment((GlobalKey, usize)),
+    Address(GlobalKey),
+    PlayerData(GlobalKey),
+    PassReset((GlobalKey, Option<String>)),
+    Spawn(GlobalKey),
+    Position(GlobalKey),
+    Currency(GlobalKey),
+    Level(GlobalKey),
+    ResetCount(GlobalKey),
 }
 
 pub async fn process_sql_requests(
@@ -74,7 +74,7 @@ pub async fn process_sql_requests(
 pub async fn load_player(
     storage: &GameStore,
     world: &GameWorld,
-    entity: &crate::Entity,
+    entity: &crate::GlobalKey,
     accountid: i64,
 ) -> Result<()> {
     let player_with_id: PGPlayerWithID =
@@ -133,7 +133,7 @@ pub async fn load_player(
 pub async fn update_player(
     storage: &GameStore,
     world: &GameWorld,
-    entity: &crate::Entity,
+    entity: &crate::GlobalKey,
 ) -> Result<()> {
     let (id, itemtimer, position, vitals, death_timer, death_type, player) = {
         let lock = world.write().await;
@@ -190,7 +190,7 @@ pub async fn update_player(
 pub async fn update_inv(
     storage: &GameStore,
     world: &GameWorld,
-    entity: &crate::Entity,
+    entity: &crate::GlobalKey,
     slot: usize,
 ) -> Result<()> {
     let (inv, id) = {
@@ -215,7 +215,7 @@ pub async fn update_inv(
 pub async fn update_storage(
     storage: &GameStore,
     world: &GameWorld,
-    entity: &crate::Entity,
+    entity: &crate::GlobalKey,
     slot: usize,
 ) -> Result<()> {
     let (player_storage, id) = {
@@ -240,7 +240,7 @@ pub async fn update_storage(
 pub async fn update_equipment(
     storage: &GameStore,
     world: &GameWorld,
-    entity: &crate::Entity,
+    entity: &crate::GlobalKey,
     slot: usize,
 ) -> Result<()> {
     let (equip, id) = {
@@ -265,7 +265,7 @@ pub async fn update_equipment(
 pub async fn update_address(
     storage: &GameStore,
     world: &GameWorld,
-    entity: &crate::Entity,
+    entity: &crate::GlobalKey,
 ) -> Result<()> {
     let (id, addr) = {
         let lock = world.write().await;
@@ -297,7 +297,7 @@ pub async fn update_address(
 pub async fn update_playerdata(
     storage: &GameStore,
     world: &GameWorld,
-    entity: &crate::Entity,
+    entity: &crate::GlobalKey,
 ) -> Result<()> {
     let (id, entity_data) = {
         let lock = world.write().await;
@@ -329,7 +329,7 @@ pub async fn update_playerdata(
 pub async fn update_passreset(
     storage: &GameStore,
     world: &GameWorld,
-    entity: &crate::Entity,
+    entity: &crate::GlobalKey,
     resetpassword: Option<String>,
 ) -> Result<()> {
     let id = {
@@ -361,7 +361,7 @@ pub async fn update_passreset(
 pub async fn update_spawn(
     storage: &GameStore,
     world: &GameWorld,
-    entity: &crate::Entity,
+    entity: &crate::GlobalKey,
 ) -> Result<()> {
     let (id, spawn) = {
         let lock = world.write().await;
@@ -393,7 +393,7 @@ pub async fn update_spawn(
 pub async fn update_pos(
     storage: &GameStore,
     world: &GameWorld,
-    entity: &crate::Entity,
+    entity: &crate::GlobalKey,
 ) -> Result<()> {
     let (id, position) = {
         let lock = world.write().await;
@@ -425,7 +425,7 @@ pub async fn update_pos(
 pub async fn update_currency(
     storage: &GameStore,
     world: &GameWorld,
-    entity: &crate::Entity,
+    entity: &crate::GlobalKey,
 ) -> Result<()> {
     let (id, money) = {
         let lock = world.write().await;
@@ -456,7 +456,7 @@ pub async fn update_currency(
 pub async fn update_level(
     storage: &GameStore,
     world: &GameWorld,
-    entity: &crate::Entity,
+    entity: &crate::GlobalKey,
 ) -> Result<()> {
     let (id, level, player, vitals) = {
         let lock = world.write().await;
@@ -491,7 +491,7 @@ pub async fn update_level(
 pub async fn update_resetcount(
     storage: &GameStore,
     world: &GameWorld,
-    entity: &crate::Entity,
+    entity: &crate::GlobalKey,
 ) -> Result<()> {
     let (id, player) = {
         let lock = world.write().await;

@@ -69,6 +69,7 @@ pub struct Npc {
     pub is_using: IsUsingType,
     pub mode: NpcMode,
     pub sprite: u16,
+    pub stage: NpcStages,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Default)]
