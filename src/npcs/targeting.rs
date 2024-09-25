@@ -121,16 +121,15 @@ pub async fn check_detargeting(
         });
     }
 
-    NpcStage::Targeting(TargetingStage::GetTarget {
+    NpcStage::Targeting(TargetingStage::GetTargetMaps {
         key,
         position,
         npc_data,
     })
 }
 
-pub async fn get_target(
+pub async fn get_targeting_maps(
     map: &mut MapActor,
-    store: &mut MapActorStore,
     key: GlobalKey,
     position: Position,
     npc_data: Arc<NpcData>,
@@ -143,6 +142,25 @@ pub async fn get_target(
         });
     }
 
+    let maps = get_maps_in_range(&map.storage, &position, npc_data.sight)
+        .iter()
+        .filter_map(|m| m.get())
+        .collect();
+
+    NpcStage::Targeting(TargetingStage::GetTargetFromMaps {
+        key,
+        position,
+        npc_data,
+        maps,
+    })
+}
+
+pub async fn get_target(
+    store: &mut MapActorStore,
+    key: GlobalKey,
+    position: Position,
+    npc_data: Arc<NpcData>,
+) -> NpcStage {
     let players: Vec<(GlobalKey, Arc<Mutex<Player>>)> = store
         .players
         .iter()
@@ -151,7 +169,7 @@ pub async fn get_target(
 
     for (pkey, player) in players {
         if let Some(Entity::Player(player)) =
-            npc_targeting(map, store, key, position, &npc_data, Entity::Player(player)).await
+            npc_targeting(position, &npc_data, Entity::Player(player)).await
         {
             let lock = player.lock().await;
             let target = Target::Player(pkey, lock.uid, lock.position.map);
@@ -178,7 +196,7 @@ pub async fn get_target(
             }
 
             if let Some(Entity::Npc(npc)) =
-                npc_targeting(map, store, key, position, &npc_data, Entity::Npc(npc)).await
+                npc_targeting(position, &npc_data, Entity::Npc(npc)).await
             {
                 let lock = npc.lock().await;
                 let target = Target::Npc(nkey, lock.position.map);
@@ -193,11 +211,8 @@ pub async fn get_target(
         }
     }
 
-    NpcStage::Targeting(TargetingStage::CheckMaps {
-        key,
-        position,
-        npc_data,
-    })
+    //Tell system we found nothing to do next or something else like movement.
+    NpcStage::Targeting(TargetingStage::None)
 }
 
 pub async fn set_target(
@@ -335,9 +350,6 @@ pub async fn update_target_pos(world: &GameWorld, entity: &GlobalKey) -> Result<
 }*/
 
 pub async fn npc_targeting(
-    map: &mut MapActor,
-    store: &mut MapActorStore,
-    key: GlobalKey,
     position: Position,
     npc_data: &NpcData,
     entity: Entity,

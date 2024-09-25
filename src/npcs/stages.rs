@@ -9,6 +9,7 @@ pub enum NpcStage {
 }
 
 pub enum TargetingStage {
+    None,
     // first stage
     CheckTarget {
         key: GlobalKey,
@@ -16,7 +17,6 @@ pub enum TargetingStage {
         npc_data: Arc<NpcData>,
         target: Targeting,
     },
-
     NpcDeTargetChance {
         key: GlobalKey,
         position: Position,
@@ -34,7 +34,7 @@ pub enum TargetingStage {
         position: Position,
         npc_data: Arc<NpcData>,
     },
-    GetTarget {
+    GetTargetMaps {
         key: GlobalKey,
         position: Position,
         npc_data: Arc<NpcData>,
@@ -44,7 +44,7 @@ pub enum TargetingStage {
         position: Position,
         npc_data: Arc<NpcData>,
     },
-    MapGetTarget {
+    GetTargetFromMaps {
         key: GlobalKey,
         position: Position,
         npc_data: Arc<NpcData>,
