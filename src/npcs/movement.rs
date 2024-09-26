@@ -1,4 +1,6 @@
-use crate::{gametypes::*, maps::*, npcs::*, tasks::*, GlobalKey};
+use std::{collections::VecDeque, sync::Arc};
+
+use crate::{gametypes::*, maps::*, npcs::*, tasks::*, time_ext::MyInstant, GlobalKey};
 use chrono::Duration;
 
 pub fn is_next_to_target(
@@ -29,325 +31,622 @@ pub fn get_target_direction(entity_pos: Position, target_pos: Position) -> u8 {
     }
 }
 
-pub async fn npc_update_path(
+/// This is always called on the local map where the npc originated.
+/// If npc was indeed missing this spells trouble.
+pub async fn npc_path_start(
     map: &MapActor,
     store: &MapActorStore,
     key: GlobalKey,
-    base: &NpcData,
-) -> Result<()> {
-    if let Some(npc) = store.npcs.get(&key).cloned() {
-        let path_timer = npc.lock().await.path_timer;
+    npc_data: Arc<NpcData>,
+) -> NpcStage {
+    let npc = store.npcs.get(&key).cloned().expect("NPC Was not on map!");
 
-        if path_timer > map.tick {
-            return Ok(());
+    let lock = npc.lock().await;
+    let position = lock.position;
+
+    if lock.path_timer > map.tick {
+        return NpcStage::Movement(MovementStage::ClearTarget {
+            key,
+            position,
+            npc_data,
+        });
+    }
+
+    let target = lock.target;
+    let position = lock.position;
+
+    NpcStage::Movement(MovementStage::GetTargetUpdates {
+        key,
+        position,
+        npc_data,
+        target,
+    })
+}
+
+pub async fn update_target_pos(
+    store: &MapActorStore,
+    key: GlobalKey,
+    position: Position,
+    npc_data: Arc<NpcData>,
+    target: Targeting,
+) -> NpcStage {
+    let (target_pos, death) = match target.target_type {
+        Target::Player(global_key, _, _) => {
+            if let Some(player) = store.players.get(&global_key) {
+                let lock = player.lock().await;
+                let pos = lock.position;
+                let death = lock.death;
+                (pos, death)
+            } else {
+                return NpcStage::Movement(MovementStage::ClearTarget {
+                    key,
+                    position,
+                    npc_data,
+                });
+            }
         }
+        Target::Npc(global_key, _) => {
+            if let Some(npc) = store.npcs.get(&global_key) {
+                let lock = npc.lock().await;
+                let pos = lock.position;
+                let death = lock.death;
+                (pos, death)
+            } else {
+                return NpcStage::Movement(MovementStage::ClearTarget {
+                    key,
+                    position,
+                    npc_data,
+                });
+            }
+        }
+        _ => {
+            return NpcStage::Movement(MovementStage::MoveToCombat {
+                key,
+                position,
+                npc_data,
+            })
+        }
+    };
 
-        let npc_moving = npc.lock().await.moving;
-        let target = npc.lock().await.target;
-        let position = npc.lock().await.position;
+    if check_surrounding(position.map, target_pos.map, true) == MapPos::None || !death.is_alive() {
+        NpcStage::Movement(MovementStage::ClearTarget {
+            key,
+            position,
+            npc_data,
+        })
+    } else {
         let mut new_target = target;
 
-        if target.target_type != Target::None {
-            new_target = update_target_pos(world, key).await?;
-        }
+        new_target.target_pos = target_pos;
 
-        if new_target.target_pos.map.group != position.map.group
-            || (new_target.target_type == Target::None && target.target_type != Target::None)
-        {
-            {
-                let lock = world.write().await;
-                let mut path_tmr = lock.get::<&mut NpcPathTimer>(key.0)?;
-                path_tmr.tries = 0;
-                path_tmr.fails = 0;
-                *lock.get::<&mut Targeting>(key.0)? = Targeting::default();
-            }
-
-            new_target = Targeting::default();
-            npc_clear_move_path(world, key).await?;
-        }
-
-        //AI Timer is used to Reset the Moves every so offten to recalculate them for possible changes.
-        if new_target.target_type != Target::None
-            && npc_moving
-            && target.target_pos != new_target.target_pos
-        {
-            if is_next_to_target(storage, position, new_target.target_pos, 1).await {
-                let n_dir = get_target_direction(position, new_target.target_pos);
-                if world.get_or_err::<Dir>(key).await?.0 != n_dir {
-                    set_npc_dir(world, storage, key, n_dir).await?;
-                }
-            } else if let Some(path) = a_star_path(
-                storage,
-                position,
-                world.get_or_err::<Dir>(key).await?.0,
-                new_target.target_pos,
-            )
-            .await
-            {
-                npc_set_move_path(world, key, path).await?;
-                {
-                    let lock = world.write().await;
-                    let mut path_tmr = lock.get::<&mut NpcPathTimer>(key.0)?;
-                    path_tmr.tries = 0;
-                    path_tmr.timer = *storage.gettick.read().await
-                        + Duration::try_milliseconds(100).unwrap_or_default();
-                    path_tmr.fails = 0;
-                }
-            }
-
-            return Ok(());
-        }
-
-        if npc_moving
-            && !{
-                let lock = world.read().await;
-                let is_empty = lock.get::<&NpcMoves>(key.0)?.0.is_empty();
-                is_empty
-            }
-        {
-            return Ok(());
-        }
-
-        if let Some(movepos) = world.get_or_err::<NpcMovePos>(key).await?.0 {
-            //Move pos overrides targeting pos movement.
-            if let Some(path) = a_star_path(
-                storage,
-                world.get_or_err::<Position>(key).await?,
-                world.get_or_err::<Dir>(key).await?.0,
-                movepos,
-            )
-            .await
-            {
-                npc_set_move_path(world, key, path).await?;
-            }
-
-            {
-                let lock = world.write().await;
-                let mut path_tmr = lock.get::<&mut NpcPathTimer>(key.0)?;
-                path_tmr.tries = 0;
-                path_tmr.timer = *storage.gettick.read().await
-                    + Duration::try_milliseconds(base.movement_wait + 750).unwrap_or_default();
-                path_tmr.fails = 0;
-            }
-        } else if new_target.target_type != Target::None && players_on_map {
-            if is_next_to_target(storage, position, new_target.target_pos, 1).await {
-                let n_dir = get_target_direction(position, new_target.target_pos);
-                if world.get_or_err::<Dir>(key).await?.0 != n_dir {
-                    set_npc_dir(world, storage, key, n_dir).await?;
-                }
-            } else if let Some(path) = a_star_path(
-                storage,
-                position,
-                world.get_or_err::<Dir>(key).await?.0,
-                new_target.target_pos,
-            )
-            .await
-            {
-                npc_set_move_path(world, key, path).await?;
-                {
-                    let lock = world.write().await;
-                    let mut path_tmr = lock.get::<&mut NpcPathTimer>(key.0)?;
-                    path_tmr.tries = 0;
-                    path_tmr.timer = *storage.gettick.read().await
-                        + Duration::try_milliseconds(100).unwrap_or_default();
-                    path_tmr.fails = 0;
-                }
-            } else if path_timer.tries + 1 < 10 {
-                let moves =
-                    npc_rand_movement(storage, world.get_or_err::<Position>(key).await?).await;
-                npc_set_move_path(world, key, moves).await?;
-
-                {
-                    let lock = world.write().await;
-                    let mut path_tmr = lock.get::<&mut NpcPathTimer>(key.0)?;
-                    path_tmr.tries += 1;
-                    path_tmr.timer = *storage.gettick.read().await
-                        + Duration::try_milliseconds(
-                            base.movement_wait + ((path_timer.tries + 1) as i64 * 250),
-                        )
-                        .unwrap_or_default();
-                    lock.get::<&mut NpcAITimer>(key.0)?.0 = *storage.gettick.read().await
-                        + Duration::try_milliseconds(3000).unwrap_or_default();
-                }
-            } else {
-                {
-                    let lock = world.write().await;
-                    {
-                        let mut path_tmr = lock.get::<&mut NpcPathTimer>(key.0)?;
-                        path_tmr.tries = 0;
-                        path_tmr.fails = 0;
-                    }
-                    *lock.get::<&mut Targeting>(key.0)? = Targeting::default();
-                }
-
-                npc_clear_move_path(world, key).await?;
-            }
-        //no special movement lets give them some if we can;
-        } else if world.get_or_err::<NpcAITimer>(key).await?.0 <= *storage.gettick.read().await
-            && check_players_on_map(
-                world,
-                storage,
-                &world.get_or_err::<Position>(key).await?.map,
-            )
-            .await
-        {
-            let moves = npc_rand_movement(storage, world.get_or_err::<Position>(key).await?).await;
-
-            npc_set_move_path(world, key, moves).await?;
-            let lock = world.write().await;
-            lock.get::<&mut NpcAITimer>(key.0)?.0 = *storage.gettick.read().await
-                + Duration::try_milliseconds(3000).unwrap_or_default();
-        }
-    }
-    Ok(())
-}
-
-pub async fn check_players_on_map(
-    _world: &GameWorld,
-    storage: &GameStore,
-    position: &MapPosition,
-) -> bool {
-    if let Some(map) = storage.maps.get(position) {
-        map.read().await.players_on_map()
-    } else {
-        false
+        NpcStage::Movement(MovementStage::UpdateTarget {
+            key,
+            position,
+            npc_data,
+            new_target,
+        })
     }
 }
 
-pub async fn npc_movement(
-    world: &GameWorld,
-    storage: &GameStore,
-    entity: &GlobalKey,
-    _base: &NpcData,
-) -> Result<()> {
-    if world.get_or_err::<NpcMoving>(entity).await?.0 {
-        let position = world.get_or_err::<Position>(entity).await?;
+pub async fn update_target(
+    map: &mut MapActor,
+    store: &MapActorStore,
+    key: GlobalKey,
+    position: Position,
+    npc_data: Arc<NpcData>,
+    new_target: Targeting,
+) -> NpcStage {
+    let npc = store
+        .npcs
+        .get(&key)
+        .expect("Failed to load NPC! in update_target");
+    let mut lock = npc.lock().await;
 
-        let movement = {
-            let lock = world.write().await;
-            let movement = lock.get::<&mut NpcMoves>(entity.0)?.0.pop_front();
-            movement
-        };
+    if new_target.target_pos.map.group != position.map.group
+        || (new_target.target_type == Target::None && lock.target.target_type != Target::None)
+    {
+        return NpcStage::Movement(MovementStage::ClearTarget {
+            key,
+            position,
+            npc_data,
+        });
+    }
 
-        let next = match movement {
-            Some(v) => v,
-            None => {
-                let lock = world.write().await;
-                lock.get::<&mut NpcMoving>(entity.0)?.0 = false;
-                return Ok(());
+    //AI Timer is used to Reset the Moves every so offten to recalculate them for possible changes.
+    if new_target.target_type != Target::None
+        && lock.moving
+        && lock.target.target_pos != new_target.target_pos
+    {
+        lock.target.target_pos = new_target.target_pos;
+
+        if is_next_to_target(map, position, new_target.target_pos, 1) {
+            let n_dir = get_target_direction(position, new_target.target_pos);
+
+            if lock.dir != n_dir && lock.set_npc_dir(map, n_dir).is_err() {
+                return NpcStage::None;
             }
-        };
-
-        if map_path_blocked(storage, position, next.0, next.1, WorldEntityType::Npc).await {
-            if world.get_or_err::<NpcMovePos>(entity).await?.0.is_some()
-                || world.get_or_err::<Targeting>(entity).await?.target_type != Target::None
-            {
-                if {
-                    let lock = world.read().await;
-                    let fails = lock.get::<&NpcPathTimer>(entity.0)?.fails;
-                    fails
-                } < 10
-                {
-                    let lock = world.write().await;
-                    //no special movement. Lets wait till we can move again. maybe walkthru upon multi failure here?.
-                    lock.get::<&mut NpcMoves>(entity.0)?.0.push_front(next);
-                    lock.get::<&mut NpcPathTimer>(entity.0)?.fails += 1;
-                } else {
-                    {
-                        let lock = world.write().await;
-                        let mut path_tmr = lock.get::<&mut NpcPathTimer>(entity.0)?;
-                        path_tmr.tries = 0;
-                        path_tmr.fails = 0;
-                    }
-
-                    npc_clear_move_path(world, entity).await?;
-                }
-            } else {
-                npc_clear_move_path(world, entity).await?;
-            }
-
-            return Ok(());
-        }
-
-        if position == next.0 {
-            set_npc_dir(world, storage, entity, next.1).await?;
         } else {
-            if world.get_or_err::<NpcMovePos>(entity).await?.0.is_none() {
-                //do any movepos to position first
-                if !check_players_on_map(world, storage, &position.map).await {
-                    npc_clear_move_path(world, entity).await?;
-                    return Ok(());
-                }
-
-                match world.get_or_err::<Targeting>(entity).await?.target_type {
-                    Target::Player(i, _) => {
-                        if world.contains(&i).await {
-                            if world.get_or_err::<Death>(&i).await?.is_alive()
-                                && world.get_or_err::<Position>(&i).await? == next.0
-                            {
-                                npc_clear_move_path(world, entity).await?;
-                                set_npc_dir(world, storage, entity, next.1).await?;
-                                return Ok(());
-                            } else {
-                                npc_clear_move_path(world, entity).await?;
-                            }
-                        } else {
-                            npc_clear_move_path(world, entity).await?;
-                        }
-                    }
-                    Target::Npc(i) => {
-                        if world.contains(&i).await {
-                            if world.get_or_err::<Death>(&i).await?.is_alive()
-                                && world.get_or_err::<Position>(&i).await? == next.0
-                            {
-                                npc_clear_move_path(world, entity).await?;
-                                set_npc_dir(world, storage, entity, next.1).await?;
-                                return Ok(());
-                            } else {
-                                npc_clear_move_path(world, entity).await?;
-                            }
-                        } else {
-                            npc_clear_move_path(world, entity).await?;
-                        }
-                    }
-                    _ => {}
-                };
-            } else if Some(next.0) == world.get_or_err::<NpcMovePos>(entity).await?.0 {
-                {
-                    let lock = world.write().await;
-                    lock.get::<&mut NpcMovePos>(entity.0)?.0 = None;
-                }
-
-                npc_clear_move_path(world, entity).await?;
-            }
-
-            {
-                let lock = world.write().await;
-                lock.get::<&mut Dir>(entity.0)?.0 = next.1;
-            }
-
-            let old_map = position.map;
-            if next.0.map != old_map {
-                npc_switch_maps(world, storage, entity, next.0).await?;
-                //Send this Twice one to the old map and one to the new. Just in case people in outermaps did not get it yet.
-                DataTaskToken::Move(old_map)
-                    .add_task(storage, move_packet(*entity, next.0, false, true, next.1)?)
-                    .await?;
-                //TODO Test this to see if we need this or if we do to migrate it to Spawn instead.
-                DataTaskToken::Move(next.0.map)
-                    .add_task(storage, move_packet(*entity, next.0, false, true, next.1)?)
-                    .await?;
-                DataTaskToken::NpcSpawn(next.0.map)
-                    .add_task(storage, npc_spawn_packet(world, entity, true).await?)
-                    .await?;
-            } else {
-                npc_swap_pos(world, storage, entity, next.0).await?;
-                DataTaskToken::Move(next.0.map)
-                    .add_task(storage, move_packet(*entity, next.0, false, false, next.1)?)
-                    .await?;
-            }
+            return NpcStage::Movement(MovementStage::UpdateAStarPaths {
+                key,
+                position,
+                npc_data,
+                target_pos: new_target.target_pos,
+                timer: map.tick + Duration::try_milliseconds(100).unwrap_or_default(),
+            });
         }
+
+        return NpcStage::Movement(MovementStage::NextMove {
+            key,
+            position,
+            npc_data,
+        });
     }
 
-    Ok(())
+    if lock.moving && !lock.moves.is_empty() {
+        NpcStage::Movement(MovementStage::NextMove {
+            key,
+            position,
+            npc_data,
+        })
+    } else {
+        NpcStage::Movement(MovementStage::ProcessMovePosition {
+            key,
+            position,
+            npc_data,
+            new_target,
+        })
+    }
+}
+
+pub async fn update_astar_paths(
+    map: &mut MapActor,
+    store: &MapActorStore,
+    key: GlobalKey,
+    position: Position,
+    npc_data: Arc<NpcData>,
+    timer: MyInstant,
+    target_pos: Position,
+) -> NpcStage {
+    let npc = store
+        .npcs
+        .get(&key)
+        .expect("Failed to load NPC! in update_target");
+    let lock = npc.lock().await;
+
+    // Anytime we do A* pathfinding if it failed we will do random movement.
+    if let Some(path) = a_star_path(map, position, lock.dir, target_pos) {
+        NpcStage::Movement(MovementStage::SetMovePath {
+            key,
+            position,
+            npc_data,
+            path,
+            timer,
+        })
+    } else if lock.path_tries + 1 < 10 {
+        NpcStage::Movement(MovementStage::UpdateRandPaths {
+            key,
+            position,
+            npc_data,
+            timer,
+        })
+    } else {
+        NpcStage::Movement(MovementStage::NextMove {
+            key,
+            position,
+            npc_data,
+        })
+    }
+}
+
+pub async fn update_rand_paths(
+    map: &mut MapActor,
+    store: &MapActorStore,
+    key: GlobalKey,
+    position: Position,
+    npc_data: Arc<NpcData>,
+    timer: MyInstant,
+) -> NpcStage {
+    let npc = store
+        .npcs
+        .get(&key)
+        .expect("Failed to load NPC! in update_target");
+    let lock = npc.lock().await;
+
+    let path = npc_rand_movement(map, lock.position);
+
+    NpcStage::Movement(MovementStage::SetMovePath {
+        key,
+        position,
+        npc_data,
+        path,
+        timer,
+    })
+}
+
+pub async fn process_moves(
+    map: &mut MapActor,
+    store: &MapActorStore,
+    key: GlobalKey,
+    position: Position,
+    npc_data: Arc<NpcData>,
+    dir: u8,
+    new_target: Targeting,
+) -> NpcStage {
+    let npc = store
+        .npcs
+        .get(&key)
+        .expect("Failed to load NPC! in update_ai");
+    let mut lock = npc.lock().await;
+
+    // Anytime we do A* pathfinding if it failed we will do random movement.
+    if let Some(target_pos) = lock.move_pos_overide {
+        let wait_time = npc_data.movement_wait + 750;
+
+        return NpcStage::Movement(MovementStage::UpdateAStarPaths {
+            key,
+            position,
+            npc_data,
+            target_pos,
+            timer: map.tick + Duration::try_milliseconds(wait_time).unwrap_or_default(),
+        });
+    } else if new_target.target_type != Target::None {
+        if is_next_to_target(map, position, new_target.target_pos, 1) {
+            let n_dir = get_target_direction(position, new_target.target_pos);
+
+            if dir != n_dir && lock.set_npc_dir(map, n_dir).is_err() {
+                return NpcStage::None;
+            }
+
+            NpcStage::Movement(MovementStage::NextMove {
+                key,
+                position,
+                npc_data,
+            })
+        } else {
+            NpcStage::Movement(MovementStage::UpdateAStarPaths {
+                key,
+                position,
+                npc_data,
+                target_pos: new_target.target_pos,
+                timer: map.tick + Duration::try_milliseconds(100).unwrap_or_default(),
+            })
+        }
+    } else if lock.ai_timer <= map.tick {
+        NpcStage::Movement(MovementStage::UpdateRandPaths {
+            key,
+            position,
+            npc_data,
+            timer: map.tick + Duration::try_milliseconds(3000).unwrap_or_default(),
+        })
+    } else {
+        NpcStage::Movement(MovementStage::NextMove {
+            key,
+            position,
+            npc_data,
+        })
+    }
+}
+
+pub async fn set_move_path(
+    store: &MapActorStore,
+    key: GlobalKey,
+    position: Position,
+    npc_data: Arc<NpcData>,
+    timer: MyInstant,
+    path: VecDeque<(Position, u8)>,
+) -> NpcStage {
+    let npc = store
+        .npcs
+        .get(&key)
+        .expect("Failed to load NPC! in set_move_path");
+    let mut lock = npc.lock().await;
+
+    lock.npc_set_move_path(path);
+    lock.reset_path_tries(timer);
+
+    NpcStage::Movement(MovementStage::NextMove {
+        key,
+        position,
+        npc_data,
+    })
+}
+
+pub async fn clear_move_path(
+    store: &MapActorStore,
+    key: GlobalKey,
+    position: Position,
+    npc_data: Arc<NpcData>,
+) -> NpcStage {
+    let npc = store
+        .npcs
+        .get(&key)
+        .expect("Failed to load NPC! in set_move_path");
+    let mut lock = npc.lock().await;
+
+    lock.npc_clear_move_path();
+    lock.path_fails = 0;
+    lock.path_tries = 0;
+
+    NpcStage::Movement(MovementStage::MoveToCombat {
+        key,
+        position,
+        npc_data,
+    })
+}
+
+pub async fn clear_target(
+    store: &MapActorStore,
+    key: GlobalKey,
+    position: Position,
+    npc_data: Arc<NpcData>,
+) -> NpcStage {
+    let npc = store
+        .npcs
+        .get(&key)
+        .expect("Failed to load NPC! in set_move_path");
+    let mut lock = npc.lock().await;
+
+    lock.npc_clear_move_path();
+    lock.target = Targeting::default();
+    lock.path_fails = 0;
+    lock.path_tries = 0;
+
+    NpcStage::Movement(MovementStage::ProcessMovePosition {
+        key,
+        position,
+        npc_data,
+        new_target: Targeting::default(),
+    })
+}
+
+pub async fn next_move(
+    store: &MapActorStore,
+    key: GlobalKey,
+    position: Position,
+    npc_data: Arc<NpcData>,
+) -> NpcStage {
+    let npc = store
+        .npcs
+        .get(&key)
+        .expect("Failed to load NPC! in set_move_path");
+    let mut lock = npc.lock().await;
+
+    let next_move = match lock.moves.pop_front() {
+        Some(v) => v,
+        None => {
+            lock.moving = false;
+            return NpcStage::Movement(MovementStage::MoveToCombat {
+                key,
+                position,
+                npc_data,
+            });
+        }
+    };
+
+    NpcStage::Movement(MovementStage::CheckBlock {
+        key,
+        position,
+        npc_data,
+        next_move,
+    })
+}
+
+pub async fn check_block(
+    map: &mut MapActor,
+    store: &MapActorStore,
+    key: GlobalKey,
+    position: Position,
+    npc_data: Arc<NpcData>,
+    (next_pos, next_dir): (Position, u8),
+) -> NpcStage {
+    let npc = store
+        .npcs
+        .get(&key)
+        .expect("Failed to load NPC! in set_move_path");
+    let mut lock = npc.lock().await;
+
+    if map.map_path_blocked(position, next_pos, next_dir, WorldEntityType::Npc) {
+        if lock.move_pos_overide.is_some() || lock.target.target_type != Target::None {
+            if lock.path_fails < 10 {
+                //no special movement. Lets wait till we can move again. maybe walkthru upon multi failure here?.
+                lock.moves.push_front((next_pos, next_dir));
+                lock.path_fails += 1;
+            } else {
+                lock.npc_clear_move_path();
+                lock.path_fails = 0;
+                lock.path_tries = 0;
+            }
+        } else {
+            lock.npc_clear_move_path();
+            lock.path_fails = 0;
+            lock.path_tries = 0;
+        }
+
+        return NpcStage::Movement(MovementStage::MoveToCombat {
+            key,
+            position,
+            npc_data,
+        });
+    }
+
+    NpcStage::Movement(MovementStage::ProcessMovement {
+        key,
+        position,
+        npc_data,
+        next_move: (next_pos, next_dir),
+    })
+}
+
+pub async fn process_target(
+    map: &mut MapActor,
+    store: &MapActorStore,
+    key: GlobalKey,
+    position: Position,
+    npc_data: Arc<NpcData>,
+    target: Targeting,
+    (next_pos, next_dir): (Position, u8),
+) -> NpcStage {
+    let npc = store
+        .npcs
+        .get(&key)
+        .expect("Failed to load NPC! in set_move_path");
+    //let mut lock = npc.lock().await;
+
+    match target {
+        Target::Player(i, _, _) => {
+            if let Some(player) = store.players.get(&i) {
+                let plock = player.lock().await;
+
+                if plock.death.is_alive() && plock.position == next_pos {
+                    return NpcStage::Movement(MovementStage::SetNpcDir {
+                        key,
+                        position,
+                        npc_data,
+                        next_move: (next_pos, next_dir),
+                    });
+                }
+
+                return NpcStage::Movement(MovementStage::ClearMovePath {
+                    key,
+                    position,
+                    npc_data,
+                });
+            } else {
+                return NpcStage::Movement(MovementStage::MoveToCombat {
+                    key,
+                    position,
+                    npc_data,
+                });
+            }
+        }
+        Target::Npc(i, _) => {
+            if i == key {
+                return NpcStage::Movement(MovementStage::MoveToCombat {
+                    key,
+                    position,
+                    npc_data,
+                });
+            }
+
+            if let Some(npc) = store.npcs.get(&i) {
+                let nlock = npc.lock().await;
+
+                if nlock.death.is_alive() && nlock.position == next_pos {
+                    return NpcStage::Movement(MovementStage::SetNpcDir {
+                        key,
+                        position,
+                        npc_data,
+                        next_move: (next_pos, next_dir),
+                    });
+                }
+
+                return NpcStage::Movement(MovementStage::ClearMovePath {
+                    key,
+                    position,
+                    npc_data,
+                });
+            } else {
+                return NpcStage::Movement(MovementStage::MoveToCombat {
+                    key,
+                    position,
+                    npc_data,
+                });
+            }
+        }
+        _ => {}
+    }
+
+    NpcStage::Movement(MovementStage::ProcessMovement {
+        key,
+        position,
+        npc_data,
+        next_move: (next_pos, next_dir),
+    })
+}
+
+pub async fn process_movement(
+    map: &mut MapActor,
+    store: &MapActorStore,
+    key: GlobalKey,
+    position: Position,
+    npc_data: Arc<NpcData>,
+    (next_pos, next_dir): (Position, u8),
+) -> NpcStage {
+    let npc = store
+        .npcs
+        .get(&key)
+        .expect("Failed to load NPC! in set_move_path");
+    let mut lock = npc.lock().await;
+
+    if lock.position == next_pos {
+        lock.set_npc_dir(map, next_dir).unwrap();
+
+        return NpcStage::Movement(MovementStage::MoveToCombat {
+            key,
+            position,
+            npc_data,
+        });
+    } else if lock.move_pos_overide.is_none() {
+        if lock.target.target_type != Target::None {
+            let target = lock.target;
+
+            return NpcStage::Movement(MovementStage::ProcessTarget {
+                key,
+                position,
+                npc_data,
+                target,
+                next_move: (next_pos, next_dir),
+            });
+        }
+    } else if Some(next_pos) == lock.move_pos_overide {
+        lock.move_pos_overide = None;
+        lock.npc_clear_move_path();
+    }
+
+    NpcStage::Movement(MovementStage::FinishMove {
+        key,
+        position,
+        npc_data,
+        next_move: (next_pos, next_dir),
+    })
+}
+
+pub async fn finish_movement(
+    map: &mut MapActor,
+    store: &MapActorStore,
+    key: GlobalKey,
+    position: Position,
+    npc_data: Arc<NpcData>,
+    (next_pos, next_dir): (Position, u8),
+) -> NpcStage {
+    let npc = store
+        .npcs
+        .get(&key)
+        .expect("Failed to load NPC! in set_move_path");
+    let mut lock = npc.lock().await;
+
+    lock.dir = next_dir;
+    let old_map = lock.position.map;
+
+    /* if next_pos.map != old_map {
+        npc_switch_maps(world, storage, entity, next.0).await?;
+        //Send this Twice one to the old map and one to the new. Just in case people in outermaps did not get it yet.
+        DataTaskToken::Move(old_map)
+            .add_task(storage, move_packet(*entity, next.0, false, true, next.1)?)
+            .await?;
+        //TODO Test this to see if we need this or if we do to migrate it to Spawn instead.
+        DataTaskToken::Move(next.0.map)
+            .add_task(storage, move_packet(*entity, next.0, false, true, next.1)?)
+            .await?;
+        DataTaskToken::NpcSpawn(next.0.map)
+            .add_task(storage, npc_spawn_packet(world, entity, true).await?)
+            .await?;
+    } else {
+        npc_swap_pos(world, storage, entity, next.0).await?;
+        DataTaskToken::Move(next.0.map)
+            .add_task(storage, move_packet(*entity, next.0, false, false, next.1)?)
+            .await?;
+    }*/
+
+    NpcStage::None
 }

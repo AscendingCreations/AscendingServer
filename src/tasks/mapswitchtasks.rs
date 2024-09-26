@@ -32,9 +32,7 @@ impl MapActor {
                         packets.push(npc_spawn_packet(&npc, false)?);
                     }
 
-                    DataTaskToken::NpcSpawnToEntity(key)
-                        .add_tasks(self, &mut packets)
-                        .await?;
+                    DataTaskToken::NpcSpawnToEntity(key).add_tasks(self, &mut packets)?;
                     packets.clear();
 
                     for player in task.players.drain(..task.players.len().min(50)) {
@@ -42,9 +40,7 @@ impl MapActor {
                         packets.push(player_spawn_packet(&player, false)?);
                     }
 
-                    DataTaskToken::PlayerSpawnToEntity(key)
-                        .add_tasks(self, &mut packets)
-                        .await?;
+                    DataTaskToken::PlayerSpawnToEntity(key).add_tasks(self, &mut packets)?;
                     packets.clear();
 
                     for item in task.items.drain(..task.items.len().min(50)) {
@@ -53,9 +49,7 @@ impl MapActor {
                         packets.push(map_item_packet(&item, false)?);
                     }
 
-                    DataTaskToken::ItemLoadToEntity(key)
-                        .add_tasks(self, &mut packets)
-                        .await?;
+                    DataTaskToken::ItemLoadToEntity(key).add_tasks(self, &mut packets)?;
 
                     if count == 0 {
                         self.player_switch_processing.swap_remove(&key);

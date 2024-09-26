@@ -173,12 +173,14 @@ pub async fn get_target(
         {
             let lock = player.lock().await;
             let target = Target::Player(pkey, lock.uid, lock.position.map);
+            let target_pos = lock.position;
 
             return NpcStage::Targeting(TargetingStage::SetTarget {
                 key,
                 position,
                 npc_data,
                 target,
+                target_pos,
             });
         }
     }
@@ -200,12 +202,14 @@ pub async fn get_target(
             {
                 let lock = npc.lock().await;
                 let target = Target::Npc(nkey, lock.position.map);
+                let target_pos = lock.position;
 
                 return NpcStage::Targeting(TargetingStage::SetTarget {
                     key,
                     position,
                     npc_data,
                     target,
+                    target_pos,
                 });
             }
         }
@@ -222,6 +226,7 @@ pub async fn set_target(
     position: Position,
     npc_data: Arc<NpcData>,
     target: Target,
+    target_pos: Position,
 ) -> NpcStage {
     if let Some(npc) = store.npcs.get(&key) {
         let mut lock = npc.lock().await;
@@ -229,6 +234,7 @@ pub async fn set_target(
         lock.target.target_type = target;
         lock.target.target_timer = map.tick
             + Duration::try_milliseconds(npc_data.target_auto_switch_chance).unwrap_or_default();
+        lock.target.target_pos = target_pos;
         lock.attack_timer =
             map.tick + Duration::try_milliseconds(npc_data.attack_wait).unwrap_or_default();
     }

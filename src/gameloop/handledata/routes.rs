@@ -5,8 +5,8 @@ use crate::{
     gametypes::*,
     items::Item,
     maps::*,
-    players::*,
     network::*,
+    players::*,
     sql::*,
     tasks::*,
     WorldExtrasAsync,
@@ -15,7 +15,6 @@ use chrono::Duration;
 use hecs::MissingComponent;
 use log::{debug, info};
 use rand::distributions::{Alphanumeric, DistString};
-use regex::Regex;
 
 pub async fn handle_ping(
     world: &GameWorld,
@@ -24,188 +23,6 @@ pub async fn handle_ping(
     entity: &GlobalKey,
 ) -> Result<()> {
     send_gameping(world, storage, entity).await
-}
-
-pub async fn handle_register(
-    world: &GameWorld,
-    storage: &GameStore,
-    data: &mut MByteBuffer,
-    entity: &GlobalKey,
-) -> Result<()> {
-    let username = data.read::<String>()?;
-    let password = data.read::<String>()?;
-    let email = data.read::<String>()?;
-    let sprite_id = data.read::<u8>()?;
-    let appmajor = data.read::<u16>()? as usize;
-    let appminior = data.read::<u16>()? as usize;
-    let apprevision = data.read::<u16>()? as usize;
-
-    if !storage.player_ids.read().await.contains(entity) {
-        let (socket_id, address) = {
-            let lock = world.read().await;
-            let socket = lock.get::<&Socket>(entity.0)?;
-            (socket.id, socket.addr.clone())
-        };
-
-        if APP_MAJOR > appmajor && APP_MINOR > appminior && APP_REVISION > apprevision {
-            return send_infomsg(storage, socket_id, "Client needs to be updated.".into(), 1).await;
-        }
-
-        let email_regex = Regex::new(
-            r"^([a-z0-9_+]([a-z0-9_+.]*[a-z0-9_+])?)@([a-z0-9]+([\-\.]{1}[a-z0-9]+)*\.[a-z]{2,6})",
-        )?;
-
-        if !username.chars().all(is_name_acceptable)
-            || !password.chars().all(is_password_acceptable)
-        {
-            return send_infomsg(
-                storage,
-                socket_id,
-                "Username or Password contains unaccepted Characters".into(),
-                0,
-            )
-            .await;
-        }
-
-        if username.len() >= 64 {
-            return send_infomsg(
-                storage,
-                socket_id,
-                "Username has too many Characters, 64 Characters Max".into(),
-                0,
-            )
-            .await;
-        }
-
-        if password.len() >= 128 {
-            return send_infomsg(
-                storage,
-                socket_id,
-                "Password has too many Characters, 128 Characters Max".into(),
-                0,
-            )
-            .await;
-        }
-
-        if !email_regex.is_match(&email) || sprite_id >= 6 {
-            return send_infomsg(
-                storage,
-                socket_id,
-                "Email must be an actual email.".into(),
-                0,
-            )
-            .await;
-        }
-
-        match check_existance(storage, &username, &email).await {
-            Ok(i) => match i {
-                0 => {}
-                1 => {
-                    return send_infomsg(
-                        storage,
-                        socket_id,
-                        "Username Exists. Please try Another.".into(),
-                        0,
-                    )
-                    .await;
-                }
-                2 => {
-                    return send_infomsg(
-                        storage,
-                        socket_id,
-                        "Email Already Exists. Please Try Another.".into(),
-                        0,
-                    )
-                    .await;
-                }
-                _ => return Err(AscendingError::RegisterFail),
-            },
-            Err(_) => return Err(AscendingError::UserNotFound),
-        }
-
-        let code = Alphanumeric.sample_string(&mut rand::thread_rng(), 32);
-        let handshake = Alphanumeric.sample_string(&mut rand::thread_rng(), 32);
-
-        let tick = *storage.gettick.read().await;
-        // we need to Add all the player types creations in a sub function that Creates the Defaults and then adds them to World.
-        storage
-            .add_player_data(world, entity, code.clone(), handshake.clone(), tick)
-            .await?;
-
-        {
-            let lock = world.read().await;
-            let mut query = lock.query_one::<(&mut Account, &mut Sprite)>(entity.0)?;
-            let (account, sprite) = query.get().ok_or(AscendingError::HecsComponent {
-                error: hecs::ComponentError::MissingComponent(MissingComponent::new::<(
-                    &mut Account,
-                    &mut Sprite,
-                )>()),
-                backtrace: Box::new(Backtrace::capture()),
-            })?;
-
-            account.username.clone_from(&username);
-            account.email.clone_from(&email);
-            sprite.id = sprite_id as u16;
-        }
-
-        storage
-            .player_emails
-            .write()
-            .await
-            .insert(email.clone(), *entity);
-
-        storage
-            .player_usernames
-            .write()
-            .await
-            .insert(username.clone(), *entity);
-
-        info!("New Player {} with IP {}, Logging in.", &username, &address);
-
-        return match new_player(storage, world, entity, username, email, password).await {
-            Ok(uid) => {
-                {
-                    let lock = world.write().await;
-                    lock.get::<&mut Account>(entity.0)?.id = uid;
-                }
-                send_myindex(storage, socket_id, entity).await?;
-                send_codes(world, storage, entity, code, handshake).await
-            }
-            Err(_) => {
-                send_infomsg(
-                    storage,
-                    socket_id,
-                    "There was an Issue Creating the player account. Please Contact Support."
-                        .into(),
-                    0,
-                )
-                .await
-            }
-        };
-    }
-
-    Err(AscendingError::InvalidSocket)
-}
-
-pub async fn handle_handshake(
-    world: &GameWorld,
-    storage: &GameStore,
-    data: &mut MByteBuffer,
-    entity: &GlobalKey,
-) -> Result<()> {
-    let handshake = data.read::<String>()?;
-    let user_handshake = world.cloned_get_or_err::<LoginHandShake>(entity).await?;
-
-    if user_handshake.handshake == handshake {
-        {
-            let mut lock = world.write().await;
-            lock.remove_one::<LoginHandShake>(entity.0)?;
-            lock.remove_one::<ConnectionLoginTimer>(entity.0)?;
-        }
-        return joingame(world, storage, entity).await;
-    }
-
-    Err(AscendingError::InvalidSocket)
 }
 
 pub async fn handle_login(

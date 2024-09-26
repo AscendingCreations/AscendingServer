@@ -1,11 +1,124 @@
-use crate::{gametypes::*, npcs::*, GlobalKey};
-use std::sync::Arc;
+use crate::{gametypes::*, npcs::*, time_ext::MyInstant, GlobalKey};
+use std::{collections::VecDeque, sync::Arc};
 
 pub enum NpcStage {
     None,
     Targeting(TargetingStage),
-    Combat,
-    Movement,
+    Combat(CombatStage),
+    Movement(MovementStage),
+}
+
+impl NpcStage {
+    pub fn get_stages(&self) -> NpcStages {
+        match self {
+            NpcStage::None => NpcStages::None,
+            NpcStage::Targeting(_) => NpcStages::Targeting,
+            NpcStage::Combat(_) => NpcStages::Combat,
+            NpcStage::Movement(_) => NpcStages::Movement,
+        }
+    }
+}
+
+pub enum CombatStage {
+    None,
+}
+
+pub enum MovementStage {
+    None,
+    PathStart {
+        key: GlobalKey,
+        npc_data: Arc<NpcData>,
+    },
+    // first stage
+    GetTargetUpdates {
+        key: GlobalKey,
+        position: Position,
+        npc_data: Arc<NpcData>,
+        target: Targeting,
+    },
+    ClearTarget {
+        key: GlobalKey,
+        position: Position,
+        npc_data: Arc<NpcData>,
+    },
+    UpdateTarget {
+        key: GlobalKey,
+        position: Position,
+        npc_data: Arc<NpcData>,
+        new_target: Targeting,
+    },
+    UpdateAStarPaths {
+        key: GlobalKey,
+        position: Position,
+        npc_data: Arc<NpcData>,
+        timer: MyInstant,
+        target_pos: Position,
+    },
+    UpdateRandPaths {
+        key: GlobalKey,
+        position: Position,
+        npc_data: Arc<NpcData>,
+        timer: MyInstant,
+    },
+    ClearMovePath {
+        key: GlobalKey,
+        position: Position,
+        npc_data: Arc<NpcData>,
+    },
+    SetMovePath {
+        key: GlobalKey,
+        position: Position,
+        npc_data: Arc<NpcData>,
+        timer: MyInstant,
+        path: VecDeque<(Position, u8)>,
+    },
+    ProcessMovePosition {
+        key: GlobalKey,
+        position: Position,
+        npc_data: Arc<NpcData>,
+        new_target: Targeting,
+    },
+    NextMove {
+        key: GlobalKey,
+        position: Position,
+        npc_data: Arc<NpcData>,
+    },
+    CheckBlock {
+        key: GlobalKey,
+        position: Position,
+        npc_data: Arc<NpcData>,
+        next_move: (Position, u8),
+    },
+    ProcessMovement {
+        key: GlobalKey,
+        position: Position,
+        npc_data: Arc<NpcData>,
+        next_move: (Position, u8),
+    },
+    ProcessTarget {
+        key: GlobalKey,
+        position: Position,
+        npc_data: Arc<NpcData>,
+        target: Targeting,
+        next_move: (Position, u8),
+    },
+    SetNpcDir {
+        key: GlobalKey,
+        position: Position,
+        npc_data: Arc<NpcData>,
+        next_move: (Position, u8),
+    },
+    FinishMove {
+        key: GlobalKey,
+        position: Position,
+        npc_data: Arc<NpcData>,
+        next_move: (Position, u8),
+    },
+    MoveToCombat {
+        key: GlobalKey,
+        position: Position,
+        npc_data: Arc<NpcData>,
+    },
 }
 
 pub enum TargetingStage {
@@ -58,6 +171,7 @@ pub enum TargetingStage {
         position: Position,
         npc_data: Arc<NpcData>,
         target: Target,
+        target_pos: Position,
     },
     MoveToMovement {
         key: GlobalKey,

@@ -1,6 +1,4 @@
 use crate::{containers::*, gametypes::*, players::*, sql::integers::Shifting, sql::*};
-use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
-use hecs::NoSuchEntity;
 use log::error;
 use password_hash::SaltString;
 use sqlx::{FromRow, PgPool};

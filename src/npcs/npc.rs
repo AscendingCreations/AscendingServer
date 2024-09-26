@@ -1,4 +1,10 @@
-use crate::{gametypes::*, maps::MapActor, time_ext::MyInstant, GlobalKey};
+use crate::{
+    gametypes::*,
+    maps::MapActor,
+    tasks::{dir_packet, DataTaskToken},
+    time_ext::MyInstant,
+    GlobalKey,
+};
 use chrono::Duration;
 use educe::Educe;
 use std::collections::VecDeque;
@@ -24,7 +30,7 @@ pub struct Npc {
     #[educe(Default = false)]
     pub retreating: bool,
     #[educe(Default = VecDeque::new())]
-    pub npc_moves: VecDeque<(Position, u8)>,
+    pub moves: VecDeque<(Position, u8)>,
     pub spawn_zone: Option<usize>,
     pub move_pos_overide: Option<Position>,
     #[educe(Default = Position::new(10, 10, MapPosition::new(0,0,0)))]
@@ -125,24 +131,29 @@ impl Npc {
 
     #[inline(always)]
     pub fn npc_set_move_path(&mut self, path: VecDeque<(Position, u8)>) {
-        self.npc_moves = path;
+        self.moves = path;
         self.moving = true;
     }
 
     #[inline(always)]
     pub fn npc_clear_move_path(&mut self) {
-        self.npc_moves.clear();
+        self.moves.clear();
         self.moving = false;
     }
 
     #[inline(always)]
-    pub async fn set_npc_dir(&mut self, map: &MapActor, dir: u8) -> Result<()> {
+    pub fn reset_path_tries(&mut self, timer: MyInstant) {
+        self.path_fails = 0;
+        self.path_tries = 0;
+        self.path_timer = timer;
+    }
+
+    #[inline(always)]
+    pub fn set_npc_dir(&mut self, map: &mut MapActor, dir: u8) -> Result<()> {
         if self.dir != dir {
             self.dir = dir;
 
-            /*DataTaskToken::Dir(world.get_or_err::<Position>(entity).await?.map)
-            .add_task(storage, dir_packet(*entity, dir)?)
-            .await?;*/
+            DataTaskToken::Dir.add_task(map, dir_packet(self.key, dir)?)?;
         }
 
         Ok(())

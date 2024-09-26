@@ -78,23 +78,9 @@ pub enum AscendingError {
         backtrace: Box<Backtrace>,
     },
     #[error("Error: {error}, BackTrace: {backtrace}")]
-    RegexError {
-        #[from]
-        error: regex::Error,
-        #[backtrace]
-        backtrace: Box<Backtrace>,
-    },
-    #[error("Error: {error}, BackTrace: {backtrace}")]
     ParseError {
         #[from]
         error: std::string::ParseError,
-        #[backtrace]
-        backtrace: Box<Backtrace>,
-    },
-    #[error("Error: {error}, BackTrace: {backtrace}")]
-    HecNoEntity {
-        #[from]
-        error: hecs::NoSuchEntity,
         #[backtrace]
         backtrace: Box<Backtrace>,
     },
@@ -106,37 +92,9 @@ pub enum AscendingError {
         backtrace: Box<Backtrace>,
     },
     #[error("Error: {error}, BackTrace: {backtrace}")]
-    HecsComponent {
-        #[from]
-        error: hecs::ComponentError,
-        #[backtrace]
-        backtrace: Box<Backtrace>,
-    },
-    #[error("Error: {error}, BackTrace: {backtrace}")]
-    HecsQueryOne {
-        #[from]
-        error: hecs::QueryOneError,
-        #[backtrace]
-        backtrace: Box<Backtrace>,
-    },
-    #[error("Error: {error}, BackTrace: {backtrace}")]
-    Rustls {
-        #[from]
-        error: rustls::Error,
-        #[backtrace]
-        backtrace: Box<Backtrace>,
-    },
-    #[error("Error: {error}, BackTrace: {backtrace}")]
     TomlDe {
         #[from]
         error: toml::de::Error,
-        #[backtrace]
-        backtrace: Box<Backtrace>,
-    },
-    #[error("Error: {error}, BackTrace: {backtrace}")]
-    RustlsVerifierBuilder {
-        #[from]
-        error: rustls::client::VerifierBuilderError,
         #[backtrace]
         backtrace: Box<Backtrace>,
     },

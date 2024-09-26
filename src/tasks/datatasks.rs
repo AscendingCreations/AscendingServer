@@ -39,7 +39,7 @@ pub enum DataTaskToken {
 pub const PACKET_DATA_LIMIT: usize = 1400;
 
 impl DataTaskToken {
-    pub async fn add_task(self, map: &mut MapActor, mut data: MByteBuffer) -> Result<()> {
+    pub fn add_task(self, map: &mut MapActor, mut data: MByteBuffer) -> Result<()> {
         //Newer packets get pushed to the back.
         match map.packet_cache.entry(self) {
             Entry::Vacant(v) => {
@@ -80,7 +80,7 @@ impl DataTaskToken {
         Ok(())
     }
 
-    pub async fn add_tasks(self, map: &mut MapActor, data: &mut Vec<MByteBuffer>) -> Result<()> {
+    pub fn add_tasks(self, map: &mut MapActor, data: &mut Vec<MByteBuffer>) -> Result<()> {
         //Newer packets get pushed to the back.
         for data in data {
             match map.packet_cache.entry(self) {
