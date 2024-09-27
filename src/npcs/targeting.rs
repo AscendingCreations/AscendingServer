@@ -32,18 +32,9 @@ pub async fn check_target(
     }
 
     if is_valid {
-        NpcStage::Targeting(TargetingStage::NpcDeTargetChance {
-            key,
-            npc_data,
-            position,
-            target,
-        })
+        TargetingStage::detarget_chance(key, position, npc_data, target)
     } else {
-        NpcStage::Targeting(TargetingStage::ClearTarget {
-            key,
-            npc_data,
-            position,
-        })
+        TargetingStage::clear_target(key, position, npc_data)
     }
 }
 
@@ -75,19 +66,11 @@ pub async fn check_target_distance(
 
     if let Some(entity_pos) = entity_pos {
         if position.checkdistance(entity_pos) > npc_data.sight {
-            return NpcStage::Targeting(TargetingStage::ClearTarget {
-                key,
-                npc_data,
-                position,
-            });
+            return TargetingStage::clear_target(key, position, npc_data);
         }
     }
 
-    NpcStage::Targeting(TargetingStage::MoveToMovement {
-        key,
-        position,
-        npc_data,
-    })
+    TargetingStage::move_to_movement(key, position, npc_data)
 }
 
 pub async fn check_detargeting(
@@ -99,11 +82,7 @@ pub async fn check_detargeting(
 ) -> NpcStage {
     if target.target_type != Target::None {
         if npc_data.target_auto_switch && target.target_timer < map.tick {
-            return NpcStage::Targeting(TargetingStage::ClearTarget {
-                key,
-                npc_data,
-                position,
-            });
+            return TargetingStage::clear_target(key, position, npc_data);
         } else if npc_data.target_range_dropout {
             return NpcStage::Targeting(TargetingStage::CheckDistance {
                 key,
@@ -113,11 +92,7 @@ pub async fn check_detargeting(
             });
         }
 
-        return NpcStage::Targeting(TargetingStage::MoveToMovement {
-            key,
-            position,
-            npc_data,
-        });
+        return TargetingStage::move_to_movement(key, position, npc_data);
     }
 
     NpcStage::Targeting(TargetingStage::GetTargetMaps {
@@ -134,11 +109,7 @@ pub async fn get_targeting_maps(
     npc_data: Arc<NpcData>,
 ) -> NpcStage {
     if !npc_data.is_agressive() {
-        return NpcStage::Targeting(TargetingStage::MoveToMovement {
-            key,
-            position,
-            npc_data,
-        });
+        return TargetingStage::move_to_movement(key, position, npc_data);
     }
 
     let maps = get_maps_in_range(&map.storage, &position, npc_data.sight)
@@ -146,12 +117,7 @@ pub async fn get_targeting_maps(
         .filter_map(|m| m.get())
         .collect();
 
-    NpcStage::Targeting(TargetingStage::GetTargetFromMaps {
-        key,
-        position,
-        npc_data,
-        maps,
-    })
+    TargetingStage::get_target_from_maps(key, position, npc_data, maps)
 }
 
 pub async fn get_target(
@@ -166,13 +132,7 @@ pub async fn get_target(
         {
             let target = Target::Player(*pkey, player.uid, player.position.map);
 
-            return NpcStage::Targeting(TargetingStage::SetTarget {
-                key,
-                position,
-                npc_data,
-                target,
-                target_pos: player.position,
-            });
+            return TargetingStage::set_target(key, position, npc_data, target, player.position);
         }
     }
 
@@ -187,13 +147,7 @@ pub async fn get_target(
             {
                 let target = Target::Npc(*nkey, npc.position.map);
 
-                return NpcStage::Targeting(TargetingStage::SetTarget {
-                    key,
-                    position,
-                    npc_data,
-                    target,
-                    target_pos: npc.position,
-                });
+                return TargetingStage::set_target(key, position, npc_data, target, npc.position);
             }
         }
     }
@@ -220,11 +174,7 @@ pub async fn set_target(
             map.tick + Duration::try_milliseconds(npc_data.attack_wait).unwrap_or_default();
     }
 
-    NpcStage::Targeting(TargetingStage::MoveToMovement {
-        key,
-        position,
-        npc_data,
-    })
+    TargetingStage::move_to_movement(key, position, npc_data)
 }
 
 pub async fn set_stage(store: &mut MapActorStore, key: GlobalKey, stage: NpcStages) {

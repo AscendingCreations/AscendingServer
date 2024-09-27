@@ -173,11 +173,6 @@ pub enum TargetingStage {
         position: Position,
         npc_data: Arc<NpcData>,
     },
-    CheckMaps {
-        key: GlobalKey,
-        position: Position,
-        npc_data: Arc<NpcData>,
-    },
     GetTargetFromMaps {
         key: GlobalKey,
         position: Position,
@@ -202,6 +197,48 @@ pub enum TargetingStage {
 }
 
 impl TargetingStage {
+    pub fn get_target_from_maps(
+        key: GlobalKey,
+        position: Position,
+        npc_data: Arc<NpcData>,
+        maps: Vec<MapPosition>,
+    ) -> NpcStage {
+        NpcStage::Targeting(TargetingStage::GetTargetFromMaps {
+            key,
+            position,
+            npc_data,
+            maps,
+        })
+    }
+
+    pub fn move_to_movement(
+        key: GlobalKey,
+        position: Position,
+        npc_data: Arc<NpcData>,
+    ) -> NpcStage {
+        NpcStage::Targeting(TargetingStage::MoveToMovement {
+            key,
+            position,
+            npc_data,
+        })
+    }
+
+    pub fn set_target(
+        key: GlobalKey,
+        position: Position,
+        npc_data: Arc<NpcData>,
+        target: Target,
+        target_pos: Position,
+    ) -> NpcStage {
+        NpcStage::Targeting(TargetingStage::SetTarget {
+            key,
+            position,
+            npc_data,
+            target,
+            target_pos,
+        })
+    }
+
     pub fn check_target(
         key: GlobalKey,
         position: Position,
@@ -213,6 +250,28 @@ impl TargetingStage {
             position,
             npc_data,
             target,
+        })
+    }
+
+    pub fn detarget_chance(
+        key: GlobalKey,
+        position: Position,
+        npc_data: Arc<NpcData>,
+        target: Targeting,
+    ) -> NpcStage {
+        NpcStage::Targeting(TargetingStage::NpcDeTargetChance {
+            key,
+            position,
+            npc_data,
+            target,
+        })
+    }
+
+    pub fn clear_target(key: GlobalKey, position: Position, npc_data: Arc<NpcData>) -> NpcStage {
+        NpcStage::Targeting(TargetingStage::ClearTarget {
+            key,
+            position,
+            npc_data,
         })
     }
 }
