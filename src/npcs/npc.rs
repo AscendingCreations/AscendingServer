@@ -138,6 +138,8 @@ impl Npc {
     #[inline(always)]
     pub fn npc_clear_move_path(&mut self) {
         self.moves.clear();
+        self.path_fails = 0;
+        self.path_tries = 0;
         self.moving = false;
     }
 
@@ -158,37 +160,6 @@ impl Npc {
 
         Ok(())
     }
-
-    /* #[inline(always)]
-    pub async fn npc_switch_maps(
-        world: &GameWorld,
-        storage: &GameStore,
-        entity: &EntityKey,
-        new_pos: Position,
-    ) -> Result<Position> {
-        let npc_position = world.get_or_err::<Position>(entity).await?;
-
-        if let Some(mapref) = storage.maps.get(&npc_position.map) {
-            let mut map = mapref.write().await;
-            map.remove_npc(*entity);
-            map.remove_entity_from_grid(npc_position);
-        } else {
-            return Ok(npc_position);
-        }
-
-        if let Some(mapref) = storage.maps.get(&new_pos.map) {
-            let mut map = mapref.write().await;
-            map.add_npc(*entity);
-            map.add_entity_to_grid(new_pos);
-        } else {
-            return Ok(npc_position);
-        }
-
-        let lock = world.write().await;
-        *lock.get::<&mut Position>(entity.0)? = new_pos;
-
-        Ok(npc_position)
-    }*/
 
     #[inline(always)]
     pub fn npc_swap_pos(&mut self, map: &mut MapActor, pos: Position) -> Position {

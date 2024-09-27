@@ -1,5 +1,6 @@
-use crate::{gametypes::*, npcs::*, time_ext::MyInstant, GlobalKey};
+use crate::{gametypes::*, npcs::*, time_ext::MyInstant, ClaimsKey, GlobalKey};
 use std::{collections::VecDeque, sync::Arc};
+use tokio::sync::Mutex;
 
 pub enum NpcStage {
     None,
@@ -113,6 +114,27 @@ pub enum MovementStage {
         position: Position,
         npc_data: Arc<NpcData>,
         next_move: (Position, u8),
+    },
+    GetTileClaim {
+        key: GlobalKey,
+        old_position: Position,
+        npc_data: Arc<NpcData>,
+        new_position: Position,
+    },
+    SwitchMaps {
+        key: GlobalKey,
+        old_position: Position,
+        npc_data: Arc<NpcData>,
+        new_position: Position,
+        can_switch: bool,
+        map_switch_key: ClaimsKey,
+    },
+    MapSwitchFinish {
+        key: GlobalKey,
+        npc_data: Arc<NpcData>,
+        new_position: Position,
+        map_switch_key: ClaimsKey,
+        npc: Arc<Mutex<Npc>>,
     },
     MoveToCombat {
         key: GlobalKey,
