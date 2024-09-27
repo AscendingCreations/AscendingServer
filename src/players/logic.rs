@@ -20,9 +20,6 @@ pub fn update_players(world: &mut World, storage: &Storage) -> Result<()> {
                         *world.get::<&mut DeathType>(id.0)? = DeathType::Alive;
                     }
 
-                    DataTaskToken::Death(world.get_or_err::<Position>(id)?.map)
-                        .add_task(storage, death_packet(*id, DeathType::Alive)?)?;
-
                     player_warp(
                         world,
                         storage,
@@ -31,6 +28,9 @@ pub fn update_players(world: &mut World, storage: &Storage) -> Result<()> {
                         false,
                     )?;
                     //init_data_lists(world, storage, id, None)?;
+
+                    DataTaskToken::Death(world.get_or_err::<Position>(id)?.map)
+                        .add_task(storage, death_packet(*id, DeathType::Alive)?)?;
 
                     //lets heal them fully on revival.
                     for i in 0..VITALS_MAX {
