@@ -200,3 +200,19 @@ pub enum TargetingStage {
         npc_data: Arc<NpcData>,
     },
 }
+
+impl TargetingStage {
+    pub fn check_target(
+        key: GlobalKey,
+        position: Position,
+        npc_data: Arc<NpcData>,
+        target: Targeting,
+    ) -> NpcStage {
+        NpcStage::Targeting(TargetingStage::CheckTarget {
+            key,
+            position,
+            npc_data,
+            target,
+        })
+    }
+}

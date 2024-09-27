@@ -82,21 +82,21 @@ impl MapActorStore {
             let mut buf = MByteBuffer::new_packet()?;
 
             buf.write(ServerPacketID::PlayerData)?;
-            buf.write(&player.lock().await.username)?;
-            buf.write(player.lock().await.access)?;
-            buf.write(player.lock().await.dir)?;
-            buf.write(&player.lock().await.equipment)?;
-            buf.write(player.lock().await.hidden)?;
-            buf.write(player.lock().await.level)?;
-            buf.write(player.lock().await.death)?;
-            buf.write(player.lock().await.damage)?;
-            buf.write(player.lock().await.defense)?;
-            buf.write(player.lock().await.position)?;
-            buf.write(player.lock().await.pk)?;
-            buf.write(player.lock().await.pvpon)?;
-            buf.write(player.lock().await.sprite as u8)?;
-            buf.write(player.lock().await.vital)?;
-            buf.write(player.lock().await.vitalmax)?;
+            buf.write(&player.username)?;
+            buf.write(player.access)?;
+            buf.write(player.dir)?;
+            buf.write(&player.equipment)?;
+            buf.write(player.hidden)?;
+            buf.write(player.level)?;
+            buf.write(player.death)?;
+            buf.write(player.damage)?;
+            buf.write(player.defense)?;
+            buf.write(player.position)?;
+            buf.write(player.pk)?;
+            buf.write(player.pvpon)?;
+            buf.write(player.sprite as u8)?;
+            buf.write(player.vital)?;
+            buf.write(player.vitalmax)?;
             buf.finish()?;
 
             return self.send_to(key, buf).await;
@@ -121,7 +121,7 @@ impl MapActorStore {
             let mut buf = MByteBuffer::new_packet()?;
 
             buf.write(ServerPacketID::PlayerInv)?;
-            buf.write(&player.lock().await.inventory)?;
+            buf.write(&player.inventory)?;
 
             buf.finish()?;
 
@@ -138,7 +138,7 @@ impl MapActorStore {
 
             buf.write(ServerPacketID::PlayerInvSlot)?;
             buf.write(id)?;
-            buf.write(player.lock().await.inventory[id])?;
+            buf.write(player.inventory[id])?;
             buf.finish()?;
 
             return self.send_to(key, buf).await;
@@ -154,7 +154,7 @@ impl MapActorStore {
 
             buf.write(ServerPacketID::PlayerStorage)?;
             buf.write(range.clone())?;
-            buf.write(&player.lock().await.storage[range])?;
+            buf.write(&player.storage[range])?;
             buf.finish()?;
 
             return self.send_to(key, buf).await;
@@ -170,7 +170,7 @@ impl MapActorStore {
 
             buf.write(ServerPacketID::PlayerStorageSlot)?;
             buf.write(id)?;
-            buf.write(player.lock().await.storage[id])?;
+            buf.write(player.storage[id])?;
             buf.finish()?;
 
             return self.send_to(key, buf).await;
@@ -186,7 +186,7 @@ impl MapActorStore {
 
             buf.write(ServerPacketID::PlayerEquipment)?;
             buf.write(key)?;
-            buf.write(&player.lock().await.equipment)?;
+            buf.write(&player.equipment)?;
             buf.finish()?;
 
             return map.send_to_maps(self, buf, None).await;
@@ -201,8 +201,8 @@ impl MapActorStore {
             let mut buf = MByteBuffer::new_packet()?;
 
             buf.write(ServerPacketID::PlayerLevel)?;
-            buf.write(player.lock().await.level)?;
-            buf.write(player.lock().await.levelexp)?;
+            buf.write(player.level)?;
+            buf.write(player.levelexp)?;
             buf.finish()?;
 
             return self.send_to(key, buf).await;
@@ -217,7 +217,7 @@ impl MapActorStore {
             let mut buf = MByteBuffer::new_packet()?;
 
             buf.write(ServerPacketID::PlayerMoney)?;
-            buf.write(player.lock().await.vals)?;
+            buf.write(player.vals)?;
             buf.finish()?;
 
             return self.send_to(key, buf).await;
@@ -238,7 +238,7 @@ impl MapActorStore {
             let closure = |toself, id| if toself { Some(id) } else { None };
 
             buf.write(ServerPacketID::PlayerPk)?;
-            buf.write(player.lock().await.pk)?;
+            buf.write(player.pk)?;
             buf.finish()?;
 
             return map.send_to_maps(self, buf, closure(toself, key)).await;
@@ -258,21 +258,15 @@ impl MapActorStore {
         id: Option<GlobalKey>,
     ) -> Result<()> {
         let access = match self.players.get(&key) {
-            Some(p) => p.lock().await.access,
+            Some(p) => p.access,
             None => UserAccess::None,
         };
 
         match chan {
-            MessageChannel::Map => {
-                DataTaskToken::MapChat
-                    .add_task(map, message_packet(chan, head, msg, Some(access))?)
-                    .await?
-            }
-            MessageChannel::Global => {
-                DataTaskToken::GlobalChat
-                    .add_task(map, message_packet(chan, head, msg, Some(access))?)
-                    .await?
-            }
+            MessageChannel::Map => DataTaskToken::MapChat
+                .add_task(map, message_packet(chan, head, msg, Some(access))?)?,
+            MessageChannel::Global => DataTaskToken::GlobalChat
+                .add_task(map, message_packet(chan, head, msg, Some(access))?)?,
             MessageChannel::Party | MessageChannel::Trade | MessageChannel::Help => {}
             MessageChannel::Private => {
                 let mut buf = MByteBuffer::new_packet()?;
@@ -350,7 +344,7 @@ impl MapActorStore {
         trade_slot: u16,
     ) -> Result<()> {
         let buf = if let Some(player) = self.players.get(&target_key) {
-            if let Some(trade) = &player.lock().await.trade {
+            if let Some(trade) = &player.trade {
                 let mut buf = MByteBuffer::new_packet()?;
 
                 buf.write(ServerPacketID::UpdateTradeItem)?;
@@ -381,7 +375,7 @@ impl MapActorStore {
         send_key: GlobalKey,
     ) -> Result<()> {
         let buf = if let Some(player) = self.players.get(&target_key) {
-            if let Some(trade) = &player.lock().await.trade {
+            if let Some(trade) = &player.trade {
                 let mut buf = MByteBuffer::new_packet()?;
 
                 buf.write(ServerPacketID::UpdateTradeMoney)?;
