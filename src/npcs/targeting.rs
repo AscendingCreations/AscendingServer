@@ -1,7 +1,7 @@
-use crate::{gametypes::*, maps::*, npcs::*, players::*, GlobalKey};
+use crate::{gametypes::*, maps::*, npcs::*, GlobalKey};
 use chrono::Duration;
 use std::sync::Arc;
-use tokio::sync::Mutex;
+//use tokio::sync::Mutex;
 //use rand::{thread_rng, Rng};
 
 pub async fn check_target(
@@ -16,15 +16,14 @@ pub async fn check_target(
     match target.target_type {
         Target::Player(i, accid, _map_pos) => {
             if let Some(player) = store.players.get(&i) {
-                let lock = player.lock().await;
-                if lock.death.is_alive() && lock.uid == accid {
+                if player.death.is_alive() && player.uid == accid {
                     is_valid = true;
                 }
             }
         }
         Target::Npc(i, _map_pos) => {
             if let Some(npc) = store.npcs.get(&i) {
-                if npc.lock().await.death.is_alive() {
+                if npc.death.is_alive() {
                     is_valid = true;
                 }
             }
@@ -58,14 +57,14 @@ pub async fn check_target_distance(
     let entity_pos = match target.target_type {
         Target::Player(i, _accid, _map_pos) => {
             if let Some(player) = store.players.get(&i) {
-                Some(player.lock().await.position)
+                Some(player.position)
             } else {
                 None
             }
         }
         Target::Npc(i, _map_pos) => {
             if let Some(npc) = store.npcs.get(&i) {
-                Some(npc.lock().await.position)
+                Some(npc.position)
             } else {
                 None
             }
@@ -161,55 +160,39 @@ pub async fn get_target(
     position: Position,
     npc_data: Arc<NpcData>,
 ) -> NpcStage {
-    let players: Vec<(GlobalKey, Arc<Mutex<Player>>)> = store
-        .players
-        .iter()
-        .map(|(key, player)| (*key, player.clone()))
-        .collect();
-
-    for (pkey, player) in players {
+    for (pkey, player) in store.players.iter_mut() {
         if let Some(Entity::Player(player)) =
             npc_targeting(position, &npc_data, Entity::Player(player)).await
         {
-            let lock = player.lock().await;
-            let target = Target::Player(pkey, lock.uid, lock.position.map);
-            let target_pos = lock.position;
+            let target = Target::Player(*pkey, player.uid, player.position.map);
 
             return NpcStage::Targeting(TargetingStage::SetTarget {
                 key,
                 position,
                 npc_data,
                 target,
-                target_pos,
+                target_pos: player.position,
             });
         }
     }
 
     if npc_data.has_enemies {
-        let npcs: Vec<(GlobalKey, Arc<Mutex<Npc>>)> = store
-            .npcs
-            .iter()
-            .map(|(key, npc)| (*key, npc.clone()))
-            .collect();
-
-        for (nkey, npc) in npcs {
-            if key == nkey {
+        for (nkey, npc) in store.npcs.iter_mut() {
+            if key == *nkey {
                 continue;
             }
 
             if let Some(Entity::Npc(npc)) =
                 npc_targeting(position, &npc_data, Entity::Npc(npc)).await
             {
-                let lock = npc.lock().await;
-                let target = Target::Npc(nkey, lock.position.map);
-                let target_pos = lock.position;
+                let target = Target::Npc(*nkey, npc.position.map);
 
                 return NpcStage::Targeting(TargetingStage::SetTarget {
                     key,
                     position,
                     npc_data,
                     target,
-                    target_pos,
+                    target_pos: npc.position,
                 });
             }
         }
@@ -228,14 +211,12 @@ pub async fn set_target(
     target: Target,
     target_pos: Position,
 ) -> NpcStage {
-    if let Some(npc) = store.npcs.get(&key) {
-        let mut lock = npc.lock().await;
-
-        lock.target.target_type = target;
-        lock.target.target_timer = map.tick
+    if let Some(npc) = store.npcs.get_mut(&key) {
+        npc.target.target_type = target;
+        npc.target.target_timer = map.tick
             + Duration::try_milliseconds(npc_data.target_auto_switch_chance).unwrap_or_default();
-        lock.target.target_pos = target_pos;
-        lock.attack_timer =
+        npc.target.target_pos = target_pos;
+        npc.attack_timer =
             map.tick + Duration::try_milliseconds(npc_data.attack_wait).unwrap_or_default();
     }
 
@@ -247,10 +228,8 @@ pub async fn set_target(
 }
 
 pub async fn set_stage(store: &mut MapActorStore, key: GlobalKey, stage: NpcStages) {
-    if let Some(npc) = store.npcs.get(&key) {
-        let mut lock = npc.lock().await;
-
-        lock.stage = stage;
+    if let Some(npc) = store.npcs.get_mut(&key) {
+        npc.stage = stage;
     }
 }
 
@@ -355,33 +334,26 @@ pub async fn update_target_pos(world: &GameWorld, entity: &GlobalKey) -> Result<
     Ok(target)
 }*/
 
-pub async fn npc_targeting(
+pub async fn npc_targeting<'a>(
     position: Position,
     npc_data: &NpcData,
-    entity: Entity,
-) -> Option<Entity> {
+    entity: Entity<'a>,
+) -> Option<Entity<'a>> {
     let (pos, _) = match &entity {
         Entity::Player(player) => {
-            let lock = player.lock().await;
+            if player.death.is_alive() {
+                let check = check_surrounding(position.map, player.position.map, true);
 
-            if lock.death.is_alive() {
-                let check = check_surrounding(position.map, lock.position.map, true);
-                let pos = lock.position.map_offset(check.into());
-                let dir = lock.dir;
-
-                (pos, dir)
+                (player.position.map_offset(check.into()), player.dir)
             } else {
                 return None;
             }
         }
         Entity::Npc(npc) => {
-            let lock = npc.lock().await;
+            if npc.death.is_alive() && npc_data.enemies.iter().any(|&x| npc.index == x) {
+                let check = check_surrounding(position.map, npc.position.map, true);
 
-            if lock.death.is_alive() && npc_data.enemies.iter().any(|&x| lock.index == x) {
-                let check = check_surrounding(position.map, lock.position.map, true);
-                let pos = lock.position.map_offset(check.into());
-                let dir = lock.dir;
-                (pos, dir)
+                (npc.position.map_offset(check.into()), npc.dir)
             } else {
                 return None;
             }

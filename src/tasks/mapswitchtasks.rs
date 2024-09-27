@@ -23,7 +23,7 @@ impl MapActor {
 
         for key in keys {
             if let Some(player) = store.players.get_mut(&key) {
-                let task = player.lock().await.switch_tasks.take();
+                let task = player.switch_tasks.take();
                 if let Some(mut task) = task {
                     let mut count = task.npcs.len() + task.players.len() + task.items.len();
 
@@ -55,7 +55,7 @@ impl MapActor {
                         self.player_switch_processing.swap_remove(&key);
                     }
 
-                    let _ = player.lock().await.switch_tasks.insert(task);
+                    let _ = player.switch_tasks.insert(task);
                 }
             }
         }

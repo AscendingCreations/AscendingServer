@@ -246,12 +246,12 @@ pub enum EntityType {
     Npc(GlobalKey),
 }
 
-#[derive(Clone, Debug, Default)]
-pub enum Entity {
+#[derive(Debug, Default)]
+pub enum Entity<'a> {
     #[default]
     None,
-    Player(Arc<Mutex<Player>>),
-    Npc(Arc<Mutex<Npc>>),
+    Player(&'a mut Player),
+    Npc(&'a mut Npc),
 }
 
 #[derive(

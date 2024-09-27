@@ -1,7 +1,5 @@
 use super::{MapActor, MapActorStore, MapAttribute, MapIncomming, MapQuickResponse};
-use crate::{
-    gametypes::*, identity::GlobalKey, items::Item, network::*, time_ext::MyInstant, IDIncomming,
-};
+use crate::{gametypes::*, identity::GlobalKey, items::Item, time_ext::MyInstant, IDIncomming};
 use educe::Educe;
 use mmap_bytey::{MByteBufferRead, MByteBufferWrite};
 use std::backtrace::Backtrace;
@@ -317,10 +315,9 @@ pub async fn try_drop_item(
                     .await
                     .unwrap();
 
-                //map.add_item_to_grid(position, key, drop_item.index, drop_item.amount);
-                /*DataTaskToken::ItemLoad(found_pos.0.map)
-                .add_task(
-                    storage,
+                /*map.add_item_to_grid(position, key, drop_item.index, drop_item.amount);
+                DataTaskToken::ItemLoad.add_task(
+                    map,
                     map_item_packet(
                         GlobalKey(id),
                         map_item.pos,
@@ -328,8 +325,7 @@ pub async fn try_drop_item(
                         map_item.ownerid,
                         true,
                     )?,
-                )
-                .await?;*/
+                )?;*/
             }
             break;
         }
@@ -383,9 +379,9 @@ pub async fn player_interact_object(
 ) -> Result<()> {
     if let Some(player) = store.players.get_mut(&key) {
         let target_pos = {
-            let mut next_pos = player.lock().await.position;
+            let mut next_pos = player.position;
 
-            match player.lock().await.dir {
+            match player.dir {
                 1 => {
                     next_pos.x += 1;
 
@@ -426,13 +422,13 @@ pub async fn player_interact_object(
         if let Some(map_base) = map.storage.bases.maps.get(&map.position) {
             match map_base.attribute[target_pos.as_tile()] {
                 MapAttribute::Storage => {
-                    player.lock().await.is_using = IsUsingType::Bank;
+                    player.is_using = IsUsingType::Bank;
                     store.send_store(key, 0..35).await?;
                     store.send_store(key, 35..MAX_STORAGE).await?;
                     store.send_openstore(key).await?;
                 }
                 MapAttribute::Shop(shop_index) => {
-                    player.lock().await.is_using = IsUsingType::Store(shop_index as i64);
+                    player.is_using = IsUsingType::Store(shop_index as i64);
                     store.send_openshop(key, shop_index).await?;
                 }
                 _ => {}

@@ -224,7 +224,7 @@ impl MapActor {
                 continue;
             }
 
-            if let Some(socket) = &mut player.lock().await.socket {
+            if let Some(socket) = &mut player.socket {
                 return socket.send(buffer.clone()).await;
             }
         }
