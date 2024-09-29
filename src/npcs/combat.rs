@@ -1,12 +1,9 @@
-use std::borrow::Borrow;
-
 use crate::{gametypes::*, maps::*, npcs::*, players::*, tasks::*, GlobalKey};
 use rand::{thread_rng, Rng};
 
 #[inline(always)]
 pub async fn damage_npc(store: &mut MapActorStore, key: GlobalKey, damage: i32) -> Result<()> {
-    if let Some(npc) = store.npcs.get(&key) {
-        let mut npc = npc.lock().await;
+    if let Some(npc) = store.npcs.get_mut(&key) {
         npc.vital[VitalTypes::Hp as usize] =
             npc.vital[VitalTypes::Hp as usize].saturating_sub(damage);
     }
@@ -36,14 +33,13 @@ pub async fn try_cast(
     casttype: NpcCastType,
 ) -> Result<bool> {
     if let Some(npc) = store.npcs.get(&caster_key) {
-        let caster_pos = npc.lock().await.position;
-        let npc_mode = npc.lock().await.mode;
+        let caster_pos = npc.position;
+        let npc_mode = npc.mode;
 
         match target {
             Target::Player(key, _accid, _map_pos) => {
                 let data = if let Some(player) = store.players.get(&key) {
-                    let lock = player.lock().await;
-                    Some((lock.is_using.inuse(), lock.position, lock.death))
+                    Some((player.is_using.inuse(), player.position, player.death))
                 } else {
                     None
                 };
@@ -67,8 +63,7 @@ pub async fn try_cast(
             }
             Target::Npc(key, _map_pos) => {
                 let data = if let Some(npc) = store.npcs.get(&key) {
-                    let lock = npc.lock().await;
-                    Some((lock.index, lock.position, lock.death))
+                    Some((npc.index, npc.position, npc.death))
                 } else {
                     None
                 };
@@ -110,7 +105,7 @@ pub async fn npc_cast(
         | AIBehavior::HelpReactive
         | AIBehavior::Reactive => {
             let target_type = if let Some(npc) = store.npcs.get(&key) {
-                npc.lock().await.target.target_type
+                npc.target.target_type
             } else {
                 return Ok(Target::None);
             };
@@ -141,7 +136,7 @@ pub async fn can_attack_npc(
     key: GlobalKey,
 ) -> Result<bool> {
     let index = if let Some(npc) = store.npcs.get(&key) {
-        npc.lock().await.index
+        npc.index
     } else {
         return Ok(false);
     };
@@ -170,28 +165,22 @@ pub async fn npc_combat(
                 let damage =
                     npc_combat_damage(map, store, key, player_key, base, WorldEntityType::Player)
                         .await?;
-                damage_player(map, store, player_key, damage).await?;
-                DataTaskToken::Damage
-                    .add_task(
+                //damage_player(map, store, player_key, damage).await?;
+                DataTaskToken::Damage.add_task(
+                    map,
+                    damage_packet(key, damage as u16, player.position, true)?,
+                )?;
+                DataTaskToken::Attack.add_task(map, attack_packet(key)?)?;
+
+                if player.vital[0] > 0 {
+                    DataTaskToken::Vitals.add_task(
                         map,
-                        damage_packet(key, damage as u16, player.lock().await.position, true)?,
-                    )
-                    .await?;
-                DataTaskToken::Attack
-                    .add_task(map, attack_packet(key)?)
-                    .await?;
-
-                if player.lock().await.vital[0] > 0 {
-                    DataTaskToken::Vitals
-                        .add_task(map, {
-                            let lock = player.lock().await;
-
-                            vitals_packet(i, lock.vital, lock.vitalmax)?
-                        })
-                        .await?;
+                        vitals_packet(player_key, player.vital, player.vitalmax)?,
+                    )?;
                 } else {
-                    remove_all_npc_target(world, &player_key).await?;
-                    kill_player(world, storage, &player_key).await?;
+                    //remove_all_npc_target(world, &player_key).await?;
+                    //kill_player(world, storage, &player_key).await?;
+                    todo!()
                 }
             }
         }
@@ -202,29 +191,19 @@ pub async fn npc_combat(
                 damage_npc(store, npc_key, damage).await?;
 
                 DataTaskToken::Damage
-                    .add_task(
-                        map,
-                        damage_packet(key, damage as u16, npc.lock().await.position, true)?,
-                    )
-                    .await?;
-                DataTaskToken::Attack
-                    .add_task(map, attack_packet(key)?)
-                    .await?;
+                    .add_task(map, damage_packet(key, damage as u16, npc.position, true)?)?;
+                DataTaskToken::Attack.add_task(map, attack_packet(key)?)?;
 
-                if npc.lock().await.vital[0] > 0 {
+                if npc.vital[0] > 0 {
                     DataTaskToken::Vitals
-                        .add_task(map, {
-                            let lock = npc.lock().await;
-                            vitals_packet(npc_key, lock.vital, lock.vitalmax)?
-                        })
-                        .await?;
-                    try_target_entity(world, storage, npc_key, Target::Npc(*key)).await?;
+                        .add_task(map, vitals_packet(npc_key, npc.vital, npc.vitalmax)?)?;
+                    //try_target_entity(world, storage, npc_key, Target::Npc(*key)).await?;
                 } else {
-                    kill_npc(world, storage, &npc_key).await?;
+                    kill_npc(map, store, npc_key).await?;
                 }
             }
         }
-        Target::Map(_) | Target::None | Target::MapItem(_) => {}
+        Target::Map(_) | Target::None | Target::MapItem(_, _) => {}
     }
 
     Ok(())
@@ -241,18 +220,17 @@ pub async fn npc_combat_damage(
     let def = match entity_type {
         WorldEntityType::Player => {
             let (def, level) = if let Some(player) = store.players.get(&enemy_key) {
-                let lock = player.lock().await;
-                (lock.defense, lock.level)
+                (player.defense, player.level)
             } else {
                 return Ok(0);
             };
 
-            def + player_get_armor_defense(map, store, enemy_key).await?.0 as u32
+            def //+ player_get_armor_defense(map, store, enemy_key).await?.0 as u32
                 + level.saturating_div(5) as u32
         }
         WorldEntityType::Npc => {
             if let Some(npc) = store.npcs.get(&enemy_key) {
-                npc.lock().await.defense
+                npc.defense
             } else {
                 return Ok(0);
             }
@@ -267,12 +245,7 @@ pub async fn npc_combat_damage(
     };
 
     if let Some(npc) = store.npcs.get(&key) {
-        let mut damage = npc
-            .lock()
-            .await
-            .damage
-            .saturating_sub(def / offset)
-            .max(base.mindamage);
+        let mut damage = npc.damage.saturating_sub(def / offset).max(base.mindamage);
         let mut rng = thread_rng();
 
         //set to max before we set to max i32 just in case. Order matters here.
@@ -301,45 +274,51 @@ pub async fn npc_combat_damage(
 }
 
 pub async fn kill_npc(map: &mut MapActor, store: &mut MapActorStore, key: GlobalKey) -> Result<()> {
-    let arc_npc = store.npcs.get(&key).cloned();
+    let (npc_base, position) = if let Some(npc) = store.npcs.get(&key) {
+        (
+            map.storage.bases.npcs[npc.index as usize].clone(),
+            npc.position,
+        )
+    } else {
+        return Ok(());
+    };
 
-    if let Some(npc) = arc_npc {
-        let mut npc = npc.lock().await;
-        let npcbase = map.storage.bases.npcs[npc.index as usize].clone();
-        let mut rng = thread_rng();
+    let mut rng = thread_rng();
 
-        if npcbase.max_shares > 0 {
-            let r = rng.gen_range(0..npcbase.max_shares);
-            if let Some(&drop_id) = npcbase.drop_ranges.get(&r) {
-                //do item drops here for this drop.
-                if let Some(drop_data) = npcbase.drops.get(drop_id) {
-                    for drop in drop_data.items.iter() {
-                        if drop.item > 0 && {
-                            let (drop, _wait_amount) = try_drop_item(
-                                map,
-                                store,
-                                DropItem {
-                                    index: drop.item,
-                                    amount: drop.amount as u16,
-                                    pos: npc.position,
-                                    player: None,
-                                },
-                                None,
-                                None,
-                                None,
-                            )
-                            .await?;
+    if npc_base.max_shares > 0 {
+        let r = rng.gen_range(0..npc_base.max_shares);
+        if let Some(&drop_id) = npc_base.drop_ranges.get(&r) {
+            //do item drops here for this drop.
+            if let Some(drop_data) = npc_base.drops.get(drop_id) {
+                for drop in drop_data.items.iter() {
+                    if drop.item > 0 && {
+                        let (drop, _wait_amount) = try_drop_item(
+                            map,
+                            store,
+                            DropItem {
+                                index: drop.item,
+                                amount: drop.amount as u16,
+                                pos: position,
+                                player: None,
+                            },
+                            None,
+                            None,
+                            None,
+                        )
+                        .await?;
 
-                            !drop
-                        } {
-                            break;
-                        }
+                        !drop
+                    } {
+                        break;
                     }
                 }
             }
         }
+    }
 
+    if let Some(npc) = store.npcs.get_mut(&key) {
         npc.death = Death::Dead;
     }
+
     Ok(())
 }
