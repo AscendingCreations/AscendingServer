@@ -36,19 +36,10 @@ pub async fn npc_path_start(
     let npc = store.npcs.get(&key).cloned().expect("NPC Was not on map!");
 
     if npc.path_timer > map.tick {
-        return NpcStage::Movement(MovementStage::ClearTarget {
-            key,
-            position: npc.position,
-            npc_data,
-        });
+        return MovementStage::clear_target(key, npc.position, npc_data);
     }
 
-    NpcStage::Movement(MovementStage::GetTargetUpdates {
-        key,
-        position: npc.position,
-        npc_data,
-        target: npc.target,
-    })
+    MovementStage::get_target_updates(key, npc.position, npc_data, npc.target)
 }
 
 pub async fn update_target_pos(
@@ -63,50 +54,29 @@ pub async fn update_target_pos(
             if let Some(player) = store.players.get(&global_key) {
                 (player.position, player.death)
             } else {
-                return NpcStage::Movement(MovementStage::ClearTarget {
-                    key,
-                    position,
-                    npc_data,
-                });
+                return MovementStage::clear_target(key, position, npc_data);
             }
         }
         Target::Npc(global_key, _) => {
             if let Some(npc) = store.npcs.get(&global_key) {
                 (npc.position, npc.death)
             } else {
-                return NpcStage::Movement(MovementStage::ClearTarget {
-                    key,
-                    position,
-                    npc_data,
-                });
+                return MovementStage::clear_target(key, position, npc_data);
             }
         }
         _ => {
-            return NpcStage::Movement(MovementStage::MoveToCombat {
-                key,
-                position,
-                npc_data,
-            })
+            return MovementStage::move_to_combat(key, position, npc_data);
         }
     };
 
     if check_surrounding(position.map, target_pos.map, true) == MapPos::None || !death.is_alive() {
-        NpcStage::Movement(MovementStage::ClearTarget {
-            key,
-            position,
-            npc_data,
-        })
+        MovementStage::clear_target(key, position, npc_data)
     } else {
         let mut new_target = target;
 
         new_target.target_pos = target_pos;
 
-        NpcStage::Movement(MovementStage::UpdateTarget {
-            key,
-            position,
-            npc_data,
-            new_target,
-        })
+        MovementStage::update_target(key, position, npc_data, new_target)
     }
 }
 
@@ -126,11 +96,7 @@ pub async fn update_target(
     if new_target.target_pos.map.group != position.map.group
         || (new_target.target_type == Target::None && npc.target.target_type != Target::None)
     {
-        return NpcStage::Movement(MovementStage::ClearTarget {
-            key,
-            position,
-            npc_data,
-        });
+        return MovementStage::clear_target(key, position, npc_data);
     }
 
     //AI Timer is used to Reset the Moves every so offten to recalculate them for possible changes.
@@ -147,35 +113,22 @@ pub async fn update_target(
                 return NpcStage::None;
             }
         } else {
-            return NpcStage::Movement(MovementStage::UpdateAStarPaths {
+            return MovementStage::update_astart_paths(
                 key,
                 position,
                 npc_data,
-                target_pos: new_target.target_pos,
-                timer: map.tick + Duration::try_milliseconds(100).unwrap_or_default(),
-            });
+                map.tick + Duration::try_milliseconds(100).unwrap_or_default(),
+                new_target.target_pos,
+            );
         }
 
-        return NpcStage::Movement(MovementStage::NextMove {
-            key,
-            position,
-            npc_data,
-        });
+        return MovementStage::next_move(key, position, npc_data);
     }
 
     if npc.moving && !npc.moves.is_empty() {
-        NpcStage::Movement(MovementStage::NextMove {
-            key,
-            position,
-            npc_data,
-        })
+        MovementStage::next_move(key, position, npc_data)
     } else {
-        NpcStage::Movement(MovementStage::ProcessMovePosition {
-            key,
-            position,
-            npc_data,
-            new_target,
-        })
+        MovementStage::process_move_position(key, position, npc_data, new_target)
     }
 }
 
@@ -195,26 +148,11 @@ pub async fn update_astar_paths(
 
     // Anytime we do A* pathfinding if it failed we will do random movement.
     if let Some(path) = a_star_path(map, position, npc.dir, target_pos) {
-        NpcStage::Movement(MovementStage::SetMovePath {
-            key,
-            position,
-            npc_data,
-            path,
-            timer,
-        })
+        MovementStage::set_move_path(key, position, npc_data, timer, path)
     } else if npc.path_tries + 1 < 10 {
-        NpcStage::Movement(MovementStage::UpdateRandPaths {
-            key,
-            position,
-            npc_data,
-            timer,
-        })
+        MovementStage::update_rand_paths(key, position, npc_data, timer)
     } else {
-        NpcStage::Movement(MovementStage::NextMove {
-            key,
-            position,
-            npc_data,
-        })
+        MovementStage::next_move(key, position, npc_data)
     }
 }
 
@@ -233,13 +171,7 @@ pub async fn update_rand_paths(
 
     let path = npc_rand_movement(map, npc.position);
 
-    NpcStage::Movement(MovementStage::SetMovePath {
-        key,
-        position,
-        npc_data,
-        path,
-        timer,
-    })
+    MovementStage::set_move_path(key, position, npc_data, timer, path)
 }
 
 pub async fn process_moves(
@@ -260,13 +192,13 @@ pub async fn process_moves(
     if let Some(target_pos) = npc.move_pos_overide {
         let wait_time = npc_data.movement_wait + 750;
 
-        return NpcStage::Movement(MovementStage::UpdateAStarPaths {
+        return MovementStage::update_astart_paths(
             key,
             position,
             npc_data,
+            map.tick + Duration::try_milliseconds(wait_time).unwrap_or_default(),
             target_pos,
-            timer: map.tick + Duration::try_milliseconds(wait_time).unwrap_or_default(),
-        });
+        );
     } else if new_target.target_type != Target::None {
         if is_next_to_target(map, position, new_target.target_pos, 1) {
             let n_dir = get_target_direction(position, new_target.target_pos);
@@ -275,33 +207,25 @@ pub async fn process_moves(
                 return NpcStage::None;
             }
 
-            NpcStage::Movement(MovementStage::NextMove {
-                key,
-                position,
-                npc_data,
-            })
+            MovementStage::next_move(key, position, npc_data)
         } else {
-            NpcStage::Movement(MovementStage::UpdateAStarPaths {
+            MovementStage::update_astart_paths(
                 key,
                 position,
                 npc_data,
-                target_pos: new_target.target_pos,
-                timer: map.tick + Duration::try_milliseconds(100).unwrap_or_default(),
-            })
+                map.tick + Duration::try_milliseconds(100).unwrap_or_default(),
+                new_target.target_pos,
+            )
         }
     } else if npc.ai_timer <= map.tick {
-        NpcStage::Movement(MovementStage::UpdateRandPaths {
+        MovementStage::update_rand_paths(
             key,
             position,
             npc_data,
-            timer: map.tick + Duration::try_milliseconds(3000).unwrap_or_default(),
-        })
+            map.tick + Duration::try_milliseconds(3000).unwrap_or_default(),
+        )
     } else {
-        NpcStage::Movement(MovementStage::NextMove {
-            key,
-            position,
-            npc_data,
-        })
+        MovementStage::next_move(key, position, npc_data)
     }
 }
 
@@ -321,11 +245,7 @@ pub async fn set_move_path(
     npc.npc_set_move_path(path);
     npc.reset_path_tries(timer);
 
-    NpcStage::Movement(MovementStage::NextMove {
-        key,
-        position,
-        npc_data,
-    })
+    MovementStage::next_move(key, position, npc_data)
 }
 
 pub async fn clear_move_path(
@@ -341,11 +261,7 @@ pub async fn clear_move_path(
 
     npc.npc_clear_move_path();
 
-    NpcStage::Movement(MovementStage::MoveToCombat {
-        key,
-        position,
-        npc_data,
-    })
+    MovementStage::move_to_combat(key, position, npc_data)
 }
 
 pub async fn clear_target(
@@ -362,12 +278,7 @@ pub async fn clear_target(
     npc.npc_clear_move_path();
     npc.target = Targeting::default();
 
-    NpcStage::Movement(MovementStage::ProcessMovePosition {
-        key,
-        position,
-        npc_data,
-        new_target: Targeting::default(),
-    })
+    MovementStage::process_move_position(key, position, npc_data, Targeting::default())
 }
 
 pub async fn next_move(
@@ -385,20 +296,11 @@ pub async fn next_move(
         Some(v) => v,
         None => {
             npc.moving = false;
-            return NpcStage::Movement(MovementStage::MoveToCombat {
-                key,
-                position,
-                npc_data,
-            });
+            return MovementStage::move_to_combat(key, position, npc_data);
         }
     };
 
-    NpcStage::Movement(MovementStage::CheckBlock {
-        key,
-        position,
-        npc_data,
-        next_move,
-    })
+    MovementStage::check_block(key, position, npc_data, next_move)
 }
 
 pub async fn check_block(
@@ -422,38 +324,21 @@ pub async fn check_block(
             npc.moves.push_front((next_pos, next_dir));
             npc.path_fails += 1;
 
-            return NpcStage::Movement(MovementStage::MoveToCombat {
-                key,
-                position,
-                npc_data,
-            });
+            return MovementStage::move_to_combat(key, position, npc_data);
         }
 
         npc.npc_clear_move_path();
 
-        return NpcStage::Movement(MovementStage::MoveToCombat {
-            key,
-            position,
-            npc_data,
-        });
+        return MovementStage::move_to_combat(key, position, npc_data);
     }
 
     // if we have a cliam it means a npc from another map is moving here and already took the spot ahead of time.
     if position.map == next_pos.map && store.entity_claims_by_position.contains_key(&next_pos) {
         npc.npc_clear_move_path();
 
-        NpcStage::Movement(MovementStage::MoveToCombat {
-            key,
-            position,
-            npc_data,
-        })
+        MovementStage::move_to_combat(key, position, npc_data)
     } else {
-        NpcStage::Movement(MovementStage::ProcessMovement {
-            key,
-            position,
-            npc_data,
-            next_move: (next_pos, next_dir),
-        })
+        MovementStage::process_movement(key, position, npc_data, (next_pos, next_dir))
     }
 }
 
@@ -483,41 +368,18 @@ pub async fn process_target(
             }
         }
         _ => {
-            return NpcStage::Movement(MovementStage::ProcessMovement {
-                key,
-                position,
-                npc_data,
-                next_move: (next_pos, next_dir),
-            });
+            return MovementStage::process_movement(key, position, npc_data, (next_pos, next_dir));
         }
     };
 
     if go_to_combat {
-        NpcStage::Movement(MovementStage::MoveToCombat {
-            key,
-            position,
-            npc_data,
-        })
+        MovementStage::move_to_combat(key, position, npc_data)
     } else if death.is_alive() && target_pos == next_pos {
-        NpcStage::Movement(MovementStage::SetNpcDir {
-            key,
-            position,
-            npc_data,
-            next_move: (next_pos, next_dir),
-        })
+        MovementStage::set_npc_dir(key, position, npc_data, (next_pos, next_dir))
     } else if death.is_alive() && target_pos != next_pos {
-        NpcStage::Movement(MovementStage::ProcessMovement {
-            key,
-            position,
-            npc_data,
-            next_move: (next_pos, next_dir),
-        })
+        MovementStage::process_movement(key, position, npc_data, (next_pos, next_dir))
     } else {
-        NpcStage::Movement(MovementStage::ClearMovePath {
-            key,
-            position,
-            npc_data,
-        })
+        MovementStage::clear_move_path(key, position, npc_data)
     }
 }
 
@@ -537,34 +399,25 @@ pub async fn process_movement(
     if npc.position == next_pos {
         npc.set_npc_dir(map, next_dir).unwrap();
 
-        return NpcStage::Movement(MovementStage::MoveToCombat {
-            key,
-            position,
-            npc_data,
-        });
+        return MovementStage::move_to_combat(key, position, npc_data);
     } else if npc.move_pos_overide.is_none() {
         if npc.target.target_type != Target::None {
             let target = npc.target;
 
-            return NpcStage::Movement(MovementStage::ProcessTarget {
+            return MovementStage::process_target(
                 key,
                 position,
                 npc_data,
                 target,
-                next_move: (next_pos, next_dir),
-            });
+                (next_pos, next_dir),
+            );
         }
     } else if Some(next_pos) == npc.move_pos_overide {
         npc.move_pos_overide = None;
         npc.npc_clear_move_path();
     }
 
-    NpcStage::Movement(MovementStage::FinishMove {
-        key,
-        position,
-        npc_data,
-        next_move: (next_pos, next_dir),
-    })
+    MovementStage::finish_move(key, position, npc_data, (next_pos, next_dir))
 }
 
 pub async fn finish_movement(
@@ -583,12 +436,7 @@ pub async fn finish_movement(
     npc.dir = next_dir;
 
     if next_pos.map != npc.position.map {
-        NpcStage::Movement(MovementStage::GetTileClaim {
-            key,
-            old_position: position,
-            npc_data,
-            new_position: next_pos,
-        })
+        MovementStage::get_tile_claim(key, position, npc_data, next_pos)
     } else {
         npc.npc_swap_pos(map, next_pos);
         DataTaskToken::Move
@@ -598,11 +446,7 @@ pub async fn finish_movement(
             )
             .unwrap();
 
-        NpcStage::Movement(MovementStage::MoveToCombat {
-            key,
-            position,
-            npc_data,
-        })
+        MovementStage::move_to_combat(key, position, npc_data)
     }
 }
 
@@ -621,23 +465,23 @@ pub async fn check_map_switch(
             .entity_claims_by_position
             .insert(new_position, map_switch_key);
 
-        NpcStage::Movement(MovementStage::SwitchMaps {
+        MovementStage::switch_maps(
             key,
             old_position,
             npc_data,
             new_position,
-            can_switch: true,
+            true,
             map_switch_key,
-        })
+        )
     } else {
-        NpcStage::Movement(MovementStage::SwitchMaps {
+        MovementStage::switch_maps(
             key,
             old_position,
             npc_data,
             new_position,
-            can_switch: false,
-            map_switch_key: ClaimsKey::default(),
-        })
+            false,
+            ClaimsKey::default(),
+        )
     }
 }
 
@@ -666,19 +510,9 @@ pub async fn npc_switch_maps(
             )
             .unwrap();
 
-        NpcStage::Movement(MovementStage::MapSwitchFinish {
-            key,
-            npc_data,
-            new_position,
-            map_switch_key,
-            npc,
-        })
+        MovementStage::map_switch_finish(key, npc_data, new_position, map_switch_key, npc)
     } else {
-        NpcStage::Movement(MovementStage::MoveToCombat {
-            key,
-            position: old_position,
-            npc_data,
-        })
+        MovementStage::move_to_combat(key, old_position, npc_data)
     }
 }
 
@@ -709,9 +543,5 @@ pub async fn npc_finish_map_switch(
     store.claims.remove(map_switch_key);
     store.entity_claims_by_position.remove(&new_position);
 
-    NpcStage::Movement(MovementStage::MoveToCombat {
-        key,
-        position: new_position,
-        npc_data,
-    })
+    MovementStage::move_to_combat(key, new_position, npc_data)
 }

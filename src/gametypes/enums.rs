@@ -260,26 +260,6 @@ pub enum Entity<'a> {
     Debug,
     PartialEq,
     Eq,
-    Default,
-    Deserialize,
-    Serialize,
-    MByteBufferRead,
-    MByteBufferWrite,
-)]
-pub enum NpcStages {
-    #[default]
-    None,
-    Targeting,
-    Combat,
-    Movement,
-}
-
-#[derive(
-    Copy,
-    Clone,
-    Debug,
-    PartialEq,
-    Eq,
     Serialize,
     Deserialize,
     Default,

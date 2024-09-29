@@ -1,6 +1,7 @@
 use crate::{
     gametypes::*,
     maps::MapActor,
+    npcs::NpcStages,
     tasks::{dir_packet, DataTaskToken},
     time_ext::MyInstant,
     GlobalKey,
