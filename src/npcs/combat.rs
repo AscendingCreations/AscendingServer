@@ -1,16 +1,6 @@
 use crate::{gametypes::*, maps::*, npcs::*, players::*, tasks::*, GlobalKey};
 use rand::{thread_rng, Rng};
 
-#[inline(always)]
-pub async fn damage_npc(store: &mut MapActorStore, key: GlobalKey, damage: i32) -> Result<()> {
-    if let Some(npc) = store.npcs.get_mut(&key) {
-        npc.vital[VitalTypes::Hp as usize] =
-            npc.vital[VitalTypes::Hp as usize].saturating_sub(damage);
-    }
-
-    Ok(())
-}
-
 fn entity_cast_check(
     caster_pos: Position,
     target_pos: Position,
@@ -23,7 +13,7 @@ fn entity_cast_check(
     range >= caster_pos.checkdistance(pos) && target_death.is_alive()
 }
 
-pub async fn try_cast(
+pub async fn check_target(
     map: &mut MapActor,
     store: &mut MapActorStore,
     npc_info: NpcInfo,
@@ -68,12 +58,12 @@ pub async fn try_cast(
                 None
             }
         }
-        Target::Map(_) => return Ok(NpcStage::None),
+        Target::Map(_) => return Ok(NpcStage::None(npc_info)),
         Target::None
         | Target::MapItem {
             key: _,
             position: _,
-        } => return Ok(NpcStage::None),
+        } => return Ok(NpcStage::None(npc_info)),
     };
 
     if let Some((inuse, position, death)) = data {
@@ -82,16 +72,16 @@ pub async fn try_cast(
                 if !map.is_dir_blocked(npc_info.position, dir as u8)
                     && entity_cast_check(npc_info.position, position, death, npc_info.data.range)
                 {
-                    return Ok(NpcStage::Combat(CombatStage::None));
+                    return Ok(CombatStage::get_defense(npc_info, target));
                 }
             }
         }
     }
 
-    Ok(NpcStage::None)
+    Ok(NpcStage::None(npc_info))
 }
 
-pub async fn behaviour_check(store: &mut MapActorStore, npc_info: NpcInfo) -> Result<NpcStage> {
+pub fn behaviour_check(store: &mut MapActorStore, npc_info: NpcInfo) -> Result<NpcStage> {
     match npc_info.data.behaviour {
         AIBehavior::Agressive
         | AIBehavior::AgressiveHealer
@@ -106,14 +96,14 @@ pub async fn behaviour_check(store: &mut MapActorStore, npc_info: NpcInfo) -> Re
                     NpcCastType::Enemy,
                 ))
             } else {
-                Ok(NpcStage::None)
+                Ok(NpcStage::None(npc_info))
             }
         }
-        AIBehavior::Healer | AIBehavior::Friendly => Ok(NpcStage::None),
+        AIBehavior::Healer | AIBehavior::Friendly => Ok(NpcStage::None(npc_info)),
     }
 }
 
-pub async fn can_attack_npc(
+pub fn can_attack_npc(
     map: &mut MapActor,
     store: &mut MapActorStore,
     key: GlobalKey,
@@ -136,112 +126,67 @@ pub async fn can_attack_npc(
     }
 }
 
-pub async fn npc_combat(
-    map: &mut MapActor,
+pub fn get_defense(
     store: &mut MapActorStore,
-    key: GlobalKey,
-    base: &NpcData,
-) -> Result<()> {
-    match npc_cast(map, store, key, base).await? {
-        Target::Player(player_key, _accid, _map_pos) => {
-            if let Some(player) = store.players.get(&player_key).cloned() {
-                let damage =
-                    npc_combat_damage(store, key, player_key, base, WorldEntityType::Player)
-                        .await?;
-                //damage_player(map, store, player_key, damage).await?;
-                DataTaskToken::Damage.add_task(
-                    map,
-                    damage_packet(key, damage as u16, player.position, true)?,
-                )?;
-                DataTaskToken::Attack.add_task(map, attack_packet(key)?)?;
-
-                if player.vital[0] > 0 {
-                    DataTaskToken::Vitals.add_task(
-                        map,
-                        vitals_packet(player_key, player.vital, player.vitalmax)?,
-                    )?;
-                } else {
-                    //remove_all_npc_target(world, &player_key).await?;
-                    //kill_player(world, storage, &player_key).await?;
-                    todo!()
-                }
-            }
-        }
-        Target::Npc(npc_key, _map_pos) => {
-            if let Some(npc) = store.npcs.get(&npc_key).cloned() {
-                let damage =
-                    npc_combat_damage(store, key, npc_key, base, WorldEntityType::Npc).await?;
-                damage_npc(store, npc_key, damage).await?;
-
-                DataTaskToken::Damage
-                    .add_task(map, damage_packet(key, damage as u16, npc.position, true)?)?;
-                DataTaskToken::Attack.add_task(map, attack_packet(key)?)?;
-
-                if npc.vital[0] > 0 {
-                    DataTaskToken::Vitals
-                        .add_task(map, vitals_packet(npc_key, npc.vital, npc.vitalmax)?)?;
-                    //try_target_entity(world, storage, npc_key, Target::Npc(*key)).await?;
-                } else {
-                    kill_npc(map, store, npc_key).await?;
-                }
-            }
-        }
-        Target::Map(_) | Target::None | Target::MapItem(_, _) => {}
-    }
-
-    Ok(())
-}
-
-pub async fn npc_combat_damage(
-    store: &mut MapActorStore,
-    key: GlobalKey,
-    enemy_key: GlobalKey,
-    base: &NpcData,
-    entity_type: WorldEntityType,
-) -> Result<i32> {
-    let def = match entity_type {
-        WorldEntityType::Player => {
-            let (def, level) = if let Some(player) = store.players.get(&enemy_key) {
+    npc_info: NpcInfo,
+    target: Target,
+) -> Result<NpcStage> {
+    let def = match target {
+        Target::Player {
+            key,
+            uid: _,
+            position: _,
+        } => {
+            let (def, level) = if let Some(player) = store.players.get(&key) {
                 (player.defense, player.level)
             } else {
-                return Ok(0);
+                return Ok(NpcStage::None(npc_info));
             };
 
-            def //+ player_get_armor_defense(map, store, enemy_key).await?.0 as u32
-                + level.saturating_div(5) as u32
+            (def //+ player_get_armor_defense(map, store, enemy_key).await?.0 as u32
+                + level.saturating_div(5) as u32)
+                / 4
         }
-        WorldEntityType::Npc => {
-            if let Some(npc) = store.npcs.get(&enemy_key) {
-                npc.defense
+        Target::Npc { key, position: _ } => {
+            if let Some(npc) = store.npcs.get(&key) {
+                npc.defense / 2
             } else {
-                return Ok(0);
+                return Ok(NpcStage::None(npc_info));
             }
         }
-        _ => return Ok(0),
+        _ => return Ok(NpcStage::None(npc_info)),
     };
 
-    let offset = if entity_type == WorldEntityType::Player {
-        4
-    } else {
-        2
-    };
+    Ok(CombatStage::get_damage(npc_info, def, target))
+}
 
-    if let Some(npc) = store.npcs.get(&key) {
-        let mut damage = npc.damage.saturating_sub(def / offset).max(base.mindamage);
+pub fn get_damage(
+    store: &mut MapActorStore,
+    npc_info: NpcInfo,
+    defense: u32,
+    target: Target,
+) -> Result<NpcStage> {
+    if let Some(npc) = store.npcs.get(&npc_info.key) {
+        let mut damage = npc
+            .damage
+            .saturating_sub(defense)
+            .max(npc_info.data.mindamage);
         let mut rng = thread_rng();
 
         //set to max before we set to max i32 just in case. Order matters here.
-        if damage > base.maxdamage {
-            damage = base.maxdamage;
+        if damage > npc_info.data.maxdamage {
+            damage = npc_info.data.maxdamage;
         }
 
         //protect from accidental heals due to u32 to i32 conversion.
-        if damage >= i32::MAX as u32 {
-            damage = (i32::MAX - 1) as u32;
-        }
+        let mut damage = if damage >= i32::MAX as u32 {
+            i32::MAX - 1
+        } else {
+            damage as i32
+        };
 
         //lets randomize are damage range so every attack doesnt always deal the same damage.
-        damage = rng.gen_range(base.mindamage..=damage);
+        damage = rng.gen_range(npc_info.data.mindamage as i32..=damage);
 
         //lets randomize to see if we do want to deal 1 damage if Defense is to high.
         if damage == 0 {
@@ -249,10 +194,76 @@ pub async fn npc_combat_damage(
             damage = rng.gen_range(0..=1);
         }
 
-        Ok(damage as i32)
+        Ok(CombatStage::do_damage(npc_info, damage, target))
     } else {
-        Ok(0)
+        Ok(NpcStage::None(npc_info))
     }
+}
+
+pub async fn do_damage(
+    map: &mut MapActor,
+    store: &mut MapActorStore,
+    npc_info: NpcInfo,
+    damage: i32,
+    target: Target,
+) -> Result<NpcStage> {
+    match target {
+        Target::Player {
+            key,
+            uid: _,
+            position: _,
+        } => {
+            if let Some(player) = store.players.get(&key) {
+                ////damage_player(map, store, player_key, damage).await?;
+                DataTaskToken::Damage.add_task(
+                    map,
+                    damage_packet(key, damage as u16, player.position, true)?,
+                )?;
+                DataTaskToken::Attack.add_task(map, attack_packet(key)?)?;
+
+                if player.vital[0] > 0 {
+                    DataTaskToken::Vitals
+                        .add_task(map, vitals_packet(key, player.vital, player.vitalmax)?)?;
+                } else {
+                    //remove_all_npc_target(world, &player_key).await?;
+                    //kill_player(world, storage, &player_key).await?;
+                    return Ok(CombatStage::remove_target(npc_info));
+                }
+            }
+        }
+        Target::Npc { key, position: _ } => {
+            if let Some(npc) = store.npcs.get_mut(&key) {
+                npc.damage_npc(damage);
+
+                DataTaskToken::Damage
+                    .add_task(map, damage_packet(key, damage as u16, npc.position, true)?)?;
+                DataTaskToken::Attack.add_task(map, attack_packet(key)?)?;
+
+                if npc.vital[0] > 0 {
+                    DataTaskToken::Vitals
+                        .add_task(map, vitals_packet(key, npc.vital, npc.vitalmax)?)?;
+
+                    if let Some(data) = map.storage.get_npc(npc.index) {
+                        npc.swap_target(map, &data, target);
+                    }
+                } else {
+                    kill_npc(map, store, key).await?;
+                    return Ok(CombatStage::remove_target(npc_info));
+                }
+            }
+        }
+        _ => {}
+    }
+
+    Ok(NpcStage::None(npc_info))
+}
+
+pub fn remove_target(store: &mut MapActorStore, npc_info: NpcInfo) -> Result<NpcStage> {
+    if let Some(npc) = store.npcs.get_mut(&npc_info.key) {
+        npc.target = Targeting::default();
+    }
+
+    Ok(NpcStage::None(npc_info))
 }
 
 pub async fn kill_npc(map: &mut MapActor, store: &mut MapActorStore, key: GlobalKey) -> Result<()> {

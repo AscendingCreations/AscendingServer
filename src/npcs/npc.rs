@@ -1,3 +1,4 @@
+use super::NpcData;
 use crate::{
     gametypes::*,
     maps::MapActor,
@@ -8,9 +9,8 @@ use crate::{
 };
 use chrono::Duration;
 use educe::Educe;
+use rand::{thread_rng, Rng};
 use std::{collections::VecDeque, sync::Arc};
-
-use super::NpcData;
 
 #[derive(Debug, Clone, PartialEq, Eq, Educe)]
 #[educe(Default)]
@@ -128,6 +128,11 @@ impl Npc {
         })
     }
 
+    pub fn damage_npc(&mut self, damage: i32) {
+        self.vital[VitalTypes::Hp as usize] =
+            self.vital[VitalTypes::Hp as usize].saturating_sub(damage);
+    }
+
     #[inline(always)]
     pub fn npc_set_move_path(&mut self, path: VecDeque<(Position, u8)>) {
         self.moves = path;
@@ -203,6 +208,23 @@ impl Npc {
 
     pub async fn npc_sethp(&mut self, hp: i32) {
         self.vital[VitalTypes::Hp as usize] = hp;
+    }
+
+    pub fn swap_target(&mut self, map: &MapActor, npc_data: &NpcData, target: Target) {
+        if !self.target.target.is_none() {
+            let mut rng = thread_rng();
+
+            if rng.gen_range(0..=1) == 1 {
+                self.target.target = target;
+                self.target.timer = map.tick
+                    + Duration::try_milliseconds(npc_data.target_auto_switch_chance)
+                        .unwrap_or_default()
+            }
+        } else {
+            self.target.target = target;
+            self.target.timer = map.tick
+                + Duration::try_milliseconds(npc_data.target_auto_switch_chance).unwrap_or_default()
+        }
     }
 }
 

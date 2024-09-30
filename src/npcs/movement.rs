@@ -114,7 +114,7 @@ pub async fn update_target(
             let n_dir = get_target_direction(npc_info.position, new_pos);
 
             if npc.dir != n_dir && npc.set_npc_dir(map, n_dir).is_err() {
-                return NpcStage::None;
+                return NpcStage::None(npc_info);
             }
         } else {
             return MovementStage::update_astart_paths(
@@ -202,7 +202,7 @@ pub async fn process_moves(
             let n_dir = get_target_direction(npc_info.position, pos);
 
             if dir != n_dir && npc.set_npc_dir(map, n_dir).is_err() {
-                return NpcStage::None;
+                return NpcStage::None(npc_info);
             }
 
             MovementStage::next_move(npc_info)

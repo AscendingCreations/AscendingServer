@@ -12,9 +12,50 @@ pub enum CombatStage {
         target: Target,
         cast_type: NpcCastType,
     },
+    GetDefence {
+        npc_info: NpcInfo,
+        target: Target,
+    },
+    GetDamage {
+        npc_info: NpcInfo,
+        defense: u32,
+        target: Target,
+    },
+    DoDamage {
+        npc_info: NpcInfo,
+        damage: i32,
+        target: Target,
+    },
+    RemoveTarget {
+        npc_info: NpcInfo,
+    },
 }
 
 impl CombatStage {
+    pub fn remove_target(npc_info: NpcInfo) -> NpcStage {
+        NpcStage::Combat(CombatStage::RemoveTarget { npc_info })
+    }
+
+    pub fn do_damage(npc_info: NpcInfo, damage: i32, target: Target) -> NpcStage {
+        NpcStage::Combat(CombatStage::DoDamage {
+            npc_info,
+            damage,
+            target,
+        })
+    }
+
+    pub fn get_damage(npc_info: NpcInfo, defense: u32, target: Target) -> NpcStage {
+        NpcStage::Combat(CombatStage::GetDamage {
+            npc_info,
+            defense,
+            target,
+        })
+    }
+
+    pub fn get_defense(npc_info: NpcInfo, target: Target) -> NpcStage {
+        NpcStage::Combat(CombatStage::GetDefence { npc_info, target })
+    }
+
     pub fn check_target(
         npc_info: NpcInfo,
         npc_mode: NpcMode,

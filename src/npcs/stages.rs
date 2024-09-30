@@ -8,8 +8,10 @@ pub use movement::*;
 use serde::{Deserialize, Serialize};
 pub use targeting::TargetingStage;
 
+use super::NpcInfo;
+
 pub enum NpcStage {
-    None,
+    None(NpcInfo),
     Targeting(TargetingStage),
     Combat(CombatStage),
     Movement(MovementStage),
@@ -18,7 +20,7 @@ pub enum NpcStage {
 impl NpcStage {
     pub fn get_stages(&self) -> NpcStages {
         match self {
-            NpcStage::None => NpcStages::None,
+            NpcStage::None(_) => NpcStages::None,
             NpcStage::Targeting(_) => NpcStages::Targeting,
             NpcStage::Combat(_) => NpcStages::Combat,
             NpcStage::Movement(_) => NpcStages::Movement,

@@ -217,41 +217,7 @@ pub async fn set_stage(store: &mut MapActorStore, key: GlobalKey, stage: NpcStag
 
     Ok(())
 }
-
-pub async fn update_target_pos(world: &GameWorld, entity: &GlobalKey) -> Result<Targeting> {
-    if !world.contains(entity).await {
-        return Ok(Targeting::default());
-    }
-
-    let pos = world.get_or_err::<Position>(entity).await?;
-    let mut target = world.get_or_err::<Targeting>(entity).await?;
-    let target_type = target.target_type;
-
-    match target_type {
-        Target::Npc(id) | Target::Player(id, _) => {
-            if world.contains(&id).await {
-                let target_pos = world.get_or_err::<Position>(&id).await?;
-                let deathtype = world.get_or_err::<Death>(&id).await?;
-
-                if check_surrounding(pos.map, target_pos.map, true) == MapPos::None
-                    || !deathtype.is_alive()
-                {
-                    target = Targeting::default();
-                } else {
-                    target.target_pos = target_pos;
-                }
-            } else {
-                target = Targeting::default();
-            }
-        }
-        _ => {}
-    }
-
-    let lock = world.write().await;
-    *lock.get::<&mut Targeting>(entity.0)? = target;
-
-    Ok(target)
-}*/
+*/
 
 pub async fn npc_targeting<'a>(
     position: Position,
