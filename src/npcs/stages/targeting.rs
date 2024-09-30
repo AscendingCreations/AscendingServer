@@ -1,136 +1,69 @@
-use crate::{gametypes::*, npcs::*, GlobalKey};
-use std::sync::Arc;
+use crate::{gametypes::*, npcs::*};
 
 pub enum TargetingStage {
     None,
     // first stage
     CheckTarget {
-        key: GlobalKey,
-        position: Position,
-        npc_data: Arc<NpcData>,
+        npc_info: NpcInfo,
         target: Targeting,
     },
     NpcDeTargetChance {
-        key: GlobalKey,
-        position: Position,
-        npc_data: Arc<NpcData>,
+        npc_info: NpcInfo,
         target: Targeting,
     },
     CheckDistance {
-        key: GlobalKey,
-        position: Position,
-        npc_data: Arc<NpcData>,
+        npc_info: NpcInfo,
         target: Targeting,
     },
     ClearTarget {
-        key: GlobalKey,
-        position: Position,
-        npc_data: Arc<NpcData>,
+        npc_info: NpcInfo,
     },
     GetTargetMaps {
-        key: GlobalKey,
-        position: Position,
-        npc_data: Arc<NpcData>,
+        npc_info: NpcInfo,
     },
     GetTargetFromMaps {
-        key: GlobalKey,
-        position: Position,
-        npc_data: Arc<NpcData>,
+        npc_info: NpcInfo,
         // Map to pop Map position from to send to When we cant find any Targets.
         // If Vec is not null We pop till we run out of maps or we get a target.
         // If No Target Move NPC to Movement Stage.
         maps: Vec<MapPosition>,
     },
     SetTarget {
-        key: GlobalKey,
-        position: Position,
-        npc_data: Arc<NpcData>,
+        npc_info: NpcInfo,
         target: Target,
         target_pos: Position,
     },
     MoveToMovement {
-        key: GlobalKey,
-        position: Position,
-        npc_data: Arc<NpcData>,
+        npc_info: NpcInfo,
     },
 }
 
 impl TargetingStage {
-    pub fn get_target_from_maps(
-        key: GlobalKey,
-        position: Position,
-        npc_data: Arc<NpcData>,
-        maps: Vec<MapPosition>,
-    ) -> NpcStage {
-        NpcStage::Targeting(TargetingStage::GetTargetFromMaps {
-            key,
-            position,
-            npc_data,
-            maps,
-        })
+    pub fn get_target_from_maps(npc_info: NpcInfo, maps: Vec<MapPosition>) -> NpcStage {
+        NpcStage::Targeting(TargetingStage::GetTargetFromMaps { npc_info, maps })
     }
 
-    pub fn move_to_movement(
-        key: GlobalKey,
-        position: Position,
-        npc_data: Arc<NpcData>,
-    ) -> NpcStage {
-        NpcStage::Targeting(TargetingStage::MoveToMovement {
-            key,
-            position,
-            npc_data,
-        })
+    pub fn move_to_movement(npc_info: NpcInfo) -> NpcStage {
+        NpcStage::Targeting(TargetingStage::MoveToMovement { npc_info })
     }
 
-    pub fn set_target(
-        key: GlobalKey,
-        position: Position,
-        npc_data: Arc<NpcData>,
-        target: Target,
-        target_pos: Position,
-    ) -> NpcStage {
+    pub fn set_target(npc_info: NpcInfo, target: Target, target_pos: Position) -> NpcStage {
         NpcStage::Targeting(TargetingStage::SetTarget {
-            key,
-            position,
-            npc_data,
+            npc_info,
             target,
             target_pos,
         })
     }
 
-    pub fn check_target(
-        key: GlobalKey,
-        position: Position,
-        npc_data: Arc<NpcData>,
-        target: Targeting,
-    ) -> NpcStage {
-        NpcStage::Targeting(TargetingStage::CheckTarget {
-            key,
-            position,
-            npc_data,
-            target,
-        })
+    pub fn check_target(npc_info: NpcInfo, target: Targeting) -> NpcStage {
+        NpcStage::Targeting(TargetingStage::CheckTarget { npc_info, target })
     }
 
-    pub fn detarget_chance(
-        key: GlobalKey,
-        position: Position,
-        npc_data: Arc<NpcData>,
-        target: Targeting,
-    ) -> NpcStage {
-        NpcStage::Targeting(TargetingStage::NpcDeTargetChance {
-            key,
-            position,
-            npc_data,
-            target,
-        })
+    pub fn detarget_chance(npc_info: NpcInfo, target: Targeting) -> NpcStage {
+        NpcStage::Targeting(TargetingStage::NpcDeTargetChance { npc_info, target })
     }
 
-    pub fn clear_target(key: GlobalKey, position: Position, npc_data: Arc<NpcData>) -> NpcStage {
-        NpcStage::Targeting(TargetingStage::ClearTarget {
-            key,
-            position,
-            npc_data,
-        })
+    pub fn clear_target(npc_info: NpcInfo) -> NpcStage {
+        NpcStage::Targeting(TargetingStage::ClearTarget { npc_info })
     }
 }

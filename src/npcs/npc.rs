@@ -8,7 +8,9 @@ use crate::{
 };
 use chrono::Duration;
 use educe::Educe;
-use std::collections::VecDeque;
+use std::{collections::VecDeque, sync::Arc};
+
+use super::NpcData;
 
 #[derive(Debug, Clone, PartialEq, Eq, Educe)]
 #[educe(Default)]
@@ -112,22 +114,18 @@ impl Npc {
         spawn_pos: Position,
         spawn_zone: Option<usize>,
     ) -> Option<Self> {
-        if let Some(npc_data) = map.storage.get_npc(index) {
-            Some(Self {
-                index,
-                key: GlobalKey::default(),
-                spawn_timer: map.tick
-                    + Duration::try_milliseconds(npc_data.spawn_wait).unwrap_or_default(),
-                spawn_zone,
-                spawn_pos,
-                position: spawn_pos,
-                mode: NpcMode::Normal,
-                death: Death::Spawning,
-                ..Default::default()
-            })
-        } else {
-            None
-        }
+        map.storage.get_npc(index).map(|npc_data| Self {
+            index,
+            key: GlobalKey::default(),
+            spawn_timer: map.tick
+                + Duration::try_milliseconds(npc_data.spawn_wait).unwrap_or_default(),
+            spawn_zone,
+            spawn_pos,
+            position: spawn_pos,
+            mode: NpcMode::Normal,
+            death: Death::Spawning,
+            ..Default::default()
+        })
     }
 
     #[inline(always)]
@@ -205,5 +203,22 @@ impl Npc {
 
     pub async fn npc_sethp(&mut self, hp: i32) {
         self.vital[VitalTypes::Hp as usize] = hp;
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct NpcInfo {
+    pub key: GlobalKey,
+    pub position: Position,
+    pub data: Arc<NpcData>,
+}
+
+impl NpcInfo {
+    pub fn new(key: GlobalKey, position: Position, npc_data: Arc<NpcData>) -> Self {
+        Self {
+            key,
+            position,
+            data: npc_data,
+        }
     }
 }

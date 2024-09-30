@@ -1,14 +1,11 @@
 use crate::{gametypes::*, maps::*, npcs::*, GlobalKey};
 use chrono::Duration;
-use std::sync::Arc;
 //use tokio::sync::Mutex;
 //use rand::{thread_rng, Rng};
 
 pub async fn check_target(
     store: &mut MapActorStore,
-    key: GlobalKey,
-    position: Position,
-    npc_data: Arc<NpcData>,
+    npc_info: NpcInfo,
     target: Targeting,
 ) -> NpcStage {
     let mut is_valid = false;
@@ -32,122 +29,87 @@ pub async fn check_target(
     }
 
     if is_valid {
-        TargetingStage::detarget_chance(key, position, npc_data, target)
+        TargetingStage::detarget_chance(npc_info, target)
     } else {
-        TargetingStage::clear_target(key, position, npc_data)
+        TargetingStage::clear_target(npc_info)
     }
 }
 
 pub async fn check_target_distance(
     store: &mut MapActorStore,
-    key: GlobalKey,
-    position: Position,
-    npc_data: Arc<NpcData>,
+    npc_info: NpcInfo,
     target: Targeting,
 ) -> NpcStage {
     let entity_pos = match target.target_type {
-        Target::Player(i, _accid, _map_pos) => {
-            if let Some(player) = store.players.get(&i) {
-                Some(player.position)
-            } else {
-                None
-            }
-        }
-        Target::Npc(i, _map_pos) => {
-            if let Some(npc) = store.npcs.get(&i) {
-                Some(npc.position)
-            } else {
-                None
-            }
-        }
+        Target::Player(i, _accid, _map_pos) => store.players.get(&i).map(|player| player.position),
+        Target::Npc(i, _map_pos) => store.npcs.get(&i).map(|npc| npc.position),
         Target::Map(position) => Some(position),
         _ => None,
     };
 
     if let Some(entity_pos) = entity_pos {
-        if position.checkdistance(entity_pos) > npc_data.sight {
-            return TargetingStage::clear_target(key, position, npc_data);
+        if npc_info.position.checkdistance(entity_pos) > npc_info.data.sight {
+            return TargetingStage::clear_target(npc_info);
         }
     }
 
-    TargetingStage::move_to_movement(key, position, npc_data)
+    TargetingStage::move_to_movement(npc_info)
 }
 
 pub async fn check_detargeting(
     map: &mut MapActor,
-    key: GlobalKey,
-    position: Position,
-    npc_data: Arc<NpcData>,
+    npc_info: NpcInfo,
     target: Targeting,
 ) -> NpcStage {
     if target.target_type != Target::None {
-        if npc_data.target_auto_switch && target.target_timer < map.tick {
-            return TargetingStage::clear_target(key, position, npc_data);
-        } else if npc_data.target_range_dropout {
-            return NpcStage::Targeting(TargetingStage::CheckDistance {
-                key,
-                position,
-                npc_data,
-                target,
-            });
+        if npc_info.data.target_auto_switch && target.target_timer < map.tick {
+            return TargetingStage::clear_target(npc_info);
+        } else if npc_info.data.target_range_dropout {
+            return NpcStage::Targeting(TargetingStage::CheckDistance { npc_info, target });
         }
 
-        return TargetingStage::move_to_movement(key, position, npc_data);
+        return TargetingStage::move_to_movement(npc_info);
     }
 
-    NpcStage::Targeting(TargetingStage::GetTargetMaps {
-        key,
-        position,
-        npc_data,
-    })
+    NpcStage::Targeting(TargetingStage::GetTargetMaps { npc_info })
 }
 
-pub async fn get_targeting_maps(
-    map: &mut MapActor,
-    key: GlobalKey,
-    position: Position,
-    npc_data: Arc<NpcData>,
-) -> NpcStage {
-    if !npc_data.is_agressive() {
-        return TargetingStage::move_to_movement(key, position, npc_data);
+pub async fn get_targeting_maps(map: &mut MapActor, npc_info: NpcInfo) -> NpcStage {
+    if !npc_info.data.is_agressive() {
+        return TargetingStage::move_to_movement(npc_info);
     }
 
-    let maps = get_maps_in_range(&map.storage, &position, npc_data.sight)
+    let maps = get_maps_in_range(&map.storage, &npc_info.position, npc_info.data.sight)
         .iter()
         .filter_map(|m| m.get())
         .collect();
 
-    TargetingStage::get_target_from_maps(key, position, npc_data, maps)
+    TargetingStage::get_target_from_maps(npc_info, maps)
 }
 
-pub async fn get_target(
-    store: &mut MapActorStore,
-    key: GlobalKey,
-    position: Position,
-    npc_data: Arc<NpcData>,
-) -> NpcStage {
+pub async fn get_target(store: &mut MapActorStore, npc_info: NpcInfo) -> NpcStage {
     for (pkey, player) in store.players.iter_mut() {
         if let Some(Entity::Player(player)) =
-            npc_targeting(position, &npc_data, Entity::Player(player)).await
+            npc_targeting(npc_info.position, &npc_info.data, Entity::Player(player)).await
         {
             let target = Target::Player(*pkey, player.uid, player.position.map);
 
-            return TargetingStage::set_target(key, position, npc_data, target, player.position);
+            return TargetingStage::set_target(npc_info, target, player.position);
         }
     }
 
-    if npc_data.has_enemies {
+    if npc_info.data.has_enemies {
         for (nkey, npc) in store.npcs.iter_mut() {
-            if key == *nkey {
+            if npc_info.key == *nkey {
                 continue;
             }
 
             if let Some(Entity::Npc(npc)) =
-                npc_targeting(position, &npc_data, Entity::Npc(npc)).await
+                npc_targeting(npc_info.position, &npc_info.data, Entity::Npc(npc)).await
             {
                 let target = Target::Npc(*nkey, npc.position.map);
 
-                return TargetingStage::set_target(key, position, npc_data, target, npc.position);
+                return TargetingStage::set_target(npc_info, target, npc.position);
             }
         }
     }
@@ -159,22 +121,21 @@ pub async fn get_target(
 pub async fn set_target(
     map: &mut MapActor,
     store: &mut MapActorStore,
-    key: GlobalKey,
-    position: Position,
-    npc_data: Arc<NpcData>,
+    npc_info: NpcInfo,
     target: Target,
     target_pos: Position,
 ) -> NpcStage {
-    if let Some(npc) = store.npcs.get_mut(&key) {
+    if let Some(npc) = store.npcs.get_mut(&npc_info.key) {
         npc.target.target_type = target;
         npc.target.target_timer = map.tick
-            + Duration::try_milliseconds(npc_data.target_auto_switch_chance).unwrap_or_default();
+            + Duration::try_milliseconds(npc_info.data.target_auto_switch_chance)
+                .unwrap_or_default();
         npc.target.target_pos = target_pos;
         npc.attack_timer =
-            map.tick + Duration::try_milliseconds(npc_data.attack_wait).unwrap_or_default();
+            map.tick + Duration::try_milliseconds(npc_info.data.attack_wait).unwrap_or_default();
     }
 
-    TargetingStage::move_to_movement(key, position, npc_data)
+    TargetingStage::move_to_movement(npc_info)
 }
 
 pub async fn set_stage(store: &mut MapActorStore, key: GlobalKey, stage: NpcStages) {
