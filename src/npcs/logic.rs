@@ -12,7 +12,7 @@ pub async fn update_npcs(map: &mut MapActor, store: &mut MapActorStore) -> Resul
     let npc_ids = store
         .npcs
         .iter()
-        .map(|(key, npc)| key)
+        .map(|(key, _npc)| key)
         .copied()
         .collect::<Vec<GlobalKey>>();
 
@@ -69,7 +69,7 @@ pub async fn update_npcs(map: &mut MapActor, store: &mut MapActorStore) -> Resul
 
                             map.add_entity_to_grid(npc.spawn_pos);
 
-                            DataTaskToken::NpcSpawn.add_task(map, npc_spawn_packet(&npc, true)?)?;
+                            DataTaskToken::NpcSpawn.add_task(map, npc_spawn_packet(npc, true)?)?;
                         }
                     }
                 }

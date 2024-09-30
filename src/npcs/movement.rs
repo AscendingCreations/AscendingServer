@@ -46,16 +46,20 @@ pub async fn update_target_pos(
     npc_info: NpcInfo,
     target: Targeting,
 ) -> NpcStage {
-    let (target_pos, death) = match target.target_type {
-        Target::Player(global_key, _, _) => {
-            if let Some(player) = store.players.get(&global_key) {
+    let (target_pos, death) = match target.target {
+        Target::Player {
+            key,
+            uid: _,
+            position: _,
+        } => {
+            if let Some(player) = store.players.get(&key) {
                 (player.position, player.death)
             } else {
                 return MovementStage::clear_target(npc_info);
             }
         }
-        Target::Npc(global_key, _) => {
-            if let Some(npc) = store.npcs.get(&global_key) {
+        Target::Npc { key, position: _ } => {
+            if let Some(npc) = store.npcs.get(&key) {
                 (npc.position, npc.death)
             } else {
                 return MovementStage::clear_target(npc_info);
@@ -73,7 +77,7 @@ pub async fn update_target_pos(
     } else {
         let mut new_target = target;
 
-        new_target.target_pos = target_pos;
+        new_target.update_pos(target_pos);
 
         MovementStage::update_target(npc_info, new_target)
     }
@@ -90,21 +94,24 @@ pub async fn update_target(
         .get_mut(&npc_info.key)
         .expect("Failed to load NPC! in update_target");
 
-    if new_target.target_pos.map.group != npc_info.position.map.group
-        || (new_target.target_type == Target::None && npc.target.target_type != Target::None)
+    let new_pos = if let Some(position) = new_target.get_pos() {
+        position
+    } else {
+        return MovementStage::clear_target(npc_info);
+    };
+
+    if new_pos.map.group != npc_info.position.map.group
+        || (new_target.target == Target::None && npc.target.target != Target::None)
     {
         return MovementStage::clear_target(npc_info);
     }
 
     //AI Timer is used to Reset the Moves every so offten to recalculate them for possible changes.
-    if new_target.target_type != Target::None
-        && npc.moving
-        && npc.target.target_pos != new_target.target_pos
-    {
-        npc.target.target_pos = new_target.target_pos;
+    if new_target.target != Target::None && npc.moving && npc.target.get_pos() != Some(new_pos) {
+        npc.target.update_pos(new_pos);
 
-        if is_next_to_target(map, npc_info.position, new_target.target_pos, 1) {
-            let n_dir = get_target_direction(npc_info.position, new_target.target_pos);
+        if is_next_to_target(map, npc_info.position, new_pos, 1) {
+            let n_dir = get_target_direction(npc_info.position, new_pos);
 
             if npc.dir != n_dir && npc.set_npc_dir(map, n_dir).is_err() {
                 return NpcStage::None;
@@ -113,7 +120,7 @@ pub async fn update_target(
             return MovementStage::update_astart_paths(
                 npc_info,
                 map.tick + Duration::try_milliseconds(100).unwrap_or_default(),
-                new_target.target_pos,
+                new_pos,
             );
         }
 
@@ -186,9 +193,13 @@ pub async fn process_moves(
             map.tick + Duration::try_milliseconds(wait_time).unwrap_or_default(),
             target_pos,
         )
-    } else if new_target.target_type != Target::None {
-        if is_next_to_target(map, npc_info.position, new_target.target_pos, 1) {
-            let n_dir = get_target_direction(npc_info.position, new_target.target_pos);
+    } else if new_target.target != Target::None {
+        let pos = new_target
+            .get_pos()
+            .expect("this should never fail: POsotion process_move");
+
+        if is_next_to_target(map, npc_info.position, pos, 1) {
+            let n_dir = get_target_direction(npc_info.position, pos);
 
             if dir != n_dir && npc.set_npc_dir(map, n_dir).is_err() {
                 return NpcStage::None;
@@ -199,7 +210,7 @@ pub async fn process_moves(
             MovementStage::update_astart_paths(
                 npc_info,
                 map.tick + Duration::try_milliseconds(100).unwrap_or_default(),
-                new_target.target_pos,
+                pos,
             )
         }
     } else if npc.ai_timer <= map.tick {
@@ -281,7 +292,7 @@ pub async fn check_block(
         .expect("Failed to load NPC! in set_move_path");
 
     if map.map_path_blocked(npc_info.position, next_pos, next_dir, WorldEntityType::Npc) {
-        if (npc.move_pos_overide.is_some() || npc.target.target_type != Target::None)
+        if (npc.move_pos_overide.is_some() || npc.target.target != Target::None)
             && npc.path_fails < 10
         {
             //no special movement. Lets wait till we can move again. maybe walkthru upon multi failure here?.
@@ -314,18 +325,22 @@ pub async fn process_target(
     target: Targeting,
     (next_pos, next_dir): (Position, u8),
 ) -> NpcStage {
-    let (death, target_pos, go_to_combat) = match target.target_type {
-        Target::Player(i, _, _) => {
-            if let Some(player) = store.players.get(&i) {
+    let (death, target_pos, go_to_combat) = match target.target {
+        Target::Player {
+            key,
+            uid: _,
+            position: _,
+        } => {
+            if let Some(player) = store.players.get(&key) {
                 (player.death, player.position, false)
             } else {
                 (Death::default(), Position::default(), true)
             }
         }
-        Target::Npc(i, _) => {
-            if i == npc_info.key {
+        Target::Npc { key, position: _ } => {
+            if key == npc_info.key {
                 (Death::default(), Position::default(), true)
-            } else if let Some(npc) = store.npcs.get(&i) {
+            } else if let Some(npc) = store.npcs.get(&key) {
                 (npc.death, npc.position, false)
             } else {
                 (Death::default(), Position::default(), true)
@@ -363,7 +378,7 @@ pub async fn process_movement(
 
         return MovementStage::move_to_combat(npc_info);
     } else if npc.move_pos_overide.is_none() {
-        if npc.target.target_type != Target::None {
+        if npc.target.target != Target::None {
             let target = npc.target;
 
             return MovementStage::process_target(npc_info, target, (next_pos, next_dir));

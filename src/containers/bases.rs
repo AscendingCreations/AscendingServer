@@ -14,9 +14,21 @@ impl Bases {
     pub fn new() -> Option<Self> {
         Some(Self {
             maps: IndexMap::default(),
-            npcs: vec![Arc::new(NpcData::default()); MAX_NPCS],
-            items: vec![Arc::new(ItemData::default()); MAX_ITEMS],
-            shops: vec![Arc::new(ShopData::default()); MAX_SHOPS],
+            npcs: {
+                let mut v = Vec::with_capacity(MAX_NPCS);
+                (0..MAX_NPCS).for_each(|_| v.push(Arc::new(NpcData::default())));
+                v
+            },
+            items: {
+                let mut v = Vec::with_capacity(MAX_ITEMS);
+                (0..MAX_ITEMS).for_each(|_| v.push(Arc::new(ItemData::default())));
+                v
+            },
+            shops: {
+                let mut v = Vec::with_capacity(MAX_SHOPS);
+                (0..MAX_SHOPS).for_each(|_| v.push(Arc::new(ShopData::default())));
+                v
+            },
         })
     }
 }

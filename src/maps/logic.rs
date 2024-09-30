@@ -5,7 +5,8 @@ use mmap_bytey::MByteBuffer;
 use rand::{thread_rng, Rng};
 use std::{cmp::min, sync::atomic::Ordering};
 
-///use MapItem::new_with() instead. Delete once all are gone.
+//use MapItem::new_with() instead. Delete once all are gone.
+//
 /*pub fn create_mapitem(index: u32, value: u16, pos: Position) -> MapItem {
     MapItem {
         item: Item {

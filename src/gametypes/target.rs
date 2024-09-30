@@ -4,8 +4,17 @@ use educe::Educe;
 #[derive(Educe, Debug, Copy, Clone, PartialEq, Eq)]
 #[educe(Default)]
 pub struct Targeting {
-    pub target_type: Target,
-    pub target_pos: Position,
+    pub target: Target,
     #[educe(Default = MyInstant::now())]
-    pub target_timer: MyInstant,
+    pub timer: MyInstant,
+}
+
+impl Targeting {
+    pub fn update_pos(&mut self, position: Position) {
+        self.target.update_pos(position);
+    }
+
+    pub fn get_pos(&self) -> Option<Position> {
+        self.target.get_pos()
+    }
 }

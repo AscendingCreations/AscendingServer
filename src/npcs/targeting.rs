@@ -10,16 +10,20 @@ pub async fn check_target(
 ) -> NpcStage {
     let mut is_valid = false;
 
-    match target.target_type {
-        Target::Player(i, accid, _map_pos) => {
-            if let Some(player) = store.players.get(&i) {
-                if player.death.is_alive() && player.uid == accid {
+    match target.target {
+        Target::Player {
+            key,
+            uid,
+            position: _,
+        } => {
+            if let Some(player) = store.players.get(&key) {
+                if player.death.is_alive() && player.uid == uid {
                     is_valid = true;
                 }
             }
         }
-        Target::Npc(i, _map_pos) => {
-            if let Some(npc) = store.npcs.get(&i) {
+        Target::Npc { key, position: _ } => {
+            if let Some(npc) = store.npcs.get(&key) {
                 if npc.death.is_alive() {
                     is_valid = true;
                 }
@@ -40,9 +44,13 @@ pub async fn check_target_distance(
     npc_info: NpcInfo,
     target: Targeting,
 ) -> NpcStage {
-    let entity_pos = match target.target_type {
-        Target::Player(i, _accid, _map_pos) => store.players.get(&i).map(|player| player.position),
-        Target::Npc(i, _map_pos) => store.npcs.get(&i).map(|npc| npc.position),
+    let entity_pos = match target.target {
+        Target::Player {
+            key,
+            uid: _,
+            position: _,
+        } => store.players.get(&key).map(|player| player.position),
+        Target::Npc { key, position: _ } => store.npcs.get(&key).map(|npc| npc.position),
         Target::Map(position) => Some(position),
         _ => None,
     };
@@ -61,8 +69,8 @@ pub async fn check_detargeting(
     npc_info: NpcInfo,
     target: Targeting,
 ) -> NpcStage {
-    if target.target_type != Target::None {
-        if npc_info.data.target_auto_switch && target.target_timer < map.tick {
+    if target.target != Target::None {
+        if npc_info.data.target_auto_switch && target.timer < map.tick {
             return TargetingStage::clear_target(npc_info);
         } else if npc_info.data.target_range_dropout {
             return NpcStage::Targeting(TargetingStage::CheckDistance { npc_info, target });
@@ -92,7 +100,7 @@ pub async fn get_target(store: &mut MapActorStore, npc_info: NpcInfo) -> NpcStag
         if let Some(Entity::Player(player)) =
             npc_targeting(npc_info.position, &npc_info.data, Entity::Player(player)).await
         {
-            let target = Target::Player(*pkey, player.uid, player.position.map);
+            let target = Target::player(*pkey, player.uid, player.position);
 
             return TargetingStage::set_target(npc_info, target, player.position);
         }
@@ -107,7 +115,7 @@ pub async fn get_target(store: &mut MapActorStore, npc_info: NpcInfo) -> NpcStag
             if let Some(Entity::Npc(npc)) =
                 npc_targeting(npc_info.position, &npc_info.data, Entity::Npc(npc)).await
             {
-                let target = Target::Npc(*nkey, npc.position.map);
+                let target = Target::npc(*nkey, npc.position);
 
                 return TargetingStage::set_target(npc_info, target, npc.position);
             }
@@ -126,11 +134,11 @@ pub async fn set_target(
     target_pos: Position,
 ) -> NpcStage {
     if let Some(npc) = store.npcs.get_mut(&npc_info.key) {
-        npc.target.target_type = target;
-        npc.target.target_timer = map.tick
+        npc.target.target = target;
+        npc.target.timer = map.tick
             + Duration::try_milliseconds(npc_info.data.target_auto_switch_chance)
                 .unwrap_or_default();
-        npc.target.target_pos = target_pos;
+        npc.target.update_pos(target_pos);
         npc.attack_timer =
             map.tick + Duration::try_milliseconds(npc_info.data.attack_wait).unwrap_or_default();
     }
@@ -250,31 +258,27 @@ pub async fn npc_targeting<'a>(
     npc_data: &NpcData,
     entity: Entity<'a>,
 ) -> Option<Entity<'a>> {
-    let (pos, _) = match &entity {
-        Entity::Player(player) => {
-            if player.death.is_alive() {
-                let check = check_surrounding(position.map, player.position.map, true);
-
-                (player.position.map_offset(check.into()), player.dir)
-            } else {
-                return None;
-            }
-        }
+    let data = match &entity {
+        Entity::Player(player) => Some((player.death, player.position)),
         Entity::Npc(npc) => {
-            if npc.death.is_alive() && npc_data.enemies.iter().any(|&x| npc.index == x) {
-                let check = check_surrounding(position.map, npc.position.map, true);
-
-                (npc.position.map_offset(check.into()), npc.dir)
+            if npc_data.enemies.iter().any(|&x| npc.index == x) {
+                Some((npc.death, npc.position))
             } else {
-                return None;
+                None
             }
         }
-        Entity::None => return None,
+        Entity::None => None,
     };
 
-    if position.checkdistance(pos) > npc_data.sight {
-        return None;
+    if let Some((death, pos)) = data {
+        let check = check_surrounding(position.map, pos.map, true);
+
+        if death.is_alive()
+            && position.checkdistance(pos.map_offset(check.into())) <= npc_data.sight
+        {
+            return Some(entity);
+        }
     }
 
-    Some(entity)
+    None
 }

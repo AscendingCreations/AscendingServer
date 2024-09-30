@@ -26,107 +26,90 @@ fn entity_cast_check(
 pub async fn try_cast(
     map: &mut MapActor,
     store: &mut MapActorStore,
-    caster_key: GlobalKey,
-    base: &NpcData,
+    npc_info: NpcInfo,
+    npc_mode: NpcMode,
     target: Target,
-    range: i32,
-    casttype: NpcCastType,
-) -> Result<bool> {
-    if let Some(npc) = store.npcs.get(&caster_key) {
-        let caster_pos = npc.position;
-        let npc_mode = npc.mode;
+    cast_type: NpcCastType,
+) -> Result<NpcStage> {
+    let data = match target {
+        Target::Player {
+            key,
+            uid: _,
+            position: _,
+        } => {
+            let data = store
+                .players
+                .get(&key)
+                .map(|player| (player.is_using.inuse(), player.position, player.death));
 
-        match target {
-            Target::Player(key, _accid, _map_pos) => {
-                let data = if let Some(player) = store.players.get(&key) {
-                    Some((player.is_using.inuse(), player.position, player.death))
+            if npc_info.data.can_attack_player || matches!(npc_mode, NpcMode::Pet | NpcMode::Summon)
+            {
+                data
+            } else {
+                None
+            }
+        }
+        Target::Npc { key, position: _ } => {
+            let data = store
+                .npcs
+                .get(&key)
+                .map(|npc| (npc.index, npc.position, npc.death));
+
+            if let Some((index, position, death)) = data {
+                if npc_info.data.has_enemies
+                    && cast_type == NpcCastType::Enemy
+                    && npc_info.data.enemies.iter().any(|e| *e == index)
+                {
+                    Some((false, position, death))
                 } else {
                     None
-                };
+                }
+            } else {
+                None
+            }
+        }
+        Target::Map(_) => return Ok(NpcStage::None),
+        Target::None
+        | Target::MapItem {
+            key: _,
+            position: _,
+        } => return Ok(NpcStage::None),
+    };
 
-                if let Some((inuse, position, death)) = data {
-                    if (base.can_attack_player
-                        || matches!(npc_mode, NpcMode::Pet | NpcMode::Summon))
-                        && !inuse
-                    {
-                        if let Some(dir) = caster_pos.checkdirection(position) {
-                            if map.is_dir_blocked(caster_pos, dir as u8) {
-                                return Ok(false);
-                            }
-                        } else {
-                            return Ok(false);
-                        }
-
-                        return Ok(entity_cast_check(caster_pos, position, death, range));
-                    }
+    if let Some((inuse, position, death)) = data {
+        if !inuse {
+            if let Some(dir) = npc_info.position.checkdirection(position) {
+                if !map.is_dir_blocked(npc_info.position, dir as u8)
+                    && entity_cast_check(npc_info.position, position, death, npc_info.data.range)
+                {
+                    return Ok(NpcStage::Combat(CombatStage::None));
                 }
             }
-            Target::Npc(key, _map_pos) => {
-                let data = if let Some(npc) = store.npcs.get(&key) {
-                    Some((npc.index, npc.position, npc.death))
-                } else {
-                    None
-                };
-
-                if let Some((index, position, death)) = data {
-                    if base.has_enemies
-                        && casttype == NpcCastType::Enemy
-                        && base.enemies.iter().any(|e| *e == index)
-                    {
-                        if let Some(dir) = caster_pos.checkdirection(position) {
-                            if map.is_dir_blocked(caster_pos, dir as u8) {
-                                return Ok(false);
-                            }
-                        } else {
-                            return Ok(false);
-                        }
-
-                        return Ok(entity_cast_check(caster_pos, position, death, range));
-                    }
-                }
-            }
-            Target::Map(_) | Target::None | Target::MapItem(_, _) => {}
         }
     }
 
-    Ok(false)
+    Ok(NpcStage::None)
 }
 
-pub async fn npc_cast(
-    map: &mut MapActor,
-    store: &mut MapActorStore,
-    key: GlobalKey,
-    base: &NpcData,
-) -> Result<Target> {
-    match base.behaviour {
+pub async fn behaviour_check(store: &mut MapActorStore, npc_info: NpcInfo) -> Result<NpcStage> {
+    match npc_info.data.behaviour {
         AIBehavior::Agressive
         | AIBehavior::AgressiveHealer
         | AIBehavior::ReactiveHealer
         | AIBehavior::HelpReactive
         | AIBehavior::Reactive => {
-            let target_type = if let Some(npc) = store.npcs.get(&key) {
-                npc.target.target_type
+            if let Some(npc) = store.npcs.get(&npc_info.key) {
+                Ok(CombatStage::check_target(
+                    npc_info,
+                    npc.mode,
+                    npc.target.target,
+                    NpcCastType::Enemy,
+                ))
             } else {
-                return Ok(Target::None);
-            };
-
-            if try_cast(
-                map,
-                store,
-                key,
-                base,
-                target_type,
-                base.range,
-                NpcCastType::Enemy,
-            )
-            .await?
-            {
-                return Ok(target_type);
+                Ok(NpcStage::None)
             }
-
-            Ok(Target::None)
         }
-        AIBehavior::Healer | AIBehavior::Friendly => Ok(Target::None),
+        AIBehavior::Healer | AIBehavior::Friendly => Ok(NpcStage::None),
     }
 }
 
@@ -163,7 +146,7 @@ pub async fn npc_combat(
         Target::Player(player_key, _accid, _map_pos) => {
             if let Some(player) = store.players.get(&player_key).cloned() {
                 let damage =
-                    npc_combat_damage(map, store, key, player_key, base, WorldEntityType::Player)
+                    npc_combat_damage(store, key, player_key, base, WorldEntityType::Player)
                         .await?;
                 //damage_player(map, store, player_key, damage).await?;
                 DataTaskToken::Damage.add_task(
@@ -187,7 +170,7 @@ pub async fn npc_combat(
         Target::Npc(npc_key, _map_pos) => {
             if let Some(npc) = store.npcs.get(&npc_key).cloned() {
                 let damage =
-                    npc_combat_damage(map, store, key, npc_key, base, WorldEntityType::Npc).await?;
+                    npc_combat_damage(store, key, npc_key, base, WorldEntityType::Npc).await?;
                 damage_npc(store, npc_key, damage).await?;
 
                 DataTaskToken::Damage
@@ -210,7 +193,6 @@ pub async fn npc_combat(
 }
 
 pub async fn npc_combat_damage(
-    map: &mut MapActor,
     store: &mut MapActorStore,
     key: GlobalKey,
     enemy_key: GlobalKey,

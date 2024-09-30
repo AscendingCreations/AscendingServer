@@ -1,10 +1,7 @@
-use std::sync::Arc;
-
 use crate::{gametypes::*, identity::GlobalKey, npcs::Npc, players::Player};
 use bytey::{ByteBufferRead, ByteBufferWrite};
 use mmap_bytey::{MByteBufferRead, MByteBufferWrite};
 use serde::{Deserialize, Serialize};
-use tokio::sync::Mutex;
 
 #[derive(
     PartialEq,
@@ -177,37 +174,87 @@ pub enum WorldEntityType {
 pub enum Target {
     #[default]
     None,
-    Player(GlobalKey, i64, MapPosition), //ArrID, AccID used for comparison if still same player.
-    Npc(GlobalKey, MapPosition),
-    MapItem(GlobalKey, MapPosition),
+    Player {
+        key: GlobalKey,
+        uid: i64,
+        position: Position,
+    }, //ArrID, AccID used for comparison if still same player.
+    Npc {
+        key: GlobalKey,
+        position: Position,
+    },
+    MapItem {
+        key: GlobalKey,
+        position: Position,
+    },
     Map(Position),
 }
 
 impl Target {
     pub fn get_id(&self) -> GlobalKey {
         match self {
-            Target::Player(i, _, _) | Target::Npc(i, _) | Target::MapItem(i, _) => *i,
+            Target::Player {
+                key,
+                uid: _,
+                position: _,
+            }
+            | Target::Npc { key, position: _ }
+            | Target::MapItem { key, position: _ } => *key,
             _ => GlobalKey::default(),
         }
     }
 
-    pub async fn get_pos(&self) -> Option<Position> {
+    pub fn get_pos(&self) -> Option<Position> {
         match self {
-            Target::Map(position) => Some(*position),
+            Target::Player {
+                key: _,
+                uid: _,
+                position,
+            }
+            | Target::Npc { key: _, position }
+            | Target::MapItem { key: _, position }
+            | Target::Map(position) => Some(*position),
             _ => None,
         }
     }
 
-    pub async fn get_map_pos(&self) -> Option<MapPosition> {
+    pub fn update_pos(&mut self, new_position: Position) {
         match self {
-            Target::Map(position) => Some(position.map),
-            Target::Player(_, _, pos) | Target::Npc(_, pos) | Target::MapItem(_, pos) => Some(*pos),
+            Target::Player {
+                key: _,
+                uid: _,
+                position,
+            }
+            | Target::Npc { key: _, position }
+            | Target::MapItem { key: _, position }
+            | Target::Map(position) => *position = new_position,
+            _ => {}
+        }
+    }
+
+    pub fn get_map_pos(&self) -> Option<MapPosition> {
+        match self {
+            Target::Player {
+                key: _,
+                uid: _,
+                position,
+            }
+            | Target::Npc { key: _, position }
+            | Target::MapItem { key: _, position }
+            | Target::Map(position) => Some(position.map),
             _ => None,
         }
     }
 
     pub fn is_player(&self) -> bool {
-        matches!(self, Target::Player(_, _, _))
+        matches!(
+            self,
+            Target::Player {
+                key: _,
+                uid: _,
+                position: _,
+            }
+        )
     }
 
     pub fn is_map(&self) -> bool {
@@ -215,15 +262,39 @@ impl Target {
     }
 
     pub fn is_npc(&self) -> bool {
-        matches!(self, Target::Npc(_, _))
+        matches!(
+            self,
+            Target::Npc {
+                key: _,
+                position: _
+            }
+        )
     }
 
     pub fn is_mapitem(&self) -> bool {
-        matches!(self, Target::MapItem(_, _))
+        matches!(
+            self,
+            Target::MapItem {
+                key: _,
+                position: _
+            }
+        )
     }
 
     pub fn is_none(&self) -> bool {
         matches!(self, Target::None)
+    }
+
+    pub fn player(key: GlobalKey, uid: i64, position: Position) -> Self {
+        Target::Player { key, uid, position }
+    }
+
+    pub fn npc(key: GlobalKey, position: Position) -> Self {
+        Target::Npc { key, position }
+    }
+
+    pub fn map_item(key: GlobalKey, position: Position) -> Self {
+        Target::MapItem { key, position }
     }
 }
 
