@@ -4,7 +4,7 @@ use crate::{
     gametypes::*,
     identity::ClaimsKey,
     maps::GridTile,
-    npcs::{Npc, NpcMapInfo},
+    npcs::{Npc, NpcMapInfo, NpcStage},
     players::{Player, PlayerMapInfo},
     tasks::DataTaskToken,
     time_ext::MyInstant,
@@ -42,6 +42,7 @@ pub struct MapActor {
     //This keeps track of what Things need sending. So we can leave it loaded and only loop whats needed.
     pub packet_cache_ids: IndexSet<DataTaskToken>,
     pub player_switch_processing: IndexSet<GlobalKey>,
+    pub npc_state_machine: VecDeque<NpcStage>,
 }
 
 #[derive(Debug, Default)]
@@ -123,6 +124,7 @@ impl MapActor {
             packet_cache_ids: IndexSet::default(),
             player_switch_processing: IndexSet::default(),
             tick: MyInstant::now(),
+            npc_state_machine: VecDeque::with_capacity(256),
         }
     }
 

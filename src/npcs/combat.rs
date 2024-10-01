@@ -1,4 +1,5 @@
 use crate::{gametypes::*, maps::*, npcs::*, players::*, tasks::*, GlobalKey};
+use chrono::Duration;
 use rand::{thread_rng, Rng};
 
 fn entity_cast_check(
@@ -81,26 +82,35 @@ pub async fn check_target(
     Ok(NpcStage::None(npc_info))
 }
 
-pub fn behaviour_check(store: &mut MapActorStore, npc_info: NpcInfo) -> Result<NpcStage> {
+pub fn behaviour_check(
+    map: &mut MapActor,
+    store: &mut MapActorStore,
+    npc_info: NpcInfo,
+) -> Result<NpcStage> {
     match npc_info.data.behaviour {
         AIBehavior::Agressive
         | AIBehavior::AgressiveHealer
         | AIBehavior::ReactiveHealer
         | AIBehavior::HelpReactive
         | AIBehavior::Reactive => {
-            if let Some(npc) = store.npcs.get(&npc_info.key) {
-                Ok(CombatStage::check_target(
-                    npc_info,
-                    npc.mode,
-                    npc.target.target,
-                    NpcCastType::Enemy,
-                ))
-            } else {
-                Ok(NpcStage::None(npc_info))
+            if let Some(npc) = store.npcs.get_mut(&npc_info.key) {
+                if npc.attack_timer <= map.tick {
+                    npc.attack_timer = map.tick
+                        + Duration::try_milliseconds(npc_info.data.attack_wait).unwrap_or_default();
+
+                    return Ok(CombatStage::check_target(
+                        npc_info,
+                        npc.mode,
+                        npc.target.target,
+                        NpcCastType::Enemy,
+                    ));
+                }
             }
         }
-        AIBehavior::Healer | AIBehavior::Friendly => Ok(NpcStage::None(npc_info)),
+        AIBehavior::Healer | AIBehavior::Friendly => {}
     }
+
+    Ok(NpcStage::None(npc_info))
 }
 
 pub fn can_attack_npc(

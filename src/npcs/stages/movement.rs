@@ -1,8 +1,8 @@
 use crate::{gametypes::*, npcs::*, time_ext::MyInstant, ClaimsKey};
 use std::collections::VecDeque;
 
+#[derive(Debug, Clone, PartialEq)]
 pub enum MovementStage {
-    None,
     PathStart {
         npc_info: NpcInfo,
     },
@@ -35,7 +35,7 @@ pub enum MovementStage {
         timer: MyInstant,
         path: VecDeque<(Position, u8)>,
     },
-    ProcessMovePosition {
+    GetMoves {
         npc_info: NpcInfo,
         new_target: Targeting,
     },
@@ -85,6 +85,82 @@ pub enum MovementStage {
 }
 
 impl MovementStage {
+    pub fn send_map(&self) -> Option<MapPosition> {
+        match self {
+            MovementStage::MoveToCombat { npc_info }
+            | MovementStage::SwitchMaps {
+                npc_info,
+                new_position: _,
+                can_switch: _,
+                map_switch_key: _,
+            }
+            | MovementStage::FinishMove {
+                npc_info,
+                next_move: _,
+            }
+            | MovementStage::SetNpcDir {
+                npc_info,
+                next_move: _,
+            }
+            | MovementStage::ProcessMovement {
+                npc_info,
+                next_move: _,
+            }
+            | MovementStage::CheckBlock {
+                npc_info,
+                next_move: _,
+            }
+            | MovementStage::NextMove { npc_info }
+            | MovementStage::GetMoves {
+                npc_info,
+                new_target: _,
+            }
+            | MovementStage::SetMovePath {
+                npc_info,
+                timer: _,
+                path: _,
+            }
+            | MovementStage::ClearMovePath { npc_info }
+            | MovementStage::UpdateRandPaths { npc_info, timer: _ }
+            | MovementStage::UpdateAStarPaths {
+                npc_info,
+                timer: _,
+                target_pos: _,
+            }
+            | MovementStage::UpdateTarget {
+                npc_info,
+                new_target: _,
+            }
+            | MovementStage::ClearTarget { npc_info }
+            | MovementStage::PathStart { npc_info } => Some(npc_info.position.map),
+            MovementStage::ProcessTarget {
+                npc_info: _,
+                target,
+                next_move: _,
+            }
+            | MovementStage::GetTargetUpdates {
+                npc_info: _,
+                target,
+            } => {
+                if let Some(pos) = target.get_pos() {
+                    Some(pos.map)
+                } else {
+                    None
+                }
+            }
+            MovementStage::MapSwitchFinish {
+                npc_info: _,
+                new_position,
+                map_switch_key: _,
+                npc: _,
+            }
+            | MovementStage::GetTileClaim {
+                npc_info: _,
+                new_position,
+            } => Some(new_position.map),
+        }
+    }
+
     pub fn path_start(npc_info: NpcInfo) -> NpcStage {
         NpcStage::Movement(MovementStage::PathStart { npc_info })
     }
@@ -136,8 +212,8 @@ impl MovementStage {
         })
     }
 
-    pub fn process_move_position(npc_info: NpcInfo, new_target: Targeting) -> NpcStage {
-        NpcStage::Movement(MovementStage::ProcessMovePosition {
+    pub fn get_moves(npc_info: NpcInfo, new_target: Targeting) -> NpcStage {
+        NpcStage::Movement(MovementStage::GetMoves {
             npc_info,
             new_target,
         })

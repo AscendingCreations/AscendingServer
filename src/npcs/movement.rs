@@ -27,18 +27,28 @@ pub fn get_target_direction(entity_pos: Position, target_pos: Position) -> u8 {
 
 /// This is always called on the local map where the npc originated.
 /// If npc was indeed missing this spells trouble.
-pub async fn npc_path_start(map: &MapActor, store: &MapActorStore, npc_info: NpcInfo) -> NpcStage {
+pub async fn npc_path_start(
+    map: &MapActor,
+    store: &mut MapActorStore,
+    npc_info: NpcInfo,
+) -> NpcStage {
     let npc = store
         .npcs
-        .get(&npc_info.key)
-        .cloned()
+        .get_mut(&npc_info.key)
         .expect("NPC Was not on map!");
 
-    if npc.path_timer > map.tick {
-        return MovementStage::clear_target(npc_info);
-    }
+    if npc.move_timer <= map.tick {
+        npc.move_timer =
+            map.tick + Duration::try_milliseconds(npc_info.data.movement_wait).unwrap_or_default();
 
-    MovementStage::get_target_updates(npc_info, npc.target)
+        if npc.path_timer > map.tick {
+            MovementStage::clear_target(npc_info)
+        } else {
+            MovementStage::get_target_updates(npc_info, npc.target)
+        }
+    } else {
+        MovementStage::move_to_combat(npc_info)
+    }
 }
 
 pub async fn update_target_pos(
@@ -130,7 +140,7 @@ pub async fn update_target(
     if npc.moving && !npc.moves.is_empty() {
         MovementStage::next_move(npc_info)
     } else {
-        MovementStage::process_move_position(npc_info, new_target)
+        MovementStage::get_moves(npc_info, new_target)
     }
 }
 
@@ -172,11 +182,10 @@ pub async fn update_rand_paths(
     MovementStage::set_move_path(npc_info, timer, path)
 }
 
-pub async fn process_moves(
+pub async fn get_moves(
     map: &mut MapActor,
     store: &mut MapActorStore,
     npc_info: NpcInfo,
-    dir: u8,
     new_target: Targeting,
 ) -> NpcStage {
     let npc = store
@@ -201,7 +210,7 @@ pub async fn process_moves(
         if is_next_to_target(map, npc_info.position, pos, 1) {
             let n_dir = get_target_direction(npc_info.position, pos);
 
-            if dir != n_dir && npc.set_npc_dir(map, n_dir).is_err() {
+            if npc.dir != n_dir && npc.set_npc_dir(map, n_dir).is_err() {
                 return NpcStage::None(npc_info);
             }
 
@@ -260,7 +269,7 @@ pub async fn clear_target(store: &mut MapActorStore, npc_info: NpcInfo) -> NpcSt
     npc.npc_clear_move_path();
     npc.target = Targeting::default();
 
-    MovementStage::process_move_position(npc_info, Targeting::default())
+    MovementStage::get_moves(npc_info, Targeting::default())
 }
 
 pub async fn next_move(store: &mut MapActorStore, npc_info: NpcInfo) -> NpcStage {

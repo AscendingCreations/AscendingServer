@@ -1,7 +1,7 @@
 use super::NpcData;
 use crate::{
     gametypes::*,
-    maps::MapActor,
+    maps::{MapActor, MapActorStore},
     npcs::NpcStages,
     tasks::{dir_packet, DataTaskToken},
     time_ext::MyInstant,
@@ -241,6 +241,21 @@ impl NpcInfo {
             key,
             position,
             data: npc_data,
+        }
+    }
+
+    pub fn is_dead(&self, map: &MapActor, store: &MapActorStore) -> bool {
+        if self.position.map == map.position {
+            if let Some(npc) = store.npcs.get(&self.key) {
+                npc.death.is_dead()
+            } else {
+                // he died and got removed.
+                false
+            }
+        } else {
+            // its not on this map so we assume its alive. We will kill it
+            // on the owner map if it is dead.
+            true
         }
     }
 }

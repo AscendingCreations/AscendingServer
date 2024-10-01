@@ -1,7 +1,7 @@
-use crate::{gametypes::*, npcs::*};
+use crate::{gametypes::*, maps::MapActor, npcs::*};
 
+#[derive(Debug, Clone, PartialEq)]
 pub enum TargetingStage {
-    None,
     // first stage
     CheckTarget {
         npc_info: NpcInfo,
@@ -39,6 +39,68 @@ pub enum TargetingStage {
 }
 
 impl TargetingStage {
+    pub fn get_target(&self) -> Target {
+        match self {
+            TargetingStage::CheckTarget {
+                npc_info: _,
+                target,
+            } => target.target,
+            TargetingStage::NpcDeTargetChance {
+                npc_info: _,
+                target,
+            } => target.target,
+            TargetingStage::CheckDistance {
+                npc_info: _,
+                target,
+            } => target.target,
+            _ => Target::None,
+        }
+    }
+
+    pub fn send_map(&self) -> Option<MapPosition> {
+        match self {
+            TargetingStage::CheckDistance {
+                npc_info: _,
+                target,
+            }
+            | TargetingStage::NpcDeTargetChance {
+                npc_info: _,
+                target,
+            } => {
+                if let Some(pos) = target.get_pos() {
+                    Some(pos.map)
+                } else {
+                    None
+                }
+            }
+            TargetingStage::ClearTarget { npc_info }
+            | TargetingStage::GetTargetMaps { npc_info }
+            | TargetingStage::SetTarget {
+                npc_info,
+                target: _,
+                target_pos: _,
+            }
+            | TargetingStage::MoveToMovement { npc_info } => Some(npc_info.position.map),
+            _ => None,
+        }
+    }
+
+    /*match data {
+        Some((_, Some(_), true)) | Some((_, None, false)) | None => {}
+        Some((info, Some(target), false)) => {
+            if let Some(pos) = target.get_pos() {
+                if pos.map == map.position {
+                    map.npc_state_machine.push_back(self);
+                }
+            }
+        }
+        Some((info, None, true)) => {}
+    }*/
+
+    pub fn get_target_maps(npc_info: NpcInfo) -> NpcStage {
+        NpcStage::Targeting(TargetingStage::GetTargetMaps { npc_info })
+    }
+
     pub fn get_target_from_maps(npc_info: NpcInfo, maps: Vec<MapPosition>) -> NpcStage {
         NpcStage::Targeting(TargetingStage::GetTargetFromMaps { npc_info, maps })
     }
