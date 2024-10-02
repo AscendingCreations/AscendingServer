@@ -5,13 +5,17 @@ use crate::{maps::MapActor, MapPosition};
 
 use super::PlayerInfo;
 
+mod movement;
+
+pub use movement::*;
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum PlayerStage {
     None(PlayerInfo),
     Continue,
     Targeting(bool),
     Combat(bool),
-    Movement(bool),
+    Movement(PlayerMovementStage),
 }
 
 impl PlayerStage {
