@@ -2,7 +2,7 @@ use mmap_bytey::MByteBuffer;
 
 use crate::{
     npcs::{Npc, NpcStage},
-    players::Player,
+    players::{Player, PlayerStage},
     ClaimsKey, GameTime, GlobalKey, MapPosition, Position, UserAccess,
 };
 
@@ -57,6 +57,10 @@ pub enum MapIncomming {
     NpcStage {
         map_id: MapPosition,
         stage: NpcStage,
+    },
+    PlayerStage {
+        map_id: MapPosition,
+        stage: PlayerStage,
     },
 }
 

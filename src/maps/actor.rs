@@ -5,7 +5,7 @@ use crate::{
     identity::ClaimsKey,
     maps::GridTile,
     npcs::{Npc, NpcMapInfo, NpcStage},
-    players::{Player, PlayerMapInfo},
+    players::{Player, PlayerMapInfo, PlayerStage},
     tasks::DataTaskToken,
     time_ext::MyInstant,
     GlobalKey, HopSlotMap,
@@ -43,6 +43,7 @@ pub struct MapActor {
     pub packet_cache_ids: IndexSet<DataTaskToken>,
     pub player_switch_processing: IndexSet<GlobalKey>,
     pub npc_state_machine: VecDeque<NpcStage>,
+    pub player_state_machine: VecDeque<PlayerStage>,
 }
 
 #[derive(Debug, Default)]
@@ -92,12 +93,10 @@ impl MapActorStore {
 
     pub fn remove_player(&mut self, key: GlobalKey) -> Option<Player> {
         self.players.swap_remove(&key)
-        //.map(|n| Arc::try_unwrap(n).unwrap().into_inner())
     }
 
     pub fn remove_npc(&mut self, key: GlobalKey) -> Option<Npc> {
         self.npcs.swap_remove(&key)
-        //.map(|n| Arc::try_unwrap(n).unwrap().into_inner())
     }
 
     pub fn remove_item(&mut self, key: GlobalKey) -> Option<MapItem> {
@@ -125,6 +124,7 @@ impl MapActor {
             player_switch_processing: IndexSet::default(),
             tick: MyInstant::now(),
             npc_state_machine: VecDeque::with_capacity(256),
+            player_state_machine: VecDeque::with_capacity(256),
         }
     }
 

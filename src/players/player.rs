@@ -1,4 +1,13 @@
-use crate::{gametypes::*, items::*, network::*, sql::*, tasks::*, time_ext::*, GlobalKey};
+use crate::{
+    gametypes::*,
+    items::*,
+    maps::{MapActor, MapActorStore},
+    network::*,
+    sql::*,
+    tasks::*,
+    time_ext::*,
+    GlobalKey,
+};
 use educe::Educe;
 
 #[derive(Clone, Debug, Educe)]
@@ -142,6 +151,32 @@ impl Clone for Player {
             socket: None,
             trade: None,
             trade_request: None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct PlayerInfo {
+    pub key: GlobalKey,
+    pub position: Position,
+}
+
+impl PlayerInfo {
+    pub fn new(key: GlobalKey, position: Position) -> Self {
+        Self { key, position }
+    }
+
+    pub fn is_dead(&self, map: &MapActor, store: &MapActorStore) -> bool {
+        if self.position.map == map.position {
+            if let Some(player) = store.players.get(&self.key) {
+                player.death.is_dead()
+            } else {
+                // he died and got removed or logged out.
+                false
+            }
+        } else {
+            // its not on this map so we assume its alive.
+            true
         }
     }
 }

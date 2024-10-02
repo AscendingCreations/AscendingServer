@@ -78,15 +78,15 @@ pub async fn update_npc_states(map: &mut MapActor, store: &mut MapActorStore) ->
             }
             Death::Dead => unload_npcs.push(*key),
             Death::Spawning => {
-                if npc.spawn_timer < map.tick {
-                    //make sure we can spawn here before even spawning them.
-                    if !map.is_blocked_tile(npc.spawn_pos, WorldEntityType::Npc) {
-                        npc.death = Death::Alive;
+                //make sure we can spawn here before even spawning them.
+                if npc.spawn_timer < map.tick
+                    && !map.is_blocked_tile(npc.spawn_pos, WorldEntityType::Npc)
+                {
+                    npc.death = Death::Alive;
 
-                        map.add_entity_to_grid(npc.spawn_pos);
+                    map.add_entity_to_grid(npc.spawn_pos);
 
-                        DataTaskToken::NpcSpawn.add_task(map, npc_spawn_packet(npc, true)?)?;
-                    }
+                    DataTaskToken::NpcSpawn.add_task(map, npc_spawn_packet(npc, true)?)?;
                 }
             }
             _ => {}
