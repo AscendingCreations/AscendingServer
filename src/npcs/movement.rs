@@ -27,11 +27,7 @@ pub fn get_target_direction(entity_pos: Position, target_pos: Position) -> u8 {
 
 /// This is always called on the local map where the npc originated.
 /// If npc was indeed missing this spells trouble.
-pub async fn npc_path_start(
-    map: &MapActor,
-    store: &mut MapActorStore,
-    npc_info: NpcInfo,
-) -> NpcStage {
+pub fn path_start(map: &MapActor, store: &mut MapActorStore, npc_info: NpcInfo) -> NpcStage {
     let npc = store
         .npcs
         .get_mut(&npc_info.key)
@@ -51,11 +47,7 @@ pub async fn npc_path_start(
     }
 }
 
-pub async fn update_target_pos(
-    store: &MapActorStore,
-    npc_info: NpcInfo,
-    target: Targeting,
-) -> NpcStage {
+pub fn get_target_updates(store: &MapActorStore, npc_info: NpcInfo, target: Targeting) -> NpcStage {
     let (target_pos, death) = match target.target {
         Target::Player {
             key,
@@ -93,7 +85,7 @@ pub async fn update_target_pos(
     }
 }
 
-pub async fn update_target(
+pub fn update_target(
     map: &mut MapActor,
     store: &mut MapActorStore,
     npc_info: NpcInfo,
@@ -144,7 +136,7 @@ pub async fn update_target(
     }
 }
 
-pub async fn update_astar_paths(
+pub fn update_astar_paths(
     map: &mut MapActor,
     store: &MapActorStore,
     npc_info: NpcInfo,
@@ -166,7 +158,7 @@ pub async fn update_astar_paths(
     }
 }
 
-pub async fn update_rand_paths(
+pub fn update_rand_paths(
     map: &mut MapActor,
     store: &MapActorStore,
     npc_info: NpcInfo,
@@ -182,7 +174,7 @@ pub async fn update_rand_paths(
     MovementStage::set_move_path(npc_info, timer, path)
 }
 
-pub async fn get_moves(
+pub fn get_moves(
     map: &mut MapActor,
     store: &mut MapActorStore,
     npc_info: NpcInfo,
@@ -232,7 +224,7 @@ pub async fn get_moves(
     }
 }
 
-pub async fn set_move_path(
+pub fn set_move_path(
     store: &mut MapActorStore,
     npc_info: NpcInfo,
     timer: MyInstant,
@@ -249,7 +241,7 @@ pub async fn set_move_path(
     MovementStage::next_move(npc_info)
 }
 
-pub async fn clear_move_path(store: &mut MapActorStore, npc_info: NpcInfo) -> NpcStage {
+pub fn clear_move_path(store: &mut MapActorStore, npc_info: NpcInfo) -> NpcStage {
     let npc = store
         .npcs
         .get_mut(&npc_info.key)
@@ -260,7 +252,7 @@ pub async fn clear_move_path(store: &mut MapActorStore, npc_info: NpcInfo) -> Np
     MovementStage::move_to_combat(npc_info)
 }
 
-pub async fn clear_target(store: &mut MapActorStore, npc_info: NpcInfo) -> NpcStage {
+pub fn clear_target(store: &mut MapActorStore, npc_info: NpcInfo) -> NpcStage {
     let npc = store
         .npcs
         .get_mut(&npc_info.key)
@@ -272,7 +264,7 @@ pub async fn clear_target(store: &mut MapActorStore, npc_info: NpcInfo) -> NpcSt
     MovementStage::get_moves(npc_info, Targeting::default())
 }
 
-pub async fn next_move(store: &mut MapActorStore, npc_info: NpcInfo) -> NpcStage {
+pub fn next_move(store: &mut MapActorStore, npc_info: NpcInfo) -> NpcStage {
     let npc = store
         .npcs
         .get_mut(&npc_info.key)
@@ -289,7 +281,7 @@ pub async fn next_move(store: &mut MapActorStore, npc_info: NpcInfo) -> NpcStage
     MovementStage::check_block(npc_info, next_move)
 }
 
-pub async fn check_block(
+pub fn check_block(
     map: &mut MapActor,
     store: &mut MapActorStore,
     npc_info: NpcInfo,
@@ -328,7 +320,7 @@ pub async fn check_block(
     }
 }
 
-pub async fn process_target(
+pub fn process_target(
     store: &MapActorStore,
     npc_info: NpcInfo,
     target: Targeting,
@@ -371,7 +363,7 @@ pub async fn process_target(
     }
 }
 
-pub async fn process_movement(
+pub fn process_movement(
     map: &mut MapActor,
     store: &mut MapActorStore,
     npc_info: NpcInfo,
@@ -400,7 +392,24 @@ pub async fn process_movement(
     MovementStage::finish_move(npc_info, (next_pos, next_dir))
 }
 
-pub async fn finish_movement(
+#[inline(always)]
+pub fn set_npc_dir(
+    map: &mut MapActor,
+    store: &mut MapActorStore,
+    npc_info: NpcInfo,
+    (_, next_dir): (Position, u8),
+) -> NpcStage {
+    let npc = store
+        .npcs
+        .get_mut(&npc_info.key)
+        .expect("Failed to load NPC! in set_move_path");
+
+    npc.set_npc_dir(map, next_dir).unwrap();
+
+    MovementStage::move_to_combat(npc_info)
+}
+
+pub fn finish_movement(
     map: &mut MapActor,
     store: &mut MapActorStore,
     npc_info: NpcInfo,
@@ -429,7 +438,7 @@ pub async fn finish_movement(
 }
 
 #[inline(always)]
-pub async fn check_map_switch(
+pub fn get_tile_claim(
     store: &mut MapActorStore,
     npc_info: NpcInfo,
     new_position: Position,
@@ -448,7 +457,7 @@ pub async fn check_map_switch(
 }
 
 #[inline(always)]
-pub async fn npc_switch_maps(
+pub fn switch_maps(
     map: &mut MapActor,
     store: &mut MapActorStore,
     npc_info: NpcInfo,
@@ -477,7 +486,7 @@ pub async fn npc_switch_maps(
 }
 
 #[inline(always)]
-pub async fn npc_finish_map_switch(
+pub fn finish_map_switch(
     map: &mut MapActor,
     store: &mut MapActorStore,
     mut npc_info: NpcInfo,

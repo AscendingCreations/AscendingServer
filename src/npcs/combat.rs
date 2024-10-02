@@ -14,7 +14,7 @@ fn entity_cast_check(
     range >= caster_pos.checkdistance(pos) && target_death.is_alive()
 }
 
-pub async fn check_target(
+pub fn check_target(
     map: &mut MapActor,
     store: &mut MapActorStore,
     npc_info: NpcInfo,

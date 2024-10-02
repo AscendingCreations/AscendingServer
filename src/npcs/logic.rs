@@ -120,125 +120,19 @@ pub async fn npc_state_handler(map: &mut MapActor, store: &mut MapActorStore) ->
             }
             NpcStage::Continue => continue,
             NpcStage::Targeting(targeting_stage) => {
-                npc_targeting(map, store, targeting_stage).await?
+                stages::npc_targeting(map, store, targeting_stage).await
             }
-            NpcStage::Combat(combat_stage) => todo!(),
-            NpcStage::Movement(movement_stage) => todo!(),
+            NpcStage::Combat(combat_stage) => stages::npc_combat(map, store, combat_stage).await,
+            NpcStage::Movement(movement_stage) => {
+                stages::npc_movement(map, store, movement_stage).await
+            }
         };
 
-        next_stage.send(map).await;
+        match next_stage {
+            Ok(next) => next.send(map).await,
+            Err(e) => log::error!("Error in npc_state_handler: {}", e),
+        };
     }
 
     Ok(())
-}
-
-pub async fn npc_targeting(
-    map: &mut MapActor,
-    store: &mut MapActorStore,
-    stage: TargetingStage,
-) -> Result<NpcStage> {
-    let stage = match stage {
-        TargetingStage::CheckTarget { npc_info, target } => {
-            if !npc_info.is_dead(map, store) {
-                targeting::check_target(store, npc_info, target)
-            } else {
-                NpcStage::None(npc_info)
-            }
-        }
-        TargetingStage::NpcDeTargetChance { npc_info, target } => {
-            if !npc_info.is_dead(map, store) {
-                targeting::check_detargeting(map, npc_info, target)
-            } else {
-                NpcStage::None(npc_info)
-            }
-        }
-        TargetingStage::CheckDistance { npc_info, target } => {
-            if !npc_info.is_dead(map, store) {
-                targeting::check_target_distance(store, npc_info, target)
-            } else {
-                NpcStage::None(npc_info)
-            }
-        }
-        TargetingStage::ClearTarget { npc_info } => {
-            if !npc_info.is_dead(map, store) {
-                targeting::clear_target(store, npc_info)
-            } else {
-                NpcStage::None(npc_info)
-            }
-        }
-        TargetingStage::GetTargetMaps { npc_info } => {
-            if !npc_info.is_dead(map, store) {
-                targeting::get_targeting_maps(map, npc_info)
-            } else {
-                NpcStage::None(npc_info)
-            }
-        }
-        TargetingStage::GetTargetFromMaps { npc_info, mut maps } => {
-            if !npc_info.is_dead(map, store) {
-                let stage = targeting::get_target(store, npc_info);
-
-                if let NpcStage::Targeting(TargetingStage::MoveToMovement { npc_info }) = stage {
-                    if let Some(next_map) = maps.pop() {
-                        send_stage(
-                            map,
-                            next_map,
-                            TargetingStage::get_target_from_maps(npc_info, maps),
-                        )
-                        .await;
-                        NpcStage::Continue
-                    } else {
-                        TargetingStage::move_to_movement(npc_info)
-                    }
-                } else {
-                    stage
-                }
-            } else {
-                NpcStage::None(npc_info)
-            }
-        }
-        TargetingStage::SetTarget {
-            npc_info,
-            target,
-            target_pos,
-        } => {
-            if !npc_info.is_dead(map, store) {
-                targeting::set_target(map, store, npc_info, target, target_pos)
-            } else {
-                NpcStage::None(npc_info)
-            }
-        }
-        TargetingStage::MoveToMovement { npc_info } => {
-            if !npc_info.is_dead(map, store) {
-                if let Some(npc) = store.npcs.get_mut(&npc_info.key) {
-                    if npc_info.data.can_move {
-                        npc.stage = NpcStages::Movement;
-                        MovementStage::path_start(npc_info)
-                    } else if npc_info.data.can_attack {
-                        npc.stage = NpcStages::Combat;
-                        CombatStage::behaviour_check(npc_info)
-                    } else {
-                        NpcStage::None(npc_info)
-                    }
-                } else {
-                    NpcStage::None(npc_info)
-                }
-            } else {
-                NpcStage::None(npc_info)
-            }
-        }
-    };
-
-    Ok(stage)
-}
-
-pub async fn send_stage(map: &MapActor, map_pos: MapPosition, stage: NpcStage) {
-    let sender = map.storage.map_senders.get(&map_pos).expect("Missing map?");
-
-    sender
-        .send(crate::maps::MapIncomming::NpcStage {
-            map_id: map.position,
-            stage,
-        })
-        .await
-        .expect("Could not send to map. means map got unloaded?");
 }

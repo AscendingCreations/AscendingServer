@@ -1,5 +1,8 @@
-use crate::{gametypes::*, npcs::*, GlobalKey};
-use std::sync::Arc;
+use crate::{
+    gametypes::*,
+    maps::{MapActor, MapActorStore},
+    npcs::*,
+};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum CombatStage {
@@ -33,7 +36,7 @@ pub enum CombatStage {
 }
 
 impl CombatStage {
-    pub fn send_map(&self) -> Option<MapPosition> {
+    pub fn get_map(&self) -> Option<MapPosition> {
         match self {
             CombatStage::RemoveTarget { npc_info }
             | CombatStage::GetDamage {
@@ -56,13 +59,7 @@ impl CombatStage {
                 npc_mode: _,
                 target,
                 cast_type: _,
-            } => {
-                if let Some(pos) = target.get_pos() {
-                    Some(pos.map)
-                } else {
-                    None
-                }
-            }
+            } => target.get_pos().map(|pos| pos.map),
         }
     }
 
@@ -107,4 +104,70 @@ impl CombatStage {
             cast_type,
         })
     }
+}
+
+pub async fn npc_combat(
+    map: &mut MapActor,
+    store: &mut MapActorStore,
+    stage: CombatStage,
+) -> Result<NpcStage> {
+    let stage = match stage {
+        CombatStage::BehaviourCheck { npc_info } => {
+            if !npc_info.is_dead(map, store) {
+                combat::behaviour_check(map, store, npc_info)?
+            } else {
+                NpcStage::None(npc_info)
+            }
+        }
+        CombatStage::CheckTarget {
+            npc_info,
+            npc_mode,
+            target,
+            cast_type,
+        } => {
+            if !npc_info.is_dead(map, store) {
+                combat::check_target(map, store, npc_info, npc_mode, target, cast_type)?
+            } else {
+                NpcStage::None(npc_info)
+            }
+        }
+        CombatStage::GetDefence { npc_info, target } => {
+            if !npc_info.is_dead(map, store) {
+                combat::get_defense(store, npc_info, target)?
+            } else {
+                NpcStage::None(npc_info)
+            }
+        }
+        CombatStage::GetDamage {
+            npc_info,
+            defense,
+            target,
+        } => {
+            if !npc_info.is_dead(map, store) {
+                combat::get_damage(store, npc_info, defense, target)?
+            } else {
+                NpcStage::None(npc_info)
+            }
+        }
+        CombatStage::DoDamage {
+            npc_info,
+            damage,
+            target,
+        } => {
+            if !npc_info.is_dead(map, store) {
+                combat::do_damage(map, store, npc_info, damage, target).await?
+            } else {
+                NpcStage::None(npc_info)
+            }
+        }
+        CombatStage::RemoveTarget { npc_info } => {
+            if !npc_info.is_dead(map, store) {
+                combat::remove_target(store, npc_info)?
+            } else {
+                NpcStage::None(npc_info)
+            }
+        }
+    };
+
+    Ok(stage)
 }
