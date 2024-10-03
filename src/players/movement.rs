@@ -1,52 +1,18 @@
 use crate::{
-    containers::*, gametypes::*, maps::*, npcs::check_target_distance, players::*, sql::*,
-    tasks::*, GlobalKey,
+    containers::*, gametypes::*, maps::*, players::*, sql::*, tasks::*, ClaimsKey, GlobalKey,
 };
+//TODO System to handle incomming packets like move and combat into their own Buffer holder until a
+//TODO Currently Active Stage is completed in that Area. This should allow us to seamlessly check and
+//TODO Handle combat, target and movement at the same time. Need ability to also know which ones are
+//TODO Processing and how to handle them into a buffer when they are.
 
-//TODO: Add Result<(), AscendingError> to all Functions that return nothing.
-pub async fn player_warp(
-    map: &mut MapActor,
-    store: &mut MapActorStore,
-    key: GlobalKey,
-    new_pos: &Position,
-    spawn: bool,
-) -> Result<()> {
-    if let Some(player) = store.players.get_mut(&key) {
-        if player.position.map != new_pos.map {
-            //let old_pos = player_switch_maps(world, storage, key, *new_pos).await?;
-
-            /*if !old_pos.1 {
-                println!("Failed to switch map");
-            }*/
-
-            DataTaskToken::Warp.add_task(map, warp_packet(key, *new_pos)?)?;
-            DataTaskToken::Warp.add_task(map, warp_packet(key, *new_pos)?)?;
-            DataTaskToken::PlayerSpawn.add_task(map, player_spawn_packet(&player, true)?)?;
-            //init_data_lists(world, storage, entity, Some(old_pos.0.map)).await?;
-        } else {
-            // player_swap_pos(world, storage, entity, *new_pos).await?;
-
-            if spawn {
-                DataTaskToken::PlayerSpawn.add_task(map, player_spawn_packet(&player, true)?)?;
-                //init_data_lists(world, storage, entity, None).await?;
-            } else {
-                DataTaskToken::Warp.add_task(map, warp_packet(key, *new_pos)?)?;
-            }
-        }
-
-        //storage.sql_request.send(SqlRequests::Position(key)).await?;
-    }
-
-    Ok(())
-}
-
-pub fn get_new_position(store: &mut MapActorStore, info: PlayerInfo, dir: u8) -> PlayerStage {
+pub fn get_new_position(store: &mut MapActorStore, info: PlayerInfo, dir: Dir) -> PlayerStage {
     if let Some(player) = store.players.get(&info.key) {
         //Down, Right, Up, Left
-        let adj = [(0, -1), (1, 0), (0, 1), (-1, 0)];
+        let (x, y) = dir.xy_offset();
         let mut new_pos = Position::new(
-            player.position.x + adj[player.dir as usize].0,
-            player.position.y + adj[player.dir as usize].1,
+            player.position.x + x,
+            player.position.y + y,
             player.position.map,
         );
 
@@ -61,8 +27,8 @@ pub fn get_new_position(store: &mut MapActorStore, info: PlayerInfo, dir: u8) ->
                 adj_pos[player.dir as usize].0,
                 adj_pos[player.dir as usize].1,
                 MapPosition {
-                    x: player.position.map.x + adj[player.dir as usize].0,
-                    y: player.position.map.y + adj[player.dir as usize].1,
+                    x: player.position.map.x + x,
+                    y: player.position.map.y + y,
                     group: player.position.map.group,
                 },
             );
@@ -70,7 +36,7 @@ pub fn get_new_position(store: &mut MapActorStore, info: PlayerInfo, dir: u8) ->
 
         PlayerMovementStage::check_blocked(info, (new_pos, dir))
     } else {
-        PlayerStage::None(info)
+        PlayerMovementStage::none(info)
     }
 }
 
@@ -78,7 +44,7 @@ pub fn check_blocked(
     map: &mut MapActor,
     store: &mut MapActorStore,
     info: PlayerInfo,
-    (next_pos, next_dir): (Position, u8),
+    (next_pos, next_dir): (Position, Dir),
 ) -> PlayerStage {
     if map.map_path_blocked(info.position, next_pos, next_dir, WorldEntityType::Player) {
         //player_warp(map, store, key, &player_position, false).await?;
@@ -129,7 +95,7 @@ pub fn move_to_position(
     map: &mut MapActor,
     store: &mut MapActorStore,
     info: PlayerInfo,
-    (next_pos, next_dir): (Position, u8),
+    (next_pos, next_dir): (Position, Dir),
 ) -> Result<PlayerStage> {
     if let Some(player) = store.players.get_mut(&info.key) {
         let old_pos = player.position;
@@ -139,120 +105,148 @@ pub fn move_to_position(
         player.position = next_pos;
         player.dir = next_dir;
 
-        DataTaskToken::Move.add_task(
-            map,
-            move_packet(
-                info.key,
-                next_pos,
-                old_pos.checkdistance(next_pos) > 1,
-                false,
-                next_dir,
-            )?,
-        )?;
+        //storage.sql_request.send(SqlRequests::Position(key)).await?;
+        if old_pos.checkdistance(next_pos) > 1 {
+            DataTaskToken::Warp.add_task(map, warp_packet(info.key, next_pos)?)?;
+        } else {
+            DataTaskToken::Move.add_task(
+                map,
+                move_packet(info.key, next_pos, false, false, next_dir)?,
+            )?;
+        }
     }
 
-    Ok(PlayerStage::None(info))
+    Ok(PlayerMovementStage::none(info))
 }
 
-pub async fn player_movement(
+pub async fn force_warp(
     map: &mut MapActor,
     store: &mut MapActorStore,
     key: GlobalKey,
-    dir: u8,
-) -> Result<bool> {
-    //Down, Right, Up, Left
-    let adj = [(0, -1), (1, 0), (0, 1), (-1, 0)];
-    let player_position = world.get_or_err::<Position>(entity).await?;
-    let mut new_pos = Position::new(
-        player_position.x + adj[dir as usize].0,
-        player_position.y + adj[dir as usize].1,
-        player_position.map,
-    );
+    next_pos: Position,
+) -> Result<()> {
+    if next_pos.map == map.position {
+        if let Some(player) = store.players.get_mut(&key) {
+            map.remove_entity_from_grid(player.position);
+            map.add_entity_to_grid(next_pos);
+            player.position = next_pos;
 
-    if new_pos.x < 0 || new_pos.x >= 32 || new_pos.y < 0 || new_pos.y >= 32 {
-        let adj = [
-            (player_position.x, 31),
-            (0, player_position.y),
-            (player_position.x, 0),
-            (31, player_position.y),
-        ];
-        let map_adj = [(0, -1), (1, 0), (0, 1), (-1, 0)];
-        new_pos = Position::new(
-            adj[dir as usize].0,
-            adj[dir as usize].1,
-            MapPosition {
-                x: player_position.map.x + map_adj[dir as usize].0,
-                y: player_position.map.y + map_adj[dir as usize].1,
-                group: player_position.map.group,
-            },
-        );
+            //storage.sql_request.send(SqlRequests::Position(key)).await?;
+            DataTaskToken::Warp.add_task(map, warp_packet(key, next_pos)?)?;
+        }
+    } else if let Some(player) = store.players.swap_remove(&key) {
+        map.remove_entity_from_grid(player.position);
+
+        DataTaskToken::Warp.add_task(map, warp_packet(key, next_pos)?)?;
+        PlayerMovementStage::finish_player_warp(
+            PlayerInfo::new(key, player.position),
+            (next_pos, player.dir),
+            player,
+        )
+        .send(map)
+        .await
     }
 
-    {
-        let lock = world.write().await;
-        lock.get::<&mut Dir>(entity.0)?.0 = dir;
-    }
+    Ok(())
+}
 
-    if map.map_path_blocked(player_position, new_pos, dir, WorldEntityType::Player) {
-        player_warp(map, store, key, &player_position, false).await?;
-        return Ok(false);
-    }
-
-    let mapdata = match storage.bases.maps.get(&new_pos.map) {
-        Some(data) => data,
-        None => return Ok(false),
+pub fn start_map_switch(
+    map: &mut MapActor,
+    store: &mut MapActorStore,
+    info: PlayerInfo,
+    (next_pos, next_dir): (Position, Dir),
+    claim: ClaimsKey,
+) -> Result<PlayerStage> {
+    let Some(player) = store.players.swap_remove(&info.key) else {
+        return Ok(PlayerMovementStage::none(info));
     };
-    let attribute = &mapdata.attribute[new_pos.as_tile()];
 
-    if let MapAttribute::Warp(warpdata) = attribute {
-        let warp_pos = Position::new(
-            warpdata.tile_x as i32,
-            warpdata.tile_y as i32,
-            MapPosition::new(warpdata.map_x, warpdata.map_y, warpdata.map_group as i32),
-        );
+    map.remove_entity_from_grid(player.position);
 
-        if storage.bases.maps.contains_key(&warp_pos.map) {
-            player_warp(map, store, key, &warp_pos, true).await?;
-            return Ok(true);
-        }
-    }
+    DataTaskToken::Move.add_task(map, move_packet(info.key, next_pos, false, true, next_dir)?)?;
 
-    storage.sql_request.send(SqlRequests::Position(key)).await?;
+    Ok(PlayerMovementStage::finish_map_switch(
+        info,
+        (next_pos, next_dir),
+        claim,
+        player,
+    ))
+}
 
-    let player_dir = world.get_or_err::<Dir>(entity).await?;
-    if new_pos.map != player_position.map {
-        let oldpos = player_switch_maps(world, storage, entity, new_pos).await?;
-
-        if !oldpos.1 {
-            println!("Failed to switch map");
-        }
-
-        DataTaskToken::Move
-            .add_task(
-                storage,
-                move_packet(key, new_pos, false, true, player_dir.0)?,
-            )
-            .await?;
-        DataTaskToken::Move
-            .add_task(
-                storage,
-                move_packet(key, new_pos, false, true, player_dir.0)?,
-            )
-            .await?;
-        DataTaskToken::PlayerSpawn
-            .add_task(storage, player_spawn_packet(world, entity, true).await?)
-            .await?;
-
-        init_data_lists(world, storage, entity, Some(oldpos.0.map)).await?;
+pub fn start_map_warp(
+    map: &mut MapActor,
+    store: &mut MapActorStore,
+    info: PlayerInfo,
+    (next_pos, next_dir): (Position, Dir),
+) -> Result<PlayerStage> {
+    if next_pos.map == map.position {
+        Ok(PlayerMovementStage::move_to_position(
+            info,
+            (next_pos, next_dir),
+        ))
     } else {
-        player_swap_pos(world, storage, entity, new_pos).await?;
-        DataTaskToken::Move
-            .add_task(
-                storage,
-                move_packet(key, new_pos, false, false, player_dir.0)?,
-            )
-            .await?;
-    }
+        let Some(player) = store.players.swap_remove(&info.key) else {
+            return Ok(PlayerMovementStage::none(info));
+        };
 
-    Ok(true)
+        map.remove_entity_from_grid(player.position);
+
+        DataTaskToken::Warp.add_task(map, warp_packet(info.key, next_pos)?)?;
+
+        // when warping a player can always Go to the tile regardless of blocked or not.
+        Ok(PlayerMovementStage::finish_player_warp(
+            info,
+            (next_pos, next_dir),
+            player,
+        ))
+    }
+}
+
+pub fn finish_map_switch(
+    map: &mut MapActor,
+    store: &mut MapActorStore,
+    info: PlayerInfo,
+    (next_pos, next_dir): (Position, Dir),
+    claim: ClaimsKey,
+    mut player: Player,
+) -> Result<PlayerStage> {
+    player.position = next_pos;
+    player.dir = next_dir;
+
+    map.add_entity_to_grid(player.position);
+
+    //storage.sql_request.send(SqlRequests::Position(key)).await?;
+    DataTaskToken::Move.add_task(map, move_packet(info.key, next_pos, false, true, next_dir)?)?;
+    DataTaskToken::PlayerSpawn.add_task(map, player_spawn_packet(&player, true)?)?;
+
+    //TODO Ask New maps to Send you New entities infomation.
+
+    store.players.insert(info.key, player);
+    store.claims.remove(claim);
+    store.entity_claims_by_position.remove(&next_pos);
+
+    Ok(PlayerMovementStage::none(info))
+}
+
+pub fn finish_map_warp(
+    map: &mut MapActor,
+    store: &mut MapActorStore,
+    info: PlayerInfo,
+    (next_pos, next_dir): (Position, Dir),
+    mut player: Player,
+) -> Result<PlayerStage> {
+    player.position = next_pos;
+    player.dir = next_dir;
+
+    //storage.sql_request.send(SqlRequests::Position(key)).await?;
+    map.add_entity_to_grid(player.position);
+
+    DataTaskToken::Warp.add_task(map, warp_packet(info.key, next_pos)?)?;
+    DataTaskToken::Dir.add_task(map, dir_packet(info.key, next_dir)?)?;
+    DataTaskToken::PlayerSpawn.add_task(map, player_spawn_packet(&player, true)?)?;
+
+    //TODO Ask New maps to Send you New entities infomation.
+    store.players.insert(info.key, player);
+
+    Ok(PlayerMovementStage::none(info))
 }

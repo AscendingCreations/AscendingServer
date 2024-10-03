@@ -12,7 +12,7 @@ use crate::{maps::MapActor, MapPosition};
 
 use super::NpcInfo;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub enum NpcStage {
     None(NpcInfo),
     Continue,

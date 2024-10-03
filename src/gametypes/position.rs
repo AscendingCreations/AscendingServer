@@ -72,28 +72,26 @@ impl Position {
         Position { x, y, map }
     }
 
-    pub fn new_offset(mut x: i32, mut y: i32, mut map: MapPosition) -> Position {
-        if x < 0 {
-            x = 31;
-            map.x -= 1;
+    pub fn new_offset(x: i32, y: i32, map: MapPosition) -> Position {
+        let mut position = Position { x, y, map };
+
+        if position.x < 0 {
+            position.x = 31;
+            position.map.x -= 1;
+        } else if position.x >= 32 {
+            position.x = 0;
+            position.map.x += 1;
         }
 
-        if x >= 32 {
-            x = 0;
-            map.x += 1;
+        if position.y < 0 {
+            position.y = 31;
+            position.map.y -= 1;
+        } else if position.y >= 32 {
+            position.y = 0;
+            position.map.y += 1;
         }
 
-        if y < 0 {
-            y = 31;
-            map.y -= 1;
-        }
-
-        if y >= 32 {
-            y = 0;
-            map.y += 1;
-        }
-
-        Position { x, y, map }
+        position
     }
 
     pub fn new_checked(x: i32, y: i32, map: MapPosition) -> Option<Position> {
@@ -122,7 +120,7 @@ impl Position {
         x.abs() + y.abs() - 1
     }
 
-    pub fn checkdirection(&self, target: Position) -> Option<i32> {
+    pub fn checkdirection(&self, target: Position) -> Option<Dir> {
         let dx = self.x - target.x;
         let dy = self.y - target.y;
 
@@ -132,13 +130,13 @@ impl Position {
         // 0 down, 1 right, 2 up, 3 left
         match (abs_dx > abs_dy, abs_dy > abs_dx) {
             (true, _) => match dx {
-                x if x > 0 => Some(3),
-                x if x < 0 => Some(1),
+                x if x > 0 => Some(Dir::Left),
+                x if x < 0 => Some(Dir::Right),
                 _ => None,
             },
             (_, true) => match dy {
-                y if y > 0 => Some(0),
-                y if y < 0 => Some(2),
+                y if y > 0 => Some(Dir::Down),
+                y if y < 0 => Some(Dir::Up),
                 _ => None,
             },
             _ => None,

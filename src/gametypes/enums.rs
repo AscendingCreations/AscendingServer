@@ -2,6 +2,7 @@ use crate::{gametypes::*, identity::GlobalKey, npcs::Npc, players::Player};
 use bytey::{ByteBufferRead, ByteBufferWrite};
 use mmap_bytey::{MByteBufferRead, MByteBufferWrite};
 use serde::{Deserialize, Serialize};
+use std::convert::From;
 
 #[derive(
     PartialEq,
@@ -749,4 +750,91 @@ pub enum ItemLeftOver {
     None,
     Left(u16),
     Full,
+}
+
+#[derive(
+    Debug,
+    Copy,
+    Clone,
+    Serialize,
+    Deserialize,
+    PartialEq,
+    Eq,
+    Default,
+    speedy::Readable,
+    speedy::Writable,
+    MByteBufferRead,
+    MByteBufferWrite,
+)]
+pub enum Dir {
+    #[default]
+    Down,
+    Right,
+    Up,
+    Left,
+}
+
+impl Dir {
+    pub fn all() -> [Dir; 4] {
+        [Dir::Down, Dir::Right, Dir::Up, Dir::Left]
+    }
+
+    pub fn reverse(&self) -> Self {
+        match self {
+            Dir::Down => Dir::Up,
+            Dir::Right => Dir::Left,
+            Dir::Up => Dir::Down,
+            Dir::Left => Dir::Right,
+        }
+    }
+
+    pub fn get_dir_sides(&self) -> [Dir; 2] {
+        match self {
+            Dir::Down | Dir::Up => [Dir::Right, Dir::Left],
+            _ => [Dir::Down, Dir::Up],
+        }
+    }
+
+    pub fn xy_offset(&self) -> (i32, i32) {
+        match self {
+            Dir::Down => (0, -1),
+            Dir::Right => (1, 0),
+            Dir::Up => (0, 1),
+            Dir::Left => (-1, 0),
+        }
+    }
+
+    /// Sets the X or Y within Map limits based on their Direction.
+    pub fn xy_fix(&self, position: Position) -> (i32, i32) {
+        match self {
+            Dir::Down => (position.x, MAP_MAX_Y as i32 - 1),
+            Dir::Right => (0, position.y),
+            Dir::Up => (position.x, 0),
+            Dir::Left => (MAP_MAX_X as i32 - 1, position.y),
+        }
+    }
+
+    /// Fixes the position and sets the MapPosition when switching maps.
+    pub fn position_fix(&self, mut position: Position) -> Position {
+        let (x_offset, y_offset) = self.xy_offset();
+        let (x, y) = self.xy_fix(position);
+
+        position.x = x;
+        position.y = y;
+        position.map.x += x_offset;
+        position.map.y += y_offset;
+
+        position
+    }
+}
+
+impl From<u8> for Dir {
+    fn from(item: u8) -> Self {
+        match item {
+            0 => Dir::Down,
+            1 => Dir::Right,
+            2 => Dir::Up,
+            _ => Dir::Left,
+        }
+    }
 }

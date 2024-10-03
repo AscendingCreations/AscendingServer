@@ -22,10 +22,3 @@ pub struct TileBox {
     pub width: u8,
     pub height: u8,
 }
-
-pub fn get_dir_sides(dir: u8) -> [u8; 2] {
-    match dir {
-        0 | 2 => [1, 3],
-        _ => [0, 2],
-    }
-}

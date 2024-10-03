@@ -7,7 +7,7 @@ use crate::{
 };
 use std::collections::VecDeque;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub enum MovementStage {
     PathStart {
         npc_info: NpcInfo,
@@ -39,7 +39,7 @@ pub enum MovementStage {
     SetMovePath {
         npc_info: NpcInfo,
         timer: MyInstant,
-        path: VecDeque<(Position, u8)>,
+        path: VecDeque<(Position, Dir)>,
     },
     GetMoves {
         npc_info: NpcInfo,
@@ -50,24 +50,24 @@ pub enum MovementStage {
     },
     CheckBlock {
         npc_info: NpcInfo,
-        next_move: (Position, u8),
+        next_move: (Position, Dir),
     },
     ProcessMovement {
         npc_info: NpcInfo,
-        next_move: (Position, u8),
+        next_move: (Position, Dir),
     },
     ProcessTarget {
         npc_info: NpcInfo,
         target: Targeting,
-        next_move: (Position, u8),
+        next_move: (Position, Dir),
     },
     SetNpcDir {
         npc_info: NpcInfo,
-        next_move: (Position, u8),
+        next_move: (Position, Dir),
     },
     FinishMove {
         npc_info: NpcInfo,
-        next_move: (Position, u8),
+        next_move: (Position, Dir),
     },
     GetTileClaim {
         npc_info: NpcInfo,
@@ -203,7 +203,7 @@ impl MovementStage {
     pub fn set_move_path(
         npc_info: NpcInfo,
         timer: MyInstant,
-        path: VecDeque<(Position, u8)>,
+        path: VecDeque<(Position, Dir)>,
     ) -> NpcStage {
         NpcStage::Movement(MovementStage::SetMovePath {
             npc_info,
@@ -223,14 +223,14 @@ impl MovementStage {
         NpcStage::Movement(MovementStage::NextMove { npc_info })
     }
 
-    pub fn check_block(npc_info: NpcInfo, next_move: (Position, u8)) -> NpcStage {
+    pub fn check_block(npc_info: NpcInfo, next_move: (Position, Dir)) -> NpcStage {
         NpcStage::Movement(MovementStage::CheckBlock {
             npc_info,
             next_move,
         })
     }
 
-    pub fn process_movement(npc_info: NpcInfo, next_move: (Position, u8)) -> NpcStage {
+    pub fn process_movement(npc_info: NpcInfo, next_move: (Position, Dir)) -> NpcStage {
         NpcStage::Movement(MovementStage::ProcessMovement {
             npc_info,
             next_move,
@@ -240,7 +240,7 @@ impl MovementStage {
     pub fn process_target(
         npc_info: NpcInfo,
         target: Targeting,
-        next_move: (Position, u8),
+        next_move: (Position, Dir),
     ) -> NpcStage {
         NpcStage::Movement(MovementStage::ProcessTarget {
             npc_info,
@@ -249,14 +249,14 @@ impl MovementStage {
         })
     }
 
-    pub fn set_npc_dir(npc_info: NpcInfo, next_move: (Position, u8)) -> NpcStage {
+    pub fn set_npc_dir(npc_info: NpcInfo, next_move: (Position, Dir)) -> NpcStage {
         NpcStage::Movement(MovementStage::SetNpcDir {
             npc_info,
             next_move,
         })
     }
 
-    pub fn finish_move(npc_info: NpcInfo, next_move: (Position, u8)) -> NpcStage {
+    pub fn finish_move(npc_info: NpcInfo, next_move: (Position, Dir)) -> NpcStage {
         NpcStage::Movement(MovementStage::FinishMove {
             npc_info,
             next_move,

@@ -33,7 +33,7 @@ pub struct Npc {
     #[educe(Default = false)]
     pub retreating: bool,
     #[educe(Default = VecDeque::new())]
-    pub moves: VecDeque<(Position, u8)>,
+    pub moves: VecDeque<(Position, Dir)>,
     pub spawn_zone: Option<usize>,
     pub move_pos_overide: Option<Position>,
     #[educe(Default = Position::new(10, 10, MapPosition::new(0,0,0)))]
@@ -52,7 +52,7 @@ pub struct Npc {
     pub vitalbuffs: [i32; VITALS_MAX],
     #[educe(Default = [0; VITALS_MAX])]
     pub regens: [u32; VITALS_MAX],
-    pub dir: u8,
+    pub dir: Dir,
     #[educe(Default = MyInstant::now())]
     pub despawn_timer: MyInstant,
     #[educe(Default = MyInstant::now())]
@@ -87,7 +87,7 @@ pub struct NpcMapInfo {
     pub key: GlobalKey,
     pub position: Position,
     pub death: Death,
-    pub dir: u8,
+    pub dir: Dir,
 }
 
 impl NpcMapInfo {
@@ -134,7 +134,7 @@ impl Npc {
     }
 
     #[inline(always)]
-    pub fn npc_set_move_path(&mut self, path: VecDeque<(Position, u8)>) {
+    pub fn npc_set_move_path(&mut self, path: VecDeque<(Position, Dir)>) {
         self.moves = path;
         self.moving = true;
     }
@@ -155,7 +155,7 @@ impl Npc {
     }
 
     #[inline(always)]
-    pub fn set_npc_dir(&mut self, map: &mut MapActor, dir: u8) -> Result<()> {
+    pub fn set_npc_dir(&mut self, map: &mut MapActor, dir: Dir) -> Result<()> {
         if self.dir != dir {
             self.dir = dir;
 

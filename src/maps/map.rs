@@ -198,22 +198,6 @@ pub fn get_surrounding_dir(position: MapPosition, include_corners: bool) -> Vec<
     arr
 }
 
-pub fn get_extended_surrounding_set(position: MapPosition) -> HashSet<MapPosition> {
-    let mut set = HashSet::<MapPosition>::default();
-
-    for next_position in get_surrounding(position, true) {
-        let outer_positions = get_surrounding(next_position, true);
-
-        for pos in outer_positions {
-            set.insert(pos);
-        }
-
-        set.insert(next_position);
-    }
-
-    set
-}
-
 pub fn get_surrounding_set(position: MapPosition) -> HashSet<MapPosition> {
     let mut set = HashSet::<MapPosition>::default();
 
@@ -222,6 +206,43 @@ pub fn get_surrounding_set(position: MapPosition) -> HashSet<MapPosition> {
     }
 
     set
+}
+
+/// Gets maps based on the players direction from their old map position.
+/// Should Speed up map sending to only maps that need it.
+pub fn get_directional_maps(position: MapPosition, dir: Dir) -> Vec<MapPosition> {
+    //Down: 0, Right: 1, Up: 2, Left: 3
+
+    match dir {
+        Dir::Down => {
+            vec![
+                position.map_offset(MapPosDir::Down),
+                position.map_offset(MapPosDir::DownLeft),
+                position.map_offset(MapPosDir::DownRight),
+            ]
+        }
+        Dir::Right => {
+            vec![
+                position.map_offset(MapPosDir::Right),
+                position.map_offset(MapPosDir::UpRight),
+                position.map_offset(MapPosDir::DownRight),
+            ]
+        }
+        Dir::Up => {
+            vec![
+                position.map_offset(MapPosDir::Up),
+                position.map_offset(MapPosDir::UpLeft),
+                position.map_offset(MapPosDir::UpRight),
+            ]
+        }
+        Dir::Left => {
+            vec![
+                position.map_offset(MapPosDir::Left),
+                position.map_offset(MapPosDir::UpLeft),
+                position.map_offset(MapPosDir::DownLeft),
+            ]
+        }
+    }
 }
 
 //Allowed_maps is a limit set so we dont process every map.

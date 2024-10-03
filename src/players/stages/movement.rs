@@ -1,75 +1,111 @@
+use super::PlayerStage;
 use crate::{
     gametypes::*,
-    maps::{MapActor, MapActorStore},
-    npcs::*,
-    players::PlayerInfo,
-    time_ext::MyInstant,
+    players::{Player, PlayerInfo},
     ClaimsKey,
 };
-use std::collections::VecDeque;
 
-use super::PlayerStage;
-
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub enum PlayerMovementStage {
+    None(PlayerInfo),
     GetNewPosition {
         info: PlayerInfo,
-        dir: u8,
+        dir: Dir,
     },
     CheckBlocked {
         info: PlayerInfo,
-        next_move: (Position, u8),
+        next_move: (Position, Dir),
     },
     SendToOriginalLocation {
         info: PlayerInfo,
-        dir: u8,
+        dir: Dir,
     },
     StartPlayerWarp {
         info: PlayerInfo,
-        next_move: (Position, u8),
+        next_move: (Position, Dir),
+    },
+    FinishPlayerWarp {
+        info: PlayerInfo,
+        next_move: (Position, Dir),
+        player: Box<Player>,
     },
     StartMapSwitch {
         info: PlayerInfo,
-        next_move: (Position, u8),
+        next_move: (Position, Dir),
         claim: ClaimsKey,
     },
-
+    FinishMapSwitch {
+        info: PlayerInfo,
+        next_move: (Position, Dir),
+        claim: ClaimsKey,
+        player: Box<Player>,
+    },
     MoveToPosition {
         info: PlayerInfo,
-        next_move: (Position, u8),
+        next_move: (Position, Dir),
     },
 }
 
 impl PlayerMovementStage {
-    pub fn get_new_position(info: PlayerInfo, dir: u8) -> PlayerStage {
+    pub fn none(info: PlayerInfo) -> PlayerStage {
+        PlayerStage::Movement(PlayerMovementStage::None(info))
+    }
+
+    pub fn get_new_position(info: PlayerInfo, dir: Dir) -> PlayerStage {
         PlayerStage::Movement(PlayerMovementStage::GetNewPosition { info, dir })
     }
 
-    pub fn start_player_warp(info: PlayerInfo, next_move: (Position, u8)) -> PlayerStage {
+    pub fn start_player_warp(info: PlayerInfo, next_move: (Position, Dir)) -> PlayerStage {
         PlayerStage::Movement(PlayerMovementStage::StartPlayerWarp { info, next_move })
     }
 
-    pub fn check_blocked(info: PlayerInfo, next_move: (Position, u8)) -> PlayerStage {
+    pub fn check_blocked(info: PlayerInfo, next_move: (Position, Dir)) -> PlayerStage {
         PlayerStage::Movement(PlayerMovementStage::CheckBlocked { info, next_move })
     }
 
-    pub fn move_to_position(info: PlayerInfo, next_move: (Position, u8)) -> PlayerStage {
+    pub fn move_to_position(info: PlayerInfo, next_move: (Position, Dir)) -> PlayerStage {
         PlayerStage::Movement(PlayerMovementStage::CheckBlocked { info, next_move })
     }
 
-    pub fn send_to_original_location(info: PlayerInfo, dir: u8) -> PlayerStage {
+    pub fn send_to_original_location(info: PlayerInfo, dir: Dir) -> PlayerStage {
         PlayerStage::Movement(PlayerMovementStage::SendToOriginalLocation { info, dir })
     }
 
     pub fn start_map_switch(
         info: PlayerInfo,
-        next_move: (Position, u8),
+        next_move: (Position, Dir),
         claim: ClaimsKey,
     ) -> PlayerStage {
         PlayerStage::Movement(PlayerMovementStage::StartMapSwitch {
             info,
             next_move,
             claim,
+        })
+    }
+
+    pub fn finish_map_switch(
+        info: PlayerInfo,
+        next_move: (Position, Dir),
+        claim: ClaimsKey,
+        player: Player,
+    ) -> PlayerStage {
+        PlayerStage::Movement(PlayerMovementStage::FinishMapSwitch {
+            info,
+            next_move,
+            claim,
+            player: Box::new(player),
+        })
+    }
+
+    pub fn finish_player_warp(
+        info: PlayerInfo,
+        next_move: (Position, Dir),
+        player: Player,
+    ) -> PlayerStage {
+        PlayerStage::Movement(PlayerMovementStage::FinishPlayerWarp {
+            info,
+            next_move,
+            player: Box::new(player),
         })
     }
 }

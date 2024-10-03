@@ -12,17 +12,17 @@ pub fn is_next_to_target(
     let pos = target_pos.map_offset(check.into());
 
     if let Some(dir) = entity_pos.checkdirection(pos) {
-        !map.is_dir_blocked(entity_pos, dir as u8) && range >= entity_pos.checkdistance(pos)
+        !map.is_dir_blocked(entity_pos, dir) && range >= entity_pos.checkdistance(pos)
     } else {
         false
     }
 }
 
-pub fn get_target_direction(entity_pos: Position, target_pos: Position) -> u8 {
+pub fn get_target_direction(entity_pos: Position, target_pos: Position) -> Dir {
     let x_dir = (entity_pos.x - target_pos.x).signum();
     let y_dir = (target_pos.y - entity_pos.y).signum();
 
-    ((x_dir + 2) * x_dir.abs() + (y_dir + 1) * (1 - x_dir.abs())) as u8
+    Dir::from(((x_dir + 2) * x_dir.abs() + (y_dir + 1) * (1 - x_dir.abs())) as u8)
 }
 
 /// This is always called on the local map where the npc originated.
@@ -228,7 +228,7 @@ pub fn set_move_path(
     store: &mut MapActorStore,
     npc_info: NpcInfo,
     timer: MyInstant,
-    path: VecDeque<(Position, u8)>,
+    path: VecDeque<(Position, Dir)>,
 ) -> NpcStage {
     let npc = store
         .npcs
@@ -285,7 +285,7 @@ pub fn check_block(
     map: &mut MapActor,
     store: &mut MapActorStore,
     npc_info: NpcInfo,
-    (next_pos, next_dir): (Position, u8),
+    (next_pos, next_dir): (Position, Dir),
 ) -> NpcStage {
     let npc = store
         .npcs
@@ -324,7 +324,7 @@ pub fn process_target(
     store: &MapActorStore,
     npc_info: NpcInfo,
     target: Targeting,
-    (next_pos, next_dir): (Position, u8),
+    (next_pos, next_dir): (Position, Dir),
 ) -> NpcStage {
     let (death, target_pos, go_to_combat) = match target.target {
         Target::Player {
@@ -367,7 +367,7 @@ pub fn process_movement(
     map: &mut MapActor,
     store: &mut MapActorStore,
     npc_info: NpcInfo,
-    (next_pos, next_dir): (Position, u8),
+    (next_pos, next_dir): (Position, Dir),
 ) -> NpcStage {
     let npc = store
         .npcs
@@ -397,7 +397,7 @@ pub fn set_npc_dir(
     map: &mut MapActor,
     store: &mut MapActorStore,
     npc_info: NpcInfo,
-    (_, next_dir): (Position, u8),
+    (_, next_dir): (Position, Dir),
 ) -> NpcStage {
     let npc = store
         .npcs
@@ -413,7 +413,7 @@ pub fn finish_movement(
     map: &mut MapActor,
     store: &mut MapActorStore,
     npc_info: NpcInfo,
-    (next_pos, next_dir): (Position, u8),
+    (next_pos, next_dir): (Position, Dir),
 ) -> NpcStage {
     let npc = store
         .npcs

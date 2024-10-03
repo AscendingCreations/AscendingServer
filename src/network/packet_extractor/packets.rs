@@ -6,12 +6,12 @@ pub enum ClientPacket {
     Login(String),
     HandShake,
     Move {
-        dir: u8,
+        dir: Dir,
         pos: Position,
     },
-    Dir(u8),
+    Dir(Dir),
     Attack {
-        dir: u8,
+        dir: Dir,
         target_id: Option<u64>,
         target_map: Option<MapPosition>,
     },
@@ -89,20 +89,20 @@ pub fn handle_login(data: &mut MByteBuffer) -> Result<ClientPacket> {
 }
 
 pub fn handle_move(data: &mut MByteBuffer) -> Result<ClientPacket> {
-    let dir = data.read::<u8>()?;
+    let dir = data.read::<Dir>()?;
     let pos = data.read::<Position>()?;
 
     Ok(ClientPacket::Move { dir, pos })
 }
 
 pub fn handle_dir(data: &mut MByteBuffer) -> Result<ClientPacket> {
-    let dir = data.read::<u8>()?;
+    let dir = data.read::<Dir>()?;
 
     Ok(ClientPacket::Dir(dir))
 }
 
 pub fn handle_attack(data: &mut MByteBuffer) -> Result<ClientPacket> {
-    let dir = data.read::<u8>()?;
+    let dir = data.read::<Dir>()?;
     let target_id = data.read::<Option<u64>>()?;
     let target_map = data.read::<Option<MapPosition>>()?;
 

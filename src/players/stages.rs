@@ -9,7 +9,7 @@ mod movement;
 
 pub use movement::*;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub enum PlayerStage {
     None(PlayerInfo),
     Continue,

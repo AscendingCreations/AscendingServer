@@ -173,7 +173,7 @@ impl MapActor {
         &self,
         cur_pos: Position,
         next_pos: Position,
-        movedir: u8,
+        movedir: Dir,
         entity_type: WorldEntityType,
     ) -> bool {
         // Directional blocking might be in the wrong order as it should be.
@@ -187,32 +187,32 @@ impl MapActor {
         blocked
     }
 
-    pub fn is_dir_blocked(&self, cur_pos: Position, movedir: u8) -> bool {
+    pub fn is_dir_blocked(&self, cur_pos: Position, movedir: Dir) -> bool {
         // Directional blocking might be in the wrong order as it should be.
         // 0 down, 1 right, 2 up, 3 left
         match movedir {
-            0 => {
+            Dir::Down => {
                 if let Some(grid) = self.move_grids.get(&cur_pos.map) {
                     grid[cur_pos.as_tile()].dir_block.get(B0) == 0b00000001
                 } else {
                     true
                 }
             }
-            1 => {
+            Dir::Right => {
                 if let Some(grid) = self.move_grids.get(&cur_pos.map) {
                     grid[cur_pos.as_tile()].dir_block.get(B3) == 0b00001000
                 } else {
                     true
                 }
             }
-            2 => {
+            Dir::Up => {
                 if let Some(grid) = self.move_grids.get(&cur_pos.map) {
                     grid[cur_pos.as_tile()].dir_block.get(B1) == 0b00000010
                 } else {
                     true
                 }
             }
-            _ => {
+            Dir::Left => {
                 if let Some(grid) = self.move_grids.get(&cur_pos.map) {
                     grid[cur_pos.as_tile()].dir_block.get(B2) == 0b00000100
                 } else {

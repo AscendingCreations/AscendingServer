@@ -4,7 +4,7 @@ use crate::{
     npcs::*,
 };
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub enum CombatStage {
     //First part of combat.
     BehaviourCheck {

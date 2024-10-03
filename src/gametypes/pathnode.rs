@@ -7,12 +7,12 @@ pub struct PathNode {
     pub f: i32,
     pub parent: Option<usize>,
     pub pos: Position,
-    pub dir: u8,
+    pub dir: Dir,
     pub offset: Position,
 }
 
 impl PathNode {
-    pub fn new(pos: Position, dir: u8, offset: Position, parent: Option<usize>) -> Self {
+    pub fn new(pos: Position, dir: Dir, offset: Position, parent: Option<usize>) -> Self {
         Self {
             g: 0,
             h: 0,

@@ -186,7 +186,7 @@ impl MapActor {
         let pos = target_pos.map_offset(check.into());
 
         if let Some(dir) = caster_pos.checkdirection(pos) {
-            !self.is_dir_blocked(caster_pos, dir as u8) && range >= caster_pos.checkdistance(pos)
+            !self.is_dir_blocked(caster_pos, dir) && range >= caster_pos.checkdistance(pos)
         } else {
             false
         }

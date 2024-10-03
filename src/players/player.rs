@@ -69,7 +69,7 @@ pub struct Player {
     pub vitalbuffs: [i32; VITALS_MAX],
     #[educe(Default = [0; VITALS_MAX])]
     pub regens: [u32; VITALS_MAX],
-    pub dir: u8,
+    pub dir: Dir,
     #[educe(Default = MyInstant::now())]
     pub despawn_timer: MyInstant,
     #[educe(Default = MyInstant::now())]
@@ -185,7 +185,7 @@ impl PlayerInfo {
 #[educe(Default)]
 pub struct PlayerMapInfo {
     pub key: GlobalKey,
-    pub dir: u8,
+    pub dir: Dir,
     pub position: Position,
     pub access: UserAccess,
     pub death: Death,

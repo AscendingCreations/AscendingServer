@@ -70,7 +70,7 @@ pub fn check_target(
     if let Some((inuse, position, death)) = data {
         if !inuse {
             if let Some(dir) = npc_info.position.checkdirection(position) {
-                if !map.is_dir_blocked(npc_info.position, dir as u8)
+                if !map.is_dir_blocked(npc_info.position, dir)
                     && entity_cast_check(npc_info.position, position, death, npc_info.data.range)
                 {
                     return Ok(CombatStage::get_defense(npc_info, target));

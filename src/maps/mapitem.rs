@@ -381,39 +381,12 @@ pub async fn player_interact_object(
         let target_pos = {
             let mut next_pos = player.position;
 
-            match player.dir {
-                1 => {
-                    next_pos.x += 1;
+            let (x, y) = player.dir.xy_offset();
+            next_pos.x += x;
+            next_pos.y += y;
 
-                    if next_pos.x >= 32 {
-                        next_pos.x = 0;
-                        next_pos.map.x += 1;
-                    }
-                }
-                2 => {
-                    next_pos.y += 1;
-
-                    if next_pos.y >= 32 {
-                        next_pos.y = 0;
-                        next_pos.map.y += 1;
-                    }
-                }
-                3 => {
-                    next_pos.x -= 1;
-
-                    if next_pos.x < 0 {
-                        next_pos.x = 31;
-                        next_pos.map.x -= 1;
-                    }
-                }
-                _ => {
-                    next_pos.y -= 1;
-
-                    if next_pos.y < 0 {
-                        next_pos.y = 31;
-                        next_pos.map.y -= 1;
-                    }
-                }
+            if next_pos.x < 0 || next_pos.x >= 32 || next_pos.y < 0 || next_pos.y >= 32 {
+                next_pos = player.dir.position_fix(next_pos);
             }
 
             next_pos

@@ -5,7 +5,7 @@ pub fn move_packet(
     position: Position,
     warp: bool,
     switch: bool,
-    dir: u8,
+    dir: Dir,
 ) -> Result<MByteBuffer> {
     let mut buffer = MByteBuffer::new()?;
     buffer
@@ -25,7 +25,7 @@ pub fn warp_packet(entity: GlobalKey, position: Position) -> Result<MByteBuffer>
     Ok(buffer)
 }
 
-pub fn dir_packet(entity: GlobalKey, dir: u8) -> Result<MByteBuffer> {
+pub fn dir_packet(entity: GlobalKey, dir: Dir) -> Result<MByteBuffer> {
     let mut buffer = MByteBuffer::new()?;
     buffer.write(entity)?.write(dir)?;
 

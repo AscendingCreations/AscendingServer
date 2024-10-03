@@ -10,7 +10,11 @@ use rand::*;
 use std::cmp;
 
 #[inline]
-pub async fn damage_player(world: &GameWorld, entity: &crate::GlobalKey, damage: i32) -> Result<()> {
+pub async fn damage_player(
+    world: &GameWorld,
+    entity: &crate::GlobalKey,
+    damage: i32,
+) -> Result<()> {
     let lock = world.write().await;
     let mut query = lock.query_one::<&mut Vitals>(entity.0)?;
 
@@ -49,7 +53,7 @@ pub async fn try_player_cast(
     let life = world.get_or_default::<Death>(target).await;
 
     if let Some(dir) = caster_pos.checkdirection(target_pos) {
-        if is_dir_blocked(storage, caster_pos, dir as u8).await {
+        if is_dir_blocked(storage, caster_pos, dir).await {
             return false;
         }
     } else {

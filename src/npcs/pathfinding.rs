@@ -19,7 +19,7 @@ pub fn path_map_switch(
     allowed_maps: &HashSet<MapPosition>,
     cur_pos: Position,
     next_pos: &mut Position,
-    movedir: u8,
+    movedir: Dir,
 ) -> bool {
     //Checks if the Map Exists within our MapDir and if so sets and returns true if it was successful
     //or false if we can not switch the map.
@@ -39,28 +39,26 @@ pub fn path_map_switch(
 
     if next_pos.left_map() {
         match movedir {
-            0 => return set_pos(next_pos, MapPosDir::Down, cur_pos.x, MAP_MAX_Y as i32 - 1),
-            1 => return set_pos(next_pos, MapPosDir::Right, 0, cur_pos.y),
-            2 => return set_pos(next_pos, MapPosDir::Up, cur_pos.x, 0),
-            _ => return set_pos(next_pos, MapPosDir::Left, MAP_MAX_X as i32 - 1, cur_pos.y),
+            Dir::Down => set_pos(next_pos, MapPosDir::Down, cur_pos.x, MAP_MAX_Y as i32 - 1),
+            Dir::Right => set_pos(next_pos, MapPosDir::Right, 0, cur_pos.y),
+            Dir::Up => set_pos(next_pos, MapPosDir::Up, cur_pos.x, 0),
+            Dir::Left => set_pos(next_pos, MapPosDir::Left, MAP_MAX_X as i32 - 1, cur_pos.y),
         }
+    } else {
+        true
     }
-
-    true
 }
 
 pub fn a_star_path(
     map: &mut MapActor,
     start: Position,
-    dir: u8,
+    dir: Dir,
     stop: Position,
-) -> Option<VecDeque<(Position, u8)>> {
+) -> Option<VecDeque<(Position, Dir)>> {
     let mut id = 0;
     //Build the list of allowed maps the npc can look at when building its path. We want to limit this so they can not kill the
     //server by over processing. If the target is outside these maps we should untarget them.
-    let allowed_maps = get_extended_surrounding_set(start.map);
-    //down, right, up, left
-    let adjacent = [(0, -1), (1, 0), (0, 1), (-1, 0)];
+    let allowed_maps = get_surrounding_set(start.map);
 
     //see if the map ID exists in our limit searc range of maps
     allowed_maps.get(&stop.map)?;
@@ -104,23 +102,24 @@ pub fn a_star_path(
         //Cycle each direction to get a Rated path ontop of each current location.
         //We only build out and process 4 directions at a time. this helps us
         //to reduce the need to build the entire tile map.
-        for (i, movedir) in adjacent.iter().enumerate() {
+        for dir in Dir::all() {
+            let (x, y) = dir.xy_offset();
             // We create a node that gets its position updated base on maps.
             let mut node_pos = Position::new(
-                current_node.pos.x + movedir.0,
-                current_node.pos.y + movedir.1,
+                current_node.pos.x + x,
+                current_node.pos.y + y,
                 current_node.pos.map,
             );
 
             //This is the actual node movement made so we know the ID later
             let node_offset = Position::new(
-                current_node.offset.x + movedir.0,
-                current_node.offset.y + movedir.1,
+                current_node.offset.x + x,
+                current_node.offset.y + y,
                 current_node.pos.map,
             );
 
             //Check if it will be a map switch and if so generate the correct location for node_pos.
-            if !path_map_switch(map, &allowed_maps, current_node.pos, &mut node_pos, i as u8) {
+            if !path_map_switch(map, &allowed_maps, current_node.pos, &mut node_pos, dir) {
                 continue;
             }
 
@@ -130,7 +129,7 @@ pub fn a_star_path(
             }
 
             //Make sure the node is not blocked otherwise we wont count it in our node list.
-            if map.map_path_blocked(current_node.pos, node_pos, i as u8, WorldEntityType::Npc) {
+            if map.map_path_blocked(current_node.pos, node_pos, dir, WorldEntityType::Npc) {
                 continue;
             }
 
@@ -138,7 +137,7 @@ pub fn a_star_path(
             CHILDREN_NODES.with_borrow_mut(|n| {
                 n.push(PathNode::new(
                     node_pos,
-                    i as u8,
+                    dir,
                     node_offset,
                     Some(current_index),
                 ))
@@ -188,7 +187,7 @@ pub fn a_star_path(
 pub fn npc_path_gather(
     current_node: &PathNode,
     start: Position,
-) -> Option<VecDeque<(Position, u8)>> {
+) -> Option<VecDeque<(Position, Dir)>> {
     let mut path = VecDeque::with_capacity(64);
     let mut current = *current_node;
 
@@ -204,31 +203,26 @@ pub fn npc_path_gather(
     Some(path)
 }
 
-pub fn npc_rand_movement(map: &MapActor, pos: Position) -> VecDeque<(Position, u8)> {
+pub fn npc_rand_movement(map: &MapActor, pos: Position) -> VecDeque<(Position, Dir)> {
     let mut rng = thread_rng();
-    //down, right, up, left
-    let adjacent = [(0, -1), (1, 0), (0, 1), (-1, 0)];
     let mut path = VecDeque::with_capacity(16);
     let mut lastpos = pos;
     let allowed_maps = get_surrounding_set(pos.map);
 
     //Lets get a range of movements in one go.
     for _ in 1..rng.gen_range(3..10) {
-        let movedir = rng.gen_range(0..=3);
-        let mut node_pos = Position::new(
-            lastpos.x + adjacent[movedir].0,
-            lastpos.y + adjacent[movedir].1,
-            lastpos.map,
-        );
+        let movedir = Dir::from(rng.gen_range(0..=3));
+        let (x, y) = movedir.xy_offset();
+        let mut node_pos = Position::new(lastpos.x + x, lastpos.y + y, lastpos.map);
 
-        if !path_map_switch(map, &allowed_maps, lastpos, &mut node_pos, movedir as u8) {
+        if !path_map_switch(map, &allowed_maps, lastpos, &mut node_pos, movedir) {
             continue;
         }
 
-        if map.map_path_blocked(lastpos, node_pos, movedir as u8, WorldEntityType::Npc) {
-            path.push_back((lastpos, movedir as u8));
+        if map.map_path_blocked(lastpos, node_pos, movedir, WorldEntityType::Npc) {
+            path.push_back((lastpos, movedir));
         } else {
-            path.push_back((node_pos, movedir as u8));
+            path.push_back((node_pos, movedir));
             lastpos = node_pos;
         }
     }
