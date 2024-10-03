@@ -8,7 +8,10 @@ use crate::{
     time_ext::*,
     GlobalKey,
 };
+use bit_op::{bit_u8, BitOp};
 use educe::Educe;
+
+use super::PlayerStages;
 
 #[derive(Clone, Debug, Educe)]
 #[educe(Default)]
@@ -98,6 +101,28 @@ pub struct Player {
     pub socket: Option<Socket>,
     pub trade: Option<Trade>,
     pub trade_request: Option<TradeRequest>,
+    //B0 = movement, B1 == Combat..
+    pub stages: u8,
+}
+
+impl Player {
+    pub fn is_stage(&self, stage: PlayerStages) -> bool {
+        match stage {
+            PlayerStages::Movement => self.stages.get(bit_u8::B0) == 0b00000001,
+            PlayerStages::Combat => self.stages.get(bit_u8::B1) == 0b00000010,
+            PlayerStages::Targeting => self.stages.get(bit_u8::B2) == 0b00000100,
+            PlayerStages::None => self.stages == 0,
+        }
+    }
+
+    pub fn toggle_stage(&mut self, stage: PlayerStages) {
+        match stage {
+            PlayerStages::Movement => self.stages.toggle(bit_u8::B0),
+            PlayerStages::Combat => self.stages.toggle(bit_u8::B1),
+            PlayerStages::Targeting => self.stages.toggle(bit_u8::B2),
+            PlayerStages::None => self.stages = 0,
+        }
+    }
 }
 
 impl Clone for Player {
@@ -151,6 +176,7 @@ impl Clone for Player {
             socket: None,
             trade: None,
             trade_request: None,
+            stages: 0,
         }
     }
 }
