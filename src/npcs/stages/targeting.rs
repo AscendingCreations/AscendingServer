@@ -43,6 +43,58 @@ pub enum TargetingStage {
 }
 
 impl TargetingStage {
+    pub fn get_npc_info(self) -> NpcInfo {
+        match self {
+            TargetingStage::CheckTarget {
+                npc_info,
+                target: _,
+            }
+            | TargetingStage::NpcDeTargetChance {
+                npc_info,
+                target: _,
+            }
+            | TargetingStage::CheckDistance {
+                npc_info,
+                target: _,
+            }
+            | TargetingStage::ClearTarget { npc_info }
+            | TargetingStage::GetTargetMaps { npc_info }
+            | TargetingStage::GetTargetFromMaps { npc_info, maps: _ }
+            | TargetingStage::SetTarget {
+                npc_info,
+                target: _,
+                target_pos: _,
+            }
+            | TargetingStage::MoveToMovement { npc_info } => npc_info,
+        }
+    }
+
+    pub fn get_owner_map(&self) -> MapPosition {
+        match self {
+            TargetingStage::CheckTarget {
+                npc_info,
+                target: _,
+            }
+            | TargetingStage::NpcDeTargetChance {
+                npc_info,
+                target: _,
+            }
+            | TargetingStage::CheckDistance {
+                npc_info,
+                target: _,
+            }
+            | TargetingStage::ClearTarget { npc_info }
+            | TargetingStage::GetTargetMaps { npc_info }
+            | TargetingStage::GetTargetFromMaps { npc_info, maps: _ }
+            | TargetingStage::SetTarget {
+                npc_info,
+                target: _,
+                target_pos: _,
+            }
+            | TargetingStage::MoveToMovement { npc_info } => npc_info.position.map,
+        }
+    }
+
     pub fn get_target(&self) -> Target {
         match self {
             TargetingStage::CheckTarget {

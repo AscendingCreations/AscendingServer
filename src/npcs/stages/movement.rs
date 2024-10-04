@@ -91,6 +91,146 @@ pub enum MovementStage {
 }
 
 impl MovementStage {
+    pub fn get_npc_info(self) -> NpcInfo {
+        match self {
+            MovementStage::PathStart { npc_info }
+            | MovementStage::GetTargetUpdates {
+                npc_info,
+                target: _,
+            }
+            | MovementStage::ClearTarget { npc_info }
+            | MovementStage::UpdateTarget {
+                npc_info,
+                new_target: _,
+            }
+            | MovementStage::UpdateAStarPaths {
+                npc_info,
+                timer: _,
+                target_pos: _,
+            }
+            | MovementStage::UpdateRandPaths { npc_info, timer: _ }
+            | MovementStage::ClearMovePath { npc_info }
+            | MovementStage::SetMovePath {
+                npc_info,
+                timer: _,
+                path: _,
+            }
+            | MovementStage::GetMoves {
+                npc_info,
+                new_target: _,
+            }
+            | MovementStage::NextMove { npc_info }
+            | MovementStage::CheckBlock {
+                npc_info,
+                next_move: _,
+            }
+            | MovementStage::ProcessMovement {
+                npc_info,
+                next_move: _,
+            }
+            | MovementStage::ProcessTarget {
+                npc_info,
+                target: _,
+                next_move: _,
+            }
+            | MovementStage::SetNpcDir {
+                npc_info,
+                next_move: _,
+            }
+            | MovementStage::FinishMove {
+                npc_info,
+                next_move: _,
+            }
+            | MovementStage::GetTileClaim {
+                npc_info,
+                new_position: _,
+            }
+            | MovementStage::SwitchMaps {
+                npc_info,
+                new_position: _,
+                can_switch: _,
+                map_switch_key: _,
+            }
+            | MovementStage::MapSwitchFinish {
+                npc_info,
+                new_position: _,
+                map_switch_key: _,
+                npc: _,
+            }
+            | MovementStage::MoveToCombat { npc_info } => npc_info,
+        }
+    }
+
+    pub fn get_owner_map(&self) -> MapPosition {
+        match self {
+            MovementStage::PathStart { npc_info }
+            | MovementStage::GetTargetUpdates {
+                npc_info,
+                target: _,
+            }
+            | MovementStage::ClearTarget { npc_info }
+            | MovementStage::UpdateTarget {
+                npc_info,
+                new_target: _,
+            }
+            | MovementStage::UpdateAStarPaths {
+                npc_info,
+                timer: _,
+                target_pos: _,
+            }
+            | MovementStage::UpdateRandPaths { npc_info, timer: _ }
+            | MovementStage::ClearMovePath { npc_info }
+            | MovementStage::SetMovePath {
+                npc_info,
+                timer: _,
+                path: _,
+            }
+            | MovementStage::GetMoves {
+                npc_info,
+                new_target: _,
+            }
+            | MovementStage::NextMove { npc_info }
+            | MovementStage::CheckBlock {
+                npc_info,
+                next_move: _,
+            }
+            | MovementStage::ProcessMovement {
+                npc_info,
+                next_move: _,
+            }
+            | MovementStage::ProcessTarget {
+                npc_info,
+                target: _,
+                next_move: _,
+            }
+            | MovementStage::SetNpcDir {
+                npc_info,
+                next_move: _,
+            }
+            | MovementStage::FinishMove {
+                npc_info,
+                next_move: _,
+            }
+            | MovementStage::GetTileClaim {
+                npc_info,
+                new_position: _,
+            }
+            | MovementStage::SwitchMaps {
+                npc_info,
+                new_position: _,
+                can_switch: _,
+                map_switch_key: _,
+            }
+            | MovementStage::MapSwitchFinish {
+                npc_info,
+                new_position: _,
+                map_switch_key: _,
+                npc: _,
+            }
+            | MovementStage::MoveToCombat { npc_info } => npc_info.position.map,
+        }
+    }
+
     pub fn get_map(&self) -> Option<MapPosition> {
         match self {
             MovementStage::MoveToCombat { npc_info }

@@ -224,7 +224,7 @@ pub async fn do_damage(
             position: _,
         } => {
             if let Some(player) = store.players.get(&key) {
-                ////damage_player(map, store, player_key, damage).await?;
+                //damage_player(map, store, player_key, damage).await?;
                 DataTaskToken::Damage.add_task(
                     map,
                     damage_packet(key, damage as u16, player.position, true)?,

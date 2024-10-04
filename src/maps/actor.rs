@@ -283,7 +283,7 @@ impl MapActor {
         }
     }
 
-    pub fn get_dir_mapid(&self, position: MapPosition, dir: MapPosDir) -> Option<MapPosition> {
+    pub fn get_dir_mapid(&self, position: MapPosition, dir: MapDir) -> Option<MapPosition> {
         let offset = position.map_offset(dir);
         self.move_grids.get(&offset)?;
         Some(offset)

@@ -143,29 +143,29 @@ impl Position {
         }
     }
 
-    pub fn map_offset(&self, dir: MapPosDir) -> Position {
+    pub fn map_offset(&self, dir: MapDir) -> Position {
         match dir {
-            MapPosDir::UpLeft => Position::new(
+            MapDir::UpLeft => Position::new(
                 self.x - MAP_MAX_X as i32,
                 self.y + MAP_MAX_Y as i32,
                 self.map,
             ),
-            MapPosDir::Up => Position::new(self.x, self.y + MAP_MAX_Y as i32, self.map),
-            MapPosDir::UpRight => Position::new(
+            MapDir::Up => Position::new(self.x, self.y + MAP_MAX_Y as i32, self.map),
+            MapDir::UpRight => Position::new(
                 self.x + MAP_MAX_X as i32,
                 self.y + MAP_MAX_Y as i32,
                 self.map,
             ),
-            MapPosDir::Left => Position::new(self.x - MAP_MAX_X as i32, self.y, self.map),
-            MapPosDir::None | MapPosDir::Center => Position::new(self.x, self.y, self.map),
-            MapPosDir::Right => Position::new(self.x + MAP_MAX_X as i32, self.y, self.map),
-            MapPosDir::DownLeft => Position::new(
+            MapDir::Left => Position::new(self.x - MAP_MAX_X as i32, self.y, self.map),
+            MapDir::None | MapDir::Center => Position::new(self.x, self.y, self.map),
+            MapDir::Right => Position::new(self.x + MAP_MAX_X as i32, self.y, self.map),
+            MapDir::DownLeft => Position::new(
                 self.x - MAP_MAX_X as i32,
                 self.y - MAP_MAX_Y as i32,
                 self.map,
             ),
-            MapPosDir::Down => Position::new(self.x, self.y - MAP_MAX_Y as i32, self.map),
-            MapPosDir::DownRight => Position::new(
+            MapDir::Down => Position::new(self.x, self.y - MAP_MAX_Y as i32, self.map),
+            MapDir::DownRight => Position::new(
                 self.x + MAP_MAX_X as i32,
                 self.y - MAP_MAX_Y as i32,
                 self.map,

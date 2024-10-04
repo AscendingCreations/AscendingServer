@@ -72,7 +72,7 @@ pub fn get_target_updates(store: &MapActorStore, npc_info: NpcInfo, target: Targ
         }
     };
 
-    if check_surrounding(npc_info.position.map, target_pos.map, true) == MapPos::None
+    if check_surrounding(npc_info.position.map, target_pos.map, true) == MapDirPos::None
         || !death.is_alive()
     {
         MovementStage::clear_target(npc_info)

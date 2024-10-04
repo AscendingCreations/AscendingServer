@@ -39,10 +39,10 @@ pub fn path_map_switch(
 
     if next_pos.left_map() {
         match movedir {
-            Dir::Down => set_pos(next_pos, MapPosDir::Down, cur_pos.x, MAP_MAX_Y as i32 - 1),
-            Dir::Right => set_pos(next_pos, MapPosDir::Right, 0, cur_pos.y),
-            Dir::Up => set_pos(next_pos, MapPosDir::Up, cur_pos.x, 0),
-            Dir::Left => set_pos(next_pos, MapPosDir::Left, MAP_MAX_X as i32 - 1, cur_pos.y),
+            Dir::Down => set_pos(next_pos, MapDir::Down, cur_pos.x, MAP_MAX_Y as i32 - 1),
+            Dir::Right => set_pos(next_pos, MapDir::Right, 0, cur_pos.y),
+            Dir::Up => set_pos(next_pos, MapDir::Up, cur_pos.x, 0),
+            Dir::Left => set_pos(next_pos, MapDir::Left, MAP_MAX_X as i32 - 1, cur_pos.y),
         }
     } else {
         true

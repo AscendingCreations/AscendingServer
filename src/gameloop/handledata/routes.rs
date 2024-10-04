@@ -483,68 +483,67 @@ pub async fn handle_pickup(
             return Ok(());
         }
 
-        let mapids = get_maps_in_range(storage, &world.get_or_err::<Position>(entity).await?, 1);
+        let mapids = get_map_pos_in_range(storage, &world.get_or_err::<Position>(entity).await?, 1);
         let mut full_message = false;
 
         for id in mapids {
-            if let Some(x) = id.get() {
-                let map = match storage.maps.get(&x) {
-                    Some(map) => map,
-                    None => continue,
-                }
-                .read()
-                .await;
+            let map = match storage.maps.get(&id) {
+                Some(map) => map,
+                None => continue,
+            }
+            .read()
+            .await;
 
-                // for the map base data when we need it.
-                if storage
-                    .bases
-                    .maps
-                    .get(&world.get_or_err::<Position>(entity).await?.map)
-                    .is_none()
+            // for the map base data when we need it.
+            if storage
+                .bases
+                .maps
+                .get(&world.get_or_err::<Position>(entity).await?.map)
+                .is_none()
+            {
+                continue;
+            }
+            let ids = map.itemids.clone();
+
+            for i in ids {
+                let mut mapitems = world.get_or_err::<MapItem>(&i).await?;
+                if world
+                    .get_or_err::<Position>(entity)
+                    .await?
+                    .checkdistance(mapitems.pos.map_offset(id.into()))
+                    <= 1
                 {
-                    continue;
-                }
-                let ids = map.itemids.clone();
+                    if mapitems.item.num == 0 {
+                        let rem =
+                            player_give_vals(world, storage, entity, mapitems.item.val as u64)
+                                .await?;
 
-                for i in ids {
-                    let mut mapitems = world.get_or_err::<MapItem>(&i).await?;
-                    if world
-                        .get_or_err::<Position>(entity)
-                        .await?
-                        .checkdistance(mapitems.pos.map_offset(id.into()))
-                        <= 1
-                    {
-                        if mapitems.item.num == 0 {
-                            let rem =
-                                player_give_vals(world, storage, entity, mapitems.item.val as u64)
-                                    .await?;
+                        {
+                            let lock = world.write().await;
+                            lock.get::<&mut MapItem>(i.0)?.item.val = rem as u16;
+                        }
 
-                            {
-                                let lock = world.write().await;
-                                lock.get::<&mut MapItem>(i.0)?.item.val = rem as u16;
-                            }
+                        if rem == 0 {
+                            remove_id.push((id, i));
+                        }
+                    } else {
+                        //let amount = mapitems.item.val;
 
-                            if rem == 0 {
-                                remove_id.push((x, i));
-                            }
-                        } else {
-                            //let amount = mapitems.item.val;
+                        let (is_less, amount, start) =
+                            check_inv_partial_space(world, storage, entity, &mut mapitems.item)
+                                .await?;
 
-                            let (is_less, amount, start) =
-                                check_inv_partial_space(world, storage, entity, &mut mapitems.item)
-                                    .await?;
+                        //if passed then we only get partial of the map item.
+                        if is_less {
+                            give_inv_item(world, storage, entity, &mut mapitems.item).await?;
 
-                            //if passed then we only get partial of the map item.
-                            if is_less {
-                                give_inv_item(world, storage, entity, &mut mapitems.item).await?;
+                            let st = match amount {
+                                0 | 1 => "",
+                                _ => "'s",
+                            };
 
-                                let st = match amount {
-                                    0 | 1 => "",
-                                    _ => "'s",
-                                };
-
-                                if amount != start {
-                                    send_message(
+                            if amount != start {
+                                send_message(
                                         world,
                                         storage,
                                         entity,
@@ -553,30 +552,29 @@ pub async fn handle_pickup(
                                         MessageChannel::Private,
                                         None,
                                     ).await?;
-                                    let lock = world.write().await;
-                                    lock.get::<&mut MapItem>(i.0)?.item.val = start - amount;
-                                } else {
-                                    send_message(
-                                        world,
-                                        storage,
-                                        entity,
-                                        format!(
-                                            "You picked up {} {}{}.",
-                                            amount,
-                                            storage.bases.items[mapitems.item.num as usize].name,
-                                            st
-                                        ),
-                                        String::new(),
-                                        MessageChannel::Private,
-                                        None,
-                                    )
-                                    .await?;
-
-                                    remove_id.push((x, i));
-                                }
+                                let lock = world.write().await;
+                                lock.get::<&mut MapItem>(i.0)?.item.val = start - amount;
                             } else {
-                                full_message = true;
+                                send_message(
+                                    world,
+                                    storage,
+                                    entity,
+                                    format!(
+                                        "You picked up {} {}{}.",
+                                        amount,
+                                        storage.bases.items[mapitems.item.num as usize].name,
+                                        st
+                                    ),
+                                    String::new(),
+                                    MessageChannel::Private,
+                                    None,
+                                )
+                                .await?;
+
+                                remove_id.push((id, i));
                             }
+                        } else {
+                            full_message = true;
                         }
                     }
                 }

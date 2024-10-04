@@ -129,70 +129,70 @@ pub fn check_surrounding(
     start: MapPosition,
     position: MapPosition,
     include_corners: bool,
-) -> MapPos {
+) -> MapDirPos {
     if start.group != position.group {
-        return MapPos::None;
+        return MapDirPos::None;
     }
     if position == start {
-        MapPos::Center(position)
-    } else if position == start.map_offset(MapPosDir::Up) {
-        MapPos::Up(start.map_offset(MapPosDir::Up))
-    } else if position == start.map_offset(MapPosDir::Down) {
-        MapPos::Down(start.map_offset(MapPosDir::Down))
-    } else if position == start.map_offset(MapPosDir::Left) {
-        MapPos::Left(start.map_offset(MapPosDir::Left))
-    } else if position == start.map_offset(MapPosDir::Right) {
-        MapPos::Right(start.map_offset(MapPosDir::Right))
+        MapDirPos::Center(position)
+    } else if position == start.map_offset(MapDir::Up) {
+        MapDirPos::Up(start.map_offset(MapDir::Up))
+    } else if position == start.map_offset(MapDir::Down) {
+        MapDirPos::Down(start.map_offset(MapDir::Down))
+    } else if position == start.map_offset(MapDir::Left) {
+        MapDirPos::Left(start.map_offset(MapDir::Left))
+    } else if position == start.map_offset(MapDir::Right) {
+        MapDirPos::Right(start.map_offset(MapDir::Right))
     } else if include_corners {
-        if position == start.map_offset(MapPosDir::UpLeft) {
-            MapPos::UpLeft(start.map_offset(MapPosDir::UpLeft))
-        } else if position == start.map_offset(MapPosDir::UpRight) {
-            MapPos::UpRight(start.map_offset(MapPosDir::UpRight))
-        } else if position == start.map_offset(MapPosDir::DownLeft) {
-            MapPos::DownLeft(start.map_offset(MapPosDir::DownLeft))
-        } else if position == start.map_offset(MapPosDir::DownRight) {
-            MapPos::DownRight(start.map_offset(MapPosDir::DownRight))
+        if position == start.map_offset(MapDir::UpLeft) {
+            MapDirPos::UpLeft(start.map_offset(MapDir::UpLeft))
+        } else if position == start.map_offset(MapDir::UpRight) {
+            MapDirPos::UpRight(start.map_offset(MapDir::UpRight))
+        } else if position == start.map_offset(MapDir::DownLeft) {
+            MapDirPos::DownLeft(start.map_offset(MapDir::DownLeft))
+        } else if position == start.map_offset(MapDir::DownRight) {
+            MapDirPos::DownRight(start.map_offset(MapDir::DownRight))
         } else {
-            MapPos::None
+            MapDirPos::None
         }
     } else {
-        MapPos::None
+        MapDirPos::None
     }
 }
 
 pub fn get_surrounding(position: MapPosition, include_corners: bool) -> Vec<MapPosition> {
     let mut arr = vec![
         position,
-        position.map_offset(MapPosDir::Up),
-        position.map_offset(MapPosDir::Down),
-        position.map_offset(MapPosDir::Left),
-        position.map_offset(MapPosDir::Right),
+        position.map_offset(MapDir::Up),
+        position.map_offset(MapDir::Down),
+        position.map_offset(MapDir::Left),
+        position.map_offset(MapDir::Right),
     ];
 
     if include_corners {
-        arr.push(position.map_offset(MapPosDir::UpLeft));
-        arr.push(position.map_offset(MapPosDir::UpRight));
-        arr.push(position.map_offset(MapPosDir::DownLeft));
-        arr.push(position.map_offset(MapPosDir::DownRight));
+        arr.push(position.map_offset(MapDir::UpLeft));
+        arr.push(position.map_offset(MapDir::UpRight));
+        arr.push(position.map_offset(MapDir::DownLeft));
+        arr.push(position.map_offset(MapDir::DownRight));
     }
 
     arr
 }
 
-pub fn get_surrounding_dir(position: MapPosition, include_corners: bool) -> Vec<MapPos> {
+pub fn get_surrounding_dir(position: MapPosition, include_corners: bool) -> Vec<MapDirPos> {
     let mut arr = vec![
-        MapPos::Center(position),
-        MapPos::Up(position.map_offset(MapPosDir::Up)),
-        MapPos::Down(position.map_offset(MapPosDir::Down)),
-        MapPos::Left(position.map_offset(MapPosDir::Left)),
-        MapPos::Right(position.map_offset(MapPosDir::Right)),
+        MapDirPos::Center(position),
+        MapDirPos::Up(position.map_offset(MapDir::Up)),
+        MapDirPos::Down(position.map_offset(MapDir::Down)),
+        MapDirPos::Left(position.map_offset(MapDir::Left)),
+        MapDirPos::Right(position.map_offset(MapDir::Right)),
     ];
 
     if include_corners {
-        arr.push(MapPos::UpLeft(position.map_offset(MapPosDir::UpLeft)));
-        arr.push(MapPos::UpRight(position.map_offset(MapPosDir::UpRight)));
-        arr.push(MapPos::DownLeft(position.map_offset(MapPosDir::DownLeft)));
-        arr.push(MapPos::DownRight(position.map_offset(MapPosDir::DownRight)));
+        arr.push(MapDirPos::UpLeft(position.map_offset(MapDir::UpLeft)));
+        arr.push(MapDirPos::UpRight(position.map_offset(MapDir::UpRight)));
+        arr.push(MapDirPos::DownLeft(position.map_offset(MapDir::DownLeft)));
+        arr.push(MapDirPos::DownRight(position.map_offset(MapDir::DownRight)));
     }
 
     arr
@@ -211,35 +211,33 @@ pub fn get_surrounding_set(position: MapPosition) -> HashSet<MapPosition> {
 /// Gets maps based on the players direction from their old map position.
 /// Should Speed up map sending to only maps that need it.
 pub fn get_directional_maps(position: MapPosition, dir: Dir) -> Vec<MapPosition> {
-    //Down: 0, Right: 1, Up: 2, Left: 3
-
     match dir {
         Dir::Down => {
             vec![
-                position.map_offset(MapPosDir::Down),
-                position.map_offset(MapPosDir::DownLeft),
-                position.map_offset(MapPosDir::DownRight),
+                position.map_offset(MapDir::Down),
+                position.map_offset(MapDir::DownLeft),
+                position.map_offset(MapDir::DownRight),
             ]
         }
         Dir::Right => {
             vec![
-                position.map_offset(MapPosDir::Right),
-                position.map_offset(MapPosDir::UpRight),
-                position.map_offset(MapPosDir::DownRight),
+                position.map_offset(MapDir::Right),
+                position.map_offset(MapDir::UpRight),
+                position.map_offset(MapDir::DownRight),
             ]
         }
         Dir::Up => {
             vec![
-                position.map_offset(MapPosDir::Up),
-                position.map_offset(MapPosDir::UpLeft),
-                position.map_offset(MapPosDir::UpRight),
+                position.map_offset(MapDir::Up),
+                position.map_offset(MapDir::UpLeft),
+                position.map_offset(MapDir::UpRight),
             ]
         }
         Dir::Left => {
             vec![
-                position.map_offset(MapPosDir::Left),
-                position.map_offset(MapPosDir::UpLeft),
-                position.map_offset(MapPosDir::DownLeft),
+                position.map_offset(MapDir::Left),
+                position.map_offset(MapDir::UpLeft),
+                position.map_offset(MapDir::DownLeft),
             ]
         }
     }
@@ -300,76 +298,80 @@ pub fn map_offset_range(
     None
 }
 
-pub fn get_maps_in_range(storage: &Storage, pos: &Position, range: i32) -> Vec<MapPos> {
-    let mut arr: Vec<MapPos> = Vec::new();
+pub fn get_map_dir_pos_in_range(
+    storage: &Storage,
+    position: &Position,
+    range: i32,
+) -> Vec<MapDirPos> {
+    let mut arr = Vec::with_capacity(10);
+    let map_positions = get_surrounding_dir(position.map, true);
 
-    if storage.bases.maps.get(&pos.map).is_none() {
-        return Vec::new();
-    }
+    for pos in map_positions {
+        let map_dir = MapDir::from(&pos);
 
-    arr.push(MapPos::Center(pos.map));
+        let Some(map_position) = pos.get() else {
+            continue;
+        };
 
-    if pos.x - range < 0 && pos.y - range < 0 {
-        let pos = pos.map.map_offset(MapPosDir::UpLeft);
-
-        if storage.bases.maps.get(&pos).is_some() {
-            arr.push(MapPos::UpLeft(pos));
+        if storage.bases.maps.get(&map_position).is_some()
+            && match map_dir {
+                MapDir::None => continue,
+                MapDir::UpLeft => position.x - range < 0 && position.y - range < 0,
+                MapDir::Up => position.y - range < 0,
+                MapDir::UpRight => position.x + range < 0 && position.y - range < 0,
+                MapDir::Left => position.x - range < 0,
+                MapDir::Center => true,
+                MapDir::Right => position.x + range >= MAP_MAX_X as i32,
+                MapDir::DownLeft => {
+                    position.x - range < 0 && position.y + range >= MAP_MAX_Y as i32
+                }
+                MapDir::Down => position.y + range >= MAP_MAX_Y as i32,
+                MapDir::DownRight => {
+                    position.x + range < 0 && position.y + range >= MAP_MAX_Y as i32
+                }
+            }
+        {
+            arr.push(pos);
         }
     }
 
-    if pos.x - range < 0 && pos.y + range >= MAP_MAX_Y as i32 {
-        let pos = pos.map.map_offset(MapPosDir::DownLeft);
+    arr
+}
 
-        if storage.bases.maps.get(&pos).is_some() {
-            arr.push(MapPos::DownLeft(pos));
-        }
-    }
+pub fn get_map_pos_in_range(
+    storage: &Storage,
+    position: &Position,
+    range: i32,
+) -> Vec<MapPosition> {
+    let mut arr = Vec::with_capacity(10);
+    let map_positions = get_surrounding_dir(position.map, true);
 
-    if pos.x + range < 0 && pos.y - range < 0 {
-        let pos = pos.map.map_offset(MapPosDir::UpRight);
+    for pos in map_positions {
+        let map_dir = MapDir::from(&pos);
 
-        if storage.bases.maps.get(&pos).is_some() {
-            arr.push(MapPos::UpRight(pos));
-        }
-    }
+        let Some(map_position) = pos.get() else {
+            continue;
+        };
 
-    if pos.x + range < 0 && pos.y + range >= MAP_MAX_Y as i32 {
-        let pos = pos.map.map_offset(MapPosDir::DownRight);
-
-        if storage.bases.maps.get(&pos).is_some() {
-            arr.push(MapPos::DownRight(pos));
-        }
-    }
-
-    if pos.x - range < 0 {
-        let pos = pos.map.map_offset(MapPosDir::Left);
-
-        if storage.bases.maps.get(&pos).is_some() {
-            arr.push(MapPos::Left(pos));
-        }
-    }
-
-    if pos.x + range >= MAP_MAX_X as i32 {
-        let pos = pos.map.map_offset(MapPosDir::Right);
-
-        if storage.bases.maps.get(&pos).is_some() {
-            arr.push(MapPos::Right(pos));
-        }
-    }
-
-    if pos.y - range < 0 {
-        let pos = pos.map.map_offset(MapPosDir::Up);
-
-        if storage.bases.maps.get(&pos).is_some() {
-            arr.push(MapPos::Up(pos));
-        }
-    }
-
-    if pos.y + range >= MAP_MAX_Y as i32 {
-        let pos = pos.map.map_offset(MapPosDir::Down);
-
-        if storage.bases.maps.get(&pos).is_some() {
-            arr.push(MapPos::Down(pos));
+        if storage.bases.maps.get(&map_position).is_some()
+            && match map_dir {
+                MapDir::None => continue,
+                MapDir::UpLeft => position.x - range < 0 && position.y - range < 0,
+                MapDir::Up => position.y - range < 0,
+                MapDir::UpRight => position.x + range < 0 && position.y - range < 0,
+                MapDir::Left => position.x - range < 0,
+                MapDir::Center => true,
+                MapDir::Right => position.x + range >= MAP_MAX_X as i32,
+                MapDir::DownLeft => {
+                    position.x - range < 0 && position.y + range >= MAP_MAX_Y as i32
+                }
+                MapDir::Down => position.y + range >= MAP_MAX_Y as i32,
+                MapDir::DownRight => {
+                    position.x + range < 0 && position.y + range >= MAP_MAX_Y as i32
+                }
+            }
+        {
+            arr.push(map_position);
         }
     }
 

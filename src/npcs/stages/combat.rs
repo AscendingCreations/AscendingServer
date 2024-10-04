@@ -36,6 +36,60 @@ pub enum CombatStage {
 }
 
 impl CombatStage {
+    pub fn get_npc_info(self) -> NpcInfo {
+        match self {
+            CombatStage::BehaviourCheck { npc_info }
+            | CombatStage::CheckTarget {
+                npc_info,
+                npc_mode: _,
+                target: _,
+                cast_type: _,
+            }
+            | CombatStage::GetDefence {
+                npc_info,
+                target: _,
+            }
+            | CombatStage::GetDamage {
+                npc_info,
+                defense: _,
+                target: _,
+            }
+            | CombatStage::DoDamage {
+                npc_info,
+                damage: _,
+                target: _,
+            }
+            | CombatStage::RemoveTarget { npc_info } => npc_info,
+        }
+    }
+
+    pub fn get_owner_map(&self) -> MapPosition {
+        match self {
+            CombatStage::BehaviourCheck { npc_info }
+            | CombatStage::CheckTarget {
+                npc_info,
+                npc_mode: _,
+                target: _,
+                cast_type: _,
+            }
+            | CombatStage::GetDefence {
+                npc_info,
+                target: _,
+            }
+            | CombatStage::GetDamage {
+                npc_info,
+                defense: _,
+                target: _,
+            }
+            | CombatStage::DoDamage {
+                npc_info,
+                damage: _,
+                target: _,
+            }
+            | CombatStage::RemoveTarget { npc_info } => npc_info.position.map,
+        }
+    }
+
     pub fn get_map(&self) -> Option<MapPosition> {
         match self {
             CombatStage::RemoveTarget { npc_info }

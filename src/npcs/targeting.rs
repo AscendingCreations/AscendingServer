@@ -85,10 +85,7 @@ pub fn get_targeting_maps(map: &mut MapActor, npc_info: NpcInfo) -> NpcStage {
         return TargetingStage::move_to_movement(npc_info);
     }
 
-    let maps = get_maps_in_range(&map.storage, &npc_info.position, npc_info.data.sight)
-        .iter()
-        .filter_map(|m| m.get())
-        .collect();
+    let maps = get_map_pos_in_range(&map.storage, &npc_info.position, npc_info.data.sight);
 
     TargetingStage::get_target_from_maps(npc_info, maps)
 }

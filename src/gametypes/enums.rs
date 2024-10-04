@@ -619,7 +619,7 @@ pub enum FtlType {
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub enum MapPos {
+pub enum MapDirPos {
     None,
     UpLeft(MapPosition),
     Up(MapPosition),
@@ -632,39 +632,39 @@ pub enum MapPos {
     DownRight(MapPosition),
 }
 
-impl MapPos {
+impl MapDirPos {
     pub fn contains(self, position: MapPosition) -> bool {
         matches!(self,
-            MapPos::UpLeft(x)
-            | MapPos::Up(x)
-            | MapPos::UpRight(x)
-            | MapPos::Left(x)
-            | MapPos::Center(x)
-            | MapPos::Right(x)
-            | MapPos::DownLeft(x)
-            | MapPos::Down(x)
-            | MapPos::DownRight(x)
+            MapDirPos::UpLeft(x)
+            | MapDirPos::Up(x)
+            | MapDirPos::UpRight(x)
+            | MapDirPos::Left(x)
+            | MapDirPos::Center(x)
+            | MapDirPos::Right(x)
+            | MapDirPos::DownLeft(x)
+            | MapDirPos::Down(x)
+            | MapDirPos::DownRight(x)
                 if x == position)
     }
 
     pub fn get(self) -> Option<MapPosition> {
         match self {
-            MapPos::UpLeft(x)
-            | MapPos::Up(x)
-            | MapPos::UpRight(x)
-            | MapPos::Left(x)
-            | MapPos::Center(x)
-            | MapPos::Right(x)
-            | MapPos::DownLeft(x)
-            | MapPos::Down(x)
-            | MapPos::DownRight(x) => Some(x),
-            MapPos::None => None,
+            MapDirPos::UpLeft(x)
+            | MapDirPos::Up(x)
+            | MapDirPos::UpRight(x)
+            | MapDirPos::Left(x)
+            | MapDirPos::Center(x)
+            | MapDirPos::Right(x)
+            | MapDirPos::DownLeft(x)
+            | MapDirPos::Down(x)
+            | MapDirPos::DownRight(x) => Some(x),
+            MapDirPos::None => None,
         }
     }
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub enum MapPosDir {
+pub enum MapDir {
     None,
     UpLeft,
     Up,
@@ -677,36 +677,36 @@ pub enum MapPosDir {
     DownRight,
 }
 
-impl From<MapPos> for MapPosDir {
-    fn from(position: MapPos) -> Self {
+impl From<MapDirPos> for MapDir {
+    fn from(position: MapDirPos) -> Self {
         match position {
-            MapPos::UpLeft(_) => MapPosDir::UpLeft,
-            MapPos::Up(_) => MapPosDir::Up,
-            MapPos::UpRight(_) => MapPosDir::UpRight,
-            MapPos::Left(_) => MapPosDir::Left,
-            MapPos::Center(_) => MapPosDir::Center,
-            MapPos::Right(_) => MapPosDir::Right,
-            MapPos::DownLeft(_) => MapPosDir::DownLeft,
-            MapPos::Down(_) => MapPosDir::Down,
-            MapPos::DownRight(_) => MapPosDir::DownRight,
-            MapPos::None => MapPosDir::None,
+            MapDirPos::UpLeft(_) => MapDir::UpLeft,
+            MapDirPos::Up(_) => MapDir::Up,
+            MapDirPos::UpRight(_) => MapDir::UpRight,
+            MapDirPos::Left(_) => MapDir::Left,
+            MapDirPos::Center(_) => MapDir::Center,
+            MapDirPos::Right(_) => MapDir::Right,
+            MapDirPos::DownLeft(_) => MapDir::DownLeft,
+            MapDirPos::Down(_) => MapDir::Down,
+            MapDirPos::DownRight(_) => MapDir::DownRight,
+            MapDirPos::None => MapDir::None,
         }
     }
 }
 
-impl From<&MapPos> for MapPosDir {
-    fn from(position: &MapPos) -> Self {
+impl From<&MapDirPos> for MapDir {
+    fn from(position: &MapDirPos) -> Self {
         match *position {
-            MapPos::UpLeft(_) => MapPosDir::UpLeft,
-            MapPos::Up(_) => MapPosDir::Up,
-            MapPos::UpRight(_) => MapPosDir::UpRight,
-            MapPos::Left(_) => MapPosDir::Left,
-            MapPos::Center(_) => MapPosDir::Center,
-            MapPos::Right(_) => MapPosDir::Right,
-            MapPos::DownLeft(_) => MapPosDir::DownLeft,
-            MapPos::Down(_) => MapPosDir::Down,
-            MapPos::DownRight(_) => MapPosDir::DownRight,
-            MapPos::None => MapPosDir::None,
+            MapDirPos::UpLeft(_) => MapDir::UpLeft,
+            MapDirPos::Up(_) => MapDir::Up,
+            MapDirPos::UpRight(_) => MapDir::UpRight,
+            MapDirPos::Left(_) => MapDir::Left,
+            MapDirPos::Center(_) => MapDir::Center,
+            MapDirPos::Right(_) => MapDir::Right,
+            MapDirPos::DownLeft(_) => MapDir::DownLeft,
+            MapDirPos::Down(_) => MapDir::Down,
+            MapDirPos::DownRight(_) => MapDir::DownRight,
+            MapDirPos::None => MapDir::None,
         }
     }
 }

@@ -244,43 +244,6 @@ impl PlayerMapInfo {
 
 /*
 #[inline(always)]
-pub async fn player_switch_maps(
-    world: &GameWorld,
-    storage: &GameStore,
-    entity: &crate::GlobalKey,
-    new_pos: Position,
-) -> Result<(Position, bool)> {
-    let old_position = world.get_or_err::<Position>(entity).await?;
-
-    if let Some(mapref) = storage.maps.get(&old_position.map) {
-        let mut map = mapref.write().await;
-        map.remove_player(storage, *entity).await;
-        map.remove_entity_from_grid(old_position);
-    } else {
-        return Ok((old_position, false));
-    }
-
-    if let Some(mapref) = storage.maps.get(&new_pos.map) {
-        let mut map = mapref.write().await;
-        map.add_player(storage, *entity).await;
-        map.add_entity_to_grid(new_pos);
-    } else {
-        if let Some(mapref) = storage.maps.get(&old_position.map) {
-            let mut map = mapref.write().await;
-            map.add_player(storage, *entity).await;
-            map.add_entity_to_grid(old_position);
-        }
-
-        return Ok((old_position, false));
-    }
-
-    let lock = world.write().await;
-    *lock.get::<&mut Position>(entity.0)? = new_pos;
-
-    Ok((old_position, true))
-}
-
-#[inline(always)]
 pub async fn player_swap_pos(
     world: &GameWorld,
     storage: &GameStore,
