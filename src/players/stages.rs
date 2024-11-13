@@ -35,7 +35,7 @@ impl PlayerStage {
             PlayerStage::None(_) | PlayerStage::Continue => return,
             PlayerStage::Targeting(targeting) => todo!(),
             PlayerStage::Combat(combat) => todo!(),
-            PlayerStage::Movement(movement) => todo!(),
+            PlayerStage::Movement(movement) => movement.get_map(),
         };
 
         if let Some(map_pos) = map_pos {

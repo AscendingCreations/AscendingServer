@@ -108,4 +108,31 @@ impl PlayerMovementStage {
             player: Box::new(player),
         })
     }
+
+    pub fn get_map(&self) -> Option<MapPosition> {
+        match self {
+            PlayerMovementStage::None(player_info) => Some(player_info.position.map),
+            PlayerMovementStage::GetNewPosition { info, dir: _ }
+            | PlayerMovementStage::SendToOriginalLocation { info, dir: _ }
+            | PlayerMovementStage::StartPlayerWarp { info, next_move: _ }
+            | PlayerMovementStage::StartMapSwitch {
+                info,
+                next_move: _,
+                claim: _,
+            }
+            | PlayerMovementStage::MoveToPosition { info, next_move: _ } => Some(info.position.map),
+            PlayerMovementStage::FinishMapSwitch {
+                info: _,
+                next_move,
+                claim: _,
+                player: _,
+            }
+            | PlayerMovementStage::FinishPlayerWarp {
+                info: _,
+                next_move,
+                player: _,
+            }
+            | PlayerMovementStage::CheckBlocked { info: _, next_move } => Some(next_move.0.map),
+        }
+    }
 }

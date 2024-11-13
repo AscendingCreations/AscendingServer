@@ -50,7 +50,7 @@ impl<'r> sqlx::Decode<'r, Postgres> for MapPosition {
     }
 }
 
-impl<'q> sqlx::Encode<'q, Postgres> for MapPosition {
+impl sqlx::Encode<'_, Postgres> for MapPosition {
     fn encode_by_ref(
         &self,
         buf: &mut sqlx::postgres::PgArgumentBuffer,

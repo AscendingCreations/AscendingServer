@@ -6,7 +6,7 @@ pub async fn ipc_runner(storage: &Storage, login_tx: mpsc::Sender<LoginIncomming
     let name = (*storage.config.ipc_name).to_ns_name::<GenericNamespaced>()?;
     let opts = ListenerOptions::new().name(name);
 
-    let (info_tx, actor) = InfoActor::new(login_tx, storage.map_broadcast_tx.subscribe(), &storage);
+    let (info_tx, actor) = InfoActor::new(login_tx, storage.map_broadcast_tx.subscribe(), storage);
 
     log::info!("Initializing Info Actor");
     tokio::spawn(actor.runner());
