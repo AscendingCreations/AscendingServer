@@ -143,35 +143,35 @@ impl DerefMut for Entity {
 }
 
 impl ByteBufferWrite for Entity {
-    fn write_to_buffer(&self, buffer: &mut ByteBuffer) -> bytey::Result<()> {
-        self.0.to_bits().write_to_buffer(buffer)
+    fn write_to_bytey_buffer(&self, buffer: &mut ByteBuffer) -> bytey::Result<()> {
+        self.0.to_bits().write_to_bytey_buffer(buffer)
     }
 
-    fn write_to_buffer_le(&self, buffer: &mut ByteBuffer) -> bytey::Result<()> {
-        self.0.to_bits().write_to_buffer_le(buffer)
+    fn write_to_bytey_buffer_le(&self, buffer: &mut ByteBuffer) -> bytey::Result<()> {
+        self.0.to_bits().write_to_bytey_buffer_le(buffer)
     }
 
-    fn write_to_buffer_be(&self, buffer: &mut ByteBuffer) -> bytey::Result<()> {
-        self.0.to_bits().write_to_buffer_be(buffer)
+    fn write_to_bytey_buffer_be(&self, buffer: &mut ByteBuffer) -> bytey::Result<()> {
+        self.0.to_bits().write_to_bytey_buffer_be(buffer)
     }
 }
 
 impl ByteBufferWrite for &Entity {
-    fn write_to_buffer(&self, buffer: &mut ByteBuffer) -> bytey::Result<()> {
-        self.0.to_bits().write_to_buffer(buffer)
+    fn write_to_bytey_buffer(&self, buffer: &mut ByteBuffer) -> bytey::Result<()> {
+        self.0.to_bits().write_to_bytey_buffer(buffer)
     }
 
-    fn write_to_buffer_le(&self, buffer: &mut ByteBuffer) -> bytey::Result<()> {
-        self.0.to_bits().write_to_buffer_le(buffer)
+    fn write_to_bytey_buffer_le(&self, buffer: &mut ByteBuffer) -> bytey::Result<()> {
+        self.0.to_bits().write_to_bytey_buffer_le(buffer)
     }
 
-    fn write_to_buffer_be(&self, buffer: &mut ByteBuffer) -> bytey::Result<()> {
-        self.0.to_bits().write_to_buffer_be(buffer)
+    fn write_to_bytey_buffer_be(&self, buffer: &mut ByteBuffer) -> bytey::Result<()> {
+        self.0.to_bits().write_to_bytey_buffer_be(buffer)
     }
 }
 
 impl ByteBufferRead for Entity {
-    fn read_from_buffer(buffer: &mut ByteBuffer) -> bytey::Result<Self>
+    fn read_from_bytey_buffer(buffer: &mut ByteBuffer) -> bytey::Result<Self>
     where
         Self: Sized,
     {
@@ -183,7 +183,7 @@ impl ByteBufferRead for Entity {
         ))
     }
 
-    fn read_from_buffer_le(buffer: &mut ByteBuffer) -> bytey::Result<Self>
+    fn read_from_bytey_buffer_le(buffer: &mut ByteBuffer) -> bytey::Result<Self>
     where
         Self: Sized,
     {
@@ -197,7 +197,7 @@ impl ByteBufferRead for Entity {
         ))
     }
 
-    fn read_from_buffer_be(buffer: &mut ByteBuffer) -> bytey::Result<Self>
+    fn read_from_bytey_buffer_be(buffer: &mut ByteBuffer) -> bytey::Result<Self>
     where
         Self: Sized,
     {

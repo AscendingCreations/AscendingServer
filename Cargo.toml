@@ -1,7 +1,11 @@
 [package]
 name = "ascending_server"
 version = "0.1.0"
-authors = ["Andrew Wheeler <genusistimelord@outlook.com>", "Sherwin Salonga", "S.J.R. van Schaik"]
+authors = [
+    "Andrew Wheeler <genusistimelord@outlook.com>",
+    "Sherwin Salonga",
+    "S.J.R. van Schaik",
+]
 edition = "2021"
 license = "MIT OR Apache-2.0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -14,7 +18,7 @@ chrono = { version = "0.4.38", features = ["serde"] }
 regex = "1.10.6"
 bit_op = "0.1.1"
 rand = "0.8.5"
-bytey = { version = "0.3.0", git = "https://github.com/Stefanowhb/bytey.git" }
+bytey = "0.4.0"
 mmap_bytey = "0.2.0"
 indexmap = "2.3.0"
 argon2 = "0.5.3"
@@ -35,7 +39,9 @@ tokio = { version = "1.39.2", features = ["full", "tracing"] }
 log = { version = "0.4.21", default-features = false }
 backtrace = "0.3.73"
 itertools = "0.13.0"
-pki-types = { package = "rustls-pki-types", version = "1.8.0", features = ["std"] }
+pki-types = { package = "rustls-pki-types", version = "1.8.0", features = [
+    "std",
+] }
 rcgen = { version = "0.13.1", features = [
     "pem",
     "ring",
