@@ -206,7 +206,7 @@ pub fn npc_movement(
             }
         };
 
-        if map_path_blocked(storage, position, next.0, next.1, WorldEntityType::Npc) {
+        if map_path_blocked(storage, position, next.0, next.1, EntityKind::Npc) {
             if world.get_or_err::<NpcMovePos>(entity)?.0.is_some()
                 || world.get_or_err::<Target>(entity)?.target_type != EntityType::None
             {

@@ -88,7 +88,7 @@ pub fn player_movement(
         player_position,
         new_pos,
         dir,
-        WorldEntityType::Player,
+        EntityKind::Player,
     ) {
         player_warp(world, storage, entity, &player_position, false)?;
         return Ok(false);

@@ -6,7 +6,7 @@ use std::sync::{Arc, Mutex};
 
 pub fn is_player_online(world: &mut World, entity: GlobalKey) -> Result<bool> {
     Ok(
-        *world.get::<&WorldEntityType>(entity.0)? == WorldEntityType::Player
+        *world.get::<&EntityKind>(entity.0)? == EntityKind::Player
             && *world.get::<&OnlineType>(entity.0)? == OnlineType::Online,
     )
 }

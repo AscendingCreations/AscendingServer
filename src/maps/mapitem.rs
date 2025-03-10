@@ -73,7 +73,7 @@ pub fn find_drop_pos(
         if let Some(map_data) = mapdata {
             if !map_data
                 .borrow()
-                .is_blocked_tile(drop_item.pos, WorldEntityType::MapItem)
+                .is_blocked_tile(drop_item.pos, EntityKind::MapItem)
             {
                 result.push((drop_item.pos, None));
                 got_slot = true;
@@ -109,7 +109,7 @@ pub fn find_drop_pos(
                     if let Some(map_data) = mapdata {
                         if !map_data
                             .borrow()
-                            .is_blocked_tile(check_pos, WorldEntityType::MapItem)
+                            .is_blocked_tile(check_pos, EntityKind::MapItem)
                         {
                             result.push((check_pos, None));
                             got_slot = true;

@@ -1,11 +1,10 @@
+use mmap_bytey::{MByteBufferRead, MByteBufferWrite};
+use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 
 use educe::Educe;
 
-use crate::{
-    gametypes::{NpcMode, Position},
-    time_ext::MyInstant,
-};
+use crate::{gametypes::Position, time_ext::MyInstant};
 
 use super::{CombatData, MovementData, Sprite};
 
@@ -73,3 +72,24 @@ pub struct NpcSpawnedZone(pub Option<usize>);
 
 #[derive(Default, Debug, Copy, Clone, PartialEq, Eq)]
 pub struct NpcMovePos(pub Option<Position>);
+
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Serialize,
+    Deserialize,
+    PartialEq,
+    Eq,
+    Default,
+    MByteBufferRead,
+    MByteBufferWrite,
+)]
+pub enum NpcMode {
+    None,
+    #[default]
+    Normal,
+    Pet,
+    Summon,
+    Boss,
+}

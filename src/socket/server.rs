@@ -1,7 +1,7 @@
 use crate::{
     containers::{HashMap, Storage, World},
     gametypes::{MAX_SOCKET_PLAYERS, Result},
-    socket::{Client, ClientState, accept_connection},
+    socket::{Client, ClientState},
 };
 use log::{trace, warn};
 use mio::{Events, Poll, net::TcpListener};
@@ -46,7 +46,7 @@ impl Server {
         })
     }
 
-    pub fn accept(&mut self, world: &mut World, storage: &Storage) -> Result<()> {
+    pub fn accept(&mut self, storage: &Storage) -> Result<()> {
         /* Wait for a new connection to accept and try to grab a token from the bag. */
         loop {
             let (stream, addr) = match self.listener.accept() {
@@ -72,7 +72,7 @@ impl Server {
 
                 let tls_conn = rustls::ServerConnection::new(Arc::clone(&self.tls_config))?;
                 // Lets make the Client to handle hwo we send packets.
-                let mut client = Client::new(stream, token, tls_conn);
+                let mut client = Client::new(stream, token, tls_conn, addr.to_string())?;
                 //Register the Poll to the client for recv and Sending
                 client.register(&storage.poll.borrow_mut())?;
 
@@ -107,7 +107,7 @@ pub fn poll_events(world: &mut World, storage: &Storage) -> Result<()> {
     for event in events.iter() {
         match event.token() {
             SERVER => {
-                storage.server.borrow_mut().accept(world, storage)?;
+                storage.server.borrow_mut().accept(storage)?;
                 storage.poll.borrow_mut().registry().reregister(
                     &mut storage.server.borrow_mut().listener,
                     SERVER,

@@ -219,7 +219,7 @@ pub fn npc_combat_damage(
     enemy_entity: GlobalKey,
     base: &NpcData,
 ) -> Result<i32> {
-    let def = if world.get_or_err::<WorldEntityType>(enemy_entity)? == WorldEntityType::Player {
+    let def = if world.get_or_err::<EntityKind>(enemy_entity)? == EntityKind::Player {
         world.get_or_err::<Physical>(enemy_entity)?.defense
             + player_get_armor_defense(world, storage, entity)?.0 as u32
             + world.get_or_err::<Level>(enemy_entity)?.0.saturating_div(5) as u32
@@ -230,7 +230,7 @@ pub fn npc_combat_damage(
     let data = world.entity(entity.0)?;
     let edata = world.entity(enemy_entity.0)?;
 
-    let offset = if edata.get_or_err::<WorldEntityType>()? == WorldEntityType::Player {
+    let offset = if edata.get_or_err::<EntityKind>()? == EntityKind::Player {
         4
     } else {
         2

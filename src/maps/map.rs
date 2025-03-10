@@ -1,5 +1,5 @@
 use crate::{
-    containers::{GlobalKey, HashSet, IndexSet, Storage},
+    containers::{EntityKind, GlobalKey, HashSet, IndexSet, Storage},
     gametypes::*,
     time_ext::MyInstant,
 };
@@ -182,18 +182,18 @@ impl MapData {
         });
     }
 
-    pub fn is_blocked_tile(&self, pos: Position, entity_type: WorldEntityType) -> bool {
+    pub fn is_blocked_tile(&self, pos: Position, entity_type: EntityKind) -> bool {
         match self.move_grid[pos.as_tile()].attr {
             GridAttribute::Walkable => false,
             GridAttribute::Entity => {
-                if entity_type == WorldEntityType::MapItem {
+                if entity_type == EntityKind::MapItem {
                     false
                 } else {
                     self.move_grid[pos.as_tile()].count >= 1
                 }
             }
             GridAttribute::Blocked => true,
-            GridAttribute::NpcBlock => entity_type == WorldEntityType::Npc,
+            GridAttribute::NpcBlock => entity_type == EntityKind::Npc,
         }
     }
 
@@ -545,7 +545,7 @@ pub fn map_path_blocked(
     cur_pos: Position,
     next_pos: Position,
     movedir: u8,
-    entity_type: WorldEntityType,
+    entity_type: EntityKind,
 ) -> bool {
     // Directional blocking might be in the wrong order as it should be.
     // 0 down, 1 right, 2 up, 3 left

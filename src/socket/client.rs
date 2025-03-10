@@ -1,6 +1,7 @@
 use crate::{
     PacketRouter,
-    containers::{GlobalKey, Storage, World},
+    containers::{Entity, GlobalKey, Storage, World},
+    gameloop::SocketID,
     gametypes::*,
     handle_data,
     maps::*,
@@ -9,7 +10,7 @@ use crate::{
     tasks::{DataTaskToken, unload_entity_packet},
 };
 use log::{error, trace, warn};
-use mio::{Interest, net::TcpStream};
+use mio::{Interest, Token, net::TcpStream};
 use mmap_bytey::BUFFER_SIZE;
 use std::{
     collections::VecDeque,
@@ -93,6 +94,7 @@ pub struct Client {
     pub tls: rustls::ServerConnection,
     pub buffer: Arc<Mutex<ByteBuffer>>,
     pub encrypt_state: EncryptionState,
+    pub addr: Arc<String>,
 }
 
 impl Client {
@@ -101,6 +103,7 @@ impl Client {
         stream: TcpStream,
         token: mio::Token,
         tls: rustls::ServerConnection,
+        addr: String,
     ) -> Result<Client> {
         Ok(Client {
             stream,
@@ -113,6 +116,7 @@ impl Client {
             tls,
             buffer: Arc::new(Mutex::new(ByteBuffer::with_capacity(8192)?)),
             encrypt_state: EncryptionState::ReadWrite,
+            addr: Arc::new(addr),
         })
     }
 
@@ -128,9 +132,9 @@ impl Client {
         // Check if the Event has some readable Data from the Poll State.
         if event.is_readable() {
             if matches!(self.encrypt_state, EncryptionState::ReadWrite) {
-                self.tls_read(world, storage)?;
+                self.tls_read(storage)?;
             } else {
-                self.read(world, storage)?;
+                self.read(storage)?;
             }
         }
 
@@ -140,9 +144,9 @@ impl Client {
                 self.encrypt_state,
                 EncryptionState::WriteTransfering | EncryptionState::ReadWrite
             ) {
-                self.tls_write(world);
+                self.tls_write();
             } else {
-                self.write(world);
+                self.write();
             }
         }
 
@@ -184,22 +188,17 @@ impl Client {
                 self.deregister(&storage.poll.borrow_mut())?;
                 let _ = self.stream.shutdown(std::net::Shutdown::Both);
                 self.state = ClientState::Closed;
-                disconnect(self.entity, world, storage)
+                if let Some(entity) = self.entity {
+                    disconnect(entity, world, storage)?;
+                }
+                Ok(())
             }
         }
     }
 
-    pub fn tls_read(&mut self, world: &mut World, storage: &Storage) -> Result<()> {
-        let socket = match world.get::<&mut Socket>(self.entity.0) {
-            Ok(v) => v,
-            Err(_) => {
-                self.state = ClientState::Closing;
-                return Ok(());
-            }
-        };
-
+    pub fn tls_read(&mut self, storage: &Storage) -> Result<()> {
         // get the current pos so we can reset it back for reading.
-        let mut buffer = socket.buffer.lock().unwrap();
+        let mut buffer = self.buffer.lock().unwrap();
         let pos = buffer.cursor();
         buffer.move_cursor_to_end();
 
@@ -260,7 +259,7 @@ impl Client {
         buffer.move_cursor(pos)?;
 
         if !buffer.is_empty() {
-            storage.recv_ids.borrow_mut().insert(self.entity);
+            storage.recv_ids.borrow_mut().insert(self.token);
         } else {
             // we are not going to handle any reads so lets mark it back as read again so it can
             //continue to get packets.
@@ -270,18 +269,9 @@ impl Client {
         Ok(())
     }
 
-    pub fn read(&mut self, world: &mut World, storage: &Storage) -> Result<()> {
-        let socket = match world.get::<&mut Socket>(self.entity.0) {
-            Ok(v) => v,
-            Err(e) => {
-                trace!("World get, error in socket read: {}", e);
-                self.state = ClientState::Closing;
-                return Ok(());
-            }
-        };
-
+    pub fn read(&mut self, storage: &Storage) -> Result<()> {
         // get the current pos so we can reset it back for reading.
-        let mut buffer = socket.buffer.lock().unwrap();
+        let mut buffer = self.buffer.lock().unwrap();
         let pos = buffer.cursor();
         buffer.move_cursor_to_end();
 
@@ -316,7 +306,7 @@ impl Client {
         buffer.move_cursor(pos)?;
 
         if !buffer.is_empty() {
-            storage.recv_ids.borrow_mut().insert(self.entity);
+            storage.recv_ids.borrow_mut().insert(self.token);
         } else {
             // we are not going to handle any reads so lets mark it back as read again so it can
             //continue to get packets.
@@ -326,18 +316,8 @@ impl Client {
         Ok(())
     }
 
-    pub fn write(&mut self, world: &mut World) {
+    pub fn write(&mut self) {
         let mut count: usize = 0;
-
-        //make sure the player exists if nto we have a socket closing
-        if !world.contains(self.entity.0) {
-            trace!(
-                "write, world does not contain entity: {:?}. Closing socket.",
-                self.entity.0
-            );
-            self.state = ClientState::Closing;
-            return;
-        }
 
         //info!("Player sends count: {}", self.sends.len());
         // lets only send 25 packets per socket each loop.
@@ -377,17 +357,7 @@ impl Client {
         }
     }
 
-    pub fn tls_write(&mut self, world: &mut World) {
-        //make sure the player exists if not we have a socket closing
-        if !world.contains(self.entity.0) {
-            trace!(
-                "tls_write, world does not contain entity: {:?}. Closing socket.",
-                self.entity.0
-            );
-            self.state = ClientState::Closing;
-            return;
-        }
-
+    pub fn tls_write(&mut self) {
         // lets only send 25 packets per socket each loop.
         loop {
             let mut packet = match self.tls_sends.pop_front() {
@@ -504,7 +474,7 @@ impl Client {
 
 #[inline]
 pub fn disconnect(playerid: GlobalKey, world: &mut World, storage: &Storage) -> Result<()> {
-    left_game(world, storage, &playerid)?;
+    left_game(world, storage, playerid)?;
 
     let (socket, position) = storage.remove_player(world, playerid)?;
 
@@ -519,23 +489,6 @@ pub fn disconnect(playerid: GlobalKey, world: &mut World, storage: &Storage) -> 
     }
 
     Ok(())
-}
-
-#[inline]
-pub fn accept_connection(
-    server: &Server,
-    socketid: usize,
-    addr: String,
-    world: &mut World,
-    storage: &Storage,
-) -> Option<GlobalKey> {
-    if server.clients.len() + 1 >= MAX_SOCKET_PLAYERS {
-        warn!(
-            "Server is full. has reached MAX_SOCKET_PLAYERS: {} ",
-            MAX_SOCKET_PLAYERS
-        );
-        return None;
-    }
 }
 
 pub fn set_encryption_status(
@@ -577,17 +530,17 @@ pub fn send_to_front(storage: &Storage, socket_id: usize, buf: MByteBuffer) -> R
 
 #[inline]
 pub fn send_to_all(world: &mut World, storage: &Storage, buf: MByteBuffer) -> Result<()> {
-    for (_entity, (_, socket)) in world
-        .query::<((&WorldEntityType, &OnlineType), &Socket)>()
-        .iter()
-        .filter(|(_entity, ((worldentitytype, onlinetype), _))| {
-            **worldentitytype == WorldEntityType::Player && **onlinetype == OnlineType::Online
-        })
-    {
-        if let Some(client) = storage.server.borrow().clients.get(&mio::Token(socket.id)) {
-            client
-                .borrow_mut()
-                .send(&storage.poll.borrow(), buf.try_clone()?)?;
+    for (_, entity) in world.entities.iter() {
+        if let Entity::Player(data) = entity {
+            let data = data.try_lock()?;
+
+            if data.online_type == OnlineType::Online {
+                if let Some(client) = storage.server.borrow().clients.get(&Token(data.socket.id)) {
+                    client
+                        .borrow_mut()
+                        .send(&storage.poll.borrow(), buf.try_clone()?)?;
+                }
+            }
         }
     }
 
@@ -614,13 +567,17 @@ pub fn send_to_maps(
                 continue;
             }
 
-            let (status, socket) = world.query_one_mut::<(&OnlineType, &Socket)>(entity.0)?;
+            if let Some(Entity::Player(data)) = world.get_opt_entity(*entity) {
+                let data = data.try_lock()?;
 
-            if *status == OnlineType::Online {
-                if let Some(client) = storage.server.borrow().clients.get(&mio::Token(socket.id)) {
-                    client
-                        .borrow_mut()
-                        .send(&storage.poll.borrow(), buf.try_clone()?)?;
+                if data.online_type == OnlineType::Online {
+                    if let Some(client) =
+                        storage.server.borrow().clients.get(&Token(data.socket.id))
+                    {
+                        client
+                            .borrow_mut()
+                            .send(&storage.poll.borrow(), buf.try_clone()?)?;
+                    }
                 }
             }
         }
@@ -637,13 +594,15 @@ pub fn send_to_entities(
     buf: MByteBuffer,
 ) -> Result<()> {
     for entity in entities {
-        let (status, socket) = world.query_one_mut::<(&OnlineType, &Socket)>(entity.0)?;
+        if let Some(Entity::Player(data)) = world.get_opt_entity(*entity) {
+            let data = data.try_lock()?;
 
-        if *status == OnlineType::Online {
-            if let Some(client) = storage.server.borrow().clients.get(&mio::Token(socket.id)) {
-                client
-                    .borrow_mut()
-                    .send(&storage.poll.borrow(), buf.try_clone()?)?;
+            if data.online_type == OnlineType::Online {
+                if let Some(client) = storage.server.borrow().clients.get(&Token(data.socket.id)) {
+                    client
+                        .borrow_mut()
+                        .send(&storage.poll.borrow(), buf.try_clone()?)?;
+                }
             }
         }
     }
@@ -651,12 +610,12 @@ pub fn send_to_entities(
     Ok(())
 }
 
-pub fn get_length(storage: &Storage, buffer: &mut ByteBuffer, id: usize) -> Result<Option<u64>> {
+pub fn get_length(storage: &Storage, buffer: &mut ByteBuffer, token: Token) -> Result<Option<u64>> {
     if buffer.length() - buffer.cursor() >= 8 {
         let length = buffer.read::<u64>()?;
 
         if !(1..=8192).contains(&length) {
-            if let Some(client) = storage.server.borrow().clients.get(&mio::Token(id)) {
+            if let Some(client) = storage.server.borrow().clients.get(&token) {
                 trace!("Player was disconnected on get_length LENGTH: {:?}", length);
                 client.borrow_mut().set_to_closing(storage)?;
                 return Ok(None);
@@ -665,7 +624,7 @@ pub fn get_length(storage: &Storage, buffer: &mut ByteBuffer, id: usize) -> Resu
 
         Ok(Some(length))
     } else {
-        if let Some(client) = storage.server.borrow().clients.get(&mio::Token(id)) {
+        if let Some(client) = storage.server.borrow().clients.get(&token) {
             client.borrow_mut().poll_state.add(SocketPollState::Read);
             client.borrow_mut().reregister(&storage.poll.borrow_mut())?;
         }
@@ -677,35 +636,37 @@ pub fn get_length(storage: &Storage, buffer: &mut ByteBuffer, id: usize) -> Resu
 pub const MAX_PROCESSED_PACKETS: i32 = 25;
 
 pub fn process_packets(world: &mut World, storage: &Storage, router: &PacketRouter) -> Result<()> {
-    let mut rem_arr: Vec<(GlobalKey, usize, bool)> = Vec::with_capacity(64);
+    let mut rem_arr: Vec<(Token, bool)> = Vec::with_capacity(64);
     let mut packet = MByteBuffer::new()?;
 
-    'user_loop: for entity in &*storage.recv_ids.borrow() {
+    'user_loop: for token in &*storage.recv_ids.borrow() {
         let mut count = 0;
 
-        let (lock, socket_id, address) = {
-            let socket = match world.get::<&Socket>(entity.0) {
-                Ok(s) => s,
-                Err(e) => {
-                    error!(
-                        "world.get::<&Socket> error: {}. Entity: {:?}, did not get fully unloaded? recv_id buffer still existed.",
-                        e, entity
-                    );
-                    rem_arr.push((*entity, 0, false));
+        let (lock, entity, address) = {
+            match storage.server.borrow().clients.get(token) {
+                Some(v) => {
+                    let brw_client = v.borrow();
+                    (
+                        brw_client.buffer.clone(),
+                        brw_client.entity,
+                        brw_client.addr.clone(),
+                    )
+                }
+                None => {
+                    error!("Socket was missing in server clients.");
+                    rem_arr.push((*token, false));
                     continue 'user_loop;
                 }
-            };
-
-            (socket.buffer.clone(), socket.id, socket.addr.clone())
+            }
         };
 
         if let Ok(mut buffer) = lock.lock() {
             loop {
                 packet.move_cursor_to_start();
-                let length = match get_length(storage, &mut buffer, socket_id)? {
+                let length = match get_length(storage, &mut buffer, *token)? {
                     Some(n) => n,
                     None => {
-                        rem_arr.push((*entity, 0, false));
+                        rem_arr.push((*token, false));
                         break;
                     }
                 };
@@ -716,7 +677,7 @@ pub fn process_packets(world: &mut World, storage: &Storage, router: &PacketRout
                         address
                     );
 
-                    rem_arr.push((*entity, socket_id, true));
+                    rem_arr.push((*token, true));
                     continue 'user_loop;
                 }
 
@@ -726,7 +687,7 @@ pub fn process_packets(world: &mut World, storage: &Storage, router: &PacketRout
                         length, address, BUFFER_SIZE
                     );
 
-                    rem_arr.push((*entity, socket_id, true));
+                    rem_arr.push((*token, true));
                     continue 'user_loop;
                 }
 
@@ -748,13 +709,15 @@ pub fn process_packets(world: &mut World, storage: &Storage, router: &PacketRout
                             "IP: {} was disconnected due to error on packet length.",
                             address
                         );
-                        rem_arr.push((*entity, socket_id, true));
+                        rem_arr.push((*token, true));
                         continue 'user_loop;
                     }
 
-                    if handle_data(router, world, storage, &mut packet, entity).is_err() {
+                    let socketid = SocketID { id: *token };
+
+                    if handle_data(router, world, storage, &mut packet, entity, socketid).is_err() {
                         warn!("IP: {} was disconnected due to invalid packets", address);
-                        rem_arr.push((*entity, socket_id, true));
+                        rem_arr.push((*token, true));
                         continue 'user_loop;
                     }
 
@@ -763,7 +726,7 @@ pub fn process_packets(world: &mut World, storage: &Storage, router: &PacketRout
                     let cursor = buffer.cursor() - 8;
                     buffer.move_cursor(cursor)?;
 
-                    rem_arr.push((*entity, 0, false));
+                    rem_arr.push((*token, false));
                     break;
                 }
 
@@ -798,11 +761,11 @@ pub fn process_packets(world: &mut World, storage: &Storage, router: &PacketRout
         };
     }
 
-    for (entity, socket_id, should_close) in rem_arr {
-        storage.recv_ids.borrow_mut().swap_remove(entity);
+    for (token, should_close) in rem_arr {
+        storage.recv_ids.borrow_mut().swap_remove(&token);
 
         if should_close {
-            if let Some(client) = storage.server.borrow().clients.get(&mio::Token(socket_id)) {
+            if let Some(client) = storage.server.borrow().clients.get(&token) {
                 client.borrow_mut().set_to_closing(storage)?;
             }
         }

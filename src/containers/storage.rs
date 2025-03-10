@@ -10,7 +10,7 @@ use crate::{
 };
 use chrono::Duration;
 use log::LevelFilter;
-use mio::Poll;
+use mio::{Poll, Token};
 use rustls::{
     ServerConfig,
     crypto::{CryptoProvider, ring as provider},
@@ -30,7 +30,7 @@ use super::{GlobalKey, PlayerConnectionTimer, World};
 
 pub struct Storage {
     pub player_ids: RefCell<IndexSet<GlobalKey>>,
-    pub recv_ids: RefCell<IndexSet<GlobalKey>>,
+    pub recv_ids: RefCell<IndexSet<Token>>,
     pub npc_ids: RefCell<IndexSet<GlobalKey>>,
     pub player_names: RefCell<HashMap<String, GlobalKey>>, //for player names to ID's
     pub maps: IndexMap<MapPosition, RefCell<MapData>>,

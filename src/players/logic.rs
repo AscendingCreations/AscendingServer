@@ -433,11 +433,11 @@ pub fn left_game(world: &mut World, storage: &Storage, entity: GlobalKey) -> Res
 pub fn remove_all_npc_target(world: &mut World, entity: GlobalKey) -> Result<()> {
     let mut clear_move_path = Vec::new();
     for (entity, (worldentitytype, target)) in world
-        .query::<(&WorldEntityType, &mut Target)>()
+        .query::<(&EntityKind, &mut Target)>()
         .iter()
         .filter(|(_entity, (worldentitytype, target))| {
             let mut can_target = true;
-            if **worldentitytype != WorldEntityType::Npc {
+            if **worldentitytype != EntityKind::Npc {
                 can_target = false;
             }
             if let EntityType::Player(i, _) = target.target_type {
@@ -453,7 +453,7 @@ pub fn remove_all_npc_target(world: &mut World, entity: GlobalKey) -> Result<()>
     }
 
     for (entity, targettype) in clear_move_path {
-        if targettype == WorldEntityType::Npc {
+        if targettype == EntityKind::Npc {
             npc_clear_move_path(world, GlobalKey(entity))?;
         }
     }

@@ -227,3 +227,24 @@ impl IsUsingType {
         matches!(self, IsUsingType::Other(_))
     }
 }
+
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    PartialEq,
+    Eq,
+    Serialize,
+    Deserialize,
+    Default,
+    MByteBufferRead,
+    MByteBufferWrite,
+    sqlx::Type,
+)]
+#[sqlx(type_name = "user_access")]
+pub enum UserAccess {
+    #[default]
+    None,
+    Monitor,
+    Admin,
+}

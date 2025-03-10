@@ -65,9 +65,9 @@ pub fn player_combat(
     target_entity: GlobalKey,
 ) -> Result<bool> {
     if try_player_cast(world, storage, entity, target_entity) {
-        let world_entity_type = world.get_or_default::<WorldEntityType>(target_entity);
+        let world_entity_type = world.get_or_default::<EntityKind>(target_entity);
         match world_entity_type {
-            WorldEntityType::Player => {
+            EntityKind::Player => {
                 let damage = player_combat_damage(world, storage, entity, target_entity)?;
                 damage_player(world, target_entity, damage)?;
                 DataTaskToken::Damage(world.get_or_default::<Position>(entity).map).add_task(
@@ -92,7 +92,7 @@ pub fn player_combat(
                     kill_player(world, storage, target_entity)?;
                 }
             }
-            WorldEntityType::Npc => {
+            EntityKind::Npc => {
                 if can_attack_npc(world, storage, target_entity)? {
                     let damage = player_combat_damage(world, storage, entity, target_entity)?;
                     damage_npc(world, target_entity, damage)?;
@@ -150,7 +150,7 @@ pub fn player_combat_damage(
     entity: GlobalKey,
     target_entity: GlobalKey,
 ) -> Result<i32> {
-    let def = if world.get_or_err::<WorldEntityType>(target_entity)? == WorldEntityType::Player {
+    let def = if world.get_or_err::<EntityKind>(target_entity)? == EntityKind::Player {
         world.get_or_err::<Physical>(target_entity)?.defense
             + player_get_armor_defense(world, storage, target_entity)?.0 as u32
             + world
@@ -164,7 +164,7 @@ pub fn player_combat_damage(
     let data = world.entity(entity.0)?;
     let edata = world.entity(target_entity.0)?;
 
-    let offset = if edata.get_or_err::<WorldEntityType>()? == WorldEntityType::Player {
+    let offset = if edata.get_or_err::<EntityKind>()? == EntityKind::Player {
         4
     } else {
         2

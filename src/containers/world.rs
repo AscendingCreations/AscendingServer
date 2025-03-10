@@ -25,7 +25,7 @@ pub enum Entity {
 #[derive(Default)]
 pub struct World {
     pub kinds: SlotMap<GlobalKey, EntityKind>,
-    pub entities: SecondaryMap<GlobalKey, GlobalKey>,
+    pub entities: SecondaryMap<GlobalKey, Entity>,
     pub account_id: HashMap<Uuid, GlobalKey>,
 }
 
@@ -50,7 +50,7 @@ impl World {
 
     /// Returns a Cloned Entity. This is Efficient since Entity is Arc.
     /// This also Avoids us holding onto the World.
-    pub fn get_entity(&self, key: GlobalKey) -> Result<GlobalKey> {
+    pub fn get_entity(&self, key: GlobalKey) -> Result<Entity> {
         self.entities
             .get(key)
             .cloned()
@@ -59,7 +59,7 @@ impl World {
 
     /// Returns a Cloned Entity. This is Efficient since Entity is Arc.
     /// This also Avoids us holding onto the World.
-    pub fn get_opt_entity(&self, key: GlobalKey) -> Option<GlobalKey> {
+    pub fn get_opt_entity(&self, key: GlobalKey) -> Option<Entity> {
         self.entities.get(key).cloned()
     }
 

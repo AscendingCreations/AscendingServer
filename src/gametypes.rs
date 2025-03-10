@@ -1,4 +1,3 @@
-mod entity;
 mod enums;
 mod error;
 mod map_position;
@@ -6,7 +5,6 @@ mod position;
 mod rgb;
 mod sharedstructs;
 
-pub use entity::*;
 pub use enums::*;
 pub use error::{AscendingError, Result};
 pub use map_position::*;

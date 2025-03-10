@@ -82,7 +82,7 @@ pub fn update_maps(world: &mut World, storage: &Storage) -> Result<()> {
                                     loop_count += 1;
 
                                     //Check if the tile is blocked or not.
-                                    if !data.is_blocked_tile(spawn, WorldEntityType::Npc) {
+                                    if !data.is_blocked_tile(spawn, EntityKind::Npc) {
                                         //Set NPC as spawnable and to do further checks later.
                                         //Doing this to make the code more readable.
                                         spawnable.push((spawn, id, npc_id));

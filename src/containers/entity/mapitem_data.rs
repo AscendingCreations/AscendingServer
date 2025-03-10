@@ -3,6 +3,7 @@ use mmap_bytey::{MByteBufferRead, MByteBufferWrite};
 
 use crate::{containers::GlobalKey, gametypes::Position, items::Item, time_ext::MyInstant};
 
+#[derive(Debug, Clone, Default)]
 pub struct MapItemEntity {
     // General
     pub general: MapItem,
@@ -11,7 +12,7 @@ pub struct MapItemEntity {
     pub despawn_timer: DespawnTimer,
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Default, MByteBufferRead, MByteBufferWrite)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Default, MByteBufferRead, MByteBufferWrite)]
 pub struct MapItem {
     pub item: Item,
     pub despawn: Option<MyInstant>,

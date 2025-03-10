@@ -1,28 +1,7 @@
-use crate::{containers::*, gametypes::*, maps::MapItem};
+use crate::gametypes::*;
 use mmap_bytey::{MByteBufferRead, MByteBufferWrite};
 use serde::{Deserialize, Serialize};
 use speedy::{Readable, Writable};
-
-#[derive(
-    Copy,
-    Clone,
-    Debug,
-    PartialEq,
-    Eq,
-    Serialize,
-    Deserialize,
-    Default,
-    MByteBufferRead,
-    MByteBufferWrite,
-    sqlx::Type,
-)]
-#[sqlx(type_name = "user_access")]
-pub enum UserAccess {
-    #[default]
-    None,
-    Monitor,
-    Admin,
-}
 
 #[derive(
     Copy,
@@ -71,25 +50,6 @@ pub enum AIBehavior {
     ReactiveHealer,  //Will attack when attacked and heal
 }
 
-#[derive(
-    Copy,
-    Clone,
-    Debug,
-    PartialEq,
-    Eq,
-    Serialize,
-    Deserialize,
-    Default,
-    MByteBufferRead,
-    MByteBufferWrite,
-)]
-pub enum NpcCastType {
-    #[default]
-    SelfOnly,
-    Enemy,  // for Attack spells/bad effects
-    Friend, // for healing/revival/good effects
-    Ground, // no target just Attack at position
-}
 impl AIBehavior {
     pub fn is_agressive(&self) -> bool {
         matches!(self, AIBehavior::Agressive | AIBehavior::AgressiveHealer)
@@ -120,20 +80,18 @@ impl AIBehavior {
     Debug,
     PartialEq,
     Eq,
-    Default,
-    Deserialize,
     Serialize,
+    Deserialize,
+    Default,
     MByteBufferRead,
     MByteBufferWrite,
 )]
-// Used to seperate Entity data within Hecs World.
-pub enum WorldEntityType {
+pub enum NpcCastType {
     #[default]
-    None,
-    Player,
-    Npc,
-    MapItem,
-    Map,
+    SelfOnly,
+    Enemy,  // for Attack spells/bad effects
+    Friend, // for healing/revival/good effects
+    Ground, // no target just Attack at position
 }
 
 #[derive(
@@ -274,27 +232,6 @@ pub enum OnlineType {
     #[default]
     Accepted,
     Online,
-}
-
-#[derive(
-    Copy,
-    Clone,
-    Debug,
-    Serialize,
-    Deserialize,
-    PartialEq,
-    Eq,
-    Default,
-    MByteBufferRead,
-    MByteBufferWrite,
-)]
-pub enum NpcMode {
-    None,
-    #[default]
-    Normal,
-    Pet,
-    Summon,
-    Boss,
 }
 
 #[derive(

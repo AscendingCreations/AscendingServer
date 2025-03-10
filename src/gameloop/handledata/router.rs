@@ -1,3 +1,5 @@
+use mio::Token;
+
 use crate::{
     AscendingError, OnlineType, PacketRouter,
     containers::{GlobalKey, Storage, World},
@@ -5,12 +7,17 @@ use crate::{
     socket::*,
 };
 
+pub struct SocketID {
+    pub id: Token,
+}
+
 pub fn handle_data(
     router: &PacketRouter,
     world: &mut World,
     storage: &Storage,
     data: &mut MByteBuffer,
-    entity: GlobalKey,
+    entity: Option<GlobalKey>,
+    socket_id: SocketID,
 ) -> Result<()> {
     let id: ClientPacket = data.read()?;
 

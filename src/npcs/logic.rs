@@ -84,7 +84,7 @@ pub fn update_npcs(world: &mut World, storage: &Storage) -> Result<()> {
                     //make sure we can spawn here before even spawning them.
                     if !map_data
                         .borrow()
-                        .is_blocked_tile(world.get_or_err::<Spawn>(id)?.pos, WorldEntityType::Npc)
+                        .is_blocked_tile(world.get_or_err::<Spawn>(id)?.pos, EntityKind::Npc)
                     {
                         {
                             *world.get::<&mut DeathType>(id.0)? = DeathType::Alive;
