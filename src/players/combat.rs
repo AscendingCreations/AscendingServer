@@ -1,5 +1,5 @@
 use crate::{
-    containers::{Storage, World},
+    containers::{GlobalKey, Storage, World},
     gametypes::*,
     maps::{can_target, is_dir_blocked},
     npcs::{NpcIndex, can_attack_npc, damage_npc, kill_npc, try_target_entity},

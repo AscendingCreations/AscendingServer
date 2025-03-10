@@ -318,101 +318,10 @@ pub enum LogType {
     Error,
 }
 
-#[derive(
-    Copy,
-    Clone,
-    Debug,
-    PartialEq,
-    Eq,
-    Deserialize,
-    Serialize,
-    Default,
-    MByteBufferRead,
-    MByteBufferWrite,
-)]
-pub enum IsUsingType {
-    #[default]
-    None,
-    Bank,
-    Fishing(i64),
-    Crafting(i64),
-    Trading(GlobalKey),
-    Store(i64),
-    Other(i64),
-}
-
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum SlotSpace {
     NoSpace(u16),
     Completed,
-}
-
-impl IsUsingType {
-    pub fn inuse(self) -> bool {
-        !matches!(self, IsUsingType::None)
-    }
-
-    pub fn is_bank(self) -> bool {
-        matches!(self, IsUsingType::Bank)
-    }
-
-    pub fn is_fishing(self) -> bool {
-        matches!(self, IsUsingType::Fishing(_))
-    }
-
-    pub fn is_crafting(self) -> bool {
-        matches!(self, IsUsingType::Crafting(_))
-    }
-
-    pub fn is_trading(self) -> bool {
-        matches!(self, IsUsingType::Trading(_))
-    }
-
-    pub fn is_instore(self) -> bool {
-        matches!(self, IsUsingType::Store(_))
-    }
-
-    pub fn is_other(self) -> bool {
-        matches!(self, IsUsingType::Other(_))
-    }
-}
-
-#[derive(
-    Copy,
-    Clone,
-    Debug,
-    PartialEq,
-    Eq,
-    Default,
-    Serialize,
-    Deserialize,
-    MByteBufferRead,
-    MByteBufferWrite,
-)]
-pub enum DeathType {
-    #[default]
-    Alive,
-    Spirit,
-    Dead,
-    Spawning,
-}
-
-impl DeathType {
-    pub fn is_dead(self) -> bool {
-        !matches!(self, DeathType::Alive)
-    }
-
-    pub fn is_spirit(self) -> bool {
-        matches!(self, DeathType::Spirit)
-    }
-
-    pub fn is_alive(self) -> bool {
-        matches!(self, DeathType::Alive)
-    }
-
-    pub fn is_spawning(self) -> bool {
-        matches!(self, DeathType::Spawning)
-    }
 }
 
 #[derive(

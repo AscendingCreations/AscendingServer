@@ -17,6 +17,7 @@ use rustls::{
     pki_types::{CertificateDer, PrivateKeyDer},
 };
 use serde::{Deserialize, Serialize};
+use slotmap::SecondaryMap;
 use sqlx::{
     ConnectOptions, PgPool,
     postgres::{PgConnectOptions, PgPoolOptions},
@@ -25,7 +26,7 @@ use std::{cell::RefCell, collections::VecDeque, fs, io::BufReader, sync::Arc};
 use tokio::runtime::Runtime;
 use tokio::task;
 
-use super::World;
+use super::{GlobalKey, PlayerConnectionTimer, World};
 
 pub struct Storage {
     pub player_ids: RefCell<IndexSet<GlobalKey>>,
@@ -34,6 +35,7 @@ pub struct Storage {
     pub player_names: RefCell<HashMap<String, GlobalKey>>, //for player names to ID's
     pub maps: IndexMap<MapPosition, RefCell<MapData>>,
     pub map_items: RefCell<IndexMap<Position, GlobalKey>>,
+    pub player_timeout: RefCell<SecondaryMap<GlobalKey, PlayerConnectionTimer>>,
     //This is for buffering the specific packets needing to send.
     #[allow(clippy::type_complexity)]
     pub packet_cache: RefCell<IndexMap<DataTaskToken, VecDeque<(u32, MByteBuffer, bool)>>>,
@@ -193,6 +195,7 @@ impl Storage {
             recv_ids: RefCell::new(IndexSet::default()),
             npc_ids: RefCell::new(IndexSet::default()),
             player_names: RefCell::new(HashMap::default()), //for player names to ID's
+            player_timeout: RefCell::new(SecondaryMap::default()),
             maps: IndexMap::default(),
             map_items: RefCell::new(IndexMap::default()),
             packet_cache: RefCell::new(IndexMap::default()),
@@ -274,20 +277,6 @@ impl Storage {
         Some(storage)
     }
 
-    pub fn add_empty_player(
-        &self,
-        world: &mut World,
-        id: usize,
-        addr: String,
-    ) -> Result<GlobalKey> {
-        let socket = Socket::new(id, addr)?;
-
-        let identity = world.spawn((WorldEntityType::Player, socket, OnlineType::Accepted));
-        world.insert_one(identity, EntityType::Player(identity, 0))?;
-
-        Ok(identity)
-    }
-
     pub fn add_player_data(
         &self,
         world: &mut World,
@@ -296,59 +285,6 @@ impl Storage {
         handshake: String,
         time: MyInstant,
     ) -> Result<()> {
-        world.insert(
-            entity.0,
-            (
-                Account::default(),
-                PlayerItemTimer::default(),
-                PlayerMapTimer::default(),
-                Inventory::default(),
-                Equipment::default(),
-                Sprite::default(),
-                Money::default(),
-                Player::default(),
-                Spawn::default(),
-                Target::default(),
-                KillCount::default(),
-                Vitals::default(),
-                Dir::default(),
-                AttackTimer::default(),
-                WorldEntityType::Player,
-            ),
-        )?;
-        world.insert(
-            entity.0,
-            (
-                DeathTimer::default(),
-                MoveTimer::default(),
-                Combat::default(),
-                Physical::default(),
-                Hidden::default(),
-                Stunned::default(),
-                Attacking::default(),
-                Level::default(),
-                InCombat::default(),
-                EntityData::default(),
-                UserAccess::default(),
-                Position::default(),
-                DeathType::default(),
-                IsUsingType::default(),
-                PlayerTarget::default(),
-            ),
-        )?;
-        world.insert(
-            entity.0,
-            (
-                PlayerStorage::default(),
-                TradeItem::default(),
-                ReloginCode { code },
-                LoginHandShake { handshake },
-                TradeMoney::default(),
-                TradeStatus::default(),
-                TradeRequestEntity::default(),
-                ConnectionLoginTimer(time + Duration::try_milliseconds(600000).unwrap_or_default()),
-            ),
-        )?;
         self.player_ids.borrow_mut().insert(*entity);
         Ok(())
     }
@@ -374,60 +310,6 @@ impl Storage {
 
     pub fn add_npc(&self, world: &mut World, npc_id: u64) -> Result<Option<GlobalKey>> {
         if let Some(npcdata) = NpcData::load_npc(self, npc_id) {
-            let identity = world.spawn((
-                WorldEntityType::Npc,
-                Position::default(),
-                NpcIndex(npc_id),
-                NpcTimer {
-                    spawntimer: *self.gettick.borrow()
-                        + Duration::try_milliseconds(npcdata.spawn_wait).unwrap_or_default(),
-                    ..Default::default()
-                },
-                NpcAITimer::default(),
-                NpcDespawns::default(),
-                NpcMoving::default(),
-                NpcRetreating::default(),
-                NpcWalkToSpawn::default(),
-                NpcMoves::default(),
-                NpcSpawnedZone::default(),
-                Dir::default(),
-                MoveTimer::default(),
-                EntityData::default(),
-                Sprite::default(),
-            ));
-            world.insert(
-                identity,
-                (
-                    Spawn::default(),
-                    NpcMode::Normal,
-                    Hidden::default(),
-                    Level::default(),
-                    Vitals::default(),
-                    Physical::default(),
-                    DeathType::default(),
-                    NpcMovePos::default(),
-                    Target::default(),
-                    InCombat::default(),
-                    AttackTimer::default(),
-                    NpcPathTimer::default(),
-                ),
-            )?;
-
-            if !npcdata.behaviour.is_friendly() {
-                world.insert(
-                    identity,
-                    (
-                        NpcHitBy::default(),
-                        Target::default(),
-                        AttackTimer::default(),
-                        DeathTimer::default(),
-                        Combat::default(),
-                        Stunned::default(),
-                        Attacking::default(),
-                        InCombat::default(),
-                    ),
-                )?;
-            }
             world.insert_one(identity, EntityType::Npc(identity))?;
 
             self.npc_ids.borrow_mut().insert(identity);

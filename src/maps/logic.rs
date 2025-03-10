@@ -1,5 +1,5 @@
 use crate::{
-    containers::{Storage, World},
+    containers::{GlobalKey, Storage, World},
     gametypes::*,
     items::Item,
     maps::is_dir_blocked,
@@ -114,7 +114,7 @@ pub fn update_maps(world: &mut World, storage: &Storage) -> Result<()> {
                 if !storage_mapitem.contains_key(&data.pos) {
                     if data.timer <= tick {
                         let map_item = create_mapitem(data.index, data.amount, data.pos);
-                        let id = world.spawn((WorldEntityType::MapItem, map_item));
+                        let id = ;
                         world.insert(id, (EntityType::MapItem(id), DespawnTimer::default()))?;
                         storage_mapitem.insert(data.pos, id);
                         DataTaskToken::ItemLoad(data.pos.map).add_task(

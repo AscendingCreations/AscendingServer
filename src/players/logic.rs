@@ -1,5 +1,5 @@
 use crate::{
-    containers::{Storage, World},
+    containers::{GlobalKey, Storage, World},
     gametypes::*,
     maps::can_target,
     npcs::npc_clear_move_path,
@@ -46,13 +46,6 @@ pub fn update_players(world: &mut World, storage: &Storage) -> Result<()> {
 
                     //todo: party stuff here
                 }
-
-                let killcount = world.get_or_err::<KillCount>(id)?;
-                if killcount.count > 0 && killcount.killcounttimer < tick {
-                    {
-                        world.get::<&mut KillCount>(id.0)?.count = 0;
-                    }
-                }
             }
 
             // Check Trade
@@ -84,8 +77,10 @@ pub fn update_players(world: &mut World, storage: &Storage) -> Result<()> {
 pub fn check_player_connection(world: &mut World, storage: &Storage) -> Result<()> {
     let mut remove_player_list = Vec::new();
 
-    for (entity, timer) in world.query::<&ConnectionLoginTimer>().iter() {
-        if timer.0 < *storage.gettick.borrow() {
+    let tick = *storage.gettick.borrow();
+
+    for (entity, connection_timer) in storage.player_timeout.borrow().iter() {
+        if connection_timer.0 < tick {
             remove_player_list.push(entity);
         }
     }

@@ -1,6 +1,6 @@
 use crate::{
     containers::{HashMap, Storage, World},
-    gametypes::Result,
+    gametypes::{MAX_SOCKET_PLAYERS, Result},
     socket::{Client, ClientState, accept_connection},
 };
 use log::{trace, warn};
@@ -61,19 +61,18 @@ impl Server {
             stream.set_nodelay(true)?;
 
             if let Some(token) = self.tokens.pop_front() {
-                // Attempt to Create a Empty Player Entity.
-                let entity =
-                    match accept_connection(self, token.0, addr.to_string(), world, storage) {
-                        Some(e) => e,
-                        None => {
-                            drop(stream);
-                            return Ok(());
-                        }
-                    };
+                if self.clients.len() + 1 >= MAX_SOCKET_PLAYERS {
+                    warn!(
+                        "Server is full. has reached MAX_SOCKET_PLAYERS: {} ",
+                        MAX_SOCKET_PLAYERS
+                    );
+                    drop(stream);
+                    return Ok(());
+                }
 
                 let tls_conn = rustls::ServerConnection::new(Arc::clone(&self.tls_config))?;
                 // Lets make the Client to handle hwo we send packets.
-                let mut client = Client::new(stream, token, entity, tls_conn);
+                let mut client = Client::new(stream, token, tls_conn);
                 //Register the Poll to the client for recv and Sending
                 client.register(&storage.poll.borrow_mut())?;
 

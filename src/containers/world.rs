@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use slotmap::{Key, KeyData, SecondaryMap, SlotMap, new_key_type};
 use uuid::Uuid;
 
-use super::{HashMap, PlayerEntity};
+use super::{HashMap, MapItemEntity, NpcEntity, PlayerEntity};
 
 new_key_type! {
     pub struct GlobalKey;
@@ -18,6 +18,8 @@ pub enum Entity {
     #[default]
     None,
     Player(Arc<Mutex<PlayerEntity>>),
+    Npc(Arc<Mutex<NpcEntity>>),
+    MapItem(Arc<Mutex<MapItemEntity>>),
 }
 
 #[derive(Default)]
@@ -85,6 +87,8 @@ pub enum EntityKind {
     #[default]
     None,
     Player,
+    Npc,
+    MapItem,
 }
 
 impl ByteBufferWrite for GlobalKey {

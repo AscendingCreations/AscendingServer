@@ -14,6 +14,7 @@ use mmap_bytey::BUFFER_SIZE;
 use std::{
     collections::VecDeque,
     io::{self, Read, Write},
+    sync::{Arc, Mutex},
 };
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -83,13 +84,14 @@ pub enum EncryptionState {
 pub struct Client {
     pub stream: TcpStream,
     pub token: mio::Token,
-    pub entity: GlobalKey,
+    pub entity: Option<GlobalKey>,
     pub state: ClientState,
     pub sends: VecDeque<MByteBuffer>,
     pub tls_sends: VecDeque<MByteBuffer>,
     pub poll_state: SocketPollState,
     // used for sending encrypted Data.
     pub tls: rustls::ServerConnection,
+    pub buffer: Arc<Mutex<ByteBuffer>>,
     pub encrypt_state: EncryptionState,
 }
 
@@ -98,20 +100,20 @@ impl Client {
     pub fn new(
         stream: TcpStream,
         token: mio::Token,
-        entity: GlobalKey,
         tls: rustls::ServerConnection,
-    ) -> Client {
-        Client {
+    ) -> Result<Client> {
+        Ok(Client {
             stream,
             token,
-            entity,
+            entity: None,
             state: ClientState::Open,
             sends: VecDeque::with_capacity(32),
             tls_sends: VecDeque::new(),
             poll_state: SocketPollState::Read,
             tls,
+            buffer: Arc::new(Mutex::new(ByteBuffer::with_capacity(8192)?)),
             encrypt_state: EncryptionState::ReadWrite,
-        }
+        })
     }
 
     pub fn process(
@@ -534,8 +536,6 @@ pub fn accept_connection(
         );
         return None;
     }
-
-    storage.add_empty_player(world, socketid, addr).ok()
 }
 
 pub fn set_encryption_status(
@@ -799,7 +799,7 @@ pub fn process_packets(world: &mut World, storage: &Storage, router: &PacketRout
     }
 
     for (entity, socket_id, should_close) in rem_arr {
-        storage.recv_ids.borrow_mut().swap_remove(GlobalKey);
+        storage.recv_ids.borrow_mut().swap_remove(entity);
 
         if should_close {
             if let Some(client) = storage.server.borrow().clients.get(&mio::Token(socket_id)) {

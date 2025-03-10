@@ -1,5 +1,5 @@
 use crate::{
-    containers::{Storage, World},
+    containers::{GlobalKey, Storage, World},
     gametypes::*,
     items::Item,
     socket::*,
@@ -9,15 +9,6 @@ use crate::{
 use mmap_bytey::{MByteBufferRead, MByteBufferWrite};
 
 use super::{MapAttribute, create_mapitem};
-
-#[derive(Copy, Clone, PartialEq, Eq, Default, MByteBufferRead, MByteBufferWrite)]
-pub struct MapItem {
-    pub item: Item,
-    pub despawn: Option<MyInstant>,
-    pub ownertimer: Option<MyInstant>,
-    pub ownerid: Option<GlobalKey>,
-    pub pos: Position,
-}
 
 impl MapItem {
     #[inline(always)]
@@ -219,7 +210,7 @@ pub fn try_drop_item(
                 map_item.despawn = despawn;
                 map_item.ownertimer = ownertimer;
                 map_item.ownerid = ownerid;
-                let id = world.spawn((WorldEntityType::MapItem, map_item));
+                let id = ;
                 let despawntimer = if let Some(timer) = despawn {
                     DespawnTimer(timer)
                 } else {

@@ -1,7 +1,7 @@
 use std::ops::Range;
 
 use crate::{
-    containers::{Storage, World},
+    containers::{GlobalKey, Storage, World},
     gametypes::*,
     players::*,
     socket::*,
@@ -250,7 +250,12 @@ pub fn send_money(world: &mut World, storage: &Storage, entity: GlobalKey) -> Re
 }
 
 #[inline]
-pub fn send_pk(world: &mut World, storage: &Storage, entity: GlobalKey, toself: bool) -> Result<()> {
+pub fn send_pk(
+    world: &mut World,
+    storage: &Storage,
+    entity: GlobalKey,
+    toself: bool,
+) -> Result<()> {
     let mut buf = MByteBuffer::new_packet()?;
     let closure = |toself, id| if toself { Some(id) } else { None };
 
@@ -346,7 +351,11 @@ pub fn send_openshop(
 }
 
 #[inline]
-pub fn send_clearisusingtype(world: &mut World, storage: &Storage, entity: GlobalKey) -> Result<()> {
+pub fn send_clearisusingtype(
+    world: &mut World,
+    storage: &Storage,
+    entity: GlobalKey,
+) -> Result<()> {
     let mut buf = MByteBuffer::new_packet()?;
 
     buf.write(ServerPackets::ClearIsUsingType)?;

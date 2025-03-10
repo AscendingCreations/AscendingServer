@@ -1,6 +1,6 @@
 use crate::{
-    AscendingError, OnlineType, PacketRouter, WorldExtras,
-    containers::{Storage, World},
+    AscendingError, OnlineType, PacketRouter,
+    containers::{GlobalKey, Storage, World},
     gametypes::Result,
     socket::*,
 };

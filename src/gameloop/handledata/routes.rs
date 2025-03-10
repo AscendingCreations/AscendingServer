@@ -1,7 +1,7 @@
 use std::backtrace::Backtrace;
 
 use crate::{
-    containers::{Storage, World},
+    containers::{GlobalKey, Storage, World},
     gametypes::*,
     items::Item,
     maps::*,

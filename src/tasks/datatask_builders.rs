@@ -1,4 +1,11 @@
-use crate::{containers::World, gametypes::*, items::*, npcs::*, players::*, socket::*};
+use crate::{
+    containers::{GlobalKey, World},
+    gametypes::*,
+    items::*,
+    npcs::*,
+    players::*,
+    socket::*,
+};
 
 pub fn move_packet(
     entity: GlobalKey,

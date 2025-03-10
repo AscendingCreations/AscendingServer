@@ -1,7 +1,7 @@
 use std::backtrace::Backtrace;
 use std::sync::Arc;
 
-use crate::containers::World;
+use crate::containers::{GlobalKey, World};
 use crate::sql::integers::Shifting;
 use crate::{gametypes::*, players::*, time_ext::*};
 use sqlx::FromRow;

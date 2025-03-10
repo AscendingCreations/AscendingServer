@@ -1,7 +1,7 @@
 use std::borrow::Borrow;
 
 use crate::{
-    containers::{Storage, World},
+    containers::{GlobalKey, Storage, World},
     gametypes::*,
     maps::*,
     npcs::*,
