@@ -7,7 +7,7 @@ use crate::{
 use chrono::Duration;
 use hecs::World;
 use log::{debug, info};
-use rand::distributions::{Alphanumeric, DistString};
+use rand::distr::{SampleString, Alphanumeric};
 use regex::Regex;
 
 pub fn handle_ping(
@@ -121,8 +121,8 @@ pub fn handle_register(
             Err(_) => return Err(AscendingError::UserNotFound),
         }
 
-        let code = Alphanumeric.sample_string(&mut rand::thread_rng(), 32);
-        let handshake = Alphanumeric.sample_string(&mut rand::thread_rng(), 32);
+        let code = Alphanumeric.sample_string(&mut rand::rng(), 32);
+        let handshake = Alphanumeric.sample_string(&mut rand::rng(), 32);
 
         let tick = *storage.gettick.borrow();
         // we need to Add all the player types creations in a sub function that Creates the Defaults and then adds them to World.
@@ -233,8 +233,8 @@ pub fn handle_login(
         };
 
         // we need to Add all the player types creations in a sub function that Creates the Defaults and then adds them to World.
-        let code = Alphanumeric.sample_string(&mut rand::thread_rng(), 32);
-        let handshake = Alphanumeric.sample_string(&mut rand::thread_rng(), 32);
+        let code = Alphanumeric.sample_string(&mut rand::rng(), 32);
+        let handshake = Alphanumeric.sample_string(&mut rand::rng(), 32);
         let old_entity = { storage.player_names.borrow().get(&username).copied() };
 
         if let Some(old_entity) = old_entity {

@@ -1,7 +1,7 @@
 use crate::{containers::Storage, gametypes::*, maps::*, npcs::*, players::*};
 use chrono::Duration;
 use hecs::World;
-use rand::{thread_rng, Rng};
+use rand::{rng, Rng};
 
 pub fn targeting(
     world: &mut World,
@@ -118,9 +118,9 @@ pub fn try_target_entity(
     let cantarget = match target.target_type {
         EntityType::Npc(id) | EntityType::Player(id, _) => {
             if world.contains(id.0) {
-                let mut rng = thread_rng();
+                let mut rng = rng();
 
-                if rng.gen_range(0..2) == 1 && new_target {
+                if rng.random_range(0..2) == 1 && new_target {
                     true
                 } else {
                     let target_pos = world.get_or_err::<Position>(&id)?;

@@ -175,7 +175,7 @@ pub fn player_combat_damage(
         + player_get_weapon_damage(world, storage, entity)?.0 as u32)
         .saturating_sub(def / offset)
         .max(1);
-    let mut rng = thread_rng();
+    let mut rng = rng();
 
     //protect from accidental heals due to u32 to i32 conversion.
     if damage >= i32::MAX as u32 {
@@ -183,12 +183,11 @@ pub fn player_combat_damage(
     }
 
     //lets randomize are damage range so every attack doesnt always deal the same damage.
-    damage = rng.gen_range(1..=damage);
+    damage = rng.random_range(1..=damage);
 
     //lets randomize to see if we do want to deal 1 damage if Defense is to high.
     if damage == 0 {
-        let mut rng = thread_rng();
-        damage = rng.gen_range(0..=1);
+        damage = rng.random_range(0..=1);
     }
 
     Ok(damage as i32)

@@ -1,5 +1,5 @@
 use crate::{containers::*, gametypes::*, maps::*};
-use rand::{thread_rng, Rng};
+use rand::{rng, Rng};
 use std::{
     cmp::Reverse,
     collections::{BinaryHeap, VecDeque},
@@ -87,10 +87,7 @@ pub fn a_star_path(
     allowed_maps.get(&stop.map)?;
 
     //find the Offset position of the end position for Calculations
-    let stop_offset = match map_offset_range(start, stop, &allowed_maps, &mut HashSet::default()) {
-        Some(pos) => pos,
-        None => return None,
-    };
+    let stop_offset = map_offset_range(start, stop, &allowed_maps, &mut HashSet::default())?;
 
     nodes.push(PathNode::new(start, dir, start, None));
     opened.push(Reverse((0, id)));
@@ -236,7 +233,7 @@ pub fn npc_path_gather(
 }
 
 pub fn npc_rand_movement(storage: &Storage, pos: Position) -> VecDeque<(Position, u8)> {
-    let mut rng = thread_rng();
+    let mut rng = rng();
     //down, right, up, left
     let adjacent = [(0, -1), (1, 0), (0, 1), (-1, 0)];
     let mut path = VecDeque::with_capacity(16);
@@ -244,8 +241,8 @@ pub fn npc_rand_movement(storage: &Storage, pos: Position) -> VecDeque<(Position
     let allowed_maps = get_surrounding_set(pos.map);
 
     //Lets get a range of movements in one go.
-    for _ in 1..rng.gen_range(3..10) {
-        let movedir = rng.gen_range(0..=3);
+    for _ in 1..rng.random_range(3..10) {
+        let movedir = rng.random_range(0..=3);
         let mut node_pos = Position::new(
             lastpos.x + adjacent[movedir].0,
             lastpos.y + adjacent[movedir].1,

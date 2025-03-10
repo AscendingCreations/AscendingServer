@@ -2,7 +2,7 @@ use std::borrow::Borrow;
 
 use crate::{containers::Storage, gametypes::*, maps::*, npcs::*, players::*, tasks::*};
 use hecs::World;
-use rand::{thread_rng, Rng};
+use rand::{rng, Rng};
 
 #[inline(always)]
 pub fn damage_npc(world: &mut World, entity: &crate::Entity, damage: i32) -> Result<()> {
@@ -235,7 +235,7 @@ pub fn npc_combat_damage(
         .damage
         .saturating_sub(def / offset)
         .max(base.mindamage);
-    let mut rng = thread_rng();
+    let mut rng = rng();
 
     //set to max before we set to max i32 just in case. Order matters here.
     if damage > base.maxdamage {
@@ -248,12 +248,11 @@ pub fn npc_combat_damage(
     }
 
     //lets randomize are damage range so every attack doesnt always deal the same damage.
-    damage = rng.gen_range(base.mindamage..=damage);
+    damage = rng.random_range(base.mindamage..=damage);
 
     //lets randomize to see if we do want to deal 1 damage if Defense is to high.
     if damage == 0 {
-        let mut rng = thread_rng();
-        damage = rng.gen_range(0..=1);
+        damage = rng.random_range(0..=1);
     }
 
     Ok(damage as i32)
@@ -264,10 +263,10 @@ pub fn kill_npc(world: &mut World, storage: &Storage, entity: &Entity) -> Result
     let npc_pos = world.get_or_err::<Position>(entity)?;
     let npcbase = storage.bases.npcs[npc_index as usize].borrow();
 
-    let mut rng = thread_rng();
+    let mut rng = rng();
 
     if npcbase.max_shares > 0 {
-        let r = rng.gen_range(0..npcbase.max_shares);
+        let r = rng.random_range(0..npcbase.max_shares);
         if let Some(&drop_id) = npcbase.drop_ranges.get(&r) {
             //do item drops here for this drop.
             if let Some(drop_data) = npcbase.drops.get(drop_id) {

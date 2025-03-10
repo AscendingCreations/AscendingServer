@@ -8,13 +8,13 @@ use crate::{
 };
 use chrono::Duration;
 use hecs::World;
-use rand::{thread_rng, Rng};
+use rand::{rng, Rng};
 use std::cmp::min;
 
 use super::{check_surrounding, MapItem};
 
 pub fn update_maps(world: &mut World, storage: &Storage) -> Result<()> {
-    let mut rng = thread_rng();
+    let mut rng = rng();
     let mut spawnable = Vec::new();
     let mut len = storage.npc_ids.borrow().len();
     let tick = *storage.gettick.borrow();
@@ -62,7 +62,7 @@ pub fn update_maps(world: &mut World, storage: &Storage) -> Result<()> {
 
                             //Give them a percentage chance to actually spawn
                             //or see if we can spawn them yet within the time frame.
-                            if rng.gen_range(0..2) > 0 || !game_time.in_range(from, to) {
+                            if rng.random_range(0..2) > 0 || !game_time.in_range(from, to) {
                                 continue;
                             }
 
@@ -76,7 +76,7 @@ pub fn update_maps(world: &mut World, storage: &Storage) -> Result<()> {
                             //Only try to find a spot so many times randomly.
                             if !map.zonespawns[id].is_empty() {
                                 while loop_count < 10 {
-                                    let pos_id = rng.gen_range(0..map.zonespawns[id].len());
+                                    let pos_id = rng.random_range(0..map.zonespawns[id].len());
                                     let (x, y) = map.zonespawns[id][pos_id];
                                     let spawn = Position::new(x as i32, y as i32, *position);
 
