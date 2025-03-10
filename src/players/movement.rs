@@ -1,12 +1,17 @@
-use hecs::World;
-
-use crate::{containers::Storage, gametypes::*, maps::*, players::*, sql::*, tasks::*};
+use crate::{
+    containers::{Storage, World},
+    gametypes::*,
+    maps::*,
+    players::*,
+    sql::*,
+    tasks::*,
+};
 
 //TODO: Add Result<(), AscendingError> to all Functions that return nothing.
 pub fn player_warp(
     world: &mut World,
     storage: &Storage,
-    entity: &Entity,
+    entity: GlobalKey,
     new_pos: &Position,
     spawn: bool,
 ) -> Result<()> {
@@ -47,7 +52,7 @@ pub fn player_warp(
 pub fn player_movement(
     world: &mut World,
     storage: &Storage,
-    entity: &Entity,
+    entity: GlobalKey,
     dir: u8,
 ) -> Result<bool> {
     //Down, Right, Up, Left
@@ -67,15 +72,11 @@ pub fn player_movement(
             (31, player_position.y),
         ];
         let map_adj = [(0, -1), (1, 0), (0, 1), (-1, 0)];
-        new_pos = Position::new(
-            adj[dir as usize].0,
-            adj[dir as usize].1,
-            MapPosition {
-                x: player_position.map.x + map_adj[dir as usize].0,
-                y: player_position.map.y + map_adj[dir as usize].1,
-                group: player_position.map.group,
-            },
-        );
+        new_pos = Position::new(adj[dir as usize].0, adj[dir as usize].1, MapPosition {
+            x: player_position.map.x + map_adj[dir as usize].0,
+            y: player_position.map.y + map_adj[dir as usize].1,
+            group: player_position.map.group,
+        });
     }
 
     {

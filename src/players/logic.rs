@@ -1,12 +1,16 @@
 use crate::{
-    containers::Storage, gametypes::*, maps::can_target, npcs::npc_clear_move_path, players::*,
-    socket::*, sql::*, tasks::*,
+    containers::{Storage, World},
+    gametypes::*,
+    maps::can_target,
+    npcs::npc_clear_move_path,
+    players::*,
+    socket::*,
+    sql::*,
+    tasks::*,
 };
 use chrono::Duration;
 use log::debug;
 use std::cmp;
-
-use hecs::World;
 
 pub fn update_players(world: &mut World, storage: &Storage) -> Result<()> {
     let tick = *storage.gettick.borrow();
@@ -88,7 +92,7 @@ pub fn check_player_connection(world: &mut World, storage: &Storage) -> Result<(
 
     for i in remove_player_list.iter() {
         // Close Socket
-        disconnect(Entity(*i), world, storage)?;
+        disconnect(*i, world, storage)?;
     }
     Ok(())
 }
@@ -107,7 +111,7 @@ pub fn send_connection_pings(world: &mut World, storage: &Storage) -> Result<()>
 pub fn player_earn_exp(
     world: &mut World,
     storage: &Storage,
-    entity: &Entity,
+    entity: GlobalKey,
     victimlevel: i32,
     expval: i64,
     spercent: f64,
@@ -190,7 +194,7 @@ pub fn player_earn_exp(
     update_level(storage, world, entity)
 }
 
-pub fn player_get_next_lvl_exp(world: &mut World, entity: &Entity) -> Result<u64> {
+pub fn player_get_next_lvl_exp(world: &mut World, entity: GlobalKey) -> Result<u64> {
     let mut query = world.query_one::<&Level>(entity.0)?;
 
     if let Some(player_level) = query.get() {
@@ -217,7 +221,7 @@ pub fn player_get_next_lvl_exp(world: &mut World, entity: &Entity) -> Result<u64
     }
 }
 
-pub fn player_calc_max_hp(world: &mut World, entity: &Entity) -> Result<i32> {
+pub fn player_calc_max_hp(world: &mut World, entity: GlobalKey) -> Result<i32> {
     let mut query = world.query_one::<&Level>(entity.0)?;
 
     if let Some(player_level) = query.get() {
@@ -227,7 +231,7 @@ pub fn player_calc_max_hp(world: &mut World, entity: &Entity) -> Result<i32> {
     }
 }
 
-pub fn player_calc_max_mp(world: &mut World, entity: &Entity) -> Result<i32> {
+pub fn player_calc_max_mp(world: &mut World, entity: GlobalKey) -> Result<i32> {
     let mut query = world.query_one::<&Level>(entity.0)?;
 
     if let Some(player_level) = query.get() {
@@ -240,7 +244,7 @@ pub fn player_calc_max_mp(world: &mut World, entity: &Entity) -> Result<i32> {
 pub fn player_get_weapon_damage(
     world: &mut World,
     storage: &Storage,
-    entity: &Entity,
+    entity: GlobalKey,
 ) -> Result<(i16, i16)> {
     let mut query = world.query_one::<&mut Equipment>(entity.0)?;
 
@@ -266,7 +270,7 @@ pub fn player_get_weapon_damage(
 pub fn player_get_armor_defense(
     world: &mut World,
     storage: &Storage,
-    entity: &Entity,
+    entity: GlobalKey,
 ) -> Result<(i16, i16)> {
     let mut query = world.query_one::<&mut Equipment>(entity.0)?;
 
@@ -293,7 +297,7 @@ pub fn player_get_armor_defense(
 pub fn player_repair_equipment(
     world: &mut World,
     storage: &Storage,
-    entity: &Entity,
+    entity: GlobalKey,
     slot: usize,
     repair_per: f32,
 ) -> Result<()> {
@@ -346,7 +350,7 @@ pub fn get_next_stat_exp(level: u32) -> u64 {
     level as u64 * exp_per_level as u64
 }
 
-pub fn joingame(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
+pub fn joingame(world: &mut World, storage: &Storage, entity: GlobalKey) -> Result<()> {
     let socket_id = world.get::<&Socket>(entity.0)?.id;
 
     {
@@ -399,7 +403,7 @@ pub fn joingame(world: &mut World, storage: &Storage, entity: &Entity) -> Result
     )
 }
 
-pub fn left_game(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
+pub fn left_game(world: &mut World, storage: &Storage, entity: GlobalKey) -> Result<()> {
     if world.get_or_err::<OnlineType>(entity)? != OnlineType::Online {
         return Ok(());
     }
@@ -431,7 +435,7 @@ pub fn left_game(world: &mut World, storage: &Storage, entity: &Entity) -> Resul
     Ok(())
 }
 
-pub fn remove_all_npc_target(world: &mut World, entity: &Entity) -> Result<()> {
+pub fn remove_all_npc_target(world: &mut World, entity: GlobalKey) -> Result<()> {
     let mut clear_move_path = Vec::new();
     for (entity, (worldentitytype, target)) in world
         .query::<(&WorldEntityType, &mut Target)>()
@@ -455,7 +459,7 @@ pub fn remove_all_npc_target(world: &mut World, entity: &Entity) -> Result<()> {
 
     for (entity, targettype) in clear_move_path {
         if targettype == WorldEntityType::Npc {
-            npc_clear_move_path(world, &Entity(entity))?;
+            npc_clear_move_path(world, GlobalKey(entity))?;
         }
     }
     Ok(())
@@ -464,8 +468,8 @@ pub fn remove_all_npc_target(world: &mut World, entity: &Entity) -> Result<()> {
 pub fn init_trade(
     world: &mut World,
     storage: &Storage,
-    entity: &Entity,
-    target_entity: &Entity,
+    entity: GlobalKey,
+    target_entity: GlobalKey,
 ) -> Result<()> {
     if can_target(
         world.get_or_err::<Position>(entity)?,
@@ -505,8 +509,8 @@ pub fn init_trade(
 pub fn process_player_trade(
     world: &mut World,
     storage: &Storage,
-    entity: &Entity,
-    target_entity: &Entity,
+    entity: GlobalKey,
+    target_entity: GlobalKey,
 ) -> Result<bool> {
     let entity_item = world.cloned_get_or_err::<TradeItem>(entity)?;
     let target_item = world.cloned_get_or_err::<TradeItem>(target_entity)?;
@@ -556,7 +560,7 @@ pub fn process_player_trade(
     Ok(true)
 }
 
-pub fn close_trade(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
+pub fn close_trade(world: &mut World, storage: &Storage, entity: GlobalKey) -> Result<()> {
     {
         *world.get::<&mut IsUsingType>(entity.0)? = IsUsingType::None;
         *world.get::<&mut TradeItem>(entity.0)? = TradeItem::default();
@@ -567,7 +571,7 @@ pub fn close_trade(world: &mut World, storage: &Storage, entity: &Entity) -> Res
     send_clearisusingtype(world, storage, entity)
 }
 
-pub fn can_trade(world: &mut World, storage: &Storage, entity: &Entity) -> Result<bool> {
+pub fn can_trade(world: &mut World, storage: &Storage, entity: GlobalKey) -> Result<bool> {
     Ok(!world.get_or_err::<IsUsingType>(entity)?.inuse()
         && world.get_or_err::<TradeRequestEntity>(entity)?.requesttimer
             <= *storage.gettick.borrow())

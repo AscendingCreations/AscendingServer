@@ -1,17 +1,16 @@
 use crate::{
-    containers::Storage,
+    containers::{Storage, World},
     gametypes::*,
     items::Item,
     maps::is_dir_blocked,
     npcs::NpcSpawnedZone,
-    tasks::{map_item_packet, DataTaskToken},
+    tasks::{DataTaskToken, map_item_packet},
 };
 use chrono::Duration;
-use hecs::World;
-use rand::{rng, Rng};
+use rand::{Rng, rng};
 use std::cmp::min;
 
-use super::{check_surrounding, MapItem};
+use super::{MapItem, check_surrounding};
 
 pub fn update_maps(world: &mut World, storage: &Storage) -> Result<()> {
     let mut rng = rng();
@@ -116,22 +115,19 @@ pub fn update_maps(world: &mut World, storage: &Storage) -> Result<()> {
                     if data.timer <= tick {
                         let map_item = create_mapitem(data.index, data.amount, data.pos);
                         let id = world.spawn((WorldEntityType::MapItem, map_item));
-                        world.insert(
-                            id,
-                            (EntityType::MapItem(Entity(id)), DespawnTimer::default()),
-                        )?;
-                        storage_mapitem.insert(data.pos, Entity(id));
+                        world.insert(id, (EntityType::MapItem(id), DespawnTimer::default()))?;
+                        storage_mapitem.insert(data.pos, id);
                         DataTaskToken::ItemLoad(data.pos.map).add_task(
                             storage,
                             map_item_packet(
-                                Entity(id),
+                                id,
                                 map_item.pos,
                                 map_item.item,
                                 map_item.ownerid,
                                 true,
                             )?,
                         )?;
-                        add_items.push(Entity(id));
+                        add_items.push(id);
                     }
                 } else {
                     data.timer = tick
@@ -166,7 +162,7 @@ pub fn spawn_npc(
     world: &mut World,
     pos: Position,
     zone: Option<usize>,
-    entity: Entity,
+    entity: GlobalKey,
 ) -> Result<()> {
     *world.get::<&mut Position>(entity.0)? = pos;
     world.get::<&mut Spawn>(entity.0)?.pos = pos;

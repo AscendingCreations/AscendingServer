@@ -1,5 +1,4 @@
 use crate::{containers::*, gametypes::*, maps::MapItem};
-use hecs::World;
 use mmap_bytey::{MByteBufferRead, MByteBufferWrite};
 use serde::{Deserialize, Serialize};
 use speedy::{Readable, Writable};
@@ -135,70 +134,6 @@ pub enum WorldEntityType {
     Npc,
     MapItem,
     Map,
-}
-
-//used to pass and to Target Entity's
-#[derive(
-    Copy,
-    Clone,
-    Debug,
-    PartialEq,
-    Eq,
-    Default,
-    Deserialize,
-    Serialize,
-    MByteBufferRead,
-    MByteBufferWrite,
-)]
-pub enum EntityType {
-    #[default]
-    None,
-    Player(Entity, i64), //ArrID, AccID used for comparison if still same player.
-    Npc(Entity),
-    MapItem(Entity),
-    Map(Position),
-}
-
-impl EntityType {
-    pub fn get_id(&self) -> Entity {
-        match self {
-            EntityType::Player(i, _) | EntityType::Npc(i) | EntityType::MapItem(i) => *i,
-            _ => Entity(hecs::Entity::DANGLING),
-        }
-    }
-
-    pub fn get_pos(&self, world: &mut World, _storage: &Storage) -> Option<Position> {
-        match self {
-            EntityType::Map(position) => Some(*position),
-            EntityType::Player(i, _) => world.get_or_err::<Position>(i).ok(),
-            EntityType::Npc(i) => world.get_or_err::<Position>(i).ok(),
-            EntityType::MapItem(i) => world
-                .get_or_err::<MapItem>(i)
-                .map(|mapitem| mapitem.pos)
-                .ok(),
-            EntityType::None => None,
-        }
-    }
-
-    pub fn is_player(&self) -> bool {
-        matches!(self, EntityType::Player(_, _))
-    }
-
-    pub fn is_map(&self) -> bool {
-        matches!(self, EntityType::Map(_))
-    }
-
-    pub fn is_npc(&self) -> bool {
-        matches!(self, EntityType::Npc(_))
-    }
-
-    pub fn is_mapitem(&self) -> bool {
-        matches!(self, EntityType::MapItem(_))
-    }
-
-    pub fn is_none(&self) -> bool {
-        matches!(self, EntityType::None)
-    }
 }
 
 #[derive(
@@ -401,7 +336,7 @@ pub enum IsUsingType {
     Bank,
     Fishing(i64),
     Crafting(i64),
-    Trading(Entity),
+    Trading(GlobalKey),
     Store(i64),
     Other(i64),
 }

@@ -1,26 +1,25 @@
 use std::cmp::max;
 
 use crate::{
-    containers::{HashSet, Storage},
+    containers::{HashSet, Storage, World},
     gametypes::*,
     maps::*,
     players::*,
-    tasks::{map_item_packet, npc_spawn_packet, player_spawn_packet, DataTaskToken},
+    tasks::{DataTaskToken, map_item_packet, npc_spawn_packet, player_spawn_packet},
 };
-use hecs::World;
 
 //types to buffer load when loading a map.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum MapSwitchTasks {
-    Npc(Vec<Entity>),    //0
-    Player(Vec<Entity>), //1
-    Items(Vec<Entity>),  //2
+    Npc(Vec<GlobalKey>),    //0
+    Player(Vec<GlobalKey>), //1
+    Items(Vec<GlobalKey>),  //2
 }
 
 pub fn init_data_lists(
     world: &mut World,
     storage: &Storage,
-    user: &crate::Entity,
+    user: GlobalKey,
     oldmap: Option<MapPosition>,
 ) -> Result<()> {
     let mut map_switch_tasks = storage.map_switch_tasks.borrow_mut();
@@ -113,14 +112,11 @@ pub fn init_data_lists(
         tasks.push(MapSwitchTasks::Npc(task_npc));
         tasks.push(MapSwitchTasks::Items(task_item));
     } else {
-        map_switch_tasks.insert(
-            *user,
-            vec![
-                MapSwitchTasks::Player(task_player),
-                MapSwitchTasks::Npc(task_npc),
-                MapSwitchTasks::Items(task_item),
-            ],
-        );
+        map_switch_tasks.insert(*user, vec![
+            MapSwitchTasks::Player(task_player),
+            MapSwitchTasks::Npc(task_npc),
+            MapSwitchTasks::Items(task_item),
+        ]);
     }
 
     Ok(())
@@ -145,8 +141,10 @@ pub fn process_data_lists(world: &mut World, storage: &Storage) -> Result<()> {
 
                         for entity in entities.drain(cursor..) {
                             if world.contains(entity.0) {
-                                DataTaskToken::NpcSpawnToEntity(socket_id)
-                                    .add_task(storage, npc_spawn_packet(world, &entity, false)?)?;
+                                DataTaskToken::NpcSpawnToEntity(socket_id).add_task(
+                                    storage,
+                                    npc_spawn_packet(world, GlobalKey, false)?,
+                                )?;
                             }
                         }
 
@@ -159,7 +157,7 @@ pub fn process_data_lists(world: &mut World, storage: &Storage) -> Result<()> {
                             if world.contains(entity.0) {
                                 DataTaskToken::PlayerSpawnToEntity(socket_id).add_task(
                                     storage,
-                                    player_spawn_packet(world, &entity, false)?,
+                                    player_spawn_packet(world, GlobalKey, false)?,
                                 )?;
                             }
                         }
@@ -201,7 +199,7 @@ pub fn process_data_lists(world: &mut World, storage: &Storage) -> Result<()> {
 
     //we can now remove any empty tasks so we dont rerun them again.
     for entity in removals {
-        maptasks.swap_remove(&entity);
+        maptasks.swap_remove(GlobalKey);
     }
 
     Ok(())

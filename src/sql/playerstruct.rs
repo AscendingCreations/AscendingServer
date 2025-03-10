@@ -1,9 +1,9 @@
 use std::backtrace::Backtrace;
 use std::sync::Arc;
 
+use crate::containers::World;
 use crate::sql::integers::Shifting;
 use crate::{gametypes::*, players::*, time_ext::*};
-use hecs::{NoSuchEntity, World};
 use sqlx::FromRow;
 
 #[derive(Debug, PartialEq, Eq, FromRow)]
@@ -69,7 +69,7 @@ pub struct PGPlayerWithID {
 }
 
 impl PGPlayerWithID {
-    pub fn into_player(self, world: &mut World, entity: &Entity) -> Result<()> {
+    pub fn into_player(self, world: &mut World, entity: GlobalKey) -> Result<()> {
         let mut query = world.query_one::<PlayerQueryMut>(entity.0)?;
 
         if let Some((

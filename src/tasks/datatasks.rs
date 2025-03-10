@@ -1,9 +1,8 @@
 use crate::{
-    containers::Storage,
+    containers::{Storage, World},
     gametypes::{AscendingError, MapPosition, Result},
     socket::*,
 };
-use hecs::World;
 use indexmap::map::Entry;
 use log::warn;
 use mmap_bytey::BUFFER_SIZE;

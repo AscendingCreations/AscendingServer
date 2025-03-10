@@ -1,8 +1,7 @@
-use crate::{gametypes::*, items::*, npcs::*, players::*, socket::*};
-use hecs::{NoSuchEntity, World};
+use crate::{containers::World, gametypes::*, items::*, npcs::*, players::*, socket::*};
 
 pub fn move_packet(
-    entity: Entity,
+    entity: GlobalKey,
     position: Position,
     warp: bool,
     switch: bool,
@@ -19,21 +18,21 @@ pub fn move_packet(
     Ok(buffer)
 }
 
-pub fn warp_packet(entity: Entity, position: Position) -> Result<MByteBuffer> {
+pub fn warp_packet(entity: GlobalKey, position: Position) -> Result<MByteBuffer> {
     let mut buffer = MByteBuffer::new()?;
     buffer.write(entity)?.write(position)?;
 
     Ok(buffer)
 }
 
-pub fn dir_packet(entity: Entity, dir: u8) -> Result<MByteBuffer> {
+pub fn dir_packet(entity: GlobalKey, dir: u8) -> Result<MByteBuffer> {
     let mut buffer = MByteBuffer::new()?;
     buffer.write(entity)?.write(dir)?;
 
     Ok(buffer)
 }
 
-pub fn death_packet(entity: Entity, life: DeathType) -> Result<MByteBuffer> {
+pub fn death_packet(entity: GlobalKey, life: DeathType) -> Result<MByteBuffer> {
     let mut buffer = MByteBuffer::new()?;
     buffer.write(entity)?.write(life)?;
 
@@ -42,7 +41,7 @@ pub fn death_packet(entity: Entity, life: DeathType) -> Result<MByteBuffer> {
 
 pub fn npc_spawn_packet(
     world: &mut World,
-    entity: &Entity,
+    entity: GlobalKey,
     did_spawn: bool,
 ) -> Result<MByteBuffer> {
     let mut query = world.query_one::<(
@@ -89,7 +88,7 @@ pub fn npc_spawn_packet(
 
 pub fn player_spawn_packet(
     world: &mut World,
-    entity: &Entity,
+    entity: GlobalKey,
     did_spawn: bool,
 ) -> Result<MByteBuffer> {
     let mut query = world.query_one::<(
@@ -168,10 +167,10 @@ pub fn message_packet(
 }
 
 pub fn map_item_packet(
-    id: Entity,
+    id: GlobalKey,
     position: Position,
     item: Item,
-    owner: Option<Entity>,
+    owner: Option<GlobalKey>,
     did_spawn: bool,
 ) -> Result<MByteBuffer> {
     let mut buffer = MByteBuffer::new()?;
@@ -186,7 +185,7 @@ pub fn map_item_packet(
 }
 
 pub fn vitals_packet(
-    entity: Entity,
+    entity: GlobalKey,
     vital: [i32; VITALS_MAX],
     vitalmax: [i32; VITALS_MAX],
 ) -> Result<MByteBuffer> {
@@ -197,7 +196,7 @@ pub fn vitals_packet(
 }
 
 pub fn damage_packet(
-    entity: Entity,
+    entity: GlobalKey,
     damage: u16,
     pos: Position,
     is_damage: bool,
@@ -212,21 +211,21 @@ pub fn damage_packet(
     Ok(buffer)
 }
 
-pub fn level_packet(entity: Entity, level: i32, levelexp: u64) -> Result<MByteBuffer> {
+pub fn level_packet(entity: GlobalKey, level: i32, levelexp: u64) -> Result<MByteBuffer> {
     let mut buffer = MByteBuffer::new()?;
     buffer.write(entity)?.write(level)?.write(levelexp)?;
 
     Ok(buffer)
 }
 
-pub fn unload_entity_packet(entity: Entity) -> Result<MByteBuffer> {
+pub fn unload_entity_packet(entity: GlobalKey) -> Result<MByteBuffer> {
     let mut buffer = MByteBuffer::new()?;
     buffer.write(entity)?;
 
     Ok(buffer)
 }
 
-pub fn attack_packet(entity: Entity) -> Result<MByteBuffer> {
+pub fn attack_packet(entity: GlobalKey) -> Result<MByteBuffer> {
     let mut buffer = MByteBuffer::new()?;
     buffer.write(entity)?;
 

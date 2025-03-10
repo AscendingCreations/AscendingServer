@@ -1,12 +1,17 @@
-use crate::{containers::Storage, gametypes::*, maps::*, npcs::*, players::*};
+use crate::{
+    containers::{Storage, World},
+    gametypes::*,
+    maps::*,
+    npcs::*,
+    players::*,
+};
 use chrono::Duration;
-use hecs::World;
-use rand::{rng, Rng};
+use rand::{Rng, rng};
 
 pub fn targeting(
     world: &mut World,
     storage: &Storage,
-    entity: &Entity,
+    entity: GlobalKey,
     base: &NpcData,
 ) -> Result<()> {
     // Check if we have a current Target and that they are Alive.
@@ -102,7 +107,7 @@ pub fn targeting(
 pub fn try_target_entity(
     world: &mut World,
     storage: &Storage,
-    entity: &Entity,
+    entity: GlobalKey,
     entitytype: EntityType,
 ) -> Result<()> {
     let target = world.get_or_err::<Target>(entity)?;
@@ -163,7 +168,7 @@ pub fn try_target_entity(
     Ok(())
 }
 
-pub fn update_target_pos(world: &mut World, entity: &Entity) -> Result<Target> {
+pub fn update_target_pos(world: &mut World, entity: GlobalKey) -> Result<Target> {
     if !world.contains(entity.0) {
         return Ok(Target::default());
     }
@@ -200,7 +205,7 @@ pub fn update_target_pos(world: &mut World, entity: &Entity) -> Result<Target> {
 pub fn npc_targeting(
     world: &mut World,
     storage: &Storage,
-    entity: &Entity,
+    entity: GlobalKey,
     base: &NpcData,
     entitytype: EntityType,
 ) -> Result<bool> {

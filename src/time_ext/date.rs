@@ -1,4 +1,4 @@
-use chrono::{offset::Utc, Duration, NaiveDate};
+use chrono::{Duration, NaiveDate, offset::Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::{Postgres, Type};
 

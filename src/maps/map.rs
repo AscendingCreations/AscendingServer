@@ -3,7 +3,7 @@ use crate::{
     gametypes::*,
     time_ext::MyInstant,
 };
-use bit_op::{bit_u8::*, BitOp};
+use bit_op::{BitOp, bit_u8::*};
 use educe::Educe;
 use serde::{Deserialize, Serialize};
 use speedy::{Readable, Writable};
@@ -152,9 +152,9 @@ pub struct SpawnItemData {
 pub struct MapData {
     pub position: MapPosition,
     //updated data for map seperate from Map itself as base should be Readonly / clone.
-    pub itemids: IndexSet<Entity>,
-    pub npcs: IndexSet<Entity>,
-    pub players: IndexSet<Entity>,
+    pub itemids: IndexSet<GlobalKey>,
+    pub npcs: IndexSet<GlobalKey>,
+    pub players: IndexSet<GlobalKey>,
     pub zones: [u64; 5], //contains the NPC spawn Count of each Zone.
     #[educe(Default = [GridTile::default(); MAP_MAX_X * MAP_MAX_Y])]
     pub move_grid: [GridTile; MAP_MAX_X * MAP_MAX_Y],
@@ -210,7 +210,7 @@ impl MapData {
         self.move_grid[pos.as_tile()].attr = GridAttribute::Entity;
     }
 
-    pub fn add_player(&mut self, storage: &Storage, id: Entity) {
+    pub fn add_player(&mut self, storage: &Storage, id: GlobalKey) {
         self.players.insert(id);
 
         for i in self.get_surrounding(true) {
@@ -228,11 +228,11 @@ impl MapData {
         self.players_on_map = self.players_on_map.saturating_add(1);
     }
 
-    pub fn add_npc(&mut self, id: Entity) {
+    pub fn add_npc(&mut self, id: GlobalKey) {
         self.npcs.insert(id);
     }
 
-    pub fn remove_player(&mut self, storage: &Storage, id: Entity) {
+    pub fn remove_player(&mut self, storage: &Storage, id: GlobalKey) {
         self.players.swap_remove(&id);
 
         //we set the surrounding maps to have players on them if the player is within 1 map of them.
@@ -251,11 +251,11 @@ impl MapData {
         self.players_on_map = self.players_on_map.saturating_sub(1);
     }
 
-    pub fn remove_npc(&mut self, id: Entity) {
+    pub fn remove_npc(&mut self, id: GlobalKey) {
         self.npcs.swap_remove(&id);
     }
 
-    pub fn remove_item(&mut self, id: Entity) {
+    pub fn remove_item(&mut self, id: GlobalKey) {
         /*if !self.items.contains(id) {
             return;
         }*/

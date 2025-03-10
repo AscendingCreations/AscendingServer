@@ -1,17 +1,16 @@
 use crate::{
-    containers::Storage,
+    containers::{Storage, World},
     gametypes::*,
     maps::{can_target, is_dir_blocked},
-    npcs::{can_attack_npc, damage_npc, kill_npc, try_target_entity, NpcIndex},
+    npcs::{NpcIndex, can_attack_npc, damage_npc, kill_npc, try_target_entity},
     players::*,
-    tasks::{attack_packet, damage_packet, vitals_packet, DataTaskToken},
+    tasks::{DataTaskToken, attack_packet, damage_packet, vitals_packet},
 };
-use hecs::World;
 use rand::*;
 use std::cmp;
 
 #[inline]
-pub fn damage_player(world: &mut World, entity: &crate::Entity, damage: i32) -> Result<()> {
+pub fn damage_player(world: &mut World, entity: GlobalKey, damage: i32) -> Result<()> {
     let mut query = world.query_one::<&mut Vitals>(entity.0)?;
 
     if let Some(player_vital) = query.get() {
@@ -31,8 +30,8 @@ pub fn get_damage_percentage(damage: u32, hp: (u32, u32)) -> f64 {
 pub fn try_player_cast(
     world: &mut World,
     storage: &Storage,
-    caster: &Entity,
-    target: &Entity,
+    caster: GlobalKey,
+    target: GlobalKey,
 ) -> bool {
     if !world.contains(caster.0) || !world.contains(target.0) {
         return false;
@@ -62,8 +61,8 @@ pub fn try_player_cast(
 pub fn player_combat(
     world: &mut World,
     storage: &Storage,
-    entity: &Entity,
-    target_entity: &Entity,
+    entity: GlobalKey,
+    target_entity: GlobalKey,
 ) -> Result<bool> {
     if try_player_cast(world, storage, entity, target_entity) {
         let world_entity_type = world.get_or_default::<WorldEntityType>(target_entity);
@@ -148,8 +147,8 @@ pub fn player_combat(
 pub fn player_combat_damage(
     world: &mut World,
     storage: &Storage,
-    entity: &Entity,
-    target_entity: &Entity,
+    entity: GlobalKey,
+    target_entity: GlobalKey,
 ) -> Result<i32> {
     let def = if world.get_or_err::<WorldEntityType>(target_entity)? == WorldEntityType::Player {
         world.get_or_err::<Physical>(target_entity)?.defense
@@ -193,7 +192,7 @@ pub fn player_combat_damage(
     Ok(damage as i32)
 }
 
-pub fn kill_player(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
+pub fn kill_player(world: &mut World, storage: &Storage, entity: GlobalKey) -> Result<()> {
     {
         if let Ok(mut vitals) = world.get::<&mut Vitals>(entity.0) {
             vitals.vital = vitals.vitalmax;

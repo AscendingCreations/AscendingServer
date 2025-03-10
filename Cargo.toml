@@ -1,94 +1,94 @@
 [package]
+authors = [
+  "Andrew Wheeler <genusistimelord@outlook.com>",
+  "Sherwin Salonga",
+  "S.J.R. van Schaik",
+]
+edition = "2024"
+license = "MIT OR Apache-2.0"
 name = "ascending_server"
 version = "0.1.0"
-authors = [
-    "Andrew Wheeler <genusistimelord@outlook.com>",
-    "Sherwin Salonga",
-    "S.J.R. van Schaik",
-]
-edition = "2021"
-license = "MIT OR Apache-2.0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-thiserror = "1.0.63"
-serde = { version = "1.0.207", features = ["derive"] }
-mio = { version = "1.0.2", features = ["os-poll", "net"] }
-chrono = { version = "0.4.38", features = ["serde"] }
-regex = "1.10.6"
-bit_op = "0.1.1"
-rand = "0.9.0"
-bytey = "0.4.0"
-mmap_bytey = "0.2.0"
-indexmap = "2.7.0"
-argon2 = "0.5.3"
-password-hash = { version = "0.5.0", features = ["rand_core"] }
-hecs = { version = "0.10.5", features = [
-    "column-serialize",
-    "row-serialize",
-    "macros",
-] }
-sqlx = { version = "0.8.3", features = [
-    "runtime-tokio",
-    "postgres",
-    "chrono",
-    "time",
-    "json",
-] }
-tokio = { version = "1.43.0", features = ["full", "tracing"] }
-log = { version = "0.4.21", default-features = false }
-backtrace = "0.3.73"
-itertools = "0.14.0"
-pki-types = { package = "rustls-pki-types", version = "1.11.0", features = [
-    "std",
-] }
-rcgen = { version = "0.13.1", features = [
-    "pem",
-    "ring",
-], default-features = false }
-rustls = { version = "0.23.23", default-features = false, features = [
-    "logging",
-    "ring",
-    "std",
-    "tls12",
-] }
-toml = "0.8.20"
-rustls-pemfile = "2.2.0"
-webpki-roots = "0.26.8"
-serde_json = "1.0.138"
-educe = { version = "0.6.0", default-features = false, features = [
-    "Debug",
-    "PartialEq",
-    "Default",
-] }
-speedy = "0.8.7"
-rangemap = { version = "1.5.1", features = ["serde1"] }
-slotmap = "1.0.7"
 ahash = "0.8.11"
+argon2 = "0.5.3"
+backtrace = "0.3.73"
+bit_op = "0.1.1"
+bytey = "0.4.0"
+chrono = {version = "0.4.38", features = ["serde"]}
+educe = {version = "0.6.0", default-features = false, features = [
+  "Debug",
+  "PartialEq",
+  "Default",
+]}
+indexmap = "2.7.0"
+itertools = "0.14.0"
+log = {version = "0.4.21", default-features = false}
+mio = {version = "1.0.2", features = ["os-poll", "net"]}
+mmap_bytey = "0.2.0"
+password-hash = {version = "0.5.0", features = ["rand_core"]}
+pki-types = {package = "rustls-pki-types", version = "1.11.0", features = [
+  "std",
+]}
+rand = "0.9.0"
+rangemap = {version = "1.5.1", features = ["serde1"]}
+rcgen = {version = "0.13.1", features = [
+  "pem",
+  "ring",
+], default-features = false}
+regex = "1.10.6"
+rustls = {version = "0.23.23", default-features = false, features = [
+  "logging",
+  "ring",
+  "std",
+  "tls12",
+]}
+rustls-pemfile = "2.2.0"
+serde = {version = "1.0.207", features = ["derive"]}
+serde_json = "1.0.138"
+slotmap = "1.0.7"
+speedy = "0.8.7"
+sqlx = {version = "0.8.3", features = [
+  "runtime-tokio",
+  "postgres",
+  "chrono",
+  "time",
+  "json",
+]}
+thiserror = "1.0.63"
+tokio = {version = "1.43.0", features = ["full", "tracing"]}
+toml = "0.8.20"
+uuid = {version = "1.13.1", features = [
+  "v7", # Lets you generate random UUIDs
+  "fast-rng", # Use a faster (but still sufficiently random) RNG
+  "macro-diagnostics", # Enable better diagnostics for compile-time UUIDs
+]}
+webpki-roots = "0.26.8"
 
 [profile.dev]
-opt-level = 0
+codegen-units = 256
 debug = true
 debug-assertions = true
-overflow-checks = true
-strip = "none"
-lto = false
 incremental = true
+lto = false
+opt-level = 0
+overflow-checks = true
 panic = 'unwind'
-codegen-units = 256
 rpath = false
+strip = "none"
 
 [profile.release]
-opt-level = 3
-debug = false
-strip = "none"
-debug-assertions = false
-overflow-checks = true
-lto = true
-panic = 'unwind'
-incremental = true
 codegen-units = 256
+debug = false
+debug-assertions = false
+incremental = true
+lto = true
+opt-level = 3
+overflow-checks = true
+panic = 'unwind'
 rpath = false
+strip = "none"
 
 [profile.dev.package."*"]
 opt-level = 2

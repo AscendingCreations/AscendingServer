@@ -1,11 +1,17 @@
 use std::borrow::Borrow;
 
-use crate::{containers::Storage, gametypes::*, maps::*, npcs::*, players::*, tasks::*};
-use hecs::World;
-use rand::{rng, Rng};
+use crate::{
+    containers::{Storage, World},
+    gametypes::*,
+    maps::*,
+    npcs::*,
+    players::*,
+    tasks::*,
+};
+use rand::{Rng, rng};
 
 #[inline(always)]
-pub fn damage_npc(world: &mut World, entity: &crate::Entity, damage: i32) -> Result<()> {
+pub fn damage_npc(world: &mut World, entity: GlobalKey, damage: i32) -> Result<()> {
     world.get::<&mut Vitals>(entity.0)?.vital[VitalTypes::Hp as usize] =
         world.get_or_err::<Vitals>(entity)?.vital[VitalTypes::Hp as usize].saturating_sub(damage);
     Ok(())
@@ -26,7 +32,7 @@ fn entity_cast_check(
 pub fn try_cast(
     world: &mut World,
     storage: &Storage,
-    caster: &Entity,
+    caster: GlobalKey,
     base: &NpcData,
     target: EntityType,
     range: i32,
@@ -90,7 +96,7 @@ pub fn try_cast(
 pub fn npc_cast(
     world: &mut World,
     storage: &Storage,
-    npc: &Entity,
+    npc: GlobalKey,
     base: &NpcData,
 ) -> Result<EntityType> {
     match base.behaviour {
@@ -119,7 +125,7 @@ pub fn npc_cast(
     }
 }
 
-pub fn can_attack_npc(world: &mut World, storage: &Storage, npc: &Entity) -> Result<bool> {
+pub fn can_attack_npc(world: &mut World, storage: &Storage, npc: GlobalKey) -> Result<bool> {
     let npc_index = world.get_or_err::<NpcIndex>(npc)?.0;
     let base = &storage.bases.npcs[npc_index as usize];
 
@@ -136,7 +142,7 @@ pub fn can_attack_npc(world: &mut World, storage: &Storage, npc: &Entity) -> Res
 pub fn npc_combat(
     world: &mut World,
     storage: &Storage,
-    entity: &Entity,
+    entity: GlobalKey,
     base: &NpcData,
 ) -> Result<()> {
     match npc_cast(world, storage, entity, base)? {
@@ -209,8 +215,8 @@ pub fn npc_combat(
 pub fn npc_combat_damage(
     world: &mut World,
     storage: &Storage,
-    entity: &Entity,
-    enemy_entity: &Entity,
+    entity: GlobalKey,
+    enemy_entity: GlobalKey,
     base: &NpcData,
 ) -> Result<i32> {
     let def = if world.get_or_err::<WorldEntityType>(enemy_entity)? == WorldEntityType::Player {
@@ -258,7 +264,7 @@ pub fn npc_combat_damage(
     Ok(damage as i32)
 }
 
-pub fn kill_npc(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
+pub fn kill_npc(world: &mut World, storage: &Storage, entity: GlobalKey) -> Result<()> {
     let npc_index = world.get_or_err::<NpcIndex>(entity)?.0;
     let npc_pos = world.get_or_err::<Position>(entity)?;
     let npcbase = storage.bases.npcs[npc_index as usize].borrow();

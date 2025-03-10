@@ -1,22 +1,21 @@
 use crate::{
-    containers::Storage,
+    containers::{Storage, World},
     gametypes::*,
     items::Item,
     socket::*,
-    tasks::{map_item_packet, unload_entity_packet, DataTaskToken},
+    tasks::{DataTaskToken, map_item_packet, unload_entity_packet},
     time_ext::MyInstant,
 };
-use hecs::World;
 use mmap_bytey::{MByteBufferRead, MByteBufferWrite};
 
-use super::{create_mapitem, MapAttribute};
+use super::{MapAttribute, create_mapitem};
 
 #[derive(Copy, Clone, PartialEq, Eq, Default, MByteBufferRead, MByteBufferWrite)]
 pub struct MapItem {
     pub item: Item,
     pub despawn: Option<MyInstant>,
     pub ownertimer: Option<MyInstant>,
-    pub ownerid: Option<Entity>,
+    pub ownerid: Option<GlobalKey>,
     pub pos: Position,
 }
 
@@ -68,7 +67,7 @@ pub fn find_drop_pos(
     world: &mut World,
     storage: &Storage,
     drop_item: DropItem,
-) -> Result<Vec<(Position, Option<Entity>)>> {
+) -> Result<Vec<(Position, Option<GlobalKey>)>> {
     let mut result = Vec::new();
 
     let storage_mapitem = storage.map_items.borrow_mut();
@@ -185,7 +184,7 @@ pub fn try_drop_item(
     drop_item: DropItem,
     despawn: Option<MyInstant>,
     ownertimer: Option<MyInstant>,
-    ownerid: Option<Entity>,
+    ownerid: Option<GlobalKey>,
 ) -> Result<bool> {
     let item_base = match storage.bases.items.get(drop_item.index as usize) {
         Some(data) => data,
@@ -226,18 +225,12 @@ pub fn try_drop_item(
                 } else {
                     DespawnTimer::default()
                 };
-                world.insert(id, (EntityType::MapItem(Entity(id)), despawntimer))?;
-                map_data.borrow_mut().itemids.insert(Entity(id));
-                storage_mapitem.insert(found_pos.0, Entity(id));
+                world.insert(id, (EntityType::MapItem(id), despawntimer))?;
+                map_data.borrow_mut().itemids.insert(id);
+                storage_mapitem.insert(found_pos.0, id);
                 DataTaskToken::ItemLoad(found_pos.0.map).add_task(
                     storage,
-                    map_item_packet(
-                        Entity(id),
-                        map_item.pos,
-                        map_item.item,
-                        map_item.ownerid,
-                        true,
-                    )?,
+                    map_item_packet(id, map_item.pos, map_item.item, map_item.ownerid, true)?,
                 )?;
             }
             break;
@@ -247,7 +240,11 @@ pub fn try_drop_item(
     Ok(true)
 }
 
-pub fn player_interact_object(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
+pub fn player_interact_object(
+    world: &mut World,
+    storage: &Storage,
+    entity: GlobalKey,
+) -> Result<()> {
     if !world.contains(entity.0) {
         return Ok(());
     }

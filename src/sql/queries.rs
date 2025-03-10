@@ -2,7 +2,6 @@ use std::backtrace::Backtrace;
 
 use crate::{containers::*, gametypes::*, players::*, sql::integers::Shifting, sql::*};
 use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
-use hecs::{NoSuchEntity, World};
 use log::error;
 use password_hash::SaltString;
 use sqlx::{FromRow, PgPool};
@@ -110,7 +109,7 @@ pub fn check_existance(storage: &Storage, username: &str, email: &str) -> Result
 pub fn new_player(
     storage: &Storage,
     world: &mut World,
-    entity: &crate::Entity,
+    entity: GlobalKey,
     username: String,
     email: String,
     password: String,
@@ -234,7 +233,7 @@ pub fn new_player(
 pub fn load_player(
     storage: &Storage,
     world: &mut World,
-    entity: &crate::Entity,
+    entity: GlobalKey,
     accountid: i64,
 ) -> Result<()> {
     let rt = storage.rt.borrow_mut();
@@ -305,7 +304,7 @@ pub fn load_player(
     Ok(())
 }
 
-pub fn update_player(storage: &Storage, world: &mut World, entity: &crate::Entity) -> Result<()> {
+pub fn update_player(storage: &Storage, world: &mut World, entity: GlobalKey) -> Result<()> {
     let rt = storage.rt.borrow_mut();
     let local = storage.local.borrow();
     let mut query = world.query_one::<(
@@ -347,7 +346,7 @@ pub fn update_player(storage: &Storage, world: &mut World, entity: &crate::Entit
 pub fn update_inv(
     storage: &Storage,
     world: &mut World,
-    entity: &crate::Entity,
+    entity: GlobalKey,
     slot: usize,
 ) -> Result<()> {
     let rt = storage.rt.borrow_mut();
@@ -365,7 +364,7 @@ pub fn update_inv(
 pub fn update_storage(
     storage: &Storage,
     world: &mut World,
-    entity: &crate::Entity,
+    entity: GlobalKey,
     slot: usize,
 ) -> Result<()> {
     let rt = storage.rt.borrow_mut();
@@ -383,7 +382,7 @@ pub fn update_storage(
 pub fn update_equipment(
     storage: &Storage,
     world: &mut World,
-    entity: &crate::Entity,
+    entity: GlobalKey,
     slot: usize,
 ) -> Result<()> {
     let rt = storage.rt.borrow_mut();
@@ -398,7 +397,7 @@ pub fn update_equipment(
     Ok(())
 }
 
-pub fn update_address(storage: &Storage, world: &mut World, entity: &crate::Entity) -> Result<()> {
+pub fn update_address(storage: &Storage, world: &mut World, entity: GlobalKey) -> Result<()> {
     let rt = storage.rt.borrow_mut();
     let local = storage.local.borrow();
     let mut query = world.query_one::<(&Account, &Socket)>(entity.0)?;
@@ -421,11 +420,7 @@ pub fn update_address(storage: &Storage, world: &mut World, entity: &crate::Enti
     Ok(())
 }
 
-pub fn update_playerdata(
-    storage: &Storage,
-    world: &mut World,
-    entity: &crate::Entity,
-) -> Result<()> {
+pub fn update_playerdata(storage: &Storage, world: &mut World, entity: GlobalKey) -> Result<()> {
     let rt = storage.rt.borrow_mut();
     let local = storage.local.borrow();
     let mut query = world.query_one::<(&Account, &EntityData)>(entity.0)?;
@@ -451,7 +446,7 @@ pub fn update_playerdata(
 pub fn update_passreset(
     storage: &Storage,
     world: &mut World,
-    entity: &crate::Entity,
+    entity: GlobalKey,
     resetpassword: Option<String>,
 ) -> Result<()> {
     let rt = storage.rt.borrow_mut();
@@ -474,7 +469,7 @@ pub fn update_passreset(
     Ok(())
 }
 
-pub fn update_spawn(storage: &Storage, world: &mut World, entity: &crate::Entity) -> Result<()> {
+pub fn update_spawn(storage: &Storage, world: &mut World, entity: GlobalKey) -> Result<()> {
     let rt = storage.rt.borrow_mut();
     let local = storage.local.borrow();
     let mut query = world.query_one::<(&Account, &Spawn)>(entity.0)?;
@@ -497,7 +492,7 @@ pub fn update_spawn(storage: &Storage, world: &mut World, entity: &crate::Entity
     Ok(())
 }
 
-pub fn update_pos(storage: &Storage, world: &mut World, entity: &crate::Entity) -> Result<()> {
+pub fn update_pos(storage: &Storage, world: &mut World, entity: GlobalKey) -> Result<()> {
     let rt = storage.rt.borrow_mut();
     let local = storage.local.borrow();
     let mut query = world.query_one::<(&Account, &Position)>(entity.0)?;
@@ -520,7 +515,7 @@ pub fn update_pos(storage: &Storage, world: &mut World, entity: &crate::Entity) 
     Ok(())
 }
 
-pub fn update_currency(storage: &Storage, world: &mut World, entity: &crate::Entity) -> Result<()> {
+pub fn update_currency(storage: &Storage, world: &mut World, entity: GlobalKey) -> Result<()> {
     let rt = storage.rt.borrow_mut();
     let local = storage.local.borrow();
     let mut query = world.query_one::<(&Account, &Money)>(entity.0)?;
@@ -543,7 +538,7 @@ pub fn update_currency(storage: &Storage, world: &mut World, entity: &crate::Ent
     Ok(())
 }
 
-pub fn update_level(storage: &Storage, world: &mut World, entity: &crate::Entity) -> Result<()> {
+pub fn update_level(storage: &Storage, world: &mut World, entity: GlobalKey) -> Result<()> {
     let rt = storage.rt.borrow_mut();
     let local = storage.local.borrow();
     let mut query = world.query_one::<(&Account, &Level, &Player, &Vitals)>(entity.0)?;
@@ -569,11 +564,7 @@ pub fn update_level(storage: &Storage, world: &mut World, entity: &crate::Entity
     Ok(())
 }
 
-pub fn update_resetcount(
-    storage: &Storage,
-    world: &mut World,
-    entity: &crate::Entity,
-) -> Result<()> {
+pub fn update_resetcount(storage: &Storage, world: &mut World, entity: GlobalKey) -> Result<()> {
     let rt = storage.rt.borrow_mut();
     let local = storage.local.borrow();
     let mut query = world.query_one::<(&Account, &Player)>(entity.0)?;

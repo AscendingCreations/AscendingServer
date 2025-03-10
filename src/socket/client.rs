@@ -1,16 +1,15 @@
 use crate::{
-    containers::Storage,
+    PacketRouter,
+    containers::{GlobalKey, Storage, World},
     gametypes::*,
     handle_data,
     maps::*,
     players::*,
     socket::*,
-    tasks::{unload_entity_packet, DataTaskToken},
-    PacketRouter,
+    tasks::{DataTaskToken, unload_entity_packet},
 };
-use hecs::World;
 use log::{error, trace, warn};
-use mio::{net::TcpStream, Interest};
+use mio::{Interest, net::TcpStream};
 use mmap_bytey::BUFFER_SIZE;
 use std::{
     collections::VecDeque,
@@ -84,7 +83,7 @@ pub enum EncryptionState {
 pub struct Client {
     pub stream: TcpStream,
     pub token: mio::Token,
-    pub entity: Entity,
+    pub entity: GlobalKey,
     pub state: ClientState,
     pub sends: VecDeque<MByteBuffer>,
     pub tls_sends: VecDeque<MByteBuffer>,
@@ -99,7 +98,7 @@ impl Client {
     pub fn new(
         stream: TcpStream,
         token: mio::Token,
-        entity: Entity,
+        entity: GlobalKey,
         tls: rustls::ServerConnection,
     ) -> Client {
         Client {
@@ -502,7 +501,7 @@ impl Client {
 }
 
 #[inline]
-pub fn disconnect(playerid: Entity, world: &mut World, storage: &Storage) -> Result<()> {
+pub fn disconnect(playerid: GlobalKey, world: &mut World, storage: &Storage) -> Result<()> {
     left_game(world, storage, &playerid)?;
 
     let (socket, position) = storage.remove_player(world, playerid)?;
@@ -527,7 +526,7 @@ pub fn accept_connection(
     addr: String,
     world: &mut World,
     storage: &Storage,
-) -> Option<Entity> {
+) -> Option<GlobalKey> {
     if server.clients.len() + 1 >= MAX_SOCKET_PLAYERS {
         warn!(
             "Server is full. has reached MAX_SOCKET_PLAYERS: {} ",
@@ -601,7 +600,7 @@ pub fn send_to_maps(
     storage: &Storage,
     position: MapPosition,
     buf: MByteBuffer,
-    avoidindex: Option<Entity>,
+    avoidindex: Option<GlobalKey>,
 ) -> Result<()> {
     for m in get_surrounding(position, true) {
         let map = match storage.maps.get(&m) {
@@ -634,7 +633,7 @@ pub fn send_to_maps(
 pub fn send_to_entities(
     world: &mut World,
     storage: &Storage,
-    entities: &[Entity],
+    entities: &[GlobalKey],
     buf: MByteBuffer,
 ) -> Result<()> {
     for entity in entities {
@@ -678,7 +677,7 @@ pub fn get_length(storage: &Storage, buffer: &mut ByteBuffer, id: usize) -> Resu
 pub const MAX_PROCESSED_PACKETS: i32 = 25;
 
 pub fn process_packets(world: &mut World, storage: &Storage, router: &PacketRouter) -> Result<()> {
-    let mut rem_arr: Vec<(Entity, usize, bool)> = Vec::with_capacity(64);
+    let mut rem_arr: Vec<(GlobalKey, usize, bool)> = Vec::with_capacity(64);
     let mut packet = MByteBuffer::new()?;
 
     'user_loop: for entity in &*storage.recv_ids.borrow() {
@@ -724,9 +723,7 @@ pub fn process_packets(world: &mut World, storage: &Storage, router: &PacketRout
                 if length > BUFFER_SIZE as u64 {
                     trace!(
                         "Length was {} greater than the max packet size of {}. Bad or malformed packet from IP: {}",
-                        length,
-                        address,
-                        BUFFER_SIZE
+                        length, address, BUFFER_SIZE
                     );
 
                     rem_arr.push((*entity, socket_id, true));
@@ -780,11 +777,19 @@ pub fn process_packets(world: &mut World, storage: &Storage, router: &PacketRout
             if buffer.cursor() == buffer.length() {
                 buffer.truncate(0)?;
                 if buffer.capacity() > 500000 {
-                    warn!("process_packets: buffer resize to 100000. Buffer Capacity: {}, Buffer len: {}", buffer.capacity(), buffer_len);
+                    warn!(
+                        "process_packets: buffer resize to 100000. Buffer Capacity: {}, Buffer len: {}",
+                        buffer.capacity(),
+                        buffer_len
+                    );
                     buffer.resize(100000)?;
                 }
             } else if buffer.capacity() > 500000 && buffer_len <= 100000 {
-                warn!("process_packets: buffer resize to Buffer len. Buffer Capacity: {}, Buffer len: {}", buffer.capacity(), buffer_len);
+                warn!(
+                    "process_packets: buffer resize to Buffer len. Buffer Capacity: {}, Buffer len: {}",
+                    buffer.capacity(),
+                    buffer_len
+                );
                 let mut replacement = ByteBuffer::with_capacity(buffer_len)?;
                 replacement.write_slice(buffer.read_slice(buffer_len)?)?;
                 replacement.move_cursor_to_start();
@@ -794,7 +799,7 @@ pub fn process_packets(world: &mut World, storage: &Storage, router: &PacketRout
     }
 
     for (entity, socket_id, should_close) in rem_arr {
-        storage.recv_ids.borrow_mut().swap_remove(&entity);
+        storage.recv_ids.borrow_mut().swap_remove(GlobalKey);
 
         if should_close {
             if let Some(client) = storage.server.borrow().clients.get(&mio::Token(socket_id)) {

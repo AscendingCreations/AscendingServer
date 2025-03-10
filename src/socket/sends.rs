@@ -1,7 +1,12 @@
 use std::ops::Range;
 
-use crate::{containers::Storage, gametypes::*, players::*, socket::*, tasks::*};
-use hecs::World;
+use crate::{
+    containers::{Storage, World},
+    gametypes::*,
+    players::*,
+    socket::*,
+    tasks::*,
+};
 
 #[inline]
 pub fn send_infomsg(
@@ -55,7 +60,7 @@ pub fn send_loginok(storage: &Storage, socket_id: usize) -> Result<()> {
 }
 
 #[inline]
-pub fn send_myindex(storage: &Storage, socket_id: usize, entity: &Entity) -> Result<()> {
+pub fn send_myindex(storage: &Storage, socket_id: usize, entity: GlobalKey) -> Result<()> {
     let mut buf = MByteBuffer::new_packet()?;
 
     buf.write(ServerPackets::MyIndex)?;
@@ -81,7 +86,7 @@ pub fn send_playerdata(
     world: &mut World,
     storage: &Storage,
     socket_id: usize,
-    entity: &Entity,
+    entity: GlobalKey,
 ) -> Result<()> {
     let mut buf = MByteBuffer::new_packet()?;
 
@@ -110,7 +115,7 @@ pub fn send_playerdata(
 pub fn send_codes(
     world: &mut World,
     storage: &Storage,
-    entity: &Entity,
+    entity: GlobalKey,
     code: String,
     handshake: String,
 ) -> Result<()> {
@@ -128,7 +133,7 @@ pub fn send_codes(
     tls_send_to(storage, id, buf)
 }
 
-pub fn send_ping(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
+pub fn send_ping(world: &mut World, storage: &Storage, entity: GlobalKey) -> Result<()> {
     let mut buf = MByteBuffer::new_packet()?;
 
     buf.write(ServerPackets::OnlineCheck)?;
@@ -141,7 +146,7 @@ pub fn send_ping(world: &mut World, storage: &Storage, entity: &Entity) -> Resul
 }
 
 #[inline]
-pub fn send_inv(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
+pub fn send_inv(world: &mut World, storage: &Storage, entity: GlobalKey) -> Result<()> {
     let mut buf = MByteBuffer::new_packet()?;
 
     buf.write(ServerPackets::PlayerInv)?;
@@ -155,7 +160,7 @@ pub fn send_inv(world: &mut World, storage: &Storage, entity: &Entity) -> Result
 pub fn send_invslot(
     world: &mut World,
     storage: &Storage,
-    entity: &Entity,
+    entity: GlobalKey,
     id: usize,
 ) -> Result<()> {
     let mut buf = MByteBuffer::new_packet()?;
@@ -172,7 +177,7 @@ pub fn send_invslot(
 pub fn send_storage(
     world: &mut World,
     storage: &Storage,
-    entity: &Entity,
+    entity: GlobalKey,
     range: Range<usize>,
 ) -> Result<()> {
     let mut buf = MByteBuffer::new_packet()?;
@@ -190,7 +195,7 @@ pub fn send_storage(
 pub fn send_storageslot(
     world: &mut World,
     storage: &Storage,
-    entity: &Entity,
+    entity: GlobalKey,
     id: usize,
 ) -> Result<()> {
     let mut buf = MByteBuffer::new_packet()?;
@@ -204,7 +209,7 @@ pub fn send_storageslot(
 }
 
 #[inline]
-pub fn send_equipment(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
+pub fn send_equipment(world: &mut World, storage: &Storage, entity: GlobalKey) -> Result<()> {
     let mut buf = MByteBuffer::new_packet()?;
 
     buf.write(ServerPackets::PlayerEquipment)?;
@@ -222,7 +227,7 @@ pub fn send_equipment(world: &mut World, storage: &Storage, entity: &Entity) -> 
 }
 
 #[inline]
-pub fn send_level(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
+pub fn send_level(world: &mut World, storage: &Storage, entity: GlobalKey) -> Result<()> {
     let mut buf = MByteBuffer::new_packet()?;
 
     buf.write(ServerPackets::PlayerLevel)?;
@@ -234,7 +239,7 @@ pub fn send_level(world: &mut World, storage: &Storage, entity: &Entity) -> Resu
 }
 
 #[inline]
-pub fn send_money(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
+pub fn send_money(world: &mut World, storage: &Storage, entity: GlobalKey) -> Result<()> {
     let mut buf = MByteBuffer::new_packet()?;
 
     buf.write(ServerPackets::PlayerMoney)?;
@@ -245,7 +250,7 @@ pub fn send_money(world: &mut World, storage: &Storage, entity: &Entity) -> Resu
 }
 
 #[inline]
-pub fn send_pk(world: &mut World, storage: &Storage, entity: &Entity, toself: bool) -> Result<()> {
+pub fn send_pk(world: &mut World, storage: &Storage, entity: GlobalKey, toself: bool) -> Result<()> {
     let mut buf = MByteBuffer::new_packet()?;
     let closure = |toself, id| if toself { Some(id) } else { None };
 
@@ -266,7 +271,7 @@ pub fn send_pk(world: &mut World, storage: &Storage, entity: &Entity, toself: bo
 pub fn send_message(
     world: &mut World,
     storage: &Storage,
-    entity: &Entity,
+    entity: GlobalKey,
     msg: String,
     head: String,
     chan: MessageChannel,
@@ -314,7 +319,7 @@ pub fn send_message(
 }
 
 #[inline]
-pub fn send_openstorage(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
+pub fn send_openstorage(world: &mut World, storage: &Storage, entity: GlobalKey) -> Result<()> {
     let mut buf = MByteBuffer::new_packet()?;
 
     buf.write(ServerPackets::OpenStorage)?;
@@ -328,7 +333,7 @@ pub fn send_openstorage(world: &mut World, storage: &Storage, entity: &Entity) -
 pub fn send_openshop(
     world: &mut World,
     storage: &Storage,
-    entity: &Entity,
+    entity: GlobalKey,
     shop_index: u16,
 ) -> Result<()> {
     let mut buf = MByteBuffer::new_packet()?;
@@ -341,7 +346,7 @@ pub fn send_openshop(
 }
 
 #[inline]
-pub fn send_clearisusingtype(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
+pub fn send_clearisusingtype(world: &mut World, storage: &Storage, entity: GlobalKey) -> Result<()> {
     let mut buf = MByteBuffer::new_packet()?;
 
     buf.write(ServerPackets::ClearIsUsingType)?;
@@ -355,8 +360,8 @@ pub fn send_clearisusingtype(world: &mut World, storage: &Storage, entity: &Enti
 pub fn send_updatetradeitem(
     world: &mut World,
     storage: &Storage,
-    target_entity: &Entity,
-    send_entity: &Entity,
+    target_entity: GlobalKey,
+    send_entity: GlobalKey,
     trade_slot: u16,
 ) -> Result<()> {
     let mut buf = MByteBuffer::new_packet()?;
@@ -374,8 +379,8 @@ pub fn send_updatetradeitem(
 pub fn send_updatetrademoney(
     world: &mut World,
     storage: &Storage,
-    target_entity: &Entity,
-    send_entity: &Entity,
+    target_entity: GlobalKey,
+    send_entity: GlobalKey,
 ) -> Result<()> {
     let mut buf = MByteBuffer::new_packet()?;
 
@@ -390,8 +395,8 @@ pub fn send_updatetrademoney(
 pub fn send_inittrade(
     world: &mut World,
     storage: &Storage,
-    entity: &Entity,
-    target_entity: &Entity,
+    entity: GlobalKey,
+    target_entity: GlobalKey,
 ) -> Result<()> {
     let mut buf = MByteBuffer::new_packet()?;
 
@@ -406,7 +411,7 @@ pub fn send_inittrade(
 pub fn send_tradestatus(
     world: &mut World,
     storage: &Storage,
-    entity: &Entity,
+    entity: GlobalKey,
     my_status: &TradeStatus,
     their_status: &TradeStatus,
 ) -> Result<()> {
@@ -424,8 +429,8 @@ pub fn send_tradestatus(
 pub fn send_traderequest(
     world: &mut World,
     storage: &Storage,
-    entity: &Entity,
-    target_entity: &Entity,
+    entity: GlobalKey,
+    target_entity: GlobalKey,
 ) -> Result<()> {
     let mut buf = MByteBuffer::new_packet()?;
 
@@ -440,7 +445,7 @@ pub fn send_traderequest(
 pub fn send_playitemsfx(
     world: &mut World,
     storage: &Storage,
-    entity: &Entity,
+    entity: GlobalKey,
     item_index: u16,
 ) -> Result<()> {
     let mut buf = MByteBuffer::new_packet()?;
@@ -453,7 +458,7 @@ pub fn send_playitemsfx(
 }
 
 #[inline]
-pub fn send_gameping(world: &mut World, storage: &Storage, entity: &Entity) -> Result<()> {
+pub fn send_gameping(world: &mut World, storage: &Storage, entity: GlobalKey) -> Result<()> {
     let mut buf = MByteBuffer::new_packet()?;
 
     buf.write(ServerPackets::Ping)?;

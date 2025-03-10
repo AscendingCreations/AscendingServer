@@ -1,6 +1,11 @@
-use crate::{containers::Storage, gametypes::*, maps::*, npcs::*, tasks::*};
+use crate::{
+    containers::{Storage, World},
+    gametypes::*,
+    maps::*,
+    npcs::*,
+    tasks::*,
+};
 use chrono::Duration;
-use hecs::World;
 
 pub fn is_next_to_target(
     storage: &Storage,
@@ -33,7 +38,7 @@ pub fn get_target_direction(entity_pos: Position, target_pos: Position) -> u8 {
 pub fn npc_update_path(
     world: &mut World,
     storage: &Storage,
-    entity: &Entity,
+    entity: GlobalKey,
     base: &NpcData,
 ) -> Result<()> {
     let path_timer = world.get_or_err::<NpcPathTimer>(entity)?;
@@ -187,7 +192,7 @@ pub fn npc_update_path(
 pub fn npc_movement(
     world: &mut World,
     storage: &Storage,
-    entity: &Entity,
+    entity: GlobalKey,
     _base: &NpcData,
 ) -> Result<()> {
     if world.get_or_err::<NpcMoving>(entity)?.0 {

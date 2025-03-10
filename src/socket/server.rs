@@ -1,11 +1,10 @@
 use crate::{
-    containers::{HashMap, Storage},
+    containers::{HashMap, Storage, World},
     gametypes::Result,
-    socket::{accept_connection, Client, ClientState},
+    socket::{Client, ClientState, accept_connection},
 };
-use hecs::World;
 use log::{trace, warn};
-use mio::{net::TcpListener, Events, Poll};
+use mio::{Events, Poll, net::TcpListener};
 use std::{cell::RefCell, collections::VecDeque, io, sync::Arc, time::Duration};
 
 pub const SERVER: mio::Token = mio::Token(0);

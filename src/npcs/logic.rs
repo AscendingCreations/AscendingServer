@@ -1,6 +1,10 @@
-use crate::{containers::Storage, gametypes::*, npcs::*, tasks::*};
+use crate::{
+    containers::{Storage, World},
+    gametypes::*,
+    npcs::*,
+    tasks::*,
+};
 use chrono::Duration;
-use hecs::World;
 
 pub fn update_npcs(world: &mut World, storage: &Storage) -> Result<()> {
     let tick = *storage.gettick.borrow();

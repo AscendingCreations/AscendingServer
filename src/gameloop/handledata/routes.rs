@@ -1,20 +1,25 @@
 use std::backtrace::Backtrace;
 
 use crate::{
-    containers::Storage, gametypes::*, items::Item, maps::*, players::*, socket::*, sql::*,
+    containers::{Storage, World},
+    gametypes::*,
+    items::Item,
+    maps::*,
+    players::*,
+    socket::*,
+    sql::*,
     tasks::*,
 };
 use chrono::Duration;
-use hecs::World;
 use log::{debug, info};
-use rand::distr::{SampleString, Alphanumeric};
+use rand::distr::{Alphanumeric, SampleString};
 use regex::Regex;
 
 pub fn handle_ping(
     world: &mut World,
     storage: &Storage,
     _data: &mut MByteBuffer,
-    entity: &Entity,
+    entity: GlobalKey,
 ) -> Result<()> {
     send_gameping(world, storage, entity)
 }
@@ -23,7 +28,7 @@ pub fn handle_register(
     world: &mut World,
     storage: &Storage,
     data: &mut MByteBuffer,
-    entity: &Entity,
+    entity: GlobalKey,
 ) -> Result<()> {
     let username = data.read::<String>()?;
     let password = data.read::<String>()?;
@@ -105,7 +110,7 @@ pub fn handle_register(
                         "Username Exists. Please try Another.".into(),
                         0,
                         true,
-                    )
+                    );
                 }
                 2 => {
                     return send_infomsg(
@@ -114,7 +119,7 @@ pub fn handle_register(
                         "Email Already Exists. Please Try Another.".into(),
                         0,
                         true,
-                    )
+                    );
                 }
                 _ => return Err(AscendingError::RegisterFail),
             },
@@ -167,7 +172,7 @@ pub fn handle_handshake(
     world: &mut World,
     storage: &Storage,
     data: &mut MByteBuffer,
-    entity: &Entity,
+    entity: GlobalKey,
 ) -> Result<()> {
     let handshake = data.read::<String>()?;
 
@@ -184,7 +189,7 @@ pub fn handle_login(
     world: &mut World,
     storage: &Storage,
     data: &mut MByteBuffer,
-    entity: &Entity,
+    entity: GlobalKey,
 ) -> Result<()> {
     let username = data.read::<String>()?;
     let password = data.read::<String>()?;
@@ -228,7 +233,7 @@ pub fn handle_login(
                     "Account does not Exist or Password is not Correct.".into(),
                     1,
                     true,
-                )
+                );
             }
         };
 
@@ -284,7 +289,7 @@ pub fn handle_move(
     world: &mut World,
     storage: &Storage,
     data: &mut MByteBuffer,
-    entity: &Entity,
+    entity: GlobalKey,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
         if !world.get_or_err::<DeathType>(entity)?.is_alive()
@@ -320,7 +325,7 @@ pub fn handle_dir(
     world: &mut World,
     storage: &Storage,
     data: &mut MByteBuffer,
-    entity: &Entity,
+    entity: GlobalKey,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
         if !world.get_or_err::<DeathType>(entity)?.is_alive()
@@ -352,7 +357,7 @@ pub fn handle_attack(
     world: &mut World,
     storage: &Storage,
     data: &mut MByteBuffer,
-    entity: &Entity,
+    entity: GlobalKey,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
         if !world.get_or_err::<DeathType>(entity)?.is_alive()
@@ -364,7 +369,7 @@ pub fn handle_attack(
         }
 
         let dir = data.read::<u8>()?;
-        let target = data.read::<Option<Entity>>()?;
+        let target = data.read::<Option<GlobalKey>>()?;
 
         if dir > 3 {
             return Err(AscendingError::InvalidPacket);
@@ -401,7 +406,7 @@ pub fn handle_useitem(
     world: &mut World,
     storage: &Storage,
     data: &mut MByteBuffer,
-    entity: &Entity,
+    entity: GlobalKey,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
         if !world.get_or_err::<DeathType>(entity)?.is_alive()
@@ -430,7 +435,7 @@ pub fn handle_unequip(
     world: &mut World,
     storage: &Storage,
     data: &mut MByteBuffer,
-    entity: &Entity,
+    entity: GlobalKey,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
         if !world.get_or_err::<DeathType>(entity)?.is_alive()
@@ -466,7 +471,7 @@ pub fn handle_switchinvslot(
     world: &mut World,
     storage: &Storage,
     data: &mut MByteBuffer,
-    entity: &Entity,
+    entity: GlobalKey,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
         if !world.get_or_err::<DeathType>(entity)?.is_alive()
@@ -538,7 +543,7 @@ pub fn handle_pickup(
     world: &mut World,
     storage: &Storage,
     _data: &mut MByteBuffer,
-    entity: &Entity,
+    entity: GlobalKey,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
         let mut remove_id: Vec<(MapPosition, Entity)> = Vec::new();
@@ -610,14 +615,19 @@ pub fn handle_pickup(
 
                                 if amount != start {
                                     send_message(
-                                    world,
-                                    storage,
-                                    entity,
-                                    format!("You picked up {} {}{}. Your inventory is Full so some items remain.", amount, storage.bases.items[mapitems.item.num as usize].name, st),
-                                    String::new(),
-                                    MessageChannel::Private,
-                                    None,
-                                )?;
+                                        world,
+                                        storage,
+                                        entity,
+                                        format!(
+                                            "You picked up {} {}{}. Your inventory is Full so some items remain.",
+                                            amount,
+                                            storage.bases.items[mapitems.item.num as usize].name,
+                                            st
+                                        ),
+                                        String::new(),
+                                        MessageChannel::Private,
+                                        None,
+                                    )?;
                                     world.get::<&mut MapItem>(i.0)?.item.val = start - amount;
                                 } else {
                                     send_message(
@@ -684,7 +694,7 @@ pub fn handle_dropitem(
     world: &mut World,
     storage: &Storage,
     data: &mut MByteBuffer,
-    entity: &Entity,
+    entity: GlobalKey,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
         if !world.get_or_err::<DeathType>(entity)?.is_alive()
@@ -747,7 +757,7 @@ pub fn handle_deleteitem(
     world: &mut World,
     storage: &Storage,
     data: &mut MByteBuffer,
-    entity: &Entity,
+    entity: GlobalKey,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
         if !world.get_or_err::<DeathType>(entity)?.is_alive()
@@ -777,7 +787,7 @@ pub fn handle_switchstorageslot(
     world: &mut World,
     storage: &Storage,
     data: &mut MByteBuffer,
-    entity: &Entity,
+    entity: GlobalKey,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
         if !world.get_or_err::<DeathType>(entity)?.is_alive()
@@ -849,7 +859,7 @@ pub fn handle_deletestorageitem(
     world: &mut World,
     storage: &Storage,
     data: &mut MByteBuffer,
-    entity: &Entity,
+    entity: GlobalKey,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
         if !world.get_or_err::<DeathType>(entity)?.is_alive()
@@ -879,7 +889,7 @@ pub fn handle_deposititem(
     world: &mut World,
     storage: &Storage,
     data: &mut MByteBuffer,
-    entity: &Entity,
+    entity: GlobalKey,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
         if !world.get_or_err::<DeathType>(entity)?.is_alive()
@@ -943,7 +953,7 @@ pub fn handle_withdrawitem(
     world: &mut World,
     storage: &Storage,
     data: &mut MByteBuffer,
-    entity: &Entity,
+    entity: GlobalKey,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
         if !world.get_or_err::<DeathType>(entity)?.is_alive()
@@ -1006,7 +1016,7 @@ pub fn handle_message(
     world: &mut World,
     storage: &Storage,
     data: &mut MByteBuffer,
-    entity: &Entity,
+    entity: GlobalKey,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
         let mut usersocket: Option<usize> = None;
@@ -1096,7 +1106,7 @@ pub fn handle_command(
     world: &mut World,
     storage: &Storage,
     data: &mut MByteBuffer,
-    entity: &Entity,
+    entity: GlobalKey,
 ) -> Result<()> {
     if let Some(_p) = storage.player_ids.borrow().get(entity) {
         let command = data.read::<Command>()?;
@@ -1199,10 +1209,10 @@ pub fn handle_settarget(
     world: &mut World,
     storage: &Storage,
     data: &mut MByteBuffer,
-    entity: &Entity,
+    entity: GlobalKey,
 ) -> Result<()> {
     if let Some(_p) = storage.player_ids.borrow().get(entity) {
-        let target = data.read::<Option<Entity>>()?;
+        let target = data.read::<Option<GlobalKey>>()?;
 
         if let Some(target_entity) = target {
             if !world.contains(target_entity.0) {
@@ -1221,7 +1231,7 @@ pub fn handle_closestorage(
     world: &mut World,
     storage: &Storage,
     _data: &mut MByteBuffer,
-    entity: &Entity,
+    entity: GlobalKey,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
         if !world.get_or_err::<DeathType>(entity)?.is_alive()
@@ -1245,7 +1255,7 @@ pub fn handle_closeshop(
     world: &mut World,
     storage: &Storage,
     _data: &mut MByteBuffer,
-    entity: &Entity,
+    entity: GlobalKey,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
         if !world.get_or_err::<DeathType>(entity)?.is_alive()
@@ -1269,7 +1279,7 @@ pub fn handle_closetrade(
     world: &mut World,
     storage: &Storage,
     _data: &mut MByteBuffer,
-    entity: &Entity,
+    entity: GlobalKey,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
         if !world.get_or_err::<DeathType>(entity)?.is_alive()
@@ -1317,7 +1327,7 @@ pub fn handle_buyitem(
     world: &mut World,
     storage: &Storage,
     data: &mut MByteBuffer,
-    entity: &Entity,
+    entity: GlobalKey,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
         if !world.get_or_err::<DeathType>(entity)?.is_alive()
@@ -1387,7 +1397,7 @@ pub fn handle_sellitem(
     world: &mut World,
     storage: &Storage,
     data: &mut MByteBuffer,
-    entity: &Entity,
+    entity: GlobalKey,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
         if !world.get_or_err::<DeathType>(entity)?.is_alive()
@@ -1441,7 +1451,7 @@ pub fn handle_addtradeitem(
     world: &mut World,
     storage: &Storage,
     data: &mut MByteBuffer,
-    entity: &Entity,
+    entity: GlobalKey,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
         if !world.get_or_err::<DeathType>(entity)?.is_alive()
@@ -1512,7 +1522,7 @@ pub fn handle_removetradeitem(
     world: &mut World,
     storage: &Storage,
     data: &mut MByteBuffer,
-    entity: &Entity,
+    entity: GlobalKey,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
         if !world.get_or_err::<DeathType>(entity)?.is_alive()
@@ -1566,7 +1576,7 @@ pub fn handle_updatetrademoney(
     world: &mut World,
     storage: &Storage,
     data: &mut MByteBuffer,
-    entity: &Entity,
+    entity: GlobalKey,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
         if !world.get_or_err::<DeathType>(entity)?.is_alive()
@@ -1606,7 +1616,7 @@ pub fn handle_submittrade(
     world: &mut World,
     storage: &Storage,
     _data: &mut MByteBuffer,
-    entity: &Entity,
+    entity: GlobalKey,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
         if !world.get_or_err::<DeathType>(entity)?.is_alive()
@@ -1693,7 +1703,7 @@ pub fn handle_accepttrade(
     world: &mut World,
     storage: &Storage,
     _data: &mut MByteBuffer,
-    entity: &Entity,
+    entity: GlobalKey,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
         if !world.get_or_err::<DeathType>(entity)?.is_alive()
@@ -1756,7 +1766,7 @@ pub fn handle_declinetrade(
     world: &mut World,
     storage: &Storage,
     _data: &mut MByteBuffer,
-    entity: &Entity,
+    entity: GlobalKey,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
         if !world.get_or_err::<DeathType>(entity)?.is_alive()

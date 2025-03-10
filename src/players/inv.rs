@@ -1,5 +1,3 @@
-use hecs::World;
-
 use crate::{
     containers::*,
     gametypes::*,
@@ -7,14 +5,14 @@ use crate::{
     players::*,
     socket::*,
     sql::*,
-    tasks::{damage_packet, DataTaskToken},
+    tasks::{DataTaskToken, damage_packet},
 };
 
 #[inline]
 pub fn save_inv_item(
     world: &mut World,
     storage: &Storage,
-    entity: &Entity,
+    entity: GlobalKey,
     slot: usize,
 ) -> Result<()> {
     update_inv(storage, world, entity, slot)?;
@@ -56,7 +54,7 @@ pub fn find_inv_slot(item: &Item, inv: &[Item], base: &ItemData) -> Option<usize
 pub fn auto_set_inv_item(
     world: &mut World,
     storage: &Storage,
-    entity: &crate::Entity,
+    entity: GlobalKey,
     item: &mut Item,
     base: &ItemData,
 ) -> Result<()> {
@@ -110,7 +108,7 @@ pub fn auto_set_inv_item(
 
 pub fn check_inv_item_space(
     world: &mut World,
-    entity: &crate::Entity,
+    entity: GlobalKey,
     item: &mut Item,
     base: &ItemData,
 ) -> Result<bool> {
@@ -144,7 +142,7 @@ pub fn check_inv_item_space(
 
 pub fn check_inv_item_partial_space(
     world: &mut World,
-    entity: &crate::Entity,
+    entity: GlobalKey,
     item: &mut Item,
     base: &ItemData,
 ) -> Result<(u16, u16)> {
@@ -182,7 +180,7 @@ pub fn check_inv_item_partial_space(
 pub fn set_inv_item(
     world: &mut World,
     storage: &Storage,
-    entity: &crate::Entity,
+    entity: GlobalKey,
     item: &mut Item,
     base: &ItemData,
     slot: usize,
@@ -222,7 +220,7 @@ pub fn set_inv_item(
 pub fn give_inv_item(
     world: &mut World,
     storage: &Storage,
-    entity: &crate::Entity,
+    entity: GlobalKey,
     item: &mut Item,
 ) -> Result<()> {
     let base = &storage.bases.items[item.num as usize];
@@ -233,7 +231,7 @@ pub fn give_inv_item(
 pub fn check_inv_space(
     world: &mut World,
     storage: &Storage,
-    entity: &crate::Entity,
+    entity: GlobalKey,
     item: &mut Item,
 ) -> Result<bool> {
     let base = &storage.bases.items[item.num as usize];
@@ -246,7 +244,7 @@ pub fn check_inv_space(
 pub fn check_inv_partial_space(
     world: &mut World,
     storage: &Storage,
-    entity: &crate::Entity,
+    entity: GlobalKey,
     item: &mut Item,
 ) -> Result<(bool, u16, u16)> {
     let base = &storage.bases.items[item.num as usize];
@@ -264,7 +262,7 @@ pub fn check_inv_partial_space(
 pub fn set_inv_slot(
     world: &mut World,
     storage: &Storage,
-    entity: &crate::Entity,
+    entity: GlobalKey,
     item: &mut Item,
     slot: usize,
     amount: u16,
@@ -278,7 +276,7 @@ pub fn set_inv_slot(
 pub fn take_inv_items(
     world: &mut World,
     storage: &Storage,
-    entity: &crate::Entity,
+    entity: GlobalKey,
     num: u32,
     mut amount: u16,
 ) -> Result<u16> {
@@ -310,7 +308,7 @@ pub fn take_inv_items(
 pub fn take_inv_itemslot(
     world: &mut World,
     storage: &Storage,
-    entity: &crate::Entity,
+    entity: GlobalKey,
     slot: usize,
     mut amount: u16,
 ) -> Result<u16> {
@@ -360,7 +358,7 @@ pub fn find_trade_slot(item: &Item, trade_slot: &[Item], base: &ItemData) -> Opt
 #[inline]
 pub fn auto_set_trade_item(
     world: &mut World,
-    entity: &crate::Entity,
+    entity: GlobalKey,
     item: &mut Item,
     base: &ItemData,
 ) -> Result<Vec<usize>> {
@@ -396,7 +394,7 @@ pub fn auto_set_trade_item(
 pub fn give_trade_item(
     world: &mut World,
     storage: &Storage,
-    entity: &crate::Entity,
+    entity: GlobalKey,
     item: &mut Item,
 ) -> Result<Vec<usize>> {
     let base = &storage.bases.items[item.num as usize];
@@ -504,7 +502,7 @@ pub fn give_temp_inv_item(
 pub fn player_unequip(
     world: &mut World,
     storage: &Storage,
-    entity: &crate::Entity,
+    entity: GlobalKey,
     slot: usize,
 ) -> Result<bool> {
     if world.cloned_get_or_err::<Equipment>(entity)?.items[slot].val == 0 {
@@ -532,7 +530,7 @@ pub fn player_unequip(
 pub fn player_equip(
     world: &mut World,
     storage: &Storage,
-    entity: &crate::Entity,
+    entity: GlobalKey,
     item: Item,
     slot: usize,
 ) -> Result<()> {
@@ -548,7 +546,7 @@ pub fn player_equip(
 pub fn player_use_item(
     world: &mut World,
     storage: &Storage,
-    entity: &crate::Entity,
+    entity: GlobalKey,
     slot: u16,
 ) -> Result<()> {
     if slot as usize >= MAX_INV {

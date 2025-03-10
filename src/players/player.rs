@@ -1,6 +1,5 @@
 use crate::{containers::*, gametypes::*, items::*, socket::*, sql::*, tasks::*, time_ext::*};
 use educe::Educe;
-use hecs::{Bundle, World};
 use mmap_bytey::{MByteBufferRead, MByteBufferWrite};
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
@@ -24,13 +23,6 @@ impl Socket {
             buffer: Arc::new(Mutex::new(ByteBuffer::with_capacity(8192)?)),
         })
     }
-}
-
-#[derive(Clone, Debug, Default)]
-pub struct Account {
-    pub username: String,
-    pub passresetcode: Option<String>,
-    pub id: i64,
 }
 
 #[derive(Copy, Clone, Debug, Educe)]
@@ -115,7 +107,7 @@ pub enum TradeStatus {
 #[educe(Default)]
 pub struct TradeRequestEntity {
     #[educe(Default = None)]
-    pub entity: Option<crate::Entity>,
+    pub entity: Option<GlobalKey>,
     #[educe(Default = MyInstant::now())]
     pub requesttimer: MyInstant,
 }
@@ -188,7 +180,7 @@ pub struct Player {
     pub movesavecount: u16,
 }
 
-pub fn is_player_online(world: &mut World, entity: &crate::Entity) -> Result<bool> {
+pub fn is_player_online(world: &mut World, entity: GlobalKey) -> Result<bool> {
     Ok(
         *world.get::<&WorldEntityType>(entity.0)? == WorldEntityType::Player
             && *world.get::<&OnlineType>(entity.0)? == OnlineType::Online,
@@ -199,7 +191,7 @@ pub fn is_player_online(world: &mut World, entity: &crate::Entity) -> Result<boo
 pub fn player_switch_maps(
     world: &mut World,
     storage: &Storage,
-    entity: &crate::Entity,
+    entity: GlobalKey,
     new_pos: Position,
 ) -> Result<(Position, bool)> {
     let old_position = world.get_or_err::<Position>(entity)?;
@@ -235,7 +227,7 @@ pub fn player_switch_maps(
 pub fn player_swap_pos(
     world: &mut World,
     storage: &Storage,
-    entity: &crate::Entity,
+    entity: GlobalKey,
     pos: Position,
 ) -> Result<Position> {
     let mut query = world.query_one::<&mut Position>(entity.0)?;
@@ -261,17 +253,13 @@ pub fn player_swap_pos(
     })
 }
 
-pub fn player_add_up_vital(world: &mut World, entity: &crate::Entity, vital: usize) -> Result<i32> {
+pub fn player_add_up_vital(world: &mut World, entity: GlobalKey, vital: usize) -> Result<i32> {
     let mut query = world.query_one::<&mut Vitals>(entity.0)?;
 
     Ok(if let Some(player_vital) = query.get() {
         let hp = player_vital.vitalmax[vital].saturating_add(player_vital.vitalbuffs[vital]);
 
-        if hp.is_negative() || hp == 0 {
-            1
-        } else {
-            hp
-        }
+        if hp.is_negative() || hp == 0 { 1 } else { hp }
     } else {
         1
     })
@@ -281,7 +269,7 @@ pub fn player_add_up_vital(world: &mut World, entity: &crate::Entity, vital: usi
 pub fn player_set_dir(
     world: &mut World,
     storage: &Storage,
-    entity: &crate::Entity,
+    entity: GlobalKey,
     dir: u8,
 ) -> Result<()> {
     let mut query = world.query_one::<(&mut Dir, &Position)>(entity.0)?;
@@ -297,7 +285,7 @@ pub fn player_set_dir(
     Ok(())
 }
 
-pub fn player_getx(world: &mut World, entity: &crate::Entity) -> Result<i32> {
+pub fn player_getx(world: &mut World, entity: GlobalKey) -> Result<i32> {
     let mut query = world.query_one::<&Position>(entity.0)?;
 
     Ok(if let Some(player_position) = query.get() {
@@ -307,7 +295,7 @@ pub fn player_getx(world: &mut World, entity: &crate::Entity) -> Result<i32> {
     })
 }
 
-pub fn player_gety(world: &mut World, entity: &crate::Entity) -> Result<i32> {
+pub fn player_gety(world: &mut World, entity: GlobalKey) -> Result<i32> {
     let mut query = world.query_one::<&Position>(entity.0)?;
 
     Ok(if let Some(player_position) = query.get() {
@@ -317,7 +305,7 @@ pub fn player_gety(world: &mut World, entity: &crate::Entity) -> Result<i32> {
     })
 }
 
-pub fn player_getmap(world: &mut World, entity: &crate::Entity) -> Result<MapPosition> {
+pub fn player_getmap(world: &mut World, entity: GlobalKey) -> Result<MapPosition> {
     let mut query = world.query_one::<&Position>(entity.0)?;
 
     Ok(if let Some(player_position) = query.get() {
@@ -327,7 +315,7 @@ pub fn player_getmap(world: &mut World, entity: &crate::Entity) -> Result<MapPos
     })
 }
 
-pub fn player_gethp(world: &mut World, entity: &crate::Entity) -> Result<i32> {
+pub fn player_gethp(world: &mut World, entity: GlobalKey) -> Result<i32> {
     let mut query = world.query_one::<&Vitals>(entity.0)?;
 
     Ok(if let Some(player_vital) = query.get() {
@@ -337,7 +325,7 @@ pub fn player_gethp(world: &mut World, entity: &crate::Entity) -> Result<i32> {
     })
 }
 
-pub fn player_setx(world: &mut World, entity: &crate::Entity, x: i32) -> Result<()> {
+pub fn player_setx(world: &mut World, entity: GlobalKey, x: i32) -> Result<()> {
     let mut query = world.query_one::<&mut Position>(entity.0)?;
 
     if let Some(player_position) = query.get() {
@@ -347,7 +335,7 @@ pub fn player_setx(world: &mut World, entity: &crate::Entity, x: i32) -> Result<
     Ok(())
 }
 
-pub fn player_sety(world: &mut World, entity: &crate::Entity, y: i32) -> Result<()> {
+pub fn player_sety(world: &mut World, entity: GlobalKey, y: i32) -> Result<()> {
     let mut query = world.query_one::<&mut Position>(entity.0)?;
 
     if let Some(player_position) = query.get() {
@@ -357,7 +345,7 @@ pub fn player_sety(world: &mut World, entity: &crate::Entity, y: i32) -> Result<
     Ok(())
 }
 
-pub fn player_setmap(world: &mut World, entity: &crate::Entity, map: MapPosition) -> Result<()> {
+pub fn player_setmap(world: &mut World, entity: GlobalKey, map: MapPosition) -> Result<()> {
     let mut query = world.query_one::<&mut Position>(entity.0)?;
 
     if let Some(player_position) = query.get() {
@@ -370,7 +358,7 @@ pub fn player_setmap(world: &mut World, entity: &crate::Entity, map: MapPosition
 pub fn player_set_vital(
     world: &mut World,
     storage: &Storage,
-    entity: &crate::Entity,
+    entity: GlobalKey,
     vital: VitalTypes,
     amount: i32,
 ) -> Result<()> {
@@ -395,7 +383,7 @@ pub fn player_set_vital(
 pub fn player_give_vals(
     world: &mut World,
     storage: &Storage,
-    entity: &crate::Entity,
+    entity: GlobalKey,
     amount: u64,
 ) -> Result<u64> {
     let player_money = world.get_or_err::<Money>(entity)?;
@@ -434,7 +422,7 @@ pub fn player_give_vals(
 pub fn player_take_vals(
     world: &mut World,
     storage: &Storage,
-    entity: &crate::Entity,
+    entity: GlobalKey,
     amount: u64,
 ) -> Result<()> {
     let mut cur = amount;
@@ -488,7 +476,7 @@ pub fn send_swap_error(
 pub fn send_login_info(
     world: &mut World,
     storage: &Storage,
-    entity: &Entity,
+    entity: GlobalKey,
     code: String,
     handshake: String,
     socket_id: usize,

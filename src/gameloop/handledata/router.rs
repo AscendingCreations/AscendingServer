@@ -1,15 +1,16 @@
 use crate::{
-    containers::Storage, gametypes::Result, socket::*, AscendingError, Entity, OnlineType,
-    PacketRouter, WorldExtras,
+    AscendingError, OnlineType, PacketRouter, WorldExtras,
+    containers::{Storage, World},
+    gametypes::Result,
+    socket::*,
 };
-use hecs::World;
 
 pub fn handle_data(
     router: &PacketRouter,
     world: &mut World,
     storage: &Storage,
     data: &mut MByteBuffer,
-    entity: &Entity,
+    entity: GlobalKey,
 ) -> Result<()> {
     let id: ClientPacket = data.read()?;
 

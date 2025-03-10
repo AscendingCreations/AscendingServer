@@ -1,5 +1,8 @@
 use crate::{gametypes::MapPosition, tasks::DataTaskToken};
-use std::backtrace::Backtrace;
+use std::{
+    backtrace::Backtrace,
+    sync::{PoisonError, TryLockError},
+};
 use thiserror::Error;
 
 pub type Result<T> = std::result::Result<T, AscendingError>;
@@ -84,30 +87,9 @@ pub enum AscendingError {
         backtrace: Box<Backtrace>,
     },
     #[error("Error: {error}, BackTrace: {backtrace}")]
-    HecNoEntity {
-        #[from]
-        error: hecs::NoSuchEntity,
-        #[backtrace]
-        backtrace: Box<Backtrace>,
-    },
-    #[error("Error: {error}, BackTrace: {backtrace}")]
     Sqlx {
         #[from]
         error: sqlx::Error,
-        #[backtrace]
-        backtrace: Box<Backtrace>,
-    },
-    #[error("Error: {error}, BackTrace: {backtrace}")]
-    HecsComponent {
-        #[from]
-        error: hecs::ComponentError,
-        #[backtrace]
-        backtrace: Box<Backtrace>,
-    },
-    #[error("Error: {error}, BackTrace: {backtrace}")]
-    HecsQueryOne {
-        #[from]
-        error: hecs::QueryOneError,
         #[backtrace]
         backtrace: Box<Backtrace>,
     },
@@ -132,4 +114,54 @@ pub enum AscendingError {
         #[backtrace]
         backtrace: Box<Backtrace>,
     },
+    #[error("Mutex PoisonError Occured, BackTrace: {backtrace}")]
+    MutexLockError {
+        #[backtrace]
+        backtrace: Box<Backtrace>,
+    },
+    #[error("GlobalKey Kind is Missing Does it even Exist?, BackTrace: {backtrace}")]
+    MissingKind {
+        #[backtrace]
+        backtrace: Box<Backtrace>,
+    },
+    #[error("GlobalKey is Missing, BackTrace: {backtrace}")]
+    MissingEntity {
+        #[backtrace]
+        backtrace: Box<Backtrace>,
+    },
+    #[error("TryLock Error, BackTrace: {backtrace}")]
+    TryLockError {
+        #[backtrace]
+        backtrace: Box<Backtrace>,
+    },
+}
+
+impl<T> From<TryLockError<T>> for AscendingError {
+    fn from(_: TryLockError<T>) -> Self {
+        Self::TryLockError {
+            backtrace: Box::new(Backtrace::capture()),
+        }
+    }
+}
+
+impl<T> From<PoisonError<T>> for AscendingError {
+    fn from(_: PoisonError<T>) -> Self {
+        Self::MutexLockError {
+            backtrace: Box::new(Backtrace::capture()),
+        }
+    }
+}
+
+impl AscendingError {
+    pub fn missing_kind() -> Self {
+        AscendingError::MissingKind {
+            backtrace: Box::new(Backtrace::capture()),
+        }
+    }
+
+    pub fn missing_entity() -> Self {
+        AscendingError::MissingEntity {
+            backtrace: Box::new(Backtrace::capture()),
+        }
+    }
 }

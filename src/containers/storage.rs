@@ -9,30 +9,31 @@ use crate::{
     time_ext::MyInstant,
 };
 use chrono::Duration;
-use hecs::World;
 use log::LevelFilter;
 use mio::Poll;
 use rustls::{
-    crypto::{ring as provider, CryptoProvider},
-    pki_types::{CertificateDer, PrivateKeyDer},
     ServerConfig,
+    crypto::{CryptoProvider, ring as provider},
+    pki_types::{CertificateDer, PrivateKeyDer},
 };
 use serde::{Deserialize, Serialize};
 use sqlx::{
-    postgres::{PgConnectOptions, PgPoolOptions},
     ConnectOptions, PgPool,
+    postgres::{PgConnectOptions, PgPoolOptions},
 };
 use std::{cell::RefCell, collections::VecDeque, fs, io::BufReader, sync::Arc};
 use tokio::runtime::Runtime;
 use tokio::task;
 
+use super::World;
+
 pub struct Storage {
-    pub player_ids: RefCell<IndexSet<Entity>>,
-    pub recv_ids: RefCell<IndexSet<Entity>>,
-    pub npc_ids: RefCell<IndexSet<Entity>>,
-    pub player_names: RefCell<HashMap<String, Entity>>, //for player names to ID's
+    pub player_ids: RefCell<IndexSet<GlobalKey>>,
+    pub recv_ids: RefCell<IndexSet<GlobalKey>>,
+    pub npc_ids: RefCell<IndexSet<GlobalKey>>,
+    pub player_names: RefCell<HashMap<String, GlobalKey>>, //for player names to ID's
     pub maps: IndexMap<MapPosition, RefCell<MapData>>,
-    pub map_items: RefCell<IndexMap<Position, Entity>>,
+    pub map_items: RefCell<IndexMap<Position, GlobalKey>>,
     //This is for buffering the specific packets needing to send.
     #[allow(clippy::type_complexity)]
     pub packet_cache: RefCell<IndexMap<DataTaskToken, VecDeque<(u32, MByteBuffer, bool)>>>,
@@ -43,7 +44,7 @@ pub struct Storage {
     pub gettick: RefCell<MyInstant>,
     pub pgconn: PgPool,
     pub time: RefCell<GameTime>,
-    pub map_switch_tasks: RefCell<IndexMap<Entity, Vec<MapSwitchTasks>>>, //Data Tasks For dealing with Player Warp and MapSwitch
+    pub map_switch_tasks: RefCell<IndexMap<GlobalKey, Vec<MapSwitchTasks>>>, //Data Tasks For dealing with Player Warp and MapSwitch
     pub bases: Bases,
     pub rt: RefCell<Runtime>,
     pub local: RefCell<task::LocalSet>,
@@ -273,19 +274,24 @@ impl Storage {
         Some(storage)
     }
 
-    pub fn add_empty_player(&self, world: &mut World, id: usize, addr: String) -> Result<Entity> {
+    pub fn add_empty_player(
+        &self,
+        world: &mut World,
+        id: usize,
+        addr: String,
+    ) -> Result<GlobalKey> {
         let socket = Socket::new(id, addr)?;
 
         let identity = world.spawn((WorldEntityType::Player, socket, OnlineType::Accepted));
-        world.insert_one(identity, EntityType::Player(Entity(identity), 0))?;
+        world.insert_one(identity, EntityType::Player(identity, 0))?;
 
-        Ok(Entity(identity))
+        Ok(identity)
     }
 
     pub fn add_player_data(
         &self,
         world: &mut World,
-        entity: &Entity,
+        entity: GlobalKey,
         code: String,
         handshake: String,
         time: MyInstant,
@@ -350,7 +356,7 @@ impl Storage {
     pub fn remove_player(
         &self,
         world: &mut World,
-        id: Entity,
+        id: GlobalKey,
     ) -> Result<(Socket, Option<Position>)> {
         // only removes the Components in the Fisbone ::<>
         let (socket,) = world.remove::<(Socket,)>(id.0)?;
@@ -366,7 +372,7 @@ impl Storage {
         Ok((socket, pos))
     }
 
-    pub fn add_npc(&self, world: &mut World, npc_id: u64) -> Result<Option<Entity>> {
+    pub fn add_npc(&self, world: &mut World, npc_id: u64) -> Result<Option<GlobalKey>> {
         if let Some(npcdata) = NpcData::load_npc(self, npc_id) {
             let identity = world.spawn((
                 WorldEntityType::Npc,
@@ -422,17 +428,17 @@ impl Storage {
                     ),
                 )?;
             }
-            world.insert_one(identity, EntityType::Npc(Entity(identity)))?;
+            world.insert_one(identity, EntityType::Npc(identity))?;
 
-            self.npc_ids.borrow_mut().insert(Entity(identity));
+            self.npc_ids.borrow_mut().insert(identity);
 
-            Ok(Some(Entity(identity)))
+            Ok(Some(identity))
         } else {
             Ok(None)
         }
     }
 
-    pub fn remove_npc(&self, world: &mut World, id: Entity) -> Result<Position> {
+    pub fn remove_npc(&self, world: &mut World, id: GlobalKey) -> Result<Position> {
         let ret: Position = world.get_or_err::<Position>(&id)?;
         //Removes Everything related to the Entity.
         world.despawn(id.0)?;
