@@ -1,7 +1,7 @@
 use std::ops::Range;
 
 use crate::{
-    containers::{Entity, GlobalKey, Storage, World},
+    containers::{Entity, GlobalKey, Storage, TradeStatus, World},
     gametypes::*,
     socket::*,
     tasks::*,
@@ -165,7 +165,7 @@ pub fn send_inv(world: &mut World, storage: &Storage, entity: GlobalKey) -> Resu
         buf.write(&data.inventory.items)?;
         buf.finish()?;
 
-        send_to(storage, data.socket.id, buf)
+        send_to(storage, data.socket.id, buf)?;
     }
     Ok(())
 }
@@ -177,14 +177,19 @@ pub fn send_invslot(
     entity: GlobalKey,
     id: usize,
 ) -> Result<()> {
-    let mut buf = MByteBuffer::new_packet()?;
+    if let Some(Entity::Player(data)) = world.get_opt_entity(entity) {
+        let data = data.try_lock()?;
 
-    buf.write(ServerPackets::PlayerInvSlot)?;
-    buf.write(id)?;
-    buf.write(world.get::<&Inventory>(entity.0)?.items[id])?;
-    buf.finish()?;
+        let mut buf = MByteBuffer::new_packet()?;
 
-    send_to(storage, world.get::<&Socket>(entity.0)?.id, buf)
+        buf.write(ServerPackets::PlayerInvSlot)?;
+        buf.write(id)?;
+        buf.write(data.inventory.items[id])?;
+        buf.finish()?;
+
+        send_to(storage, data.socket.id, buf)?;
+    }
+    Ok(())
 }
 
 #[inline]
@@ -194,15 +199,19 @@ pub fn send_storage(
     entity: GlobalKey,
     range: Range<usize>,
 ) -> Result<()> {
-    let mut buf = MByteBuffer::new_packet()?;
-    let storage_slots = world.get::<&PlayerStorage>(entity.0)?;
+    if let Some(Entity::Player(data)) = world.get_opt_entity(entity) {
+        let data = data.try_lock()?;
 
-    buf.write(ServerPackets::PlayerStorage)?;
-    buf.write(range.clone())?;
-    buf.write(&storage_slots.items[range])?;
-    buf.finish()?;
+        let mut buf = MByteBuffer::new_packet()?;
 
-    send_to(storage, world.get::<&Socket>(entity.0)?.id, buf)
+        buf.write(ServerPackets::PlayerStorage)?;
+        buf.write(range.clone())?;
+        buf.write(&data.storage.items[range])?;
+        buf.finish()?;
+
+        send_to(storage, data.socket.id, buf)?;
+    }
+    Ok(())
 }
 
 #[inline]
@@ -212,55 +221,69 @@ pub fn send_storageslot(
     entity: GlobalKey,
     id: usize,
 ) -> Result<()> {
-    let mut buf = MByteBuffer::new_packet()?;
+    if let Some(Entity::Player(data)) = world.get_opt_entity(entity) {
+        let data = data.try_lock()?;
 
-    buf.write(ServerPackets::PlayerStorageSlot)?;
-    buf.write(id)?;
-    buf.write(world.get::<&PlayerStorage>(entity.0)?.items[id])?;
-    buf.finish()?;
+        let mut buf = MByteBuffer::new_packet()?;
 
-    send_to(storage, world.get::<&Socket>(entity.0)?.id, buf)
+        buf.write(ServerPackets::PlayerStorageSlot)?;
+        buf.write(id)?;
+        buf.write(data.storage.items[id])?;
+        buf.finish()?;
+
+        send_to(storage, data.socket.id, buf)?;
+    }
+    Ok(())
 }
 
 #[inline]
 pub fn send_equipment(world: &mut World, storage: &Storage, entity: GlobalKey) -> Result<()> {
-    let mut buf = MByteBuffer::new_packet()?;
+    if let Some(Entity::Player(data)) = world.get_opt_entity(entity) {
+        let data = data.try_lock()?;
 
-    buf.write(ServerPackets::PlayerEquipment)?;
-    buf.write(entity)?;
-    buf.write(world.cloned_get_or_err::<Equipment>(entity)?)?;
-    buf.finish()?;
+        let mut buf = MByteBuffer::new_packet()?;
 
-    send_to_maps(
-        world,
-        storage,
-        world.get_or_err::<Position>(entity)?.map,
-        buf,
-        None,
-    )
+        buf.write(ServerPackets::PlayerEquipment)?;
+        buf.write(entity)?;
+        buf.write(data.equipment.clone())?;
+        buf.finish()?;
+
+        send_to_maps(world, storage, data.movement.pos.map, buf, None)?;
+    }
+    Ok(())
 }
 
 #[inline]
 pub fn send_level(world: &mut World, storage: &Storage, entity: GlobalKey) -> Result<()> {
-    let mut buf = MByteBuffer::new_packet()?;
+    if let Some(Entity::Player(data)) = world.get_opt_entity(entity) {
+        let data = data.try_lock()?;
 
-    buf.write(ServerPackets::PlayerLevel)?;
-    buf.write(world.get_or_err::<Level>(entity)?.0)?;
-    buf.write(world.get_or_err::<Player>(entity)?.levelexp)?;
-    buf.finish()?;
+        let mut buf = MByteBuffer::new_packet()?;
 
-    send_to(storage, world.get::<&Socket>(entity.0)?.id, buf)
+        buf.write(ServerPackets::PlayerLevel)?;
+        buf.write(data.combat.level)?;
+        buf.write(data.general.levelexp)?;
+        buf.finish()?;
+
+        send_to(storage, data.socket.id, buf)?;
+    }
+    Ok(())
 }
 
 #[inline]
 pub fn send_money(world: &mut World, storage: &Storage, entity: GlobalKey) -> Result<()> {
-    let mut buf = MByteBuffer::new_packet()?;
+    if let Some(Entity::Player(data)) = world.get_opt_entity(entity) {
+        let data = data.try_lock()?;
 
-    buf.write(ServerPackets::PlayerMoney)?;
-    buf.write(world.get_or_err::<Money>(entity)?.vals)?;
-    buf.finish()?;
+        let mut buf = MByteBuffer::new_packet()?;
 
-    send_to(storage, world.get::<&Socket>(entity.0)?.id, buf)
+        buf.write(ServerPackets::PlayerMoney)?;
+        buf.write(data.money.vals)?;
+        buf.finish()?;
+
+        send_to(storage, data.socket.id, buf)?;
+    }
+    Ok(())
 }
 
 #[inline]
@@ -270,20 +293,25 @@ pub fn send_pk(
     entity: GlobalKey,
     toself: bool,
 ) -> Result<()> {
-    let mut buf = MByteBuffer::new_packet()?;
-    let closure = |toself, id| if toself { Some(id) } else { None };
+    if let Some(Entity::Player(data)) = world.get_opt_entity(entity) {
+        let data = data.try_lock()?;
 
-    buf.write(ServerPackets::PlayerPk)?;
-    buf.write(world.get_or_err::<Player>(entity)?.pk)?;
-    buf.finish()?;
+        let mut buf = MByteBuffer::new_packet()?;
+        let closure = |toself, id| if toself { Some(id) } else { None };
 
-    send_to_maps(
-        world,
-        storage,
-        world.get_or_err::<Position>(entity)?.map,
-        buf,
-        closure(toself, *entity),
-    )
+        buf.write(ServerPackets::PlayerPk)?;
+        buf.write(data.general.pk)?;
+        buf.finish()?;
+
+        send_to_maps(
+            world,
+            storage,
+            data.movement.pos.map,
+            buf,
+            closure(toself, entity),
+        )?;
+    }
+    Ok(())
 }
 
 #[inline]
@@ -296,41 +324,45 @@ pub fn send_message(
     chan: MessageChannel,
     id: Option<usize>,
 ) -> Result<()> {
-    let access = world.get_or_err::<UserAccess>(entity)?;
+    if let Some(Entity::Player(data)) = world.get_opt_entity(entity) {
+        let data = data.try_lock()?;
 
-    match chan {
-        MessageChannel::Map => DataTaskToken::MapChat(world.get_or_err::<Position>(entity)?.map)
-            .add_task(storage, message_packet(chan, head, msg, Some(access))?)?,
-        MessageChannel::Global => DataTaskToken::GlobalChat
-            .add_task(storage, message_packet(chan, head, msg, Some(access))?)?,
-        MessageChannel::Party | MessageChannel::Trade | MessageChannel::Help => {}
-        MessageChannel::Private => {
-            let mut buf = MByteBuffer::new_packet()?;
-            buf.write(ServerPackets::ChatMsg)?;
-            buf.write(1_u32)?;
-            buf.write(chan)?;
-            buf.write(head)?;
-            buf.write(msg)?;
-            buf.write(Some(access))?;
-            buf.finish()?;
+        let access = data.user_access;
 
-            if let Some(i) = id {
-                send_to(storage, i, buf.try_clone()?)?;
+        match chan {
+            MessageChannel::Map => DataTaskToken::MapChat(data.movement.pos.map)
+                .add_task(storage, message_packet(chan, head, msg, Some(access))?)?,
+            MessageChannel::Global => DataTaskToken::GlobalChat
+                .add_task(storage, message_packet(chan, head, msg, Some(access))?)?,
+            MessageChannel::Party | MessageChannel::Trade | MessageChannel::Help => {}
+            MessageChannel::Private => {
+                let mut buf = MByteBuffer::new_packet()?;
+                buf.write(ServerPackets::ChatMsg)?;
+                buf.write(1_u32)?;
+                buf.write(chan)?;
+                buf.write(head)?;
+                buf.write(msg)?;
+                buf.write(Some(access))?;
+                buf.finish()?;
+
+                if let Some(i) = id {
+                    send_to(storage, i, buf.try_clone()?)?;
+                }
+                send_to(storage, data.socket.id, buf)?;
             }
-            send_to(storage, world.get::<&Socket>(entity.0)?.id, buf)?;
-        }
-        MessageChannel::Guild => {}
-        MessageChannel::Quest | MessageChannel::Npc => {
-            let mut buf = MByteBuffer::new_packet()?;
+            MessageChannel::Guild => {}
+            MessageChannel::Quest | MessageChannel::Npc => {
+                let mut buf = MByteBuffer::new_packet()?;
 
-            buf.write(ServerPackets::ChatMsg)?;
-            buf.write(1_u32)?;
-            buf.write(chan)?;
-            buf.write(head)?;
-            buf.write(msg)?;
-            buf.write(Some(access))?;
-            buf.finish()?;
-            send_to(storage, world.get::<&Socket>(entity.0)?.id, buf)?;
+                buf.write(ServerPackets::ChatMsg)?;
+                buf.write(1_u32)?;
+                buf.write(chan)?;
+                buf.write(head)?;
+                buf.write(msg)?;
+                buf.write(Some(access))?;
+                buf.finish()?;
+                send_to(storage, data.socket.id, buf)?;
+            }
         }
     }
 
@@ -405,15 +437,26 @@ pub fn send_updatetradeitem(
     send_entity: GlobalKey,
     trade_slot: u16,
 ) -> Result<()> {
-    let mut buf = MByteBuffer::new_packet()?;
+    let socket_id = if let Some(Entity::Player(data)) = world.get_opt_entity(send_entity) {
+        data.try_lock()?.socket.id
+    } else {
+        return Ok(());
+    };
 
-    buf.write(ServerPackets::UpdateTradeItem)?;
-    buf.write(target_entity == send_entity)?;
-    buf.write(trade_slot)?;
-    buf.write(world.get::<&TradeItem>(target_entity.0)?.items[trade_slot as usize])?;
-    buf.finish()?;
+    if let Some(Entity::Player(data)) = world.get_opt_entity(target_entity) {
+        let data = data.try_lock()?;
 
-    send_to(storage, world.get::<&Socket>(send_entity.0)?.id, buf)
+        let mut buf = MByteBuffer::new_packet()?;
+
+        buf.write(ServerPackets::UpdateTradeItem)?;
+        buf.write(target_entity == send_entity)?;
+        buf.write(trade_slot)?;
+        buf.write(data.trade_item.items[trade_slot as usize])?;
+        buf.finish()?;
+
+        send_to(storage, socket_id, buf)?;
+    }
+    Ok(())
 }
 
 #[inline]
@@ -423,13 +466,24 @@ pub fn send_updatetrademoney(
     target_entity: GlobalKey,
     send_entity: GlobalKey,
 ) -> Result<()> {
-    let mut buf = MByteBuffer::new_packet()?;
+    let socket_id = if let Some(Entity::Player(data)) = world.get_opt_entity(send_entity) {
+        data.try_lock()?.socket.id
+    } else {
+        return Ok(());
+    };
 
-    buf.write(ServerPackets::UpdateTradeMoney)?;
-    buf.write(world.get::<&TradeMoney>(target_entity.0)?.vals)?;
-    buf.finish()?;
+    if let Some(Entity::Player(data)) = world.get_opt_entity(target_entity) {
+        let data = data.try_lock()?;
 
-    send_to(storage, world.get::<&Socket>(send_entity.0)?.id, buf)
+        let mut buf = MByteBuffer::new_packet()?;
+
+        buf.write(ServerPackets::UpdateTradeMoney)?;
+        buf.write(data.trade_money.vals)?;
+        buf.finish()?;
+
+        send_to(storage, socket_id, buf)?;
+    }
+    Ok(())
 }
 
 #[inline]
@@ -448,7 +502,7 @@ pub fn send_inittrade(
     let mut buf = MByteBuffer::new_packet()?;
 
     buf.write(ServerPackets::InitTrade)?;
-    buf.write(*target_entity)?;
+    buf.write(target_entity)?;
     buf.finish()?;
 
     send_to(storage, socket_id, buf)
@@ -485,7 +539,7 @@ pub fn send_traderequest(
     entity: GlobalKey,
     target_entity: GlobalKey,
 ) -> Result<()> {
-    let socket_id = if let Some(Entity::Player(data)) = world.get_opt_entity(entity) {
+    let socket_id = if let Some(Entity::Player(data)) = world.get_opt_entity(target_entity) {
         data.try_lock()?.socket.id
     } else {
         return Ok(());
@@ -494,7 +548,7 @@ pub fn send_traderequest(
     let mut buf = MByteBuffer::new_packet()?;
 
     buf.write(ServerPackets::TradeRequest)?;
-    buf.write(*entity)?;
+    buf.write(entity)?;
     buf.finish()?;
 
     send_to(storage, socket_id, buf)
