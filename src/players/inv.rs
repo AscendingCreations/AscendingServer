@@ -61,17 +61,17 @@ pub fn auto_set_inv_item(
     let mut save_item_list = Vec::new();
     let mut total_left = if item.val == 0 { 1 } else { item.val };
 
-    {
-        let mut player_inv = world.get::<&mut Inventory>(entity.0)?;
+    if let Some(Entity::Player(p_data)) = world.get_opt_entity(entity) {
+        let mut p_data = p_data.try_lock()?;
 
         if base.stackable {
             for id in 0..MAX_INV {
-                if player_inv.items[id].num == item.num
-                    && player_inv.items[id].val < base.stacklimit
-                    && player_inv.items[id].val > 0
+                if p_data.inventory.items[id].num == item.num
+                    && p_data.inventory.items[id].val < base.stacklimit
+                    && p_data.inventory.items[id].val > 0
                 {
                     val_add_rem(
-                        &mut player_inv.items[id].val,
+                        &mut p_data.inventory.items[id].val,
                         &mut total_left,
                         base.stacklimit,
                     );
@@ -89,8 +89,8 @@ pub fn auto_set_inv_item(
 
         if total_left != 0 {
             for id in 0..MAX_INV {
-                if player_inv.items[id].val == 0 {
-                    player_inv.items[id] = *item;
+                if p_data.inventory.items[id].val == 0 {
+                    p_data.inventory.items[id] = *item;
                     item.val = 0;
                     save_item_list.push(id);
                     break;
@@ -112,32 +112,37 @@ pub fn check_inv_item_space(
     item: &mut Item,
     base: &ItemData,
 ) -> Result<bool> {
-    let mut total_left = if item.val == 0 { 1 } else { item.val };
-    let player_inv = world.get::<&Inventory>(entity.0)?;
-    let mut empty_space_count = 0;
+    if let Some(Entity::Player(p_data)) = world.get_opt_entity(entity) {
+        let p_data = p_data.try_lock()?;
 
-    //First try to add it to other of the same type
-    for id in 0..MAX_INV {
-        if base.stackable
-            && player_inv.items[id].num == item.num
-            && player_inv.items[id].val < base.stacklimit
-            && player_inv.items[id].val > 0
-        {
-            if player_inv.items[id].val + total_left > base.stacklimit {
-                total_left = total_left + player_inv.items[id].val - base.stacklimit;
-            } else {
-                return Ok(true);
-            }
-        } else if player_inv.items[id].val == 0 {
-            if !base.stackable {
-                return Ok(true);
-            }
+        let mut total_left = if item.val == 0 { 1 } else { item.val };
+        let mut empty_space_count = 0;
 
-            empty_space_count += 1;
+        //First try to add it to other of the same type
+        for id in 0..MAX_INV {
+            if base.stackable
+                && p_data.inventory.items[id].num == item.num
+                && p_data.inventory.items[id].val < base.stacklimit
+                && p_data.inventory.items[id].val > 0
+            {
+                if p_data.inventory.items[id].val + total_left > base.stacklimit {
+                    total_left = total_left + p_data.inventory.items[id].val - base.stacklimit;
+                } else {
+                    return Ok(true);
+                }
+            } else if p_data.inventory.items[id].val == 0 {
+                if !base.stackable {
+                    return Ok(true);
+                }
+
+                empty_space_count += 1;
+            }
         }
-    }
 
-    Ok(empty_space_count > 0)
+        Ok(empty_space_count > 0)
+    } else {
+        Ok(false)
+    }
 }
 
 pub fn check_inv_item_partial_space(
@@ -148,27 +153,30 @@ pub fn check_inv_item_partial_space(
 ) -> Result<(u16, u16)> {
     let mut total_left = if item.val == 0 { 1 } else { item.val };
     let start_val = if item.val == 0 { 1 } else { item.val };
-    let player_inv = world.get::<&Inventory>(entity.0)?;
 
-    //First try to add it to other of the same type
-    if base.stackable {
-        for id in 0..MAX_INV {
-            if player_inv.items[id].num == item.num
-                && player_inv.items[id].val < base.stacklimit
-                && player_inv.items[id].val > 0
-            {
-                if player_inv.items[id].val + total_left > base.stacklimit {
-                    total_left = total_left + player_inv.items[id].val - base.stacklimit;
-                } else {
-                    return Ok((0, start_val));
+    if let Some(Entity::Player(p_data)) = world.get_opt_entity(entity) {
+        let p_data = p_data.try_lock()?;
+
+        //First try to add it to other of the same type
+        if base.stackable {
+            for id in 0..MAX_INV {
+                if p_data.inventory.items[id].num == item.num
+                    && p_data.inventory.items[id].val < base.stacklimit
+                    && p_data.inventory.items[id].val > 0
+                {
+                    if p_data.inventory.items[id].val + total_left > base.stacklimit {
+                        total_left = total_left + p_data.inventory.items[id].val - base.stacklimit;
+                    } else {
+                        return Ok((0, start_val));
+                    }
                 }
             }
         }
-    }
 
-    for id in 0..MAX_INV {
-        if player_inv.items[id].val == 0 {
-            return Ok((0, start_val));
+        for id in 0..MAX_INV {
+            if p_data.inventory.items[id].val == 0 {
+                return Ok((0, start_val));
+            }
         }
     }
 
@@ -186,31 +194,37 @@ pub fn set_inv_item(
     slot: usize,
     amount: u16,
 ) -> Result<u16> {
-    let player_inv = world.cloned_get_or_err::<Inventory>(entity)?;
-
     let mut rem = 0u16;
-    let item_min = std::cmp::min(amount, item.val);
 
-    if player_inv.items[slot].val == 0 {
-        {
-            let mut inv = world.get::<&mut Inventory>(entity.0)?;
-            inv.items[slot] = *item;
-            inv.items[slot].val = item_min;
+    if let Some(Entity::Player(p_data)) = world.get_opt_entity(entity) {
+        let player_inv = { p_data.try_lock()?.inventory.items[slot] };
+
+        let item_min = std::cmp::min(amount, item.val);
+
+        if player_inv.val == 0 {
+            {
+                let mut p_data = p_data.try_lock()?;
+
+                p_data.inventory.items[slot] = *item;
+                p_data.inventory.items[slot].val = item_min;
+            }
+
+            save_inv_item(world, storage, entity, slot)?;
+            return Ok(0);
+        } else if player_inv.num == item.num {
+            {
+                let mut p_data = p_data.try_lock()?;
+
+                rem = val_add_amount_rem(
+                    &mut p_data.inventory.items[slot].val,
+                    &mut item.val,
+                    item_min,
+                    base.stacklimit,
+                );
+            }
+
+            save_inv_item(world, storage, entity, slot)?;
         }
-
-        save_inv_item(world, storage, entity, slot)?;
-        return Ok(0);
-    } else if player_inv.items[slot].num == item.num {
-        {
-            rem = val_add_amount_rem(
-                &mut world.get::<&mut Inventory>(entity.0)?.items[slot].val,
-                &mut item.val,
-                item_min,
-                base.stacklimit,
-            );
-        }
-
-        save_inv_item(world, storage, entity, slot)?;
     }
 
     Ok(rem)
@@ -280,23 +294,26 @@ pub fn take_inv_items(
     num: u32,
     mut amount: u16,
 ) -> Result<u16> {
-    if count_inv_item(num, &world.cloned_get_or_err::<Inventory>(entity)?.items) >= amount as u64 {
-        while let Some(slot) =
-            find_inv_item(num, &world.cloned_get_or_err::<Inventory>(entity)?.items)
-        {
-            let mut take_amount = 0;
-            {
-                if let Ok(mut invitem) = world.get::<&mut Inventory>(entity.0) {
-                    take_amount = invitem.items[slot].val;
-                    invitem.items[slot].val = invitem.items[slot].val.saturating_sub(amount);
+    if let Some(Entity::Player(p_data)) = world.get_opt_entity(entity) {
+        let inventory = { p_data.try_lock()?.inventory.clone() };
+
+        if count_inv_item(num, &inventory.items) >= amount as u64 {
+            while let Some(slot) = find_inv_item(num, &inventory.items) {
+                {
+                    let mut p_data = p_data.try_lock()?;
+
+                    let take_amount = p_data.inventory.items[slot].val;
+                    p_data.inventory.items[slot].val =
+                        p_data.inventory.items[slot].val.saturating_sub(amount);
+
+                    amount = amount.saturating_sub(take_amount);
                 }
-            }
-            amount = amount.saturating_sub(take_amount);
 
-            save_inv_item(world, storage, entity, slot)?;
+                save_inv_item(world, storage, entity, slot)?;
 
-            if amount == 0 {
-                return Ok(0);
+                if amount == 0 {
+                    return Ok(0);
+                }
             }
         }
     }
@@ -312,19 +329,26 @@ pub fn take_inv_itemslot(
     slot: usize,
     mut amount: u16,
 ) -> Result<u16> {
-    let player_inv = world.cloned_get_or_err::<Inventory>(entity)?;
-    amount = std::cmp::min(amount, player_inv.items[slot].val);
-    {
-        if let Ok(mut player_inv) = world.get::<&mut Inventory>(entity.0) {
-            player_inv.items[slot].val = player_inv.items[slot].val.saturating_sub(amount);
-            if player_inv.items[slot].val == 0 {
-                player_inv.items[slot] = Item::default();
-            }
-        }
-    }
-    save_inv_item(world, storage, entity, slot)?;
+    if let Some(Entity::Player(p_data)) = world.get_opt_entity(entity) {
+        let result = {
+            let mut p_data = p_data.try_lock()?;
 
-    Ok(world.get::<&Inventory>(entity.0)?.items[slot].val)
+            amount = std::cmp::min(amount, p_data.inventory.items[slot].val);
+
+            p_data.inventory.items[slot].val =
+                p_data.inventory.items[slot].val.saturating_sub(amount);
+            if p_data.inventory.items[slot].val == 0 {
+                p_data.inventory.items[slot] = Item::default();
+            }
+
+            p_data.inventory.items[slot].val
+        };
+
+        save_inv_item(world, storage, entity, slot)?;
+
+        return Ok(result);
+    }
+    Ok(0)
 }
 
 #[inline]
@@ -364,18 +388,19 @@ pub fn auto_set_trade_item(
 ) -> Result<Vec<usize>> {
     let mut save_slot_list = Vec::new();
 
-    {
-        let mut player_trade = world.get::<&mut TradeItem>(entity.0)?;
-        while let Some(slot) = find_trade_slot(item, &player_trade.items, base) {
-            if player_trade.items[slot].val == 0 {
-                player_trade.items[slot] = *item;
+    if let Some(Entity::Player(p_data)) = world.get_opt_entity(entity) {
+        let mut p_data = p_data.try_lock()?;
+
+        while let Some(slot) = find_trade_slot(item, &p_data.trade_item.items, base) {
+            if p_data.trade_item.items[slot].val == 0 {
+                p_data.trade_item.items[slot] = *item;
                 item.val = 0;
                 save_slot_list.push(slot);
                 break;
             }
 
             let rem = val_add_rem(
-                &mut player_trade.items[slot].val,
+                &mut p_data.trade_item.items[slot].val,
                 &mut item.val,
                 base.stacklimit,
             );
@@ -505,26 +530,34 @@ pub fn player_unequip(
     entity: GlobalKey,
     slot: usize,
 ) -> Result<bool> {
-    if world.cloned_get_or_err::<Equipment>(entity)?.items[slot].val == 0 {
-        return Ok(true);
+    if let Some(Entity::Player(p_data)) = world.get_opt_entity(entity) {
+        let mut item = {
+            let p_data = p_data.try_lock()?;
+
+            if p_data.equipment.items[slot].val == 0 {
+                return Ok(true);
+            }
+
+            p_data.equipment.items[slot]
+        };
+
+        if !check_inv_space(world, storage, entity, &mut item)? {
+            return Ok(false);
+        }
+
+        give_inv_item(world, storage, entity, &mut item)?;
+
+        {
+            p_data.try_lock()?.equipment.items[slot] = Item::default();
+        }
+
+        update_equipment(storage, world, entity, slot)?;
+        send_equipment(world, storage, entity)?;
+
+        Ok(true)
+    } else {
+        Ok(false)
     }
-
-    let mut item = world.get::<&Equipment>(entity.0)?.items[slot];
-
-    if !check_inv_space(world, storage, entity, &mut item)? {
-        return Ok(false);
-    }
-
-    give_inv_item(world, storage, entity, &mut item)?;
-
-    {
-        world.get::<&mut Equipment>(entity.0)?.items[slot] = Item::default();
-    }
-
-    update_equipment(storage, world, entity, slot)?;
-    send_equipment(world, storage, entity)?;
-
-    Ok(true)
 }
 
 pub fn player_equip(
@@ -534,12 +567,13 @@ pub fn player_equip(
     item: Item,
     slot: usize,
 ) -> Result<()> {
-    {
-        world.get::<&mut Equipment>(entity.0)?.items[slot] = item;
+    if let Some(Entity::Player(p_data)) = world.get_opt_entity(entity) {
+        {
+            p_data.try_lock()?.equipment.items[slot] = item;
+        }
+        update_equipment(storage, world, entity, slot)?;
+        send_equipment(world, storage, entity)?;
     }
-    update_equipment(storage, world, entity, slot)?;
-    send_equipment(world, storage, entity)?;
-
     Ok(())
 }
 
@@ -552,76 +586,79 @@ pub fn player_use_item(
     if slot as usize >= MAX_INV {
         return Ok(());
     }
-    let item = world.cloned_get_or_err::<Inventory>(entity)?.items[slot as usize];
-    if item.val == 0 {
-        return Ok(());
-    }
 
-    let base = &storage.bases.items[item.num as usize];
+    if let Some(Entity::Player(p_data)) = world.get_opt_entity(entity) {
+        let (item, player_pos, player_vital) = {
+            let p_data = p_data.try_lock()?;
 
-    match base.itemtype {
-        ItemTypes::Consume => {
-            if base.data[0] > 0 {
-                let player_vital = world.get_or_err::<Vitals>(entity)?;
-                let set_vital = player_vital.vital[VitalTypes::Hp as usize]
-                    .saturating_add(base.data[0] as i32)
-                    .min(player_vital.vitalmax[VitalTypes::Hp as usize]);
-                player_set_vital(world, storage, entity, VitalTypes::Hp, set_vital)?;
+            (
+                p_data.inventory.items[slot as usize],
+                p_data.movement.pos,
+                p_data.combat.vitals,
+            )
+        };
 
-                DataTaskToken::Damage(world.get_or_default::<Position>(entity).map).add_task(
-                    storage,
-                    damage_packet(
-                        *entity,
-                        base.data[0] as u16,
-                        world.get_or_default::<Position>(entity),
-                        false,
-                    )?,
-                )?;
-            }
-
-            if base.data[1] > 0 {
-                let player_vital = world.get_or_err::<Vitals>(entity)?;
-                let set_vital = player_vital.vital[VitalTypes::Mp as usize]
-                    .saturating_add(base.data[1] as i32)
-                    .min(player_vital.vitalmax[VitalTypes::Mp as usize]);
-                player_set_vital(world, storage, entity, VitalTypes::Mp, set_vital)?;
-            }
-
-            if base.data[2] > 0 {
-                let player_vital = world.get_or_err::<Vitals>(entity)?;
-                let set_vital = player_vital.vital[VitalTypes::Sp as usize]
-                    .saturating_add(base.data[2] as i32)
-                    .min(player_vital.vitalmax[VitalTypes::Sp as usize]);
-                player_set_vital(world, storage, entity, VitalTypes::Sp, set_vital)?;
-            }
+        if item.val == 0 {
+            return Ok(());
         }
-        ItemTypes::Weapon
-        | ItemTypes::Helmet
-        | ItemTypes::Armor
-        | ItemTypes::Trouser
-        | ItemTypes::Accessory => {
-            let eqslot = match base.itemtype {
-                ItemTypes::Helmet => EquipmentType::Helmet,
-                ItemTypes::Armor => EquipmentType::Chest,
-                ItemTypes::Trouser => EquipmentType::Pants,
-                ItemTypes::Accessory => EquipmentType::Accessory,
-                _ => EquipmentType::Weapon,
-            } as usize;
 
-            if !player_unequip(world, storage, entity, eqslot)? {
-                // ToDo Warning cannot unequip
-                return Ok(());
+        let base = &storage.bases.items[item.num as usize];
+
+        match base.itemtype {
+            ItemTypes::Consume => {
+                if base.data[0] > 0 {
+                    let set_vital = player_vital.vital[VitalTypes::Hp as usize]
+                        .saturating_add(base.data[0] as i32)
+                        .min(player_vital.vitalmax[VitalTypes::Hp as usize]);
+                    player_set_vital(world, storage, entity, VitalTypes::Hp, set_vital)?;
+
+                    DataTaskToken::Damage(player_pos.map).add_task(
+                        storage,
+                        damage_packet(entity, base.data[0] as u16, player_pos, false)?,
+                    )?;
+                }
+
+                if base.data[1] > 0 {
+                    let set_vital = player_vital.vital[VitalTypes::Mp as usize]
+                        .saturating_add(base.data[1] as i32)
+                        .min(player_vital.vitalmax[VitalTypes::Mp as usize]);
+                    player_set_vital(world, storage, entity, VitalTypes::Mp, set_vital)?;
+                }
+
+                if base.data[2] > 0 {
+                    let set_vital = player_vital.vital[VitalTypes::Sp as usize]
+                        .saturating_add(base.data[2] as i32)
+                        .min(player_vital.vitalmax[VitalTypes::Sp as usize]);
+                    player_set_vital(world, storage, entity, VitalTypes::Sp, set_vital)?;
+                }
             }
-            player_equip(world, storage, entity, item, eqslot)?;
+            ItemTypes::Weapon
+            | ItemTypes::Helmet
+            | ItemTypes::Armor
+            | ItemTypes::Trouser
+            | ItemTypes::Accessory => {
+                let eqslot = match base.itemtype {
+                    ItemTypes::Helmet => EquipmentType::Helmet,
+                    ItemTypes::Armor => EquipmentType::Chest,
+                    ItemTypes::Trouser => EquipmentType::Pants,
+                    ItemTypes::Accessory => EquipmentType::Accessory,
+                    _ => EquipmentType::Weapon,
+                } as usize;
+
+                if !player_unequip(world, storage, entity, eqslot)? {
+                    // ToDo Warning cannot unequip
+                    return Ok(());
+                }
+                player_equip(world, storage, entity, item, eqslot)?;
+            }
+            _ => return Ok(()),
         }
-        _ => return Ok(()),
+
+        if let Some(_sfx) = &base.sound_index {
+            send_playitemsfx(world, storage, entity, item.num as u16)?;
+        }
+
+        take_inv_itemslot(world, storage, entity, slot as usize, 1)?;
     }
-
-    if let Some(_sfx) = &base.sound_index {
-        send_playitemsfx(world, storage, entity, item.num as u16)?;
-    }
-
-    take_inv_itemslot(world, storage, entity, slot as usize, 1)?;
-
     Ok(())
 }

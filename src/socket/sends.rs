@@ -579,7 +579,7 @@ pub fn send_playitemsfx(
 }
 
 #[inline]
-pub fn send_gameping(world: &mut World, storage: &Storage, socket_id: Token) -> Result<()> {
+pub fn send_gameping(storage: &Storage, socket_id: Token) -> Result<()> {
     let mut buf = MByteBuffer::new_packet()?;
 
     buf.write(ServerPackets::Ping)?;

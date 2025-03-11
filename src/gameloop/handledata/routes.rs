@@ -28,7 +28,7 @@ pub fn handle_ping(
     _entity: Option<GlobalKey>,
     socket_id: SocketID,
 ) -> Result<()> {
-    send_gameping(world, storage, socket_id.id)
+    send_gameping(storage, socket_id.id)
 }
 
 pub fn handle_register(
