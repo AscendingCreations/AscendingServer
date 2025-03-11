@@ -1,7 +1,7 @@
 use mio::Token;
 
 use crate::{
-    AscendingError, OnlineType, PacketRouter,
+    AscendingError, PacketRouter,
     containers::{GlobalKey, Storage, World},
     gametypes::Result,
     socket::*,
@@ -21,25 +21,23 @@ pub fn handle_data(
 ) -> Result<()> {
     let id: ClientPacket = data.read()?;
 
-    let onlinetype = world.get_or_err::<OnlineType>(entity)?;
-
-    match onlinetype {
-        OnlineType::Online => match id {
+    if entity.is_some() {
+        match id {
             ClientPacket::Login
             | ClientPacket::Register
             | ClientPacket::HandShake
             | ClientPacket::OnlineCheck => return Err(AscendingError::MultiLogin),
             _ => {}
-        },
-        OnlineType::Accepted => match id {
+        }
+    } else {
+        match id {
             ClientPacket::Login
             | ClientPacket::Register
             | ClientPacket::OnlineCheck
             | ClientPacket::HandShake
             | ClientPacket::Ping => {}
             _ => return Err(AscendingError::PacketManipulation { name: "".into() }),
-        },
-        OnlineType::None => return Err(AscendingError::PacketManipulation { name: "".into() }),
+        }
     }
 
     if id == ClientPacket::OnlineCheck {
@@ -51,5 +49,5 @@ pub fn handle_data(
         None => return Err(AscendingError::InvalidPacket),
     };
 
-    fun(world, storage, data, entity)
+    fun(world, storage, data, entity, socket_id)
 }

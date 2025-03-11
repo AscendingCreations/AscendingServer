@@ -3,7 +3,12 @@ use mmap_bytey::{MByteBufferRead, MByteBufferWrite};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
-use crate::{containers::GlobalKey, gametypes::*, items::Item, time_ext::MyInstant};
+use crate::{
+    containers::{GlobalKey, HashSet},
+    gametypes::*,
+    items::Item,
+    time_ext::MyInstant,
+};
 
 use super::{CombatData, MovementData};
 
@@ -168,7 +173,7 @@ pub struct PlayerConnectionTimer(#[educe(Default = MyInstant::now())] pub MyInst
 
 #[derive(Clone, Debug, Default)]
 pub struct ReloginCode {
-    pub code: String,
+    pub code: HashSet<String>,
 }
 
 #[derive(Clone, Debug, Default)]

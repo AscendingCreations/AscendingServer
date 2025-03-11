@@ -1,7 +1,7 @@
-use std::backtrace::Backtrace;
+use std::{backtrace::Backtrace, sync::Arc};
 
 use crate::{
-    containers::{GlobalKey, Storage, World},
+    containers::{Entity, GlobalKey, PlayerConnectionTimer, Socket, Storage, World},
     gametypes::*,
     items::Item,
     maps::*,
@@ -15,20 +15,24 @@ use log::{debug, info};
 use rand::distr::{Alphanumeric, SampleString};
 use regex::Regex;
 
+use super::SocketID;
+
 pub fn handle_ping(
     world: &mut World,
     storage: &Storage,
     _data: &mut MByteBuffer,
-    entity: GlobalKey,
+    _entity: Option<GlobalKey>,
+    socket_id: SocketID,
 ) -> Result<()> {
-    send_gameping(world, storage, entity)
+    send_gameping(world, storage, socket_id.id)
 }
 
 pub fn handle_register(
     world: &mut World,
     storage: &Storage,
     data: &mut MByteBuffer,
-    entity: GlobalKey,
+    entity: Option<GlobalKey>,
+    socket_id: SocketID,
 ) -> Result<()> {
     let username = data.read::<String>()?;
     let password = data.read::<String>()?;
@@ -38,148 +42,194 @@ pub fn handle_register(
     let appminior = data.read::<u16>()? as usize;
     let apprevision = data.read::<u16>()? as usize;
 
-    if !storage.player_ids.borrow().contains(entity) {
-        let (socket_id, address) = {
-            let socket = world.get::<&Socket>(entity.0)?;
-            (socket.id, socket.addr.clone())
-        };
-
-        if APP_MAJOR > appmajor && APP_MINOR > appminior && APP_REVISION > apprevision {
-            return send_infomsg(
-                storage,
-                socket_id,
-                "Client needs to be updated.".into(),
-                1,
-                true,
-            );
-        }
-
-        let email_regex = Regex::new(
-            r"^([a-z0-9_+]([a-z0-9_+.]*[a-z0-9_+])?)@([a-z0-9]+([\-\.]{1}[a-z0-9]+)*\.[a-z]{2,6})",
-        )?;
-
-        if !username.chars().all(is_name_acceptable)
-            || !password.chars().all(is_password_acceptable)
-        {
-            return send_infomsg(
-                storage,
-                socket_id,
-                "Username or Password contains unaccepted Characters".into(),
-                0,
-                true,
-            );
-        }
-
-        if username.len() >= 64 {
-            return send_infomsg(
-                storage,
-                socket_id,
-                "Username has too many Characters, 64 Characters Max".into(),
-                0,
-                true,
-            );
-        }
-
-        if password.len() >= 128 {
-            return send_infomsg(
-                storage,
-                socket_id,
-                "Password has too many Characters, 128 Characters Max".into(),
-                0,
-                true,
-            );
-        }
-
-        if !email_regex.is_match(&email) || sprite_id >= 6 {
-            return send_infomsg(
-                storage,
-                socket_id,
-                "Email must be an actual email.".into(),
-                0,
-                true,
-            );
-        }
-
-        match check_existance(storage, &username, &email) {
-            Ok(i) => match i {
-                0 => {}
-                1 => {
-                    return send_infomsg(
-                        storage,
-                        socket_id,
-                        "Username Exists. Please try Another.".into(),
-                        0,
-                        true,
-                    );
-                }
-                2 => {
-                    return send_infomsg(
-                        storage,
-                        socket_id,
-                        "Email Already Exists. Please Try Another.".into(),
-                        0,
-                        true,
-                    );
-                }
-                _ => return Err(AscendingError::RegisterFail),
-            },
-            Err(_) => return Err(AscendingError::UserNotFound),
-        }
-
-        let code = Alphanumeric.sample_string(&mut rand::rng(), 32);
-        let handshake = Alphanumeric.sample_string(&mut rand::rng(), 32);
-
-        let tick = *storage.gettick.borrow();
-        // we need to Add all the player types creations in a sub function that Creates the Defaults and then adds them to World.
-        storage.add_player_data(world, entity, code.clone(), handshake.clone(), tick)?;
-
-        {
-            let (account, sprite) = world.query_one_mut::<(&mut Account, &mut Sprite)>(entity.0)?;
-
-            account.username.clone_from(&username);
-            sprite.id = sprite_id as u16;
-        }
-
-        storage
-            .player_names
-            .borrow_mut()
-            .insert(username.clone(), *entity);
-
-        info!("New Player {} with IP {}, Logging in.", &username, &address);
-
-        return match new_player(storage, world, entity, username, email, password) {
-            Ok(uid) => {
-                {
-                    world.get::<&mut Account>(entity.0)?.id = uid;
-                }
-                send_myindex(storage, socket_id, entity)?;
-                send_codes(world, storage, entity, code, handshake)
-            }
-            Err(_) => send_infomsg(
-                storage,
-                socket_id,
-                "There was an Issue Creating the player account. Please Contact Support.".into(),
-                0,
-                true,
-            ),
-        };
+    if entity.is_some() {
+        return Err(AscendingError::InvalidSocket);
     }
 
-    Err(AscendingError::InvalidSocket)
+    let socket = if let Some(client) = storage.server.borrow().clients.get(&socket_id.id) {
+        let brw_client = client.borrow();
+        Socket {
+            addr: Arc::new(brw_client.addr.to_string()),
+            id: socket_id.id.0,
+        }
+    } else {
+        return Err(AscendingError::InvalidSocket);
+    };
+
+    if APP_MAJOR > appmajor && APP_MINOR > appminior && APP_REVISION > apprevision {
+        return send_infomsg(
+            storage,
+            socket.id,
+            "Client needs to be updated.".into(),
+            1,
+            true,
+        );
+    }
+
+    let email_regex = Regex::new(
+        r"^([a-z0-9_+]([a-z0-9_+.]*[a-z0-9_+])?)@([a-z0-9]+([\-\.]{1}[a-z0-9]+)*\.[a-z]{2,6})",
+    )?;
+
+    if !username.chars().all(is_name_acceptable) || !password.chars().all(is_password_acceptable) {
+        return send_infomsg(
+            storage,
+            socket.id,
+            "Username or Password contains unaccepted Characters".into(),
+            0,
+            true,
+        );
+    }
+
+    if username.len() >= 64 {
+        return send_infomsg(
+            storage,
+            socket.id,
+            "Username has too many Characters, 64 Characters Max".into(),
+            0,
+            true,
+        );
+    }
+
+    if password.len() >= 128 {
+        return send_infomsg(
+            storage,
+            socket.id,
+            "Password has too many Characters, 128 Characters Max".into(),
+            0,
+            true,
+        );
+    }
+
+    if !email_regex.is_match(&email) || sprite_id >= 6 {
+        return send_infomsg(
+            storage,
+            socket.id,
+            "Email must be an actual email.".into(),
+            0,
+            true,
+        );
+    }
+
+    match check_existance(storage, &username, &email) {
+        Ok(i) => match i {
+            0 => {}
+            1 => {
+                return send_infomsg(
+                    storage,
+                    socket.id,
+                    "Username Exists. Please try Another.".into(),
+                    0,
+                    true,
+                );
+            }
+            2 => {
+                return send_infomsg(
+                    storage,
+                    socket.id,
+                    "Email Already Exists. Please Try Another.".into(),
+                    0,
+                    true,
+                );
+            }
+            _ => return Err(AscendingError::RegisterFail),
+        },
+        Err(_) => return Err(AscendingError::UserNotFound),
+    }
+
+    return match new_player(storage, username.clone(), email, password, &socket) {
+        Ok(uid) => {
+            let code = Alphanumeric.sample_string(&mut rand::rng(), 32);
+            let handshake = Alphanumeric.sample_string(&mut rand::rng(), 32);
+
+            // we need to Add all the player types creations in a sub function that Creates the Defaults and then adds them to World.
+            let entity =
+                storage.add_player_data(world, code.clone(), handshake.clone(), socket.clone())?;
+
+            if let Some(Entity::Player(p_data)) = world.get_opt_entity(entity) {
+                let mut p_data = p_data.try_lock()?;
+
+                p_data.account.username.clone_from(&username);
+                p_data.account.id = uid;
+                p_data.sprite.id = sprite_id as u16;
+            }
+
+            storage
+                .hand_shakes
+                .borrow_mut()
+                .insert(handshake.clone(), entity);
+
+            storage
+                .player_names
+                .borrow_mut()
+                .insert(username.clone(), entity);
+            storage
+                .player_code
+                .borrow_mut()
+                .insert(code.to_owned(), entity);
+
+            let tick = *storage.gettick.borrow();
+
+            storage.player_timeout.borrow_mut().insert(
+                entity,
+                PlayerConnectionTimer(tick + Duration::try_milliseconds(60000).unwrap_or_default()),
+            );
+
+            info!(
+                "New Player {} with IP {}, Logging in.",
+                &username, &socket.addr
+            );
+
+            send_myindex(storage, socket.id, entity)?;
+            send_codes(world, storage, entity, code, handshake)
+        }
+        Err(_) => send_infomsg(
+            storage,
+            socket.id,
+            "There was an Issue Creating the player account. Please Contact Support.".into(),
+            0,
+            true,
+        ),
+    };
 }
 
 pub fn handle_handshake(
     world: &mut World,
     storage: &Storage,
     data: &mut MByteBuffer,
-    entity: GlobalKey,
+    _entity: Option<GlobalKey>,
+    socket_id: SocketID,
 ) -> Result<()> {
     let handshake = data.read::<String>()?;
 
-    if world.get::<&LoginHandShake>(entity.0)?.handshake == handshake {
-        world.remove_one::<LoginHandShake>(entity.0)?;
-        world.remove_one::<ConnectionLoginTimer>(entity.0)?;
-        return joingame(world, storage, entity);
+    let entity = match storage.hand_shakes.borrow_mut().remove(&handshake) {
+        Some(e) => e,
+        None => return Err(AscendingError::InvalidSocket),
+    };
+
+    if let Some(Entity::Player(p_data)) = world.get_opt_entity(entity) {
+        let mut can_join = false;
+
+        {
+            let mut p_data = p_data.try_lock()?;
+
+            if p_data.login_handshake.handshake == handshake {
+                //world.remove_one::<LoginHandShake>(entity)?;
+
+                let _ = storage.player_timeout.borrow_mut().remove(entity);
+
+                p_data.socket.id = socket_id.id.0;
+
+                if let Some(client) = storage.server.borrow().clients.get(&socket_id.id) {
+                    client.borrow_mut().entity = Some(entity);
+                }
+
+                can_join = true;
+            }
+        }
+
+        if can_join {
+            return joingame(world, storage, entity);
+        }
     }
 
     Err(AscendingError::InvalidSocket)
@@ -189,7 +239,8 @@ pub fn handle_login(
     world: &mut World,
     storage: &Storage,
     data: &mut MByteBuffer,
-    entity: GlobalKey,
+    entity: Option<GlobalKey>,
+    socket_id: SocketID,
 ) -> Result<()> {
     let username = data.read::<String>()?;
     let password = data.read::<String>()?;
@@ -198,98 +249,132 @@ pub fn handle_login(
     let apprevision = data.read::<u16>()? as usize;
     let reconnect_code = data.read::<String>()?;
 
-    let (socket_id, address) = {
-        let socket = world.get::<&Socket>(entity.0)?;
-        (socket.id, socket.addr.clone())
+    if entity.is_some() {
+        return Err(AscendingError::InvalidSocket);
+    }
+
+    let socket = if let Some(client) = storage.server.borrow().clients.get(&socket_id.id) {
+        let brw_client = client.borrow();
+        Socket {
+            addr: Arc::new(brw_client.addr.to_string()),
+            id: socket_id.id.0,
+        }
+    } else {
+        return Err(AscendingError::InvalidSocket);
     };
 
-    if !storage.player_ids.borrow().contains(entity) {
-        if APP_MAJOR > appmajor && APP_MINOR > appminior && APP_REVISION > apprevision {
+    if APP_MAJOR > appmajor && APP_MINOR > appminior && APP_REVISION > apprevision {
+        return send_infomsg(
+            storage,
+            socket.id,
+            "Client needs to be updated.".into(),
+            1,
+            true,
+        );
+    }
+
+    if username.len() >= 64 || password.len() >= 128 {
+        return send_infomsg(
+            storage,
+            socket.id,
+            "Account does not Exist or Password is not Correct.".into(),
+            0,
+            true,
+        );
+    }
+
+    let id = match find_player(storage, &username, &password)? {
+        Some(id) => id,
+        None => {
             return send_infomsg(
                 storage,
-                socket_id,
-                "Client needs to be updated.".into(),
+                socket.id,
+                "Account does not Exist or Password is not Correct.".into(),
                 1,
                 true,
             );
         }
+    };
 
-        if username.len() >= 64 || password.len() >= 128 {
-            return send_infomsg(
-                storage,
-                socket_id,
-                "Account does not Exist or Password is not Correct.".into(),
-                0,
-                true,
-            );
-        }
+    // we need to Add all the player types creations in a sub function that Creates the Defaults and then adds them to World.
+    let code = Alphanumeric.sample_string(&mut rand::rng(), 32);
+    let handshake = Alphanumeric.sample_string(&mut rand::rng(), 32);
+    let old_entity = { storage.player_names.borrow().get(&username).copied() };
 
-        let id = match find_player(storage, &username, &password)? {
-            Some(id) => id,
-            None => {
-                return send_infomsg(
-                    storage,
-                    socket_id,
-                    "Account does not Exist or Password is not Correct.".into(),
-                    1,
-                    true,
-                );
-            }
-        };
+    if let Some(old_entity) = old_entity {
+        if let Some(entity) = entity {
+            if old_entity != entity {
+                if let Some(Entity::Player(p_data)) = world.get_opt_entity(old_entity) {
+                    let (old_code, old_socket) = {
+                        let p_data = p_data.try_lock()?;
+                        (p_data.relogin_code.clone(), p_data.socket.clone())
+                    };
 
-        // we need to Add all the player types creations in a sub function that Creates the Defaults and then adds them to World.
-        let code = Alphanumeric.sample_string(&mut rand::rng(), 32);
-        let handshake = Alphanumeric.sample_string(&mut rand::rng(), 32);
-        let old_entity = { storage.player_names.borrow().get(&username).copied() };
-
-        if let Some(old_entity) = old_entity {
-            if old_entity.0 != entity.0 {
-                let old_code = world.cloned_get_or_default::<ReloginCode>(&old_entity);
-
-                // if old code is empty means they did get unloaded just not all the way for some reason.
-                if old_code.code.is_empty() {
-                    let _ = storage.player_names.borrow_mut().remove(&username);
-                } else if !reconnect_code.is_empty() && reconnect_code == old_code.code {
-                    if let Ok(socket) = world.cloned_get_or_err::<Socket>(&old_entity) {
-                        if socket.id != socket_id {
-                            if let Some(client) =
-                                storage.server.borrow().clients.get(&mio::Token(socket.id))
+                    // if old code is empty means they did get unloaded just not all the way for some reason.
+                    if old_code.code.is_empty() {
+                        let _ = storage.player_names.borrow_mut().remove(&username);
+                    } else if !reconnect_code.is_empty() && old_code.code.contains(&reconnect_code)
+                    {
+                        if old_socket.id != socket.id {
+                            if let Some(client) = storage
+                                .server
+                                .borrow()
+                                .clients
+                                .get(&mio::Token(old_socket.id))
                             {
                                 client.borrow_mut().close_socket(world, storage)?;
                             } else {
-                                return send_swap_error(world, storage, socket.id, socket_id);
+                                return send_swap_error(world, storage, old_socket.id, socket.id);
                             }
                         } else {
-                            return send_swap_error(world, storage, socket.id, socket_id);
+                            return send_swap_error(world, storage, old_socket.id, socket.id);
                         }
+                    } else {
+                        return send_infomsg(
+                            storage,
+                            socket.id,
+                            "Error Loading User.".into(),
+                            1,
+                            true,
+                        );
                     }
-                } else {
-                    return send_infomsg(storage, socket_id, "Error Loading User.".into(), 1, true);
                 }
             }
         }
-
-        let tick = *storage.gettick.borrow();
-        storage.add_player_data(world, entity, code.clone(), handshake.clone(), tick)?;
-
-        if let Err(_e) = load_player(storage, world, entity, id) {
-            return send_infomsg(storage, socket_id, "Error Loading User.".into(), 1, true);
-        }
-
-        let name = world.cloned_get_or_err::<Account>(entity)?.username;
-
-        info!("Player {} with IP: {}, Logging in.", &name, address);
-        return send_login_info(world, storage, entity, code, handshake, socket_id, name);
     }
 
-    Err(AscendingError::InvalidSocket)
+    let entity = storage.add_player_data(world, code.clone(), handshake.clone(), socket.clone())?;
+
+    if let Err(_e) = load_player(storage, world, entity, id) {
+        return send_infomsg(storage, socket.id, "Error Loading User.".into(), 1, true);
+    }
+
+    let tick = *storage.gettick.borrow();
+
+    storage.player_timeout.borrow_mut().insert(
+        entity,
+        PlayerConnectionTimer(tick + Duration::try_milliseconds(60000).unwrap_or_default()),
+    );
+
+    let name = if let Some(Entity::Player(p_data)) = world.get_opt_entity(entity) {
+        let name = p_data.try_lock()?.account.username.clone();
+
+        info!("Player {} with IP: {}, Logging in.", &name, &socket.addr);
+
+        name
+    } else {
+        return send_infomsg(storage, socket.id, "Error Loading User.".into(), 1, true);
+    };
+
+    return send_login_info(world, storage, entity, code, handshake, socket.id, name);
 }
 
 pub fn handle_move(
     world: &mut World,
     storage: &Storage,
     data: &mut MByteBuffer,
-    entity: GlobalKey,
+    entity: Option<GlobalKey>,
+    socket_id: SocketID,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
         if !world.get_or_err::<DeathType>(entity)?.is_alive()
@@ -325,7 +410,8 @@ pub fn handle_dir(
     world: &mut World,
     storage: &Storage,
     data: &mut MByteBuffer,
-    entity: GlobalKey,
+    entity: Option<GlobalKey>,
+    socket_id: SocketID,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
         if !world.get_or_err::<DeathType>(entity)?.is_alive()
@@ -357,7 +443,8 @@ pub fn handle_attack(
     world: &mut World,
     storage: &Storage,
     data: &mut MByteBuffer,
-    entity: GlobalKey,
+    entity: Option<GlobalKey>,
+    socket_id: SocketID,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
         if !world.get_or_err::<DeathType>(entity)?.is_alive()
@@ -406,7 +493,8 @@ pub fn handle_useitem(
     world: &mut World,
     storage: &Storage,
     data: &mut MByteBuffer,
-    entity: GlobalKey,
+    entity: Option<GlobalKey>,
+    socket_id: SocketID,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
         if !world.get_or_err::<DeathType>(entity)?.is_alive()
@@ -435,7 +523,8 @@ pub fn handle_unequip(
     world: &mut World,
     storage: &Storage,
     data: &mut MByteBuffer,
-    entity: GlobalKey,
+    entity: Option<GlobalKey>,
+    socket_id: SocketID,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
         if !world.get_or_err::<DeathType>(entity)?.is_alive()
@@ -471,7 +560,8 @@ pub fn handle_switchinvslot(
     world: &mut World,
     storage: &Storage,
     data: &mut MByteBuffer,
-    entity: GlobalKey,
+    entity: Option<GlobalKey>,
+    socket_id: SocketID,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
         if !world.get_or_err::<DeathType>(entity)?.is_alive()
@@ -543,7 +633,8 @@ pub fn handle_pickup(
     world: &mut World,
     storage: &Storage,
     _data: &mut MByteBuffer,
-    entity: GlobalKey,
+    entity: Option<GlobalKey>,
+    socket_id: SocketID,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
         let mut remove_id: Vec<(MapPosition, Entity)> = Vec::new();
@@ -694,7 +785,8 @@ pub fn handle_dropitem(
     world: &mut World,
     storage: &Storage,
     data: &mut MByteBuffer,
-    entity: GlobalKey,
+    entity: Option<GlobalKey>,
+    socket_id: SocketID,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
         if !world.get_or_err::<DeathType>(entity)?.is_alive()
@@ -757,7 +849,8 @@ pub fn handle_deleteitem(
     world: &mut World,
     storage: &Storage,
     data: &mut MByteBuffer,
-    entity: GlobalKey,
+    entity: Option<GlobalKey>,
+    socket_id: SocketID,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
         if !world.get_or_err::<DeathType>(entity)?.is_alive()
@@ -787,7 +880,8 @@ pub fn handle_switchstorageslot(
     world: &mut World,
     storage: &Storage,
     data: &mut MByteBuffer,
-    entity: GlobalKey,
+    entity: Option<GlobalKey>,
+    socket_id: SocketID,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
         if !world.get_or_err::<DeathType>(entity)?.is_alive()
@@ -859,7 +953,8 @@ pub fn handle_deletestorageitem(
     world: &mut World,
     storage: &Storage,
     data: &mut MByteBuffer,
-    entity: GlobalKey,
+    entity: Option<GlobalKey>,
+    socket_id: SocketID,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
         if !world.get_or_err::<DeathType>(entity)?.is_alive()
@@ -889,7 +984,8 @@ pub fn handle_deposititem(
     world: &mut World,
     storage: &Storage,
     data: &mut MByteBuffer,
-    entity: GlobalKey,
+    entity: Option<GlobalKey>,
+    socket_id: SocketID,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
         if !world.get_or_err::<DeathType>(entity)?.is_alive()
@@ -953,7 +1049,8 @@ pub fn handle_withdrawitem(
     world: &mut World,
     storage: &Storage,
     data: &mut MByteBuffer,
-    entity: GlobalKey,
+    entity: Option<GlobalKey>,
+    socket_id: SocketID,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
         if !world.get_or_err::<DeathType>(entity)?.is_alive()
@@ -1016,7 +1113,8 @@ pub fn handle_message(
     world: &mut World,
     storage: &Storage,
     data: &mut MByteBuffer,
-    entity: GlobalKey,
+    entity: Option<GlobalKey>,
+    socket_id: SocketID,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
         let mut usersocket: Option<usize> = None;
@@ -1106,7 +1204,8 @@ pub fn handle_command(
     world: &mut World,
     storage: &Storage,
     data: &mut MByteBuffer,
-    entity: GlobalKey,
+    entity: Option<GlobalKey>,
+    socket_id: SocketID,
 ) -> Result<()> {
     if let Some(_p) = storage.player_ids.borrow().get(entity) {
         let command = data.read::<Command>()?;
@@ -1209,7 +1308,8 @@ pub fn handle_settarget(
     world: &mut World,
     storage: &Storage,
     data: &mut MByteBuffer,
-    entity: GlobalKey,
+    entity: Option<GlobalKey>,
+    socket_id: SocketID,
 ) -> Result<()> {
     if let Some(_p) = storage.player_ids.borrow().get(entity) {
         let target = data.read::<Option<GlobalKey>>()?;
@@ -1231,7 +1331,8 @@ pub fn handle_closestorage(
     world: &mut World,
     storage: &Storage,
     _data: &mut MByteBuffer,
-    entity: GlobalKey,
+    entity: Option<GlobalKey>,
+    socket_id: SocketID,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
         if !world.get_or_err::<DeathType>(entity)?.is_alive()
@@ -1255,7 +1356,8 @@ pub fn handle_closeshop(
     world: &mut World,
     storage: &Storage,
     _data: &mut MByteBuffer,
-    entity: GlobalKey,
+    entity: Option<GlobalKey>,
+    socket_id: SocketID,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
         if !world.get_or_err::<DeathType>(entity)?.is_alive()
@@ -1279,7 +1381,8 @@ pub fn handle_closetrade(
     world: &mut World,
     storage: &Storage,
     _data: &mut MByteBuffer,
-    entity: GlobalKey,
+    entity: Option<GlobalKey>,
+    socket_id: SocketID,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
         if !world.get_or_err::<DeathType>(entity)?.is_alive()
@@ -1327,7 +1430,8 @@ pub fn handle_buyitem(
     world: &mut World,
     storage: &Storage,
     data: &mut MByteBuffer,
-    entity: GlobalKey,
+    entity: Option<GlobalKey>,
+    socket_id: SocketID,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
         if !world.get_or_err::<DeathType>(entity)?.is_alive()
@@ -1397,7 +1501,8 @@ pub fn handle_sellitem(
     world: &mut World,
     storage: &Storage,
     data: &mut MByteBuffer,
-    entity: GlobalKey,
+    entity: Option<GlobalKey>,
+    socket_id: SocketID,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
         if !world.get_or_err::<DeathType>(entity)?.is_alive()
@@ -1451,7 +1556,8 @@ pub fn handle_addtradeitem(
     world: &mut World,
     storage: &Storage,
     data: &mut MByteBuffer,
-    entity: GlobalKey,
+    entity: Option<GlobalKey>,
+    socket_id: SocketID,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
         if !world.get_or_err::<DeathType>(entity)?.is_alive()
@@ -1522,7 +1628,8 @@ pub fn handle_removetradeitem(
     world: &mut World,
     storage: &Storage,
     data: &mut MByteBuffer,
-    entity: GlobalKey,
+    entity: Option<GlobalKey>,
+    socket_id: SocketID,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
         if !world.get_or_err::<DeathType>(entity)?.is_alive()
@@ -1576,7 +1683,8 @@ pub fn handle_updatetrademoney(
     world: &mut World,
     storage: &Storage,
     data: &mut MByteBuffer,
-    entity: GlobalKey,
+    entity: Option<GlobalKey>,
+    socket_id: SocketID,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
         if !world.get_or_err::<DeathType>(entity)?.is_alive()
@@ -1616,7 +1724,8 @@ pub fn handle_submittrade(
     world: &mut World,
     storage: &Storage,
     _data: &mut MByteBuffer,
-    entity: GlobalKey,
+    entity: Option<GlobalKey>,
+    socket_id: SocketID,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
         if !world.get_or_err::<DeathType>(entity)?.is_alive()
@@ -1703,7 +1812,8 @@ pub fn handle_accepttrade(
     world: &mut World,
     storage: &Storage,
     _data: &mut MByteBuffer,
-    entity: GlobalKey,
+    entity: Option<GlobalKey>,
+    socket_id: SocketID,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
         if !world.get_or_err::<DeathType>(entity)?.is_alive()
@@ -1766,7 +1876,8 @@ pub fn handle_declinetrade(
     world: &mut World,
     storage: &Storage,
     _data: &mut MByteBuffer,
-    entity: GlobalKey,
+    entity: Option<GlobalKey>,
+    socket_id: SocketID,
 ) -> Result<()> {
     if let Some(entity) = storage.player_ids.borrow().get(entity) {
         if !world.get_or_err::<DeathType>(entity)?.is_alive()

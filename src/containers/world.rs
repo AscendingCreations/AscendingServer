@@ -65,7 +65,7 @@ impl World {
 
     /// Returns a Cloned Entity or Defaulted Entity::None. This is Efficient since Entity is Arc.
     /// This also Avoids us holding onto the World.
-    pub fn get_entity_or_default(&self, key: GlobalKey) -> GlobalKey {
+    pub fn get_entity_or_default(&self, key: GlobalKey) -> Entity {
         self.entities.get(key).cloned().unwrap_or_default()
     }
 }

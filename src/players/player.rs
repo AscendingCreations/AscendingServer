@@ -5,10 +5,8 @@ use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
 
 pub fn is_player_online(world: &mut World, entity: GlobalKey) -> Result<bool> {
-    Ok(
-        *world.get::<&EntityKind>(entity.0)? == EntityKind::Player
-            && *world.get::<&OnlineType>(entity.0)? == OnlineType::Online,
-    )
+    Ok(*world.get::<&EntityKind>(entity.0)? == EntityKind::Player
+        && *world.get::<&OnlineType>(entity.0)? == OnlineType::Online)
 }
 
 #[inline(always)]
@@ -306,19 +304,19 @@ pub fn send_login_info(
     socket_id: usize,
     username: String,
 ) -> Result<()> {
-    world.insert(
-        entity.0,
-        (
-            ReloginCode {
-                code: code.to_owned(),
-            },
-            LoginHandShake {
-                handshake: handshake.to_owned(),
-            },
-        ),
-    )?;
+    if let Some(Entity::Player(p_data)) = world.get_opt_entity(entity) {
+        let mut p_data = p_data.try_lock()?;
 
-    storage.player_names.borrow_mut().insert(username, *entity);
+        p_data.relogin_code.code.insert(code.to_owned());
+        p_data.login_handshake.handshake = handshake.to_owned();
+    }
+
+    storage.player_names.borrow_mut().insert(username, entity);
+    storage
+        .player_code
+        .borrow_mut()
+        .insert(code.to_owned(), entity);
+
     send_myindex(storage, socket_id, entity)?;
     send_codes(world, storage, entity, code, handshake)
 }

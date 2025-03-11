@@ -1,4 +1,4 @@
-use super::routes;
+use super::{SocketID, routes};
 use crate::{
     containers::{GlobalKey, Storage, World},
     gametypes::*,
@@ -6,7 +6,8 @@ use crate::{
 };
 use std::collections::HashMap;
 
-type PacketFunction = fn(&mut World, &Storage, &mut MByteBuffer, GlobalKey) -> Result<()>;
+type PacketFunction =
+    fn(&mut World, &Storage, &mut MByteBuffer, Option<GlobalKey>, SocketID) -> Result<()>;
 
 pub struct PacketRouter(pub HashMap<ClientPacket, PacketFunction>);
 

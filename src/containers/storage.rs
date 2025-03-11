@@ -3,12 +3,10 @@ use crate::{
     gametypes::*,
     maps::*,
     npcs::*,
-    players::*,
     socket::*,
     tasks::{DataTaskToken, MapSwitchTasks},
     time_ext::MyInstant,
 };
-use chrono::Duration;
 use log::LevelFilter;
 use mio::{Poll, Token};
 use rustls::{
@@ -22,11 +20,20 @@ use sqlx::{
     ConnectOptions, PgPool,
     postgres::{PgConnectOptions, PgPoolOptions},
 };
-use std::{cell::RefCell, collections::VecDeque, fs, io::BufReader, sync::Arc};
+use std::{
+    cell::RefCell,
+    collections::VecDeque,
+    fs,
+    io::BufReader,
+    sync::{Arc, Mutex},
+};
 use tokio::runtime::Runtime;
 use tokio::task;
 
-use super::{GlobalKey, PlayerConnectionTimer, World};
+use super::{
+    Entity, EntityKind, GlobalKey, LoginHandShake, MovementData, PlayerConnectionTimer,
+    PlayerEntity, ReloginCode, Socket, Spawn, World,
+};
 
 pub struct Storage {
     pub player_ids: RefCell<IndexSet<GlobalKey>>,
@@ -36,6 +43,8 @@ pub struct Storage {
     pub maps: IndexMap<MapPosition, RefCell<MapData>>,
     pub map_items: RefCell<IndexMap<Position, GlobalKey>>,
     pub player_timeout: RefCell<SecondaryMap<GlobalKey, PlayerConnectionTimer>>,
+    pub hand_shakes: RefCell<HashMap<String, GlobalKey>>,
+    pub player_code: RefCell<IndexMap<String, GlobalKey>>,
     //This is for buffering the specific packets needing to send.
     #[allow(clippy::type_complexity)]
     pub packet_cache: RefCell<IndexMap<DataTaskToken, VecDeque<(u32, MByteBuffer, bool)>>>,
@@ -200,6 +209,8 @@ impl Storage {
             map_items: RefCell::new(IndexMap::default()),
             packet_cache: RefCell::new(IndexMap::default()),
             packet_cache_ids: RefCell::new(IndexSet::default()),
+            hand_shakes: RefCell::new(HashMap::default()),
+            player_code: RefCell::new(IndexMap::default()),
             poll: RefCell::new(poll),
             server: RefCell::new(server),
             gettick: RefCell::new(MyInstant::now()),
@@ -280,13 +291,46 @@ impl Storage {
     pub fn add_player_data(
         &self,
         world: &mut World,
-        entity: GlobalKey,
         code: String,
         handshake: String,
-        time: MyInstant,
-    ) -> Result<()> {
-        self.player_ids.borrow_mut().insert(*entity);
-        Ok(())
+        socket: Socket,
+    ) -> Result<GlobalKey> {
+        let mut hash_code = HashSet::new();
+        hash_code.insert(code.to_owned());
+
+        let entity = world.kinds.insert(EntityKind::Player);
+
+        let start_pos = Position {
+            x: 0,
+            y: 0,
+            map: MapPosition {
+                x: 0,
+                y: 0,
+                group: 0,
+            },
+        };
+
+        world.entities.insert(
+            entity,
+            Entity::Player(Arc::new(Mutex::new(PlayerEntity {
+                movement: MovementData {
+                    pos: start_pos,
+                    spawn: Spawn {
+                        pos: start_pos,
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                },
+                login_handshake: LoginHandShake { handshake },
+                relogin_code: ReloginCode { code: hash_code },
+                online_type: OnlineType::Accepted,
+                socket,
+                ..Default::default()
+            }))),
+        );
+
+        self.player_ids.borrow_mut().insert(entity);
+        Ok(entity)
     }
 
     pub fn remove_player(

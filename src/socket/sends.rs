@@ -1,5 +1,7 @@
 use std::ops::Range;
 
+use mio::Token;
+
 use crate::{
     containers::{Entity, GlobalKey, Storage, TradeStatus, World},
     gametypes::*,
@@ -577,18 +579,12 @@ pub fn send_playitemsfx(
 }
 
 #[inline]
-pub fn send_gameping(world: &mut World, storage: &Storage, entity: GlobalKey) -> Result<()> {
-    let socket_id = if let Some(Entity::Player(data)) = world.get_opt_entity(entity) {
-        data.try_lock()?.socket.id
-    } else {
-        return Ok(());
-    };
-
+pub fn send_gameping(world: &mut World, storage: &Storage, socket_id: Token) -> Result<()> {
     let mut buf = MByteBuffer::new_packet()?;
 
     buf.write(ServerPackets::Ping)?;
     buf.write(0u64)?;
     buf.finish()?;
 
-    send_to(storage, socket_id, buf)
+    send_to(storage, socket_id.0, buf)
 }

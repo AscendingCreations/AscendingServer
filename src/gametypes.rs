@@ -43,9 +43,6 @@ pub const MAX_STORAGE: usize = 70;
 pub const MAX_EQPT: usize = 5;
 pub const MAX_ITEM_VAL: usize = 999;
 pub const MAX_NAME_LENGTH: usize = 32;
-pub const START_MAP: u32 = 21;
-pub const START_X: u32 = 17;
-pub const START_Y: u32 = 15;
 pub const MAX_PARTY_SIZE: usize = 12;
 pub const MAX_SHOP_ITEM: usize = 20;
 

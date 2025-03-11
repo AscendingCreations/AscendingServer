@@ -108,11 +108,10 @@ pub fn check_existance(storage: &Storage, username: &str, email: &str) -> Result
 
 pub fn new_player(
     storage: &Storage,
-    world: &mut World,
-    entity: GlobalKey,
     username: String,
     email: String,
     password: String,
+    socket: &Socket,
 ) -> Result<i64> {
     let rt = storage.rt.borrow_mut();
     let local = storage.local.borrow();
