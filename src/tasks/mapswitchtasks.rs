@@ -1,10 +1,9 @@
 use std::cmp::max;
 
 use crate::{
-    containers::{GlobalKey, HashSet, Storage, World},
+    containers::{Entity, GlobalKey, HashSet, Storage, World},
     gametypes::*,
     maps::*,
-    players::*,
     tasks::{DataTaskToken, map_item_packet, npc_spawn_packet, player_spawn_packet},
 };
 
@@ -22,10 +21,16 @@ pub fn init_data_lists(
     user: GlobalKey,
     oldmap: Option<MapPosition>,
 ) -> Result<()> {
+    let user_pos = if let Some(Entity::Player(p_data)) = world.get_opt_entity(user) {
+        p_data.try_lock()?.movement.pos
+    } else {
+        return Ok(());
+    };
+
     let mut map_switch_tasks = storage.map_switch_tasks.borrow_mut();
 
     let (not_yet_sent_players, not_yet_sent_npcs, not_yet_sent_items) =
-        if let Some(tasks) = map_switch_tasks.get_mut(user) {
+        if let Some(tasks) = map_switch_tasks.get_mut(&user) {
             let mut player = HashSet::default();
             let mut npcs = HashSet::default();
             let mut items = HashSet::default();
@@ -84,7 +89,7 @@ pub fn init_data_lists(
 
     //Only get the New id's not in Old for the Vec we use the old data to deturmine what use to exist.
     //the users map is always first in the Vec of get_surrounding so it always gets loaded first.
-    for m in get_surrounding(world.get_or_err::<Position>(user)?.map, true) {
+    for m in get_surrounding(user_pos.map, true) {
         if let Some(mapref) = storage.maps.get(&m) {
             let map = mapref.borrow();
             map.players.iter().for_each(|id| {
@@ -107,12 +112,12 @@ pub fn init_data_lists(
         }
     }
 
-    if let Some(tasks) = map_switch_tasks.get_mut(user) {
+    if let Some(tasks) = map_switch_tasks.get_mut(&user) {
         tasks.push(MapSwitchTasks::Player(task_player));
         tasks.push(MapSwitchTasks::Npc(task_npc));
         tasks.push(MapSwitchTasks::Items(task_item));
     } else {
-        map_switch_tasks.insert(*user, vec![
+        map_switch_tasks.insert(user, vec![
             MapSwitchTasks::Player(task_player),
             MapSwitchTasks::Npc(task_npc),
             MapSwitchTasks::Items(task_item),
@@ -129,23 +134,24 @@ pub fn process_data_lists(world: &mut World, storage: &Storage) -> Result<()> {
     let mut maptasks = storage.map_switch_tasks.borrow_mut();
     let process_limit = max(PROCESS_LIMIT / (1 + maptasks.len() * 3), 10);
 
-    for (entity, tasks) in maptasks.iter_mut() {
+    for (player_entity, tasks) in maptasks.iter_mut() {
         let mut contains_data = false;
 
-        let socket_id = world.get::<&Socket>(entity.0).map(|s| s.id);
-        if let Ok(socket_id) = socket_id {
+        if let Some(Entity::Player(p_data)) = world.get_opt_entity(*player_entity) {
+            let socket_id = { p_data.try_lock()?.socket.id };
+
             for task in tasks {
                 let amount_left = match task {
                     MapSwitchTasks::Npc(entities) => {
                         let cursor = entities.len().saturating_sub(process_limit);
 
                         for entity in entities.drain(cursor..) {
-                            if world.contains(entity.0) {
-                                DataTaskToken::NpcSpawnToEntity(socket_id).add_task(
-                                    storage,
-                                    npc_spawn_packet(world, GlobalKey, false)?,
-                                )?;
+                            if !world.entities.contains_key(entity) {
+                                continue;
                             }
+
+                            DataTaskToken::NpcSpawnToEntity(socket_id)
+                                .add_task(storage, npc_spawn_packet(world, entity, false)?)?;
                         }
 
                         entities.len()
@@ -154,12 +160,12 @@ pub fn process_data_lists(world: &mut World, storage: &Storage) -> Result<()> {
                         let cursor = entities.len().saturating_sub(process_limit);
 
                         for entity in entities.drain(cursor..) {
-                            if world.contains(entity.0) {
-                                DataTaskToken::PlayerSpawnToEntity(socket_id).add_task(
-                                    storage,
-                                    player_spawn_packet(world, GlobalKey, false)?,
-                                )?;
+                            if !world.entities.contains_key(entity) {
+                                continue;
                             }
+
+                            DataTaskToken::PlayerSpawnToEntity(socket_id)
+                                .add_task(storage, player_spawn_packet(world, entity, false)?)?;
                         }
 
                         entities.len()
@@ -168,14 +174,16 @@ pub fn process_data_lists(world: &mut World, storage: &Storage) -> Result<()> {
                         let cursor = entities.len().saturating_sub(process_limit);
 
                         for entity in entities.drain(cursor..) {
-                            if let Ok(map_item) = world.get::<&MapItem>(entity.0) {
+                            if let Some(Entity::MapItem(mi_data)) = world.get_opt_entity(entity) {
+                                let mi_data = mi_data.try_lock()?;
+
                                 DataTaskToken::ItemLoadToEntity(socket_id).add_task(
                                     storage,
                                     map_item_packet(
                                         entity,
-                                        map_item.pos,
-                                        map_item.item,
-                                        map_item.ownerid,
+                                        mi_data.general.pos,
+                                        mi_data.general.item,
+                                        mi_data.general.ownerid,
                                         false,
                                     )?,
                                 )?;
@@ -193,13 +201,13 @@ pub fn process_data_lists(world: &mut World, storage: &Storage) -> Result<()> {
         }
 
         if !contains_data {
-            removals.push(*entity);
+            removals.push(*player_entity);
         }
     }
 
     //we can now remove any empty tasks so we dont rerun them again.
     for entity in removals {
-        maptasks.swap_remove(GlobalKey);
+        maptasks.swap_remove(&entity);
     }
 
     Ok(())
