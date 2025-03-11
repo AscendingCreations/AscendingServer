@@ -7,6 +7,7 @@ use crate::{
     tasks::{DataTaskToken, MapSwitchTasks},
     time_ext::MyInstant,
 };
+use chrono::Duration;
 use log::LevelFilter;
 use mio::{Poll, Token};
 use rustls::{
@@ -31,8 +32,9 @@ use tokio::runtime::Runtime;
 use tokio::task;
 
 use super::{
-    Entity, EntityKind, GlobalKey, LoginHandShake, MovementData, PlayerConnectionTimer,
-    PlayerEntity, ReloginCode, Socket, Spawn, World,
+    CombatData, Entity, EntityKind, GlobalKey, HashSet, LoginHandShake, MovementData, NpcEntity,
+    NpcMode, NpcTimer, PlayerConnectionTimer, PlayerEntity, ReloginCode, Socket, Spawn, Vitals,
+    World,
 };
 
 pub struct Storage {
@@ -295,7 +297,7 @@ impl Storage {
         handshake: String,
         socket: Socket,
     ) -> Result<GlobalKey> {
-        let mut hash_code = HashSet::new();
+        let mut hash_code = HashSet::default();
         hash_code.insert(code.to_owned());
 
         let entity = world.kinds.insert(EntityKind::Player);
@@ -333,49 +335,80 @@ impl Storage {
         Ok(entity)
     }
 
-    pub fn remove_player(
-        &self,
-        world: &mut World,
-        id: GlobalKey,
-    ) -> Result<(Socket, Option<Position>)> {
-        // only removes the Components in the Fisbone ::<>
-        let (socket,) = world.remove::<(Socket,)>(id.0)?;
-        let pos = world.remove::<(Position,)>(id.0).ok().map(|v| v.0);
-        if let Ok((account,)) = world.remove::<(Account,)>(id.0) {
-            println!("Players Disconnected : {}", &account.username);
-            self.player_names.borrow_mut().remove(&account.username);
-        }
-        //Removes Everything related to the Entity.
-        world.despawn(id.0)?;
+    pub fn remove_player(&self, world: &mut World, id: GlobalKey) -> Result<(Socket, Position)> {
+        let _ = world.kinds.remove(id);
+        let player = world.entities.remove(id);
 
-        self.player_ids.borrow_mut().swap_remove(&id);
-        Ok((socket, pos))
+        if let Some(data) = player {
+            if let Entity::Player(p_data) = data {
+                let p_data = p_data.try_lock()?;
+
+                println!("Players Disconnected : {}", &p_data.account.username);
+                self.player_names
+                    .borrow_mut()
+                    .remove(&p_data.account.username);
+
+                self.player_ids.borrow_mut().swap_remove(&id);
+                return Ok((p_data.socket.clone(), p_data.movement.pos));
+            }
+        }
+
+        Err(AscendingError::missing_entity())
     }
 
     pub fn add_npc(&self, world: &mut World, npc_id: u64) -> Result<Option<GlobalKey>> {
         if let Some(npcdata) = NpcData::load_npc(self, npc_id) {
-            world.insert_one(identity, EntityType::Npc(identity))?;
+            let entity = world.kinds.insert(EntityKind::Npc);
 
-            self.npc_ids.borrow_mut().insert(identity);
+            let mut vitals = Vitals::default();
 
-            Ok(Some(identity))
+            vitals.vital[VitalTypes::Hp as usize] = npcdata.maxhp as i32;
+            vitals.vitalmax[VitalTypes::Hp as usize] = npcdata.maxhp as i32;
+
+            world.entities.insert(
+                entity,
+                Entity::Npc(Arc::new(Mutex::new(NpcEntity {
+                    index: npc_id,
+                    timer: NpcTimer {
+                        spawntimer: *self.gettick.borrow()
+                            + Duration::try_milliseconds(npcdata.spawn_wait).unwrap_or_default(),
+                        ..Default::default()
+                    },
+                    combat: CombatData {
+                        vitals,
+                        ..Default::default()
+                    },
+                    mode: NpcMode::Normal,
+                    ..Default::default()
+                }))),
+            );
+
+            self.npc_ids.borrow_mut().insert(entity);
+
+            Ok(Some(entity))
         } else {
             Ok(None)
         }
     }
 
     pub fn remove_npc(&self, world: &mut World, id: GlobalKey) -> Result<Position> {
-        let ret: Position = world.get_or_err::<Position>(&id)?;
-        //Removes Everything related to the Entity.
-        world.despawn(id.0)?;
+        let _ = world.kinds.remove(id);
+        let npc = world.entities.remove(id);
         self.npc_ids.borrow_mut().swap_remove(&id);
 
-        //Removes the NPC from the block map.
-        //TODO expand this to support larger npc's liek bosses basedon their Block size.
-        if let Some(map) = self.maps.get(&ret.map) {
-            map.borrow_mut().remove_entity_from_grid(ret);
+        if let Some(Entity::Npc(n_data)) = npc {
+            let n_data = n_data.try_lock()?;
+
+            //Removes the NPC from the block map.
+            //TODO_ON_DEV expand this to support larger npc's liek bosses basedon their Block size.
+            if let Some(map) = self.maps.get(&n_data.movement.pos.map) {
+                map.borrow_mut()
+                    .remove_entity_from_grid(n_data.movement.pos);
+            }
+
+            return Ok(n_data.movement.pos);
         }
 
-        Ok(ret)
+        Err(AscendingError::missing_entity())
     }
 }

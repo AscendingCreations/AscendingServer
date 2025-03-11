@@ -476,10 +476,11 @@ impl Client {
 pub fn disconnect(playerid: GlobalKey, world: &mut World, storage: &Storage) -> Result<()> {
     left_game(world, storage, playerid)?;
 
-    let (socket, position) = storage.remove_player(world, playerid)?;
+    let result = storage.remove_player(world, playerid)?;
 
-    trace!("Players Disconnected IP: {} ", &socket.addr);
-    if let Some(pos) = position {
+    if let Some((socket, pos)) = result {
+        trace!("Players Disconnected IP: {} ", &socket.addr);
+
         if let Some(map) = storage.maps.get(&pos.map) {
             map.borrow_mut().remove_player(storage, playerid);
             map.borrow_mut().remove_entity_from_grid(pos);
