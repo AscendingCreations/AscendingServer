@@ -22,7 +22,7 @@ use regex::Regex;
 use super::SocketID;
 
 pub fn handle_ping(
-    world: &mut World,
+    _world: &mut World,
     storage: &Storage,
     _data: &mut MByteBuffer,
     _entity: Option<GlobalKey>,
@@ -1318,7 +1318,7 @@ pub fn handle_command(
     storage: &Storage,
     data: &mut MByteBuffer,
     entity: Option<GlobalKey>,
-    socket_id: SocketID,
+    _socket_id: SocketID,
 ) -> Result<()> {
     let entity = match entity {
         Some(e) => e,

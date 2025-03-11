@@ -1,16 +1,21 @@
 use crate::{
-    containers::{GlobalKey, Storage, World},
+    containers::{
+        DeathType, DespawnTimer, Entity, EntityKind, GlobalKey, MapItem, MapItemEntity, Storage,
+        World,
+    },
     gametypes::*,
     items::Item,
     maps::is_dir_blocked,
-    npcs::NpcSpawnedZone,
     tasks::{DataTaskToken, map_item_packet},
 };
 use chrono::Duration;
 use rand::{Rng, rng};
-use std::cmp::min;
+use std::{
+    cmp::min,
+    sync::{Arc, Mutex},
+};
 
-use super::{MapItem, check_surrounding};
+use super::check_surrounding;
 
 pub fn update_maps(world: &mut World, storage: &Storage) -> Result<()> {
     let mut rng = rng();
@@ -114,8 +119,17 @@ pub fn update_maps(world: &mut World, storage: &Storage) -> Result<()> {
                 if !storage_mapitem.contains_key(&data.pos) {
                     if data.timer <= tick {
                         let map_item = create_mapitem(data.index, data.amount, data.pos);
-                        let id = ;
-                        world.insert(id, (EntityType::MapItem(id), DespawnTimer::default()))?;
+
+                        let id = world.kinds.insert(EntityKind::MapItem);
+
+                        world.entities.insert(
+                            id,
+                            Entity::MapItem(Arc::new(Mutex::new(MapItemEntity {
+                                general: map_item,
+                                despawn_timer: DespawnTimer::default(),
+                            }))),
+                        );
+
                         storage_mapitem.insert(data.pos, id);
                         DataTaskToken::ItemLoad(data.pos.map).add_task(
                             storage,
@@ -164,11 +178,14 @@ pub fn spawn_npc(
     zone: Option<usize>,
     entity: GlobalKey,
 ) -> Result<()> {
-    *world.get::<&mut Position>(entity.0)? = pos;
-    world.get::<&mut Spawn>(entity.0)?.pos = pos;
-    world.get::<&mut NpcSpawnedZone>(entity.0)?.0 = zone;
-    *world.get::<&mut DeathType>(entity.0)? = DeathType::Spawning;
+    if let Some(Entity::Npc(n_data)) = world.get_opt_entity(entity) {
+        let mut n_data = n_data.try_lock()?;
 
+        n_data.movement.pos = pos;
+        n_data.movement.spawn.pos = pos;
+        n_data.spawned_zone.0 = zone;
+        n_data.combat.death_type = DeathType::Spawning;
+    }
     Ok(())
 }
 

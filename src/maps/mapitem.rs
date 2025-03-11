@@ -220,7 +220,7 @@ pub fn try_drop_item(
                 map_item.despawn = despawn;
                 map_item.ownertimer = ownertimer;
                 map_item.ownerid = ownerid;
-                //let id = ;
+
                 let id = world.kinds.insert(EntityKind::MapItem);
 
                 let despawntimer = if let Some(timer) = despawn {
