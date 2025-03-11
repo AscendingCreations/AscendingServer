@@ -1,9 +1,7 @@
 use crate::{
-    containers::{GlobalKey, World},
+    containers::{DeathType, Entity, GlobalKey, UserAccess, World},
     gametypes::*,
     items::*,
-    npcs::*,
-    players::*,
     socket::*,
 };
 
@@ -51,43 +49,28 @@ pub fn npc_spawn_packet(
     entity: GlobalKey,
     did_spawn: bool,
 ) -> Result<MByteBuffer> {
-    let mut query = world.query_one::<(
-        &Dir,
-        &Hidden,
-        &Level,
-        &DeathType,
-        &Physical,
-        &Position,
-        &Sprite,
-        &Vitals,
-        &NpcMode,
-        &NpcIndex,
-    )>(entity.0)?;
+    if let Some(Entity::Npc(n_data)) = world.get_opt_entity(entity) {
+        let n_data = n_data.try_lock()?;
 
-    if let Some((dir, hidden, level, life, physical, position, sprite, vitals, mode, npc_index)) =
-        query.get()
-    {
         let mut buffer = MByteBuffer::new()?;
         buffer
-            .write(dir.0)?
-            .write(hidden.0)?
+            .write(n_data.movement.dir)?
             .write(entity)?
-            .write(level.0)?
-            .write(life)?
-            .write(mode)?
-            .write(npc_index.0)?
-            .write(physical.damage)?
-            .write(physical.defense)?
-            .write(position)?
-            .write(sprite.id)?
-            .write(vitals.vital)?
-            .write(vitals.vitalmax)?
+            .write(n_data.combat.level)?
+            .write(n_data.combat.death_type)?
+            .write(n_data.mode)?
+            .write(n_data.index)?
+            .write(n_data.combat.physical.damage)?
+            .write(n_data.combat.physical.defense)?
+            .write(n_data.movement.pos)?
+            .write(n_data.sprite.id)?
+            .write(n_data.combat.vitals.vital)?
+            .write(n_data.combat.vitals.vitalmax)?
             .write(did_spawn)?;
 
         Ok(buffer)
     } else {
-        Err(AscendingError::HecNoEntity {
-            error: NoSuchEntity,
+        Err(AscendingError::MissingEntity {
             backtrace: Box::new(std::backtrace::Backtrace::capture()),
         })
     }
@@ -98,60 +81,31 @@ pub fn player_spawn_packet(
     entity: GlobalKey,
     did_spawn: bool,
 ) -> Result<MByteBuffer> {
-    let mut query = world.query_one::<(
-        &Account,
-        &Dir,
-        &Hidden,
-        &Level,
-        &DeathType,
-        &Physical,
-        &Position,
-        &Sprite,
-        &Vitals,
-        &UserAccess,
-        &Equipment,
-        &Player,
-    )>(entity.0)?;
+    if let Some(Entity::Player(p_data)) = world.get_opt_entity(entity) {
+        let p_data = p_data.try_lock()?;
 
-    if let Some((
-        account,
-        dir,
-        hidden,
-        level,
-        life,
-        physical,
-        position,
-        sprite,
-        vitals,
-        access,
-        equipment,
-        player,
-    )) = query.get()
-    {
         let mut buffer = MByteBuffer::new()?;
         buffer
-            .write(&account.username)?
-            .write(dir.0)?
-            .write(hidden.0)?
+            .write(&p_data.account.username)?
+            .write(p_data.movement.dir)?
             .write(entity)?
-            .write(level.0)?
-            .write(life)?
-            .write(physical.damage)?
-            .write(physical.defense)?
-            .write(position)?
-            .write(sprite.id)?
-            .write(vitals.vital)?
-            .write(vitals.vitalmax)?
-            .write(access)?
-            .write(equipment)? //85
-            .write(player.pk)?
-            .write(player.pvpon)?
+            .write(p_data.combat.level)?
+            .write(p_data.combat.death_type)?
+            .write(p_data.combat.physical.damage)?
+            .write(p_data.combat.physical.defense)?
+            .write(p_data.movement.pos)?
+            .write(p_data.sprite.id)?
+            .write(p_data.combat.vitals.vital)?
+            .write(p_data.combat.vitals.vitalmax)?
+            .write(p_data.user_access)?
+            .write(p_data.equipment.clone())? //85
+            .write(p_data.general.pk)?
+            .write(p_data.general.pvpon)?
             .write(did_spawn)?;
 
         Ok(buffer)
     } else {
-        Err(AscendingError::HecNoEntity {
-            error: NoSuchEntity,
+        Err(AscendingError::MissingEntity {
             backtrace: Box::new(std::backtrace::Backtrace::capture()),
         })
     }
