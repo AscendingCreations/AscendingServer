@@ -1,12 +1,15 @@
+use std::sync::{Arc, Mutex};
+
 use crate::{
-    containers::{GlobalKey, Storage, World},
+    containers::{
+        DespawnTimer, Entity, EntityKind, GlobalKey, IsUsingType, MapItem, MapItemEntity, Storage,
+        World,
+    },
     gametypes::*,
-    items::Item,
     socket::*,
     tasks::{DataTaskToken, map_item_packet, unload_entity_packet},
     time_ext::MyInstant,
 };
-use mmap_bytey::{MByteBufferRead, MByteBufferWrite};
 
 use super::{MapAttribute, create_mapitem};
 
@@ -32,18 +35,20 @@ pub fn update_map_items(world: &mut World, storage: &Storage) -> Result<()> {
     let mut to_remove = Vec::new();
 
     for id in &*storage.map_items.borrow() {
-        let mapitems = world.get_or_err::<MapItem>(id.1)?;
-        if mapitems.despawn.is_some() && world.get_or_err::<DespawnTimer>(id.1)?.0 <= tick {
-            to_remove.push((*id.1, *id.0))
+        if let Some(Entity::MapItem(i_data)) = world.get_opt_entity(*id.1) {
+            let i_data = i_data.try_lock()?;
+
+            if i_data.general.despawn.is_some() && i_data.despawn_timer.0 <= tick {
+                to_remove.push((*id.1, *id.0))
+            }
         }
     }
 
     for (entity, e_pos) in to_remove.iter_mut() {
         if let Some(map) = storage.maps.get(&e_pos.map) {
-            let pos = world.get_or_err::<MapItem>(entity)?.pos;
             let mut storage_mapitems = storage.map_items.borrow_mut();
-            if storage_mapitems.contains_key(&pos) {
-                storage_mapitems.swap_remove(&pos);
+            if storage_mapitems.contains_key(e_pos) {
+                storage_mapitems.swap_remove(e_pos);
             }
             map.borrow_mut().remove_item(*entity);
             DataTaskToken::EntityUnload(e_pos.map)
@@ -149,16 +154,19 @@ pub fn find_drop_pos(
                 }
 
                 if let Some(entity) = storage_mapitem.get(&check_pos) {
-                    let mapitem = world.get_or_err::<MapItem>(entity)?;
-                    if mapitem.item.num == drop_item.index
-                        && mapitem.item.val < item_base.stacklimit
-                    {
-                        let remaining_val = item_base.stacklimit - mapitem.item.val;
-                        leftover = leftover.saturating_sub(remaining_val);
-                        result.push((check_pos, Some(*entity)));
+                    if let Some(Entity::MapItem(mi_data)) = world.get_opt_entity(*entity) {
+                        let mi_data = mi_data.try_lock()?;
 
-                        if leftover == 0 {
-                            break 'endcheck;
+                        if mi_data.general.item.num == drop_item.index
+                            && mi_data.general.item.val < item_base.stacklimit
+                        {
+                            let remaining_val = item_base.stacklimit - mi_data.general.item.val;
+                            leftover = leftover.saturating_sub(remaining_val);
+                            result.push((check_pos, Some(*entity)));
+
+                            if leftover == 0 {
+                                break 'endcheck;
+                            }
                         }
                     }
                 }
@@ -193,11 +201,13 @@ pub fn try_drop_item(
         if item_base.stackable
             && let Some(got_entity) = found_pos.1
         {
-            if let Ok(mut mapitem) = world.get::<&mut MapItem>(got_entity.0) {
-                mapitem.item.val = mapitem.item.val.saturating_add(leftover);
-                if mapitem.item.val > item_base.stacklimit {
-                    leftover = mapitem.item.val - item_base.stacklimit;
-                    mapitem.item.val = item_base.stacklimit;
+            if let Some(Entity::MapItem(mi_data)) = world.get_opt_entity(got_entity) {
+                let mut mi_data = mi_data.try_lock()?;
+
+                mi_data.general.item.val = mi_data.general.item.val.saturating_add(leftover);
+                if mi_data.general.item.val > item_base.stacklimit {
+                    leftover = mi_data.general.item.val - item_base.stacklimit;
+                    mi_data.general.item.val = item_base.stacklimit;
                 } else {
                     break;
                 }
@@ -210,13 +220,23 @@ pub fn try_drop_item(
                 map_item.despawn = despawn;
                 map_item.ownertimer = ownertimer;
                 map_item.ownerid = ownerid;
-                let id = ;
+                //let id = ;
+                let id = world.kinds.insert(EntityKind::MapItem);
+
                 let despawntimer = if let Some(timer) = despawn {
                     DespawnTimer(timer)
                 } else {
                     DespawnTimer::default()
                 };
-                world.insert(id, (EntityType::MapItem(id), despawntimer))?;
+
+                world.entities.insert(
+                    id,
+                    Entity::MapItem(Arc::new(Mutex::new(MapItemEntity {
+                        general: map_item,
+                        despawn_timer: despawntimer,
+                    }))),
+                );
+
                 map_data.borrow_mut().itemids.insert(id);
                 storage_mapitem.insert(found_pos.0, id);
                 DataTaskToken::ItemLoad(found_pos.0.map).add_task(
@@ -236,66 +256,72 @@ pub fn player_interact_object(
     storage: &Storage,
     entity: GlobalKey,
 ) -> Result<()> {
-    if !world.contains(entity.0) {
-        return Ok(());
-    }
+    if let Some(Entity::Player(p_data)) = world.get_opt_entity(entity) {
+        let target_pos = {
+            let p_data = p_data.try_lock()?;
 
-    let pos = world.get_or_err::<Position>(entity)?;
-    let dir = world.get_or_err::<Dir>(entity)?.0;
-    let target_pos = match dir {
-        1 => {
-            let mut next_pos = pos;
-            next_pos.x += 1;
-            if next_pos.x >= 32 {
-                next_pos.x = 0;
-                next_pos.map.x += 1;
-            }
-            next_pos
-        }
-        2 => {
-            let mut next_pos = pos;
-            next_pos.y += 1;
-            if next_pos.y >= 32 {
-                next_pos.y = 0;
-                next_pos.map.y += 1;
-            }
-            next_pos
-        }
-        3 => {
-            let mut next_pos = pos;
-            next_pos.x -= 1;
-            if next_pos.x < 0 {
-                next_pos.x = 31;
-                next_pos.map.x -= 1;
-            }
-            next_pos
-        }
-        _ => {
-            let mut next_pos = pos;
-            next_pos.y -= 1;
-            if next_pos.y < 0 {
-                next_pos.y = 31;
-                next_pos.map.y -= 1;
-            }
-            next_pos
-        }
-    };
+            let pos = p_data.movement.pos;
+            let dir = p_data.movement.dir;
 
-    if let Some(mapdata) = storage.bases.maps.get(&target_pos.map) {
-        match mapdata.attribute[target_pos.as_tile()] {
-            MapAttribute::Storage => {
-                *world.get::<&mut IsUsingType>(entity.0)? = IsUsingType::Bank;
-                send_storage(world, storage, entity, 0..35)?;
-                send_storage(world, storage, entity, 35..MAX_STORAGE)?;
-                send_openstorage(world, storage, entity)
+            match dir {
+                1 => {
+                    let mut next_pos = pos;
+                    next_pos.x += 1;
+                    if next_pos.x >= 32 {
+                        next_pos.x = 0;
+                        next_pos.map.x += 1;
+                    }
+                    next_pos
+                }
+                2 => {
+                    let mut next_pos = pos;
+                    next_pos.y += 1;
+                    if next_pos.y >= 32 {
+                        next_pos.y = 0;
+                        next_pos.map.y += 1;
+                    }
+                    next_pos
+                }
+                3 => {
+                    let mut next_pos = pos;
+                    next_pos.x -= 1;
+                    if next_pos.x < 0 {
+                        next_pos.x = 31;
+                        next_pos.map.x -= 1;
+                    }
+                    next_pos
+                }
+                _ => {
+                    let mut next_pos = pos;
+                    next_pos.y -= 1;
+                    if next_pos.y < 0 {
+                        next_pos.y = 31;
+                        next_pos.map.y -= 1;
+                    }
+                    next_pos
+                }
             }
-            MapAttribute::Shop(shop_index) => {
-                *world.get::<&mut IsUsingType>(entity.0)? = IsUsingType::Store(shop_index as i64);
-                send_openshop(world, storage, entity, shop_index)
+        };
+
+        if let Some(mapdata) = storage.bases.maps.get(&target_pos.map) {
+            match mapdata.attribute[target_pos.as_tile()] {
+                MapAttribute::Storage => {
+                    {
+                        p_data.try_lock()?.is_using_type = IsUsingType::Bank;
+                    }
+                    send_storage(world, storage, entity, 0..35)?;
+                    send_storage(world, storage, entity, 35..MAX_STORAGE)?;
+                    send_openstorage(world, storage, entity)?;
+                }
+                MapAttribute::Shop(shop_index) => {
+                    {
+                        p_data.try_lock()?.is_using_type = IsUsingType::Store(shop_index as i64);
+                    }
+                    send_openshop(world, storage, entity, shop_index)?;
+                }
+                _ => {}
             }
-            _ => Ok(()),
         }
-    } else {
-        Ok(())
     }
+    Ok(())
 }
