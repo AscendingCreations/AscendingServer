@@ -324,7 +324,7 @@ pub fn send_message(
     msg: String,
     head: String,
     chan: MessageChannel,
-    id: Option<usize>,
+    id: Option<Token>,
 ) -> Result<()> {
     if let Some(Entity::Player(data)) = world.get_opt_entity(entity) {
         let data = data.try_lock()?;
@@ -347,8 +347,8 @@ pub fn send_message(
                 buf.write(Some(access))?;
                 buf.finish()?;
 
-                if let Some(i) = id {
-                    send_to(storage, i, buf.try_clone()?)?;
+                if let Some(token) = id {
+                    send_to(storage, token.0, buf.try_clone()?)?;
                 }
                 send_to(storage, data.socket.id, buf)?;
             }

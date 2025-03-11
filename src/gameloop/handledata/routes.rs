@@ -1,7 +1,10 @@
 use std::{backtrace::Backtrace, sync::Arc};
 
 use crate::{
-    containers::{Entity, GlobalKey, PlayerConnectionTimer, Socket, Storage, World},
+    containers::{
+        Entity, GlobalKey, IsUsingType, PlayerConnectionTimer, Socket, Storage, TradeRequestEntity,
+        TradeStatus, UserAccess, World,
+    },
     gametypes::*,
     items::Item,
     maps::*,
@@ -12,6 +15,7 @@ use crate::{
 };
 use chrono::Duration;
 use log::{debug, info};
+use mio::Token;
 use rand::distr::{Alphanumeric, SampleString};
 use regex::Regex;
 
@@ -374,36 +378,41 @@ pub fn handle_move(
     storage: &Storage,
     data: &mut MByteBuffer,
     entity: Option<GlobalKey>,
-    socket_id: SocketID,
+    _: SocketID,
 ) -> Result<()> {
-    if let Some(entity) = storage.player_ids.borrow().get(entity) {
-        if !world.get_or_err::<DeathType>(entity)?.is_alive()
-            || world.get_or_err::<IsUsingType>(entity)?.inuse()
-            || world.get_or_err::<Stunned>(entity)?.0
+    let entity = match entity {
+        Some(e) => e,
+        None => return Err(AscendingError::InvalidSocket),
+    };
+
+    let dir = data.read::<u8>()?;
+    let data_pos = data.read::<Position>()?;
+
+    let (id, pos) = if let Some(Entity::Player(p_data)) = world.get_opt_entity(entity) {
+        let p_data = p_data.try_lock()?;
+
+        if !p_data.combat.death_type.is_alive()
+            || p_data.is_using_type.inuse()
+            || p_data.combat.stunned
         {
             return Ok(());
         }
 
-        let dir = data.read::<u8>()?;
-        let data_pos = data.read::<Position>()?;
+        (p_data.socket.id, p_data.movement.pos)
+    } else {
+        return Ok(());
+    };
 
-        if storage.bases.maps.get(&data_pos.map).is_none() || dir > 3 {
-            return Err(AscendingError::InvalidPacket);
-        }
-
-        let pos = world.get_or_err::<Position>(entity)?;
-
-        if data_pos != pos {
-            //println!("Desync! {:?} {:?}", data_pos, pos);
-            player_warp(world, storage, entity, &pos, false)?;
-            return Ok(());
-        }
-        let id = world.get::<&Socket>(entity.0)?.id;
-
-        return send_move_ok(storage, id, player_movement(world, storage, entity, dir)?);
+    if storage.bases.maps.get(&data_pos.map).is_none() || dir > 3 {
+        return Err(AscendingError::InvalidPacket);
     }
 
-    Err(AscendingError::InvalidSocket)
+    if data_pos != pos {
+        player_warp(world, storage, entity, &pos, false)?;
+        return Ok(());
+    }
+
+    send_move_ok(storage, id, player_movement(world, storage, entity, dir)?)
 }
 
 pub fn handle_dir(
@@ -411,12 +420,17 @@ pub fn handle_dir(
     storage: &Storage,
     data: &mut MByteBuffer,
     entity: Option<GlobalKey>,
-    socket_id: SocketID,
+    _socket_id: SocketID,
 ) -> Result<()> {
-    if let Some(entity) = storage.player_ids.borrow().get(entity) {
-        if !world.get_or_err::<DeathType>(entity)?.is_alive()
-            || world.get_or_err::<IsUsingType>(entity)?.inuse()
-        {
+    let entity = match entity {
+        Some(e) => e,
+        None => return Err(AscendingError::InvalidSocket),
+    };
+
+    if let Some(Entity::Player(p_data)) = world.get_opt_entity(entity) {
+        let mut p_data = p_data.try_lock()?;
+
+        if !p_data.combat.death_type.is_alive() || p_data.is_using_type.inuse() {
             return Ok(());
         }
 
@@ -426,17 +440,11 @@ pub fn handle_dir(
             return Err(AscendingError::InvalidPacket);
         }
 
-        {
-            world.get::<&mut Dir>(entity.0)?.0 = dir;
-        }
+        p_data.movement.dir = dir;
 
-        DataTaskToken::Dir(world.get_or_err::<Position>(entity)?.map)
-            .add_task(storage, dir_packet(*entity, dir)?)?;
-
-        return Ok(());
+        DataTaskToken::Dir(p_data.movement.pos.map).add_task(storage, dir_packet(entity, dir)?)?;
     }
-
-    Err(AscendingError::InvalidSocket)
+    Ok(())
 }
 
 pub fn handle_attack(
@@ -444,49 +452,54 @@ pub fn handle_attack(
     storage: &Storage,
     data: &mut MByteBuffer,
     entity: Option<GlobalKey>,
-    socket_id: SocketID,
+    _socket_id: SocketID,
 ) -> Result<()> {
-    if let Some(entity) = storage.player_ids.borrow().get(entity) {
-        if !world.get_or_err::<DeathType>(entity)?.is_alive()
-            || world.get_or_err::<IsUsingType>(entity)?.inuse()
-            || world.get_or_err::<Attacking>(entity)?.0
-            || world.get_or_err::<AttackTimer>(entity)?.0 > *storage.gettick.borrow()
-        {
-            return Ok(());
-        }
+    let entity = match entity {
+        Some(e) => e,
+        None => return Err(AscendingError::InvalidSocket),
+    };
 
+    if let Some(Entity::Player(p_data)) = world.get_opt_entity(entity) {
         let dir = data.read::<u8>()?;
         let target = data.read::<Option<GlobalKey>>()?;
 
-        if dir > 3 {
-            return Err(AscendingError::InvalidPacket);
+        {
+            let mut p_data = p_data.try_lock()?;
+
+            if !p_data.combat.death_type.is_alive()
+                || p_data.is_using_type.inuse()
+                || p_data.combat.attacking
+                || p_data.combat.attack_timer.0 > *storage.gettick.borrow()
+            {
+                return Ok(());
+            }
+
+            if dir > 3 {
+                return Err(AscendingError::InvalidPacket);
+            }
+
+            if p_data.movement.dir != dir {
+                p_data.movement.dir = dir;
+
+                DataTaskToken::Dir(p_data.movement.pos.map)
+                    .add_task(storage, dir_packet(entity, dir)?)?;
+            };
+
+            p_data.combat.attack_timer.0 =
+                *storage.gettick.borrow() + Duration::try_milliseconds(250).unwrap_or_default();
         }
 
-        if world.get_or_err::<Dir>(entity)?.0 != dir {
-            {
-                world.get::<&mut Dir>(entity.0)?.0 = dir;
-            }
-            DataTaskToken::Dir(world.get_or_err::<Position>(entity)?.map)
-                .add_task(storage, dir_packet(*entity, dir)?)?;
-        };
-
         if let Some(target_entity) = target {
-            if world.contains(target_entity.0) {
-                if !player_combat(world, storage, entity, &target_entity)? {
-                    player_interact_object(world, storage, entity)?;
-                }
-                {
-                    world.get::<&mut AttackTimer>(entity.0)?.0 = *storage.gettick.borrow()
-                        + Duration::try_milliseconds(250).unwrap_or_default();
-                }
+            if world.entities.contains_key(target_entity)
+                && !player_combat(world, storage, entity, target_entity)?
+            {
+                player_interact_object(world, storage, entity)?;
             }
         } else {
             player_interact_object(world, storage, entity)?;
         }
-        return Ok(());
     }
-
-    Err(AscendingError::InvalidSocket)
+    Ok(())
 }
 
 pub fn handle_useitem(
@@ -494,29 +507,32 @@ pub fn handle_useitem(
     storage: &Storage,
     data: &mut MByteBuffer,
     entity: Option<GlobalKey>,
-    socket_id: SocketID,
+    _socket_id: SocketID,
 ) -> Result<()> {
-    if let Some(entity) = storage.player_ids.borrow().get(entity) {
-        if !world.get_or_err::<DeathType>(entity)?.is_alive()
-            || world.get_or_err::<IsUsingType>(entity)?.inuse()
-            || world.get_or_err::<Attacking>(entity)?.0
-            || world.get_or_err::<Stunned>(entity)?.0
-            || world.get_or_err::<PlayerItemTimer>(entity)?.itemtimer > *storage.gettick.borrow()
+    let entity = match entity {
+        Some(e) => e,
+        None => return Err(AscendingError::InvalidSocket),
+    };
+
+    let slot = data.read::<u16>()?;
+
+    if let Some(Entity::Player(p_data)) = world.get_opt_entity(entity) {
+        let mut p_data = p_data.try_lock()?;
+
+        if !p_data.combat.death_type.is_alive()
+            || p_data.is_using_type.inuse()
+            || p_data.combat.attacking
+            || p_data.combat.stunned
+            || p_data.item_timer.itemtimer > *storage.gettick.borrow()
         {
             return Ok(());
         }
 
-        let slot = data.read::<u16>()?;
-
-        {
-            world.get::<&mut PlayerItemTimer>(entity.0)?.itemtimer =
-                *storage.gettick.borrow() + Duration::try_milliseconds(250).unwrap_or_default();
-        }
-
-        return player_use_item(world, storage, entity, slot);
+        p_data.item_timer.itemtimer =
+            *storage.gettick.borrow() + Duration::try_milliseconds(250).unwrap_or_default();
     }
 
-    Err(AscendingError::InvalidSocket)
+    player_use_item(world, storage, entity, slot)
 }
 
 pub fn handle_unequip(
@@ -524,36 +540,45 @@ pub fn handle_unequip(
     storage: &Storage,
     data: &mut MByteBuffer,
     entity: Option<GlobalKey>,
-    socket_id: SocketID,
+    _socket_id: SocketID,
 ) -> Result<()> {
-    if let Some(entity) = storage.player_ids.borrow().get(entity) {
-        if !world.get_or_err::<DeathType>(entity)?.is_alive()
-            || world.get_or_err::<IsUsingType>(entity)?.inuse()
-            || world.get_or_err::<Attacking>(entity)?.0
-            || world.get_or_err::<Stunned>(entity)?.0
-            || world.get_or_err::<PlayerItemTimer>(entity)?.itemtimer > *storage.gettick.borrow()
+    let entity = match entity {
+        Some(e) => e,
+        None => return Err(AscendingError::InvalidSocket),
+    };
+
+    let slot = data.read::<u16>()? as usize;
+
+    let socket_id = if let Some(Entity::Player(p_data)) = world.get_opt_entity(entity) {
+        let p_data = p_data.try_lock()?;
+
+        if !p_data.combat.death_type.is_alive()
+            || p_data.is_using_type.inuse()
+            || p_data.combat.attacking
+            || p_data.combat.stunned
+            || p_data.item_timer.itemtimer > *storage.gettick.borrow()
         {
             return Ok(());
         }
 
-        let slot = data.read::<u16>()? as usize;
-
-        if slot >= EQUIPMENT_TYPE_MAX || world.get::<&Equipment>(entity.0)?.items[slot].val == 0 {
+        if slot >= EQUIPMENT_TYPE_MAX || p_data.equipment.items[slot].val == 0 {
             return Ok(());
         }
 
-        if !player_unequip(world, storage, entity, slot)? {
-            send_fltalert(
-                storage,
-                world.get::<&Socket>(entity.0)?.id,
-                "Could not unequiped. No inventory space.".into(),
-                FtlType::Error,
-            )?;
-        }
+        p_data.socket.id
+    } else {
         return Ok(());
-    }
+    };
 
-    Err(AscendingError::InvalidSocket)
+    if !player_unequip(world, storage, entity, slot)? {
+        send_fltalert(
+            storage,
+            socket_id,
+            "Could not unequiped. No inventory space.".into(),
+            FtlType::Error,
+        )?;
+    }
+    Ok(())
 }
 
 pub fn handle_switchinvslot(
@@ -561,64 +586,103 @@ pub fn handle_switchinvslot(
     storage: &Storage,
     data: &mut MByteBuffer,
     entity: Option<GlobalKey>,
-    socket_id: SocketID,
+    _socket_id: SocketID,
 ) -> Result<()> {
-    if let Some(entity) = storage.player_ids.borrow().get(entity) {
-        if !world.get_or_err::<DeathType>(entity)?.is_alive()
-            || world.get_or_err::<Attacking>(entity)?.0
-            || world.get_or_err::<Stunned>(entity)?.0
-            || world.get_or_err::<PlayerItemTimer>(entity)?.itemtimer > *storage.gettick.borrow()
-        {
-            return Ok(());
-        }
+    let entity = match entity {
+        Some(e) => e,
+        None => return Err(AscendingError::InvalidSocket),
+    };
 
+    if let Some(Entity::Player(p_data)) = world.get_opt_entity(entity) {
         let oldslot = data.read::<u16>()? as usize;
         let newslot = data.read::<u16>()? as usize;
-        let mut amount = data.read::<u16>()?;
+        let amount = data.read::<u16>()?;
 
-        if oldslot >= MAX_INV
-            || newslot >= MAX_INV
-            || world.get::<&Inventory>(entity.0)?.items[oldslot].val == 0
-        {
-            return Ok(());
-        }
+        let (new_amount, new_slot_val, socket_id) = {
+            let p_data = p_data.try_lock()?;
 
-        amount = amount.min(world.get::<&Inventory>(entity.0)?.items[oldslot].val);
-
-        let mut itemold = world.get::<&Inventory>(entity.0)?.items[oldslot];
-
-        if world.get::<&Inventory>(entity.0)?.items[newslot].val > 0 {
-            if world.get::<&Inventory>(entity.0)?.items[newslot].num
-                == world.get::<&Inventory>(entity.0)?.items[oldslot].num
+            if !p_data.combat.death_type.is_alive()
+                || p_data.combat.attacking
+                || p_data.combat.stunned
+                || p_data.item_timer.itemtimer > *storage.gettick.borrow()
+                || p_data.is_using_type.is_trading()
             {
-                let take_amount =
-                    amount - set_inv_slot(world, storage, entity, &mut itemold, newslot, amount)?;
-                if take_amount > 0 {
-                    take_inv_itemslot(world, storage, entity, oldslot, take_amount)?;
+                return Ok(());
+            }
+
+            if oldslot >= MAX_INV || newslot >= MAX_INV || p_data.inventory.items[oldslot].val == 0
+            {
+                return Ok(());
+            }
+
+            (
+                amount.min(p_data.inventory.items[oldslot].val),
+                p_data.inventory.items[newslot].val,
+                p_data.socket.id,
+            )
+        };
+
+        let mut save_item = false;
+
+        if new_slot_val > 0 {
+            let check_result = {
+                let p_data = p_data.try_lock()?;
+
+                if p_data.inventory.items[newslot].num == p_data.inventory.items[oldslot].num {
+                    1
+                } else if p_data.inventory.items[oldslot].val == new_amount {
+                    2
+                } else {
+                    0
                 }
-            } else if world.get::<&Inventory>(entity.0)?.items[oldslot].val == amount {
-                let itemnew = world.get::<&Inventory>(entity.0)?.items[newslot];
-                {
-                    world.get::<&mut Inventory>(entity.0)?.items[newslot] = itemold;
-                    world.get::<&mut Inventory>(entity.0)?.items[oldslot] = itemnew;
+            };
+
+            match check_result {
+                1 => {
+                    let mut itemold = { p_data.try_lock()?.inventory.items[oldslot] };
+
+                    let set_inv_result =
+                        set_inv_slot(world, storage, entity, &mut itemold, newslot, new_amount)?;
+
+                    let take_amount = new_amount - set_inv_result;
+
+                    if take_amount > 0 {
+                        take_inv_itemslot(world, storage, entity, oldslot, take_amount)?;
+                    }
                 }
-                save_inv_item(world, storage, entity, newslot)?;
-                save_inv_item(world, storage, entity, oldslot)?;
-            } else {
-                return send_fltalert(
+                2 => {
+                    let mut p_data = p_data.try_lock()?;
+
+                    let itemnew = p_data.inventory.items[newslot];
+                    let itemold = p_data.inventory.items[oldslot];
+
+                    p_data.inventory.items[newslot] = itemold;
+                    p_data.inventory.items[oldslot] = itemnew;
+
+                    save_item = true;
+                }
+                _ => {
+                    return send_fltalert(
                         storage,
-                        world.get::<&Socket>(entity.0)?.id,
-                        "Can not swap slots with a different containing items unless you swap everything."
-                            .into(),
-                        FtlType::Error
+                        socket_id,
+                        "Can not swap slots with a different containing items unless you swap everything".to_string(), 
+                        FtlType::Item
                     );
+                }
             }
         } else {
-            let itemnew = world.get::<&Inventory>(entity.0)?.items[newslot];
-            {
-                world.get::<&mut Inventory>(entity.0)?.items[newslot] = itemold;
-                world.get::<&mut Inventory>(entity.0)?.items[oldslot] = itemnew;
-            }
+            let mut p_data = p_data.try_lock()?;
+
+            let itemnew = p_data.inventory.items[newslot];
+            let itemold = p_data.inventory.items[oldslot];
+
+            p_data.inventory.items[newslot] = itemold;
+            p_data.inventory.items[oldslot] = itemnew;
+
+            save_item = true;
+        }
+
+        if save_item {
             save_inv_item(world, storage, entity, newslot)?;
             save_inv_item(world, storage, entity, oldslot)?;
         }
@@ -634,56 +698,65 @@ pub fn handle_pickup(
     storage: &Storage,
     _data: &mut MByteBuffer,
     entity: Option<GlobalKey>,
-    socket_id: SocketID,
+    _socket_id: SocketID,
 ) -> Result<()> {
-    if let Some(entity) = storage.player_ids.borrow().get(entity) {
-        let mut remove_id: Vec<(MapPosition, Entity)> = Vec::new();
+    let entity = match entity {
+        Some(e) => e,
+        None => return Err(AscendingError::InvalidSocket),
+    };
 
-        if !world.get_or_err::<DeathType>(entity)?.is_alive()
-            || world.get_or_err::<IsUsingType>(entity)?.inuse()
-            || world.get_or_err::<Attacking>(entity)?.0
-            || world.get_or_err::<Stunned>(entity)?.0
-            || world.get_or_err::<PlayerMapTimer>(entity)?.mapitemtimer > *storage.gettick.borrow()
+    let mut remove_id: Vec<(MapPosition, GlobalKey, Position)> = Vec::new();
+
+    let pos = if let Some(Entity::Player(p_data)) = world.get_opt_entity(entity) {
+        let mut p_data = p_data.try_lock()?;
+
+        if !p_data.combat.death_type.is_alive()
+            || p_data.is_using_type.inuse()
+            || p_data.combat.attacking
+            || p_data.combat.stunned
+            || p_data.map_timer.mapitemtimer > *storage.gettick.borrow()
         {
             return Ok(());
         }
 
-        let mapids = get_maps_in_range(storage, &world.get_or_err::<Position>(entity)?, 1);
-        let mut full_message = false;
+        p_data.map_timer.mapitemtimer =
+            *storage.gettick.borrow() + Duration::try_milliseconds(100).unwrap_or_default();
 
-        for id in mapids {
-            if let Some(x) = id.get() {
-                let map = match storage.maps.get(&x) {
-                    Some(map) => map,
-                    None => continue,
-                }
-                .borrow_mut();
+        p_data.movement.pos
+    } else {
+        return Ok(());
+    };
 
-                // for the map base data when we need it.
-                if storage
-                    .bases
-                    .maps
-                    .get(&world.get_or_err::<Position>(entity)?.map)
-                    .is_none()
-                {
-                    continue;
-                }
-                let ids = map.itemids.clone();
+    let mapids = get_maps_in_range(storage, &pos, 1);
+    let mut full_message = false;
 
-                for i in ids {
-                    let mut mapitems = world.get_or_err::<MapItem>(&i)?;
-                    if world
-                        .get_or_err::<Position>(entity)?
-                        .checkdistance(mapitems.pos.map_offset(id.into()))
-                        <= 1
-                    {
+    for id in mapids {
+        if let Some(x) = id.get() {
+            let map = match storage.maps.get(&x) {
+                Some(map) => map,
+                None => continue,
+            }
+            .borrow_mut();
+
+            // for the map base data when we need it.
+            if storage.bases.maps.get(&pos.map).is_none() {
+                continue;
+            }
+            let ids = map.itemids.clone();
+
+            for i in ids {
+                if let Some(Entity::MapItem(mi_data)) = world.get_opt_entity(i) {
+                    let mut mapitems = { mi_data.try_lock()?.general };
+
+                    if pos.checkdistance(mapitems.pos.map_offset(id.into())) <= 1 {
                         if mapitems.item.num == 0 {
                             let rem =
                                 player_give_vals(world, storage, entity, mapitems.item.val as u64)?;
-                            world.get::<&mut MapItem>(i.0)?.item.val = rem as u16;
+
+                            mi_data.try_lock()?.general.item.val = rem as u16;
 
                             if rem == 0 {
-                                remove_id.push((x, i));
+                                remove_id.push((x, i, mapitems.pos));
                             }
                         } else {
                             //let amount = mapitems.item.val;
@@ -719,7 +792,8 @@ pub fn handle_pickup(
                                         MessageChannel::Private,
                                         None,
                                     )?;
-                                    world.get::<&mut MapItem>(i.0)?.item.val = start - amount;
+
+                                    mi_data.try_lock()?.general.item.val = start - amount;
                                 } else {
                                     send_message(
                                         world,
@@ -736,7 +810,7 @@ pub fn handle_pickup(
                                         None,
                                     )?;
 
-                                    remove_id.push((x, i));
+                                    remove_id.push((x, i, mapitems.pos));
                                 }
                             } else {
                                 full_message = true;
@@ -746,39 +820,33 @@ pub fn handle_pickup(
                 }
             }
         }
-
-        if full_message {
-            send_message(
-                world,
-                storage,
-                entity,
-                "Your inventory is Full!".to_owned(),
-                String::new(),
-                MessageChannel::Private,
-                None,
-            )?;
-        }
-
-        for (mappos, entity) in remove_id.iter_mut() {
-            if let Some(map) = storage.maps.get(mappos) {
-                let pos = world.get_or_err::<MapItem>(entity)?.pos;
-                let mut storage_mapitems = storage.map_items.borrow_mut();
-                if storage_mapitems.contains_key(&pos) {
-                    storage_mapitems.swap_remove(&pos);
-                }
-                map.borrow_mut().remove_item(*entity);
-                DataTaskToken::EntityUnload(*mappos)
-                    .add_task(storage, unload_entity_packet(*entity)?)?;
-            }
-        }
-        {
-            world.get::<&mut PlayerMapTimer>(entity.0)?.mapitemtimer =
-                *storage.gettick.borrow() + Duration::try_milliseconds(100).unwrap_or_default();
-        }
-        return Ok(());
     }
 
-    Err(AscendingError::InvalidSocket)
+    if full_message {
+        send_message(
+            world,
+            storage,
+            entity,
+            "Your inventory is Full!".to_owned(),
+            String::new(),
+            MessageChannel::Private,
+            None,
+        )?;
+    }
+
+    for (mappos, entity, pos) in remove_id.iter_mut() {
+        if let Some(map) = storage.maps.get(mappos) {
+            let mut storage_mapitems = storage.map_items.borrow_mut();
+            if storage_mapitems.contains_key(pos) {
+                storage_mapitems.swap_remove(pos);
+            }
+            map.borrow_mut().remove_item(*entity);
+            DataTaskToken::EntityUnload(*mappos)
+                .add_task(storage, unload_entity_packet(*entity)?)?;
+        }
+    }
+
+    Ok(())
 }
 
 pub fn handle_dropitem(
@@ -786,63 +854,69 @@ pub fn handle_dropitem(
     storage: &Storage,
     data: &mut MByteBuffer,
     entity: Option<GlobalKey>,
-    socket_id: SocketID,
+    _socket_id: SocketID,
 ) -> Result<()> {
-    if let Some(entity) = storage.player_ids.borrow().get(entity) {
-        if !world.get_or_err::<DeathType>(entity)?.is_alive()
-            || world.get_or_err::<IsUsingType>(entity)?.inuse()
-            || world.get_or_err::<Attacking>(entity)?.0
-            || world.get_or_err::<Stunned>(entity)?.0
-        {
+    let entity = match entity {
+        Some(e) => e,
+        None => return Err(AscendingError::InvalidSocket),
+    };
+
+    let slot = data.read::<u16>()? as usize;
+    let mut amount = data.read::<u16>()?;
+
+    let (pos, item_data, user_access) =
+        if let Some(Entity::Player(p_data)) = world.get_opt_entity(entity) {
+            let p_data = p_data.try_lock()?;
+
+            if !p_data.combat.death_type.is_alive()
+                || p_data.is_using_type.inuse()
+                || p_data.combat.attacking
+                || p_data.combat.stunned
+            {
+                return Ok(());
+            }
+
+            if slot >= MAX_INV || p_data.inventory.items[slot].val == 0 || amount == 0 {
+                return Ok(());
+            }
+
+            amount = amount.min(p_data.inventory.items[slot].val);
+
+            //make sure it exists first.
+            if !storage.bases.maps.contains_key(&p_data.movement.pos.map) {
+                return Err(AscendingError::Unhandled(Box::new(Backtrace::capture())));
+            }
+
+            (
+                p_data.movement.pos,
+                p_data.inventory.items[slot],
+                p_data.user_access,
+            )
+        } else {
             return Ok(());
-        }
+        };
 
-        let slot = data.read::<u16>()? as usize;
-        let mut amount = data.read::<u16>()?;
-
-        if slot >= MAX_INV || world.get::<&Inventory>(entity.0)?.items[slot].val == 0 || amount == 0
-        {
-            return Ok(());
-        }
-
-        amount = amount.min(world.get::<&Inventory>(entity.0)?.items[slot].val);
-
-        let item_data = world.get::<&Inventory>(entity.0)?.items[slot];
-
-        //make sure it exists first.
-        if !storage
-            .bases
-            .maps
-            .contains_key(&world.get_or_err::<Position>(entity)?.map)
-        {
-            return Err(AscendingError::Unhandled(Box::new(Backtrace::capture())));
-        }
-
-        if try_drop_item(
-            world,
-            storage,
-            DropItem {
-                index: item_data.num,
-                amount,
-                pos: world.get_or_err::<Position>(entity)?,
-            },
-            match world.get_or_err::<UserAccess>(entity)? {
-                UserAccess::Admin => None,
-                _ => Some(
-                    *storage.gettick.borrow()
-                        + Duration::try_milliseconds(600000).unwrap_or_default(),
-                ),
-            },
-            Some(*storage.gettick.borrow() + Duration::try_milliseconds(5000).unwrap_or_default()),
-            Some(*entity),
-        )? {
-            take_inv_itemslot(world, storage, entity, slot, amount)?;
-        }
-
-        return Ok(());
+    if try_drop_item(
+        world,
+        storage,
+        DropItem {
+            index: item_data.num,
+            amount,
+            pos,
+        },
+        match user_access {
+            UserAccess::Admin => None,
+            _ => Some(
+                *storage.gettick.borrow() + Duration::try_milliseconds(600000).unwrap_or_default(),
+            ),
+        },
+        Some(*storage.gettick.borrow() + Duration::try_milliseconds(5000).unwrap_or_default()),
+        Some(entity),
+    )? {
+        take_inv_itemslot(world, storage, entity, slot, amount)?;
     }
 
-    Err(AscendingError::InvalidSocket)
+    Ok(())
 }
 
 pub fn handle_deleteitem(
@@ -850,30 +924,37 @@ pub fn handle_deleteitem(
     storage: &Storage,
     data: &mut MByteBuffer,
     entity: Option<GlobalKey>,
-    socket_id: SocketID,
+    _socket_id: SocketID,
 ) -> Result<()> {
-    if let Some(entity) = storage.player_ids.borrow().get(entity) {
-        if !world.get_or_err::<DeathType>(entity)?.is_alive()
-            || world.get_or_err::<IsUsingType>(entity)?.inuse()
-            || world.get_or_err::<Attacking>(entity)?.0
-            || world.get_or_err::<Stunned>(entity)?.0
-        {
-            return Ok(());
-        }
+    let entity = match entity {
+        Some(e) => e,
+        None => return Err(AscendingError::InvalidSocket),
+    };
 
+    if let Some(Entity::Player(p_data)) = world.get_opt_entity(entity) {
         let slot = data.read::<u16>()? as usize;
 
-        if slot >= MAX_INV || world.get::<&Inventory>(entity.0)?.items[slot].val == 0 {
-            return Ok(());
-        }
+        let val = {
+            let p_data = p_data.try_lock()?;
 
-        let val = world.get::<&Inventory>(entity.0)?.items[slot].val;
+            if !p_data.combat.death_type.is_alive()
+                || p_data.is_using_type.inuse()
+                || p_data.combat.attacking
+                || p_data.combat.stunned
+            {
+                return Ok(());
+            }
+
+            if slot >= MAX_INV || p_data.inventory.items[slot].val == 0 {
+                return Ok(());
+            }
+
+            p_data.inventory.items[slot].val
+        };
+
         take_inv_itemslot(world, storage, entity, slot, val)?;
-
-        return Ok(());
     }
-
-    Err(AscendingError::InvalidSocket)
+    Ok(())
 }
 
 pub fn handle_switchstorageslot(
@@ -883,12 +964,21 @@ pub fn handle_switchstorageslot(
     entity: Option<GlobalKey>,
     socket_id: SocketID,
 ) -> Result<()> {
-    if let Some(entity) = storage.player_ids.borrow().get(entity) {
-        if !world.get_or_err::<DeathType>(entity)?.is_alive()
-            || !world.get_or_err::<IsUsingType>(entity)?.is_bank()
-            || world.get_or_err::<Attacking>(entity)?.0
-            || world.get_or_err::<Stunned>(entity)?.0
-        {
+    let entity = match entity {
+        Some(e) => e,
+        None => return Err(AscendingError::InvalidSocket),
+    };
+
+    if let Some(Entity::Player(p_data)) = world.get_opt_entity(entity) {
+        let res = {
+            let p_data = p_data.try_lock()?;
+
+            !p_data.combat.death_type.is_alive()
+                || !p_data.is_using_type.is_bank()
+                || p_data.combat.attacking
+                || p_data.combat.stunned
+        };
+        if res {
             return Ok(());
         }
 
@@ -896,48 +986,56 @@ pub fn handle_switchstorageslot(
         let newslot = data.read::<u16>()? as usize;
         let mut amount = data.read::<u16>()?;
 
-        if oldslot >= MAX_STORAGE
-            || newslot >= MAX_STORAGE
-            || world.get::<&PlayerStorage>(entity.0)?.items[oldslot].val == 0
-        {
+        let (mut old_slot, new_slot) = {
+            let p_data = p_data.try_lock()?;
+            (
+                p_data.inventory.items[oldslot],
+                p_data.inventory.items[newslot],
+            )
+        };
+
+        if newslot >= MAX_STORAGE || old_slot.val == 0 {
             return Ok(());
         }
 
-        amount = amount.min(world.get::<&PlayerStorage>(entity.0)?.items[oldslot].val);
+        if new_slot.val > 0 {
+            if new_slot.num == old_slot.num {
+                amount = amount.min(old_slot.val);
 
-        let mut itemold = world.get::<&PlayerStorage>(entity.0)?.items[oldslot];
-
-        if world.get::<&PlayerStorage>(entity.0)?.items[newslot].val > 0 {
-            if world.get::<&PlayerStorage>(entity.0)?.items[newslot].num
-                == world.get::<&PlayerStorage>(entity.0)?.items[oldslot].num
-            {
                 let take_amount = amount
-                    - set_storage_slot(world, storage, entity, &mut itemold, newslot, amount)?;
+                    - set_storage_slot(world, storage, entity, &mut old_slot, newslot, amount)?;
+
                 if take_amount > 0 {
                     take_storage_itemslot(world, storage, entity, oldslot, take_amount)?;
                 }
-            } else if world.get::<&PlayerStorage>(entity.0)?.items[oldslot].val == amount {
-                let itemnew = world.get::<&PlayerStorage>(entity.0)?.items[newslot];
+            } else if old_slot.val == amount {
                 {
-                    world.get::<&mut PlayerStorage>(entity.0)?.items[newslot] = itemold;
-                    world.get::<&mut PlayerStorage>(entity.0)?.items[oldslot] = itemnew;
+                    let mut p_data = p_data.try_lock()?;
+                    let itemnew = p_data.storage.items[newslot];
+                    let itemold = p_data.storage.items[oldslot];
+
+                    p_data.storage.items[newslot] = itemold;
+                    p_data.storage.items[oldslot] = itemnew;
                 }
                 save_storage_item(world, storage, entity, newslot)?;
                 save_storage_item(world, storage, entity, oldslot)?;
             } else {
                 return send_fltalert(
-                        storage,
-                        world.get::<&Socket>(entity.0)?.id,
-                        "Can not swap slots with a different containing items unless you swap everything."
-                            .into(),
-                        FtlType::Error
-                    );
+                    storage,
+                    socket_id.id.0,
+                    "Can not swap slots with a different containing items unless you swap everything."
+                        .into(),
+                    FtlType::Error,
+                );
             }
         } else {
-            let itemnew = world.get::<&PlayerStorage>(entity.0)?.items[newslot];
             {
-                world.get::<&mut PlayerStorage>(entity.0)?.items[newslot] = itemold;
-                world.get::<&mut PlayerStorage>(entity.0)?.items[oldslot] = itemnew;
+                let mut p_data = p_data.try_lock()?;
+                let itemnew = p_data.storage.items[newslot];
+                let itemold = p_data.storage.items[oldslot];
+
+                p_data.storage.items[newslot] = itemold;
+                p_data.storage.items[oldslot] = itemnew;
             }
             save_storage_item(world, storage, entity, newslot)?;
             save_storage_item(world, storage, entity, oldslot)?;
@@ -954,30 +1052,37 @@ pub fn handle_deletestorageitem(
     storage: &Storage,
     data: &mut MByteBuffer,
     entity: Option<GlobalKey>,
-    socket_id: SocketID,
+    _socket_id: SocketID,
 ) -> Result<()> {
-    if let Some(entity) = storage.player_ids.borrow().get(entity) {
-        if !world.get_or_err::<DeathType>(entity)?.is_alive()
-            || !world.get_or_err::<IsUsingType>(entity)?.is_bank()
-            || world.get_or_err::<Attacking>(entity)?.0
-            || world.get_or_err::<Stunned>(entity)?.0
-        {
-            return Ok(());
-        }
+    let entity = match entity {
+        Some(e) => e,
+        None => return Err(AscendingError::InvalidSocket),
+    };
 
+    if let Some(Entity::Player(p_data)) = world.get_opt_entity(entity) {
         let slot = data.read::<u16>()? as usize;
 
-        if slot >= MAX_STORAGE || world.get::<&PlayerStorage>(entity.0)?.items[slot].val == 0 {
-            return Ok(());
-        }
+        let val = {
+            let p_data = p_data.try_lock()?;
 
-        let val = world.get::<&PlayerStorage>(entity.0)?.items[slot].val;
+            if !p_data.combat.death_type.is_alive()
+                || !p_data.is_using_type.is_bank()
+                || p_data.combat.attacking
+                || p_data.combat.stunned
+            {
+                return Ok(());
+            }
+
+            if slot >= MAX_STORAGE || p_data.storage.items[slot].val == 0 {
+                return Ok(());
+            }
+
+            p_data.storage.items[slot].val
+        };
+
         take_storage_itemslot(world, storage, entity, slot, val)?;
-
-        return Ok(());
     }
-
-    Err(AscendingError::InvalidSocket)
+    Ok(())
 }
 
 pub fn handle_deposititem(
@@ -985,37 +1090,48 @@ pub fn handle_deposititem(
     storage: &Storage,
     data: &mut MByteBuffer,
     entity: Option<GlobalKey>,
-    socket_id: SocketID,
+    _socket_id: SocketID,
 ) -> Result<()> {
-    if let Some(entity) = storage.player_ids.borrow().get(entity) {
-        if !world.get_or_err::<DeathType>(entity)?.is_alive()
-            || !world.get_or_err::<IsUsingType>(entity)?.is_bank()
-            || world.get_or_err::<Attacking>(entity)?.0
-            || world.get_or_err::<Stunned>(entity)?.0
-        {
-            return Ok(());
-        }
+    let entity = match entity {
+        Some(e) => e,
+        None => return Err(AscendingError::InvalidSocket),
+    };
 
+    if let Some(Entity::Player(p_data)) = world.get_opt_entity(entity) {
         let inv_slot = data.read::<u16>()? as usize;
         let bank_slot = data.read::<u16>()? as usize;
         let amount = data.read::<u16>()?;
 
-        if bank_slot >= MAX_STORAGE
-            || inv_slot >= MAX_INV
-            || world.get::<&Inventory>(entity.0)?.items[inv_slot].val == 0
-        {
-            return Ok(());
-        }
+        let (mut item_data, storage_data) = {
+            let p_data = p_data.try_lock()?;
 
-        let mut item_data = { world.get::<&Inventory>(entity.0)?.items[inv_slot] };
+            if !p_data.combat.death_type.is_alive()
+                || !p_data.is_using_type.is_bank()
+                || p_data.combat.attacking
+                || p_data.combat.stunned
+            {
+                return Ok(());
+            }
 
-        if item_data.val > amount {
-            item_data.val = amount;
+            if bank_slot >= MAX_STORAGE
+                || p_data.inventory.items[inv_slot].val == 0
+                || inv_slot >= MAX_INV
+            {
+                return Ok(());
+            }
+
+            let mut item_data = p_data.inventory.items[inv_slot];
+
+            if item_data.val > amount {
+                item_data.val = amount;
+            }
+
+            (item_data, p_data.storage.items[bank_slot])
         };
 
-        if { world.get::<&PlayerStorage>(entity.0)?.items[bank_slot].val } == 0 {
+        if storage_data.val == 0 {
             {
-                world.get::<&mut PlayerStorage>(entity.0)?.items[bank_slot] = item_data;
+                p_data.try_lock()?.storage.items[bank_slot] = item_data;
             }
             save_storage_item(world, storage, entity, bank_slot)?;
             take_inv_itemslot(world, storage, entity, inv_slot, amount)?;
@@ -1038,11 +1154,9 @@ pub fn handle_deposititem(
                 )?;
             }
         }
-
-        return Ok(());
     }
 
-    Err(AscendingError::InvalidSocket)
+    Ok(())
 }
 
 pub fn handle_withdrawitem(
@@ -1050,37 +1164,48 @@ pub fn handle_withdrawitem(
     storage: &Storage,
     data: &mut MByteBuffer,
     entity: Option<GlobalKey>,
-    socket_id: SocketID,
+    _socket_id: SocketID,
 ) -> Result<()> {
-    if let Some(entity) = storage.player_ids.borrow().get(entity) {
-        if !world.get_or_err::<DeathType>(entity)?.is_alive()
-            || !world.get_or_err::<IsUsingType>(entity)?.is_bank()
-            || world.get_or_err::<Attacking>(entity)?.0
-            || world.get_or_err::<Stunned>(entity)?.0
-        {
-            return Ok(());
-        }
+    let entity = match entity {
+        Some(e) => e,
+        None => return Err(AscendingError::InvalidSocket),
+    };
 
+    if let Some(Entity::Player(p_data)) = world.get_opt_entity(entity) {
         let inv_slot = data.read::<u16>()? as usize;
         let bank_slot = data.read::<u16>()? as usize;
         let amount = data.read::<u16>()?;
 
-        if bank_slot >= MAX_STORAGE
-            || world.get::<&PlayerStorage>(entity.0)?.items[bank_slot].val == 0
-            || inv_slot >= MAX_INV
-        {
-            return Ok(());
-        }
+        let (mut item_data, inv_data) = {
+            let p_data = p_data.try_lock()?;
 
-        let mut item_data = { world.get::<&PlayerStorage>(entity.0)?.items[bank_slot] };
+            if !p_data.combat.death_type.is_alive()
+                || !p_data.is_using_type.is_bank()
+                || p_data.combat.attacking
+                || p_data.combat.stunned
+            {
+                return Ok(());
+            }
 
-        if item_data.val > amount {
-            item_data.val = amount;
+            if bank_slot >= MAX_STORAGE
+                || p_data.storage.items[bank_slot].val == 0
+                || inv_slot >= MAX_INV
+            {
+                return Ok(());
+            }
+
+            let mut item_data = p_data.storage.items[bank_slot];
+
+            if item_data.val > amount {
+                item_data.val = amount;
+            }
+
+            (item_data, p_data.inventory.items[inv_slot])
         };
 
-        if { world.get::<&Inventory>(entity.0)?.items[inv_slot].val } == 0 {
+        if inv_data.val == 0 {
             {
-                world.get::<&mut Inventory>(entity.0)?.items[inv_slot] = item_data;
+                p_data.try_lock()?.inventory.items[inv_slot] = item_data;
             }
             save_inv_item(world, storage, entity, inv_slot)?;
             take_storage_itemslot(world, storage, entity, bank_slot, amount)?;
@@ -1103,10 +1228,8 @@ pub fn handle_withdrawitem(
                 )?;
             }
         }
-        return Ok(());
     }
-
-    Err(AscendingError::InvalidSocket)
+    Ok(())
 }
 
 pub fn handle_message(
@@ -1114,90 +1237,80 @@ pub fn handle_message(
     storage: &Storage,
     data: &mut MByteBuffer,
     entity: Option<GlobalKey>,
-    socket_id: SocketID,
+    _socket_id: SocketID,
 ) -> Result<()> {
-    if let Some(entity) = storage.player_ids.borrow().get(entity) {
-        let mut usersocket: Option<usize> = None;
+    let entity = match entity {
+        Some(e) => e,
+        None => return Err(AscendingError::InvalidSocket),
+    };
 
-        if !world.get_or_err::<DeathType>(entity)?.is_alive() {
-            return Ok(());
-        }
+    let mut usersocket: Option<Token> = None;
 
-        let channel: MessageChannel = data.read()?;
+    let channel = data.read::<MessageChannel>()?;
+    let msg = data.read::<String>()?;
+    let name = data.read::<String>()?;
 
-        let msg = data.read::<String>()?;
-        let name = data.read::<String>()?;
+    let (socket_id, p_name) = if let Some(Entity::Player(p_data)) = world.get_opt_entity(entity) {
+        let p_data = p_data.try_lock()?;
 
-        if msg.len() >= 256 {
-            return send_fltalert(
-                storage,
-                world.get::<&Socket>(entity.0)?.id,
-                "Your message is too long. (256 character limit)".into(),
-                FtlType::Error,
-            );
-        }
+        (p_data.socket.id, p_data.account.username.clone())
+    } else {
+        return Ok(());
+    };
 
-        let head = match channel {
-            MessageChannel::Map => {
-                format!("[Map] {}:", world.get::<&Account>(entity.0)?.username)
+    if msg.len() >= 256 {
+        return send_fltalert(
+            storage,
+            socket_id,
+            "Your message is too long. (256 character limit)".into(),
+            FtlType::Error,
+        );
+    }
+
+    match channel {
+        MessageChannel::Private => {
+            if name.is_empty() {
+                return Ok(());
             }
-            MessageChannel::Global => {
-                format!("[Global] {}:", world.get::<&Account>(entity.0)?.username)
+
+            if name == p_name {
+                return send_fltalert(
+                    storage,
+                    socket_id,
+                    "You cannot send messages to yourself".into(),
+                    FtlType::Error,
+                );
             }
-            MessageChannel::Trade => {
-                format!("[Trade] {}:", world.get::<&Account>(entity.0)?.username)
-            }
-            MessageChannel::Party => {
-                format!("[Party] {}:", world.get::<&Account>(entity.0)?.username)
-            }
-            MessageChannel::Private => {
-                if name.is_empty() {
-                    return Ok(());
+
+            usersocket = match storage.player_names.borrow().get(&name) {
+                Some(id) => {
+                    if let Some(Entity::Player(p_data)) = world.get_opt_entity(*id) {
+                        Some(Token(p_data.try_lock()?.socket.id))
+                    } else {
+                        return Ok(());
+                    }
                 }
-
-                if name == world.get::<&Account>(entity.0)?.username {
+                None => {
                     return send_fltalert(
                         storage,
-                        world.get::<&Socket>(entity.0)?.id,
-                        "You cannot send messages to yourself".into(),
+                        socket_id,
+                        "Player is offline or does not exist".into(),
                         FtlType::Error,
                     );
                 }
-
-                usersocket = match storage.player_names.borrow().get(&name) {
-                    Some(id) => {
-                        if let Ok(socket) = world.get::<&Socket>(id.0) {
-                            Some(socket.id)
-                        } else {
-                            return Ok(());
-                        }
-                    }
-                    None => {
-                        return send_fltalert(
-                            storage,
-                            world.get::<&Socket>(entity.0)?.id,
-                            "Player is offline or does not exist".into(),
-                            FtlType::Error,
-                        );
-                    }
-                };
-
-                format!("[Private] {}:", world.get::<&Account>(entity.0)?.username)
-            }
-            MessageChannel::Guild => {
-                format!("[Guild] {}:", world.get::<&Account>(entity.0)?.username)
-            }
-            MessageChannel::Help => {
-                format!("[Help] {}:", world.get::<&Account>(entity.0)?.username)
-            }
-            MessageChannel::Quest => "".into(),
-            MessageChannel::Npc => "".into(),
-        };
-
-        return send_message(world, storage, entity, msg, head, channel, usersocket);
+            };
+        }
+        MessageChannel::Map
+        | MessageChannel::Global
+        | MessageChannel::Trade
+        | MessageChannel::Party
+        | MessageChannel::Guild
+        | MessageChannel::Help
+        | MessageChannel::Quest
+        | MessageChannel::Npc => {}
     }
 
-    Err(AscendingError::InvalidSocket)
+    send_message(world, storage, entity, msg, p_name, channel, usersocket)
 }
 
 pub fn handle_command(
@@ -1207,82 +1320,99 @@ pub fn handle_command(
     entity: Option<GlobalKey>,
     socket_id: SocketID,
 ) -> Result<()> {
-    if let Some(_p) = storage.player_ids.borrow().get(entity) {
-        let command = data.read::<Command>()?;
+    let entity = match entity {
+        Some(e) => e,
+        None => return Err(AscendingError::InvalidSocket),
+    };
 
-        match command {
-            Command::KickPlayer => {}
-            Command::KickPlayerByName(name) => {
-                debug!("Kicking Player {:?}", name);
-            }
-            Command::WarpTo(pos) => {
-                debug!("Warping to {:?}", pos);
-                player_warp(world, storage, entity, &pos, false)?;
-            }
-            Command::SpawnNpc(index, pos) => {
-                debug!("Spawning NPC {index} on {:?}", pos);
-                if let Some(mapdata) = storage.maps.get(&pos.map) {
-                    let mut data = mapdata.borrow_mut();
-                    if let Ok(Some(id)) = storage.add_npc(world, index as u64) {
-                        data.add_npc(id);
-                        spawn_npc(world, pos, None, id)?;
-                    }
+    let command = data.read::<Command>()?;
+
+    match command {
+        Command::KickPlayer => {}
+        Command::KickPlayerByName(name) => {
+            debug!("Kicking Player {:?}", name);
+        }
+        Command::WarpTo(pos) => {
+            debug!("Warping to {:?}", pos);
+            player_warp(world, storage, entity, &pos, false)?;
+        }
+        Command::SpawnNpc(index, pos) => {
+            debug!("Spawning NPC {index} on {:?}", pos);
+            if let Some(mapdata) = storage.maps.get(&pos.map) {
+                let mut data = mapdata.borrow_mut();
+                if let Ok(Some(id)) = storage.add_npc(world, index as u64) {
+                    data.add_npc(id);
+                    spawn_npc(world, pos, None, id)?;
                 }
             }
-            Command::Trade => {
-                let target = world.get_or_err::<PlayerTarget>(entity)?.0;
+        }
+        Command::Trade => {
+            if let Some(Entity::Player(p1_data)) = world.get_opt_entity(entity) {
+                let (target, pos, trade_requesttimer) = {
+                    let p1_data = p1_data.try_lock()?;
+
+                    (
+                        p1_data.combat.target.target_entity,
+                        p1_data.movement.pos,
+                        p1_data.trade_request_entity.requesttimer,
+                    )
+                };
+
                 if let Some(target_entity) = target
-                    && world.contains(target_entity.0)
+                    && world.entities.contains_key(target_entity)
+                    && target_entity != entity
                 {
-                    //init_trade(world, storage, entity, &target_entity)?;
-                    if world.get_or_err::<TradeRequestEntity>(entity)?.requesttimer
-                        <= *storage.gettick.borrow()
-                        && can_target(
-                            world.get_or_err::<Position>(entity)?,
-                            world.get_or_err::<Position>(&target_entity)?,
-                            world.get_or_err::<DeathType>(&target_entity)?,
-                            1,
-                        )
-                        && can_trade(world, storage, &target_entity)?
-                    {
-                        send_traderequest(world, storage, entity, &target_entity)?;
+                    if let Some(Entity::Player(p2_data)) = world.get_opt_entity(target_entity) {
+                        let (target_pos, death_type) = {
+                            let p2_data = p2_data.try_lock()?;
+
+                            (p2_data.movement.pos, p2_data.combat.death_type)
+                        };
+
+                        //init_trade(world, storage, entity, &target_entity)?;
+                        if trade_requesttimer <= *storage.gettick.borrow()
+                            && can_target(pos, target_pos, death_type, 1)
+                            && can_trade(world, storage, target_entity)?
                         {
-                            if let Ok(mut traderequest) =
-                                world.get::<&mut TradeRequestEntity>(entity.0)
+                            send_traderequest(world, storage, entity, target_entity)?;
+
                             {
-                                traderequest.entity = Some(target_entity);
-                                traderequest.requesttimer = *storage.gettick.borrow()
-                                    + Duration::try_milliseconds(60000).unwrap_or_default();
+                                let mut p1_data = p1_data.try_lock()?;
+                                let mut p2_data = p2_data.try_lock()?;
+
+                                p1_data.trade_request_entity.entity = Some(target_entity);
+                                p1_data.trade_request_entity.requesttimer =
+                                    *storage.gettick.borrow()
+                                        + Duration::try_milliseconds(60000).unwrap_or_default();
+                                // 1 Minute
+
+                                p2_data.trade_request_entity.entity = Some(entity);
+                                p2_data.trade_request_entity.requesttimer =
+                                    *storage.gettick.borrow()
+                                        + Duration::try_milliseconds(60000).unwrap_or_default();
                                 // 1 Minute
                             }
-                            if let Ok(mut traderequest) =
-                                world.get::<&mut TradeRequestEntity>(target_entity.0)
-                            {
-                                traderequest.entity = Some(*entity);
-                                traderequest.requesttimer = *storage.gettick.borrow()
-                                    + Duration::try_milliseconds(60000).unwrap_or_default();
-                                // 1 Minute
-                            }
+
+                            send_message(
+                                world,
+                                storage,
+                                entity,
+                                "Trade Request Sent".into(),
+                                String::new(),
+                                MessageChannel::Private,
+                                None,
+                            )?;
+                        } else {
+                            send_message(
+                                world,
+                                storage,
+                                entity,
+                                "Player is busy".into(),
+                                String::new(),
+                                MessageChannel::Private,
+                                None,
+                            )?;
                         }
-                        send_message(
-                            world,
-                            storage,
-                            entity,
-                            "Trade Request Sent".into(),
-                            String::new(),
-                            MessageChannel::Private,
-                            None,
-                        )?;
-                    } else {
-                        send_message(
-                            world,
-                            storage,
-                            entity,
-                            "Player is busy".into(),
-                            String::new(),
-                            MessageChannel::Private,
-                            None,
-                        )?;
                     }
                 } else {
                     send_message(
@@ -1297,29 +1427,35 @@ pub fn handle_command(
                 }
             }
         }
-
-        return Ok(());
     }
 
-    Err(AscendingError::InvalidSocket)
+    Ok(())
 }
 
 pub fn handle_settarget(
     world: &mut World,
-    storage: &Storage,
+    _storage: &Storage,
     data: &mut MByteBuffer,
     entity: Option<GlobalKey>,
-    socket_id: SocketID,
+    _socket_id: SocketID,
 ) -> Result<()> {
-    if let Some(_p) = storage.player_ids.borrow().get(entity) {
+    let entity = match entity {
+        Some(e) => e,
+        None => return Err(AscendingError::InvalidSocket),
+    };
+
+    if let Some(Entity::Player(p_data)) = world.get_opt_entity(entity) {
         let target = data.read::<Option<GlobalKey>>()?;
 
+        let mut p_data = p_data.try_lock()?;
+
         if let Some(target_entity) = target {
-            if !world.contains(target_entity.0) {
+            if !world.entities.contains_key(target_entity) {
                 return Ok(());
             }
         }
-        world.get::<&mut PlayerTarget>(entity.0)?.0 = target;
+
+        p_data.combat.target.target_entity = target;
 
         return Ok(());
     }
@@ -1332,17 +1468,22 @@ pub fn handle_closestorage(
     storage: &Storage,
     _data: &mut MByteBuffer,
     entity: Option<GlobalKey>,
-    socket_id: SocketID,
+    _socket_id: SocketID,
 ) -> Result<()> {
-    if let Some(entity) = storage.player_ids.borrow().get(entity) {
-        if !world.get_or_err::<DeathType>(entity)?.is_alive()
-            || !world.get_or_err::<IsUsingType>(entity)?.is_bank()
-        {
-            return Ok(());
-        }
+    let entity = match entity {
+        Some(e) => e,
+        None => return Err(AscendingError::InvalidSocket),
+    };
 
+    if let Some(Entity::Player(p_data)) = world.get_opt_entity(entity) {
         {
-            *world.get::<&mut IsUsingType>(entity.0)? = IsUsingType::None;
+            let mut p_data = p_data.try_lock()?;
+
+            if !p_data.combat.death_type.is_alive() || !p_data.is_using_type.is_bank() {
+                return Ok(());
+            }
+
+            p_data.is_using_type = IsUsingType::None;
         }
         send_clearisusingtype(world, storage, entity)?;
 
@@ -1357,17 +1498,22 @@ pub fn handle_closeshop(
     storage: &Storage,
     _data: &mut MByteBuffer,
     entity: Option<GlobalKey>,
-    socket_id: SocketID,
+    _socket_id: SocketID,
 ) -> Result<()> {
-    if let Some(entity) = storage.player_ids.borrow().get(entity) {
-        if !world.get_or_err::<DeathType>(entity)?.is_alive()
-            || !world.get_or_err::<IsUsingType>(entity)?.is_instore()
-        {
-            return Ok(());
-        }
+    let entity = match entity {
+        Some(e) => e,
+        None => return Err(AscendingError::InvalidSocket),
+    };
 
+    if let Some(Entity::Player(p_data)) = world.get_opt_entity(entity) {
         {
-            *world.get::<&mut IsUsingType>(entity.0)? = IsUsingType::None;
+            let mut p_data = p_data.try_lock()?;
+
+            if !p_data.combat.death_type.is_alive() || !p_data.is_using_type.is_instore() {
+                return Ok(());
+            }
+
+            p_data.is_using_type = IsUsingType::None;
         }
         send_clearisusingtype(world, storage, entity)?;
 
@@ -1382,45 +1528,51 @@ pub fn handle_closetrade(
     storage: &Storage,
     _data: &mut MByteBuffer,
     entity: Option<GlobalKey>,
-    socket_id: SocketID,
+    _socket_id: SocketID,
 ) -> Result<()> {
-    if let Some(entity) = storage.player_ids.borrow().get(entity) {
-        if !world.get_or_err::<DeathType>(entity)?.is_alive()
-            || !world.get_or_err::<IsUsingType>(entity)?.is_trading()
-        {
-            return Ok(());
-        }
+    let entity = match entity {
+        Some(e) => e,
+        None => return Err(AscendingError::InvalidSocket),
+    };
 
-        let target_entity =
-            if let IsUsingType::Trading(entity) = world.get_or_err::<IsUsingType>(entity)? {
-                entity
+    if let Some(Entity::Player(p1_data)) = world.get_opt_entity(entity) {
+        let (target_entity, username) = {
+            let p1_data = p1_data.try_lock()?;
+
+            if !p1_data.combat.death_type.is_alive() || !p1_data.is_using_type.is_trading() {
+                return Ok(());
+            }
+
+            if let IsUsingType::Trading(entity) = p1_data.is_using_type {
+                (entity, p1_data.account.username.clone())
             } else {
                 return Ok(());
-            };
-        if !world.contains(target_entity.0) {
+            }
+        };
+
+        if target_entity == entity {
             return Ok(());
         }
 
-        close_trade(world, storage, entity)?;
-        close_trade(world, storage, &target_entity)?;
+        if let Some(Entity::Player(p2_data)) = world.get_opt_entity(target_entity) {
+            close_trade(world, storage, entity)?;
+            close_trade(world, storage, target_entity)?;
 
-        {
-            *world.get::<&mut TradeRequestEntity>(entity.0)? = TradeRequestEntity::default();
-            *world.get::<&mut TradeRequestEntity>(target_entity.0)? = TradeRequestEntity::default();
+            {
+                p1_data.try_lock()?.trade_request_entity = TradeRequestEntity::default();
+                p2_data.try_lock()?.trade_request_entity = TradeRequestEntity::default();
+            }
+
+            return send_message(
+                world,
+                storage,
+                target_entity,
+                format!("{} has cancelled the trade", username),
+                String::new(),
+                MessageChannel::Private,
+                None,
+            );
         }
-
-        return send_message(
-            world,
-            storage,
-            &target_entity,
-            format!(
-                "{} has cancelled the trade",
-                world.cloned_get_or_err::<Account>(entity)?.username
-            ),
-            String::new(),
-            MessageChannel::Private,
-            None,
-        );
     }
 
     Err(AscendingError::InvalidSocket)
@@ -1431,25 +1583,34 @@ pub fn handle_buyitem(
     storage: &Storage,
     data: &mut MByteBuffer,
     entity: Option<GlobalKey>,
-    socket_id: SocketID,
+    _socket_id: SocketID,
 ) -> Result<()> {
-    if let Some(entity) = storage.player_ids.borrow().get(entity) {
-        if !world.get_or_err::<DeathType>(entity)?.is_alive()
-            || !world.get_or_err::<IsUsingType>(entity)?.is_instore()
-        {
-            return Ok(());
-        }
-        let shop_index =
-            if let IsUsingType::Store(shop) = world.get_or_err::<IsUsingType>(entity)? {
-                shop
-            } else {
+    let entity = match entity {
+        Some(e) => e,
+        None => return Err(AscendingError::InvalidSocket),
+    };
+
+    if let Some(Entity::Player(p_data)) = world.get_opt_entity(entity) {
+        let (is_using_type, player_money) = {
+            let p_data = p_data.try_lock()?;
+
+            if !p_data.combat.death_type.is_alive() || !p_data.is_using_type.is_instore() {
                 return Ok(());
-            };
+            }
+
+            (p_data.is_using_type, p_data.money.vals)
+        };
+
+        let shop_index = if let IsUsingType::Store(shop) = is_using_type {
+            shop
+        } else {
+            return Ok(());
+        };
+
         let slot = data.read::<u16>()?;
 
         let shopdata = storage.bases.shops[shop_index as usize].clone();
 
-        let player_money = world.get_or_err::<Money>(entity)?.vals;
         if player_money < shopdata.item[slot as usize].price {
             return send_message(
                 world,
@@ -1483,7 +1644,7 @@ pub fn handle_buyitem(
             );
         }
 
-        return send_message(
+        send_message(
             world,
             storage,
             entity,
@@ -1491,10 +1652,9 @@ pub fn handle_buyitem(
             String::new(),
             MessageChannel::Private,
             None,
-        );
+        )?;
     }
-
-    Err(AscendingError::InvalidSocket)
+    Ok(())
 }
 
 pub fn handle_sellitem(
@@ -1502,28 +1662,37 @@ pub fn handle_sellitem(
     storage: &Storage,
     data: &mut MByteBuffer,
     entity: Option<GlobalKey>,
-    socket_id: SocketID,
+    _socket_id: SocketID,
 ) -> Result<()> {
-    if let Some(entity) = storage.player_ids.borrow().get(entity) {
-        if !world.get_or_err::<DeathType>(entity)?.is_alive()
-            || !world.get_or_err::<IsUsingType>(entity)?.is_instore()
-        {
-            return Ok(());
-        }
-        let _shop_index =
-            if let IsUsingType::Store(shop) = world.get_or_err::<IsUsingType>(entity)? {
-                shop
-            } else {
-                return Ok(());
-            };
+    let entity = match entity {
+        Some(e) => e,
+        None => return Err(AscendingError::InvalidSocket),
+    };
+
+    if let Some(Entity::Player(p_data)) = world.get_opt_entity(entity) {
         let slot = data.read::<u16>()? as usize;
         let mut amount = data.read::<u16>()?;
 
-        if slot >= MAX_INV || world.get::<&Inventory>(entity.0)?.items[slot].val == 0 {
+        let (is_using_type, inv_item) = {
+            let p_data = p_data.try_lock()?;
+
+            if !p_data.combat.death_type.is_alive() || !p_data.is_using_type.is_instore() {
+                return Ok(());
+            }
+
+            (p_data.is_using_type, p_data.inventory.items[slot])
+        };
+
+        let _shop_index = if let IsUsingType::Store(shop) = is_using_type {
+            shop
+        } else {
+            return Ok(());
+        };
+
+        if slot >= MAX_INV || inv_item.val == 0 {
             return Ok(());
         }
 
-        let inv_item = world.cloned_get_or_err::<Inventory>(entity)?.items[slot];
         if amount > inv_item.val {
             amount = inv_item.val;
         };
@@ -1538,7 +1707,7 @@ pub fn handle_sellitem(
         take_inv_itemslot(world, storage, entity, slot, amount)?;
         player_give_vals(world, storage, entity, total_price)?;
 
-        return send_message(
+        send_message(
             world,
             storage,
             entity,
@@ -1546,10 +1715,9 @@ pub fn handle_sellitem(
             String::new(),
             MessageChannel::Private,
             None,
-        );
+        )?;
     }
-
-    Err(AscendingError::InvalidSocket)
+    Ok(())
 }
 
 pub fn handle_addtradeitem(
@@ -1557,65 +1725,68 @@ pub fn handle_addtradeitem(
     storage: &Storage,
     data: &mut MByteBuffer,
     entity: Option<GlobalKey>,
-    socket_id: SocketID,
+    _socket_id: SocketID,
 ) -> Result<()> {
-    if let Some(entity) = storage.player_ids.borrow().get(entity) {
-        if !world.get_or_err::<DeathType>(entity)?.is_alive()
-            || !world.get_or_err::<IsUsingType>(entity)?.is_trading()
-        {
-            return Ok(());
-        }
-        if world.get_or_err::<TradeStatus>(entity)? != TradeStatus::None {
-            return Ok(());
-        }
+    let entity = match entity {
+        Some(e) => e,
+        None => return Err(AscendingError::InvalidSocket),
+    };
 
-        let target_entity =
-            if let IsUsingType::Trading(entity) = world.get_or_err::<IsUsingType>(entity)? {
+    if let Some(Entity::Player(p1_data)) = world.get_opt_entity(entity) {
+        let slot = data.read::<u16>()? as usize;
+        let mut amount = data.read::<u16>()? as u64;
+
+        let (target_entity, mut inv_item) = {
+            let p1_data = p1_data.try_lock()?;
+
+            if !p1_data.combat.death_type.is_alive()
+                || !p1_data.is_using_type.is_trading()
+                || p1_data.trade_status != TradeStatus::None
+            {
+                return Ok(());
+            }
+
+            let target_entity = if let IsUsingType::Trading(entity) = p1_data.is_using_type {
                 entity
             } else {
                 return Ok(());
             };
-        if !world.contains(target_entity.0) {
-            return Ok(());
-        }
 
-        let slot = data.read::<u16>()? as usize;
-        let mut amount = data.read::<u16>()? as u64;
+            if target_entity == entity || world.get_opt_entity(target_entity).is_none() {
+                return Ok(());
+            }
 
-        if slot >= MAX_INV || world.get::<&Inventory>(entity.0)?.items[slot].val == 0 {
-            return Ok(());
-        }
+            if slot >= MAX_INV || p1_data.inventory.items[slot].val == 0 {
+                return Ok(());
+            }
 
-        let mut inv_item = world.cloned_get_or_err::<Inventory>(entity)?.items[slot];
+            let mut inv_item = p1_data.inventory.items[slot];
 
-        let base = &storage.bases.items[inv_item.num as usize];
-        if base.stackable && amount > base.stacklimit as u64 {
-            amount = base.stacklimit as u64
-        }
+            let base = &storage.bases.items[inv_item.num as usize];
+            if base.stackable && amount > base.stacklimit as u64 {
+                amount = base.stacklimit as u64
+            }
 
-        // Make sure it does not exceed the amount player have
-        let inv_count = count_inv_item(
-            inv_item.num,
-            &world.cloned_get_or_err::<Inventory>(entity)?.items,
-        );
-        let trade_count = count_trade_item(
-            inv_item.num,
-            &world.cloned_get_or_err::<TradeItem>(entity)?.items,
-        );
-        if trade_count + amount > inv_count {
-            amount = inv_count.saturating_sub(trade_count);
-        }
-        if amount == 0 {
-            return Ok(());
-        }
-        inv_item.val = amount as u16;
+            // Make sure it does not exceed the amount player have
+            let inv_count = count_inv_item(inv_item.num, &p1_data.inventory.items);
+            let trade_count = count_trade_item(inv_item.num, &p1_data.trade_item.items);
+            if trade_count + amount > inv_count {
+                amount = inv_count.saturating_sub(trade_count);
+            }
+            if amount == 0 {
+                return Ok(());
+            }
+            inv_item.val = amount as u16;
+
+            (target_entity, inv_item)
+        };
 
         // Add the item on trade list
         let trade_slot_list = give_trade_item(world, storage, entity, &mut inv_item)?;
 
         for slot in trade_slot_list.iter() {
             send_updatetradeitem(world, storage, entity, entity, *slot as u16)?;
-            send_updatetradeitem(world, storage, entity, &target_entity, *slot as u16)?;
+            send_updatetradeitem(world, storage, entity, target_entity, *slot as u16)?;
         }
 
         return Ok(());
@@ -1629,49 +1800,56 @@ pub fn handle_removetradeitem(
     storage: &Storage,
     data: &mut MByteBuffer,
     entity: Option<GlobalKey>,
-    socket_id: SocketID,
+    _socket_id: SocketID,
 ) -> Result<()> {
-    if let Some(entity) = storage.player_ids.borrow().get(entity) {
-        if !world.get_or_err::<DeathType>(entity)?.is_alive()
-            || !world.get_or_err::<IsUsingType>(entity)?.is_trading()
-        {
-            return Ok(());
-        }
-        if world.get_or_err::<TradeStatus>(entity)? != TradeStatus::None {
-            return Ok(());
-        }
+    let entity = match entity {
+        Some(e) => e,
+        None => return Err(AscendingError::InvalidSocket),
+    };
 
-        let target_entity =
-            if let IsUsingType::Trading(entity) = world.get_or_err::<IsUsingType>(entity)? {
+    if let Some(Entity::Player(p1_data)) = world.get_opt_entity(entity) {
+        let slot = data.read::<u16>()? as usize;
+        let mut amount = data.read::<u64>()?;
+
+        let target_entity = {
+            let mut p1_data = p1_data.try_lock()?;
+
+            if !p1_data.combat.death_type.is_alive()
+                || !p1_data.is_using_type.is_trading()
+                || p1_data.trade_status != TradeStatus::None
+            {
+                return Ok(());
+            }
+
+            let target_entity = if let IsUsingType::Trading(entity) = p1_data.is_using_type {
                 entity
             } else {
                 return Ok(());
             };
-        if !world.contains(target_entity.0) {
-            return Ok(());
-        }
 
-        let slot = data.read::<u16>()? as usize;
-        let mut amount = data.read::<u64>()?;
-
-        let trade_item = world.cloned_get_or_err::<TradeItem>(entity)?.items[slot];
-
-        if slot >= MAX_TRADE_SLOT || trade_item.val == 0 {
-            return Ok(());
-        }
-        amount = amount.min(trade_item.val as u64);
-
-        {
-            if let Ok(mut tradeitem) = world.get::<&mut TradeItem>(entity.0) {
-                tradeitem.items[slot].val = tradeitem.items[slot].val.saturating_sub(amount as u16);
-                if tradeitem.items[slot].val == 0 {
-                    tradeitem.items[slot] = Item::default();
-                }
+            if target_entity == entity {
+                return Ok(());
             }
-        }
+
+            let trade_item = p1_data.trade_item.items[slot];
+
+            if slot >= MAX_TRADE_SLOT || trade_item.val == 0 {
+                return Ok(());
+            }
+            amount = amount.min(trade_item.val as u64);
+
+            p1_data.trade_item.items[slot].val = p1_data.trade_item.items[slot]
+                .val
+                .saturating_sub(amount as u16);
+            if p1_data.trade_item.items[slot].val == 0 {
+                p1_data.trade_item.items[slot] = Item::default();
+            }
+
+            target_entity
+        };
 
         send_updatetradeitem(world, storage, entity, entity, slot as u16)?;
-        send_updatetradeitem(world, storage, entity, &target_entity, slot as u16)?;
+        send_updatetradeitem(world, storage, entity, target_entity, slot as u16)?;
 
         return Ok(());
     }
@@ -1684,35 +1862,42 @@ pub fn handle_updatetrademoney(
     storage: &Storage,
     data: &mut MByteBuffer,
     entity: Option<GlobalKey>,
-    socket_id: SocketID,
+    _socket_id: SocketID,
 ) -> Result<()> {
-    if let Some(entity) = storage.player_ids.borrow().get(entity) {
-        if !world.get_or_err::<DeathType>(entity)?.is_alive()
-            || !world.get_or_err::<IsUsingType>(entity)?.is_trading()
-        {
-            return Ok(());
-        }
-        if world.get_or_err::<TradeStatus>(entity)? != TradeStatus::None {
-            return Ok(());
-        }
+    let entity = match entity {
+        Some(e) => e,
+        None => return Err(AscendingError::InvalidSocket),
+    };
 
-        let target_entity =
-            if let IsUsingType::Trading(entity) = world.get_or_err::<IsUsingType>(entity)? {
+    if let Some(Entity::Player(p1_data)) = world.get_opt_entity(entity) {
+        let target_entity = {
+            let mut p1_data = p1_data.try_lock()?;
+
+            let money = p1_data.money.vals;
+            let amount = data.read::<u64>()?.min(money);
+
+            if !p1_data.combat.death_type.is_alive()
+                || !p1_data.is_using_type.is_trading()
+                || p1_data.trade_status != TradeStatus::None
+            {
+                return Ok(());
+            }
+
+            let target_entity = if let IsUsingType::Trading(entity) = p1_data.is_using_type {
                 entity
             } else {
                 return Ok(());
             };
-        if !world.contains(target_entity.0) {
-            return Ok(());
-        }
 
-        let money = world.get_or_err::<Money>(entity)?.vals;
-        let amount = data.read::<u64>()?.min(money);
+            if target_entity == entity {
+                return Ok(());
+            }
 
-        {
-            world.get::<&mut TradeMoney>(entity.0)?.vals = amount;
-        }
-        send_updatetrademoney(world, storage, entity, &target_entity)?;
+            p1_data.trade_money.vals = amount;
+            target_entity
+        };
+
+        send_updatetrademoney(world, storage, entity, target_entity)?;
 
         return Ok(());
     }
@@ -1725,84 +1910,86 @@ pub fn handle_submittrade(
     storage: &Storage,
     _data: &mut MByteBuffer,
     entity: Option<GlobalKey>,
-    socket_id: SocketID,
+    _socket_id: SocketID,
 ) -> Result<()> {
-    if let Some(entity) = storage.player_ids.borrow().get(entity) {
-        if !world.get_or_err::<DeathType>(entity)?.is_alive()
-            || !world.get_or_err::<IsUsingType>(entity)?.is_trading()
-        {
-            return Ok(());
-        }
+    let entity = match entity {
+        Some(e) => e,
+        None => return Err(AscendingError::InvalidSocket),
+    };
 
-        let target_entity =
-            if let IsUsingType::Trading(entity) = world.get_or_err::<IsUsingType>(entity)? {
+    if let Some(Entity::Player(p1_data)) = world.get_opt_entity(entity) {
+        let target_entity = {
+            let p1_data = p1_data.try_lock()?;
+
+            if !p1_data.combat.death_type.is_alive() || !p1_data.is_using_type.is_trading() {
+                return Ok(());
+            }
+
+            let target_entity = if let IsUsingType::Trading(entity) = p1_data.is_using_type {
                 entity
             } else {
                 return Ok(());
             };
-        if !world.contains(target_entity.0) {
+
+            if target_entity == entity {
+                return Ok(());
+            }
+
+            target_entity
+        };
+
+        if let Some(Entity::Player(p2_data)) = world.get_opt_entity(target_entity) {
+            let entity_status = { p1_data.try_lock()?.trade_status };
+            let target_status = { p2_data.try_lock()?.trade_status };
+
+            match entity_status {
+                TradeStatus::None => {
+                    p1_data.try_lock()?.trade_status = TradeStatus::Accepted;
+                }
+                TradeStatus::Accepted => {
+                    if target_status == TradeStatus::Accepted {
+                        {
+                            p1_data.try_lock()?.trade_status = TradeStatus::Submitted;
+                        }
+                    } else if target_status == TradeStatus::Submitted {
+                        {
+                            p1_data.try_lock()?.trade_status = TradeStatus::Submitted;
+                        }
+                        if !process_player_trade(world, storage, entity, target_entity)? {
+                            send_message(
+                                    world,
+                                    storage,
+                                    entity,
+                                    "One of you does not have enough inventory slot to proceed with the trade".to_string(), String::new(), MessageChannel::Private, None
+                                )?;
+                            send_message(
+                                    world,
+                                    storage,
+                                    target_entity,
+                                    "One of you does not have enough inventory slot to proceed with the trade".to_string(), String::new(), MessageChannel::Private, None
+                                )?;
+                        }
+                        close_trade(world, storage, entity)?;
+                        close_trade(world, storage, target_entity)?;
+                        return Ok(());
+                    }
+                }
+                _ => {}
+            }
+
+            let entity_status = { p1_data.try_lock()?.trade_status };
+
+            send_tradestatus(world, storage, entity, &entity_status, &target_status)?;
+            send_tradestatus(
+                world,
+                storage,
+                target_entity,
+                &target_status,
+                &entity_status,
+            )?;
+
             return Ok(());
         }
-
-        let entity_status = world.get_or_err::<TradeStatus>(entity)?;
-        let target_status = world.get_or_err::<TradeStatus>(&target_entity)?;
-
-        match entity_status {
-            TradeStatus::None => {
-                *world.get::<&mut TradeStatus>(entity.0)? = TradeStatus::Accepted;
-            }
-            TradeStatus::Accepted => {
-                if target_status == TradeStatus::Accepted {
-                    {
-                        *world.get::<&mut TradeStatus>(entity.0)? = TradeStatus::Submitted;
-                    }
-                } else if target_status == TradeStatus::Submitted {
-                    {
-                        *world.get::<&mut TradeStatus>(entity.0)? = TradeStatus::Submitted;
-                    }
-                    if !process_player_trade(world, storage, entity, &target_entity)? {
-                        send_message(
-                            world,
-                            storage,
-                            entity,
-                            "One of you does not have enough inventory slot to proceed with the trade".into(),
-                            String::new(),
-                            MessageChannel::Private,
-                            None,
-                        )?;
-                        send_message(
-                            world,
-                            storage,
-                            &target_entity,
-                            "One of you does not have enough inventory slot to proceed with the trade".into(),
-                            String::new(),
-                            MessageChannel::Private,
-                            None,
-                        )?;
-                    }
-                    close_trade(world, storage, entity)?;
-                    close_trade(world, storage, &target_entity)?;
-                    return Ok(());
-                }
-            }
-            _ => {}
-        }
-        send_tradestatus(
-            world,
-            storage,
-            entity,
-            &world.get_or_err::<TradeStatus>(entity)?,
-            &target_status,
-        )?;
-        send_tradestatus(
-            world,
-            storage,
-            &target_entity,
-            &target_status,
-            &world.get_or_err::<TradeStatus>(entity)?,
-        )?;
-
-        return Ok(());
     }
 
     Err(AscendingError::InvalidSocket)
@@ -1813,63 +2000,65 @@ pub fn handle_accepttrade(
     storage: &Storage,
     _data: &mut MByteBuffer,
     entity: Option<GlobalKey>,
-    socket_id: SocketID,
+    _socket_id: SocketID,
 ) -> Result<()> {
-    if let Some(entity) = storage.player_ids.borrow().get(entity) {
-        if !world.get_or_err::<DeathType>(entity)?.is_alive()
-            || world.get_or_err::<IsUsingType>(entity)?.inuse()
-        {
+    let entity = match entity {
+        Some(e) => e,
+        None => return Err(AscendingError::InvalidSocket),
+    };
+
+    let (target_entity, trade_entity, my_status, their_status) = {
+        if let Some(Entity::Player(p1_data)) = world.get_opt_entity(entity) {
+            let mut p1_data = p1_data.try_lock()?;
+
+            if !p1_data.combat.death_type.is_alive() || p1_data.is_using_type.inuse() {
+                return Ok(());
+            }
+
+            let target_entity = match p1_data.trade_request_entity.entity {
+                Some(entity) => entity,
+                None => return Ok(()),
+            };
+            if target_entity == entity {
+                return Ok(());
+            }
+
+            p1_data.trade_request_entity = TradeRequestEntity::default();
+
+            if let Some(Entity::Player(p2_data)) = world.get_opt_entity(target_entity) {
+                let mut p2_data = p2_data.try_lock()?;
+
+                let trade_entity = match p2_data.trade_request_entity.entity {
+                    Some(entity) => entity,
+                    None => return Ok(()),
+                };
+                if trade_entity != entity {
+                    return Ok(());
+                }
+
+                p1_data.trade_status = TradeStatus::None;
+                p2_data.trade_status = TradeStatus::None;
+                p1_data.trade_request_entity = TradeRequestEntity::default();
+                p2_data.trade_request_entity = TradeRequestEntity::default();
+
+                (
+                    target_entity,
+                    trade_entity,
+                    p1_data.trade_status,
+                    p2_data.trade_status,
+                )
+            } else {
+                return Ok(());
+            }
+        } else {
             return Ok(());
         }
+    };
 
-        let target_entity = match world.get_or_err::<TradeRequestEntity>(entity)?.entity {
-            Some(entity) => entity,
-            None => return Ok(()),
-        };
-        {
-            *world.get::<&mut TradeRequestEntity>(entity.0)? = TradeRequestEntity::default();
-        }
+    send_tradestatus(world, storage, entity, &my_status, &their_status)?;
+    send_tradestatus(world, storage, trade_entity, &their_status, &my_status)?;
 
-        if !world.contains(target_entity.0) {
-            return Ok(());
-        }
-
-        let trade_entity = match world
-            .get_or_err::<TradeRequestEntity>(&target_entity)?
-            .entity
-        {
-            Some(entity) => entity,
-            None => return Ok(()),
-        };
-        if trade_entity != *entity || world.get_or_err::<IsUsingType>(&trade_entity)?.inuse() {
-            return Ok(());
-        }
-
-        {
-            *world.get::<&mut TradeStatus>(entity.0)? = TradeStatus::None;
-            *world.get::<&mut TradeStatus>(trade_entity.0)? = TradeStatus::None;
-            *world.get::<&mut TradeRequestEntity>(entity.0)? = TradeRequestEntity::default();
-            *world.get::<&mut TradeRequestEntity>(target_entity.0)? = TradeRequestEntity::default();
-        }
-        send_tradestatus(
-            world,
-            storage,
-            entity,
-            &world.get_or_err::<TradeStatus>(entity)?,
-            &world.get_or_err::<TradeStatus>(&trade_entity)?,
-        )?;
-        send_tradestatus(
-            world,
-            storage,
-            &trade_entity,
-            &world.get_or_err::<TradeStatus>(&trade_entity)?,
-            &world.get_or_err::<TradeStatus>(entity)?,
-        )?;
-
-        return init_trade(world, storage, entity, &target_entity);
-    }
-
-    Err(AscendingError::InvalidSocket)
+    init_trade(world, storage, entity, target_entity)
 }
 
 pub fn handle_declinetrade(
@@ -1877,56 +2066,69 @@ pub fn handle_declinetrade(
     storage: &Storage,
     _data: &mut MByteBuffer,
     entity: Option<GlobalKey>,
-    socket_id: SocketID,
+    _socket_id: SocketID,
 ) -> Result<()> {
-    if let Some(entity) = storage.player_ids.borrow().get(entity) {
-        if !world.get_or_err::<DeathType>(entity)?.is_alive()
-            || world.get_or_err::<IsUsingType>(entity)?.inuse()
-        {
+    let entity = match entity {
+        Some(e) => e,
+        None => return Err(AscendingError::InvalidSocket),
+    };
+
+    let target_entity = if let Some(Entity::Player(p1_data)) = world.get_opt_entity(entity) {
+        let mut p1_data = p1_data.try_lock()?;
+
+        if !p1_data.combat.death_type.is_alive() || p1_data.is_using_type.inuse() {
             return Ok(());
         }
 
-        let target_entity = match world.get_or_err::<TradeRequestEntity>(entity)?.entity {
+        let target_entity = match p1_data.trade_request_entity.entity {
             Some(entity) => entity,
             None => return Ok(()),
         };
-        {
-            *world.get::<&mut TradeRequestEntity>(entity.0)? = TradeRequestEntity::default();
+
+        if target_entity == entity {
+            return Ok(());
         }
 
-        if world.contains(target_entity.0) {
-            let trade_entity = match world
-                .get_or_err::<TradeRequestEntity>(&target_entity)?
-                .entity
-            {
+        if let Some(Entity::Player(p2_data)) = world.get_opt_entity(target_entity) {
+            let mut p2_data = p2_data.try_lock()?;
+
+            p1_data.trade_request_entity = TradeRequestEntity::default();
+
+            let trade_entity = match p2_data.trade_request_entity.entity {
                 Some(entity) => entity,
                 None => return Ok(()),
             };
-            if trade_entity == *entity {
-                *world.get::<&mut TradeRequestEntity>(target_entity.0)? =
-                    TradeRequestEntity::default();
+
+            if trade_entity != entity {
+                return Ok(());
             }
-            send_message(
-                world,
-                storage,
-                &target_entity,
-                "Trade Request has been declined".into(),
-                String::new(),
-                MessageChannel::Private,
-                None,
-            )?;
+
+            p2_data.trade_request_entity = TradeRequestEntity::default();
+
+            target_entity
+        } else {
+            return Ok(());
         }
+    } else {
+        return Ok(());
+    };
 
-        return send_message(
-            world,
-            storage,
-            entity,
-            "Trade Request has been declined".into(),
-            String::new(),
-            MessageChannel::Private,
-            None,
-        );
-    }
-
-    Err(AscendingError::InvalidSocket)
+    send_message(
+        world,
+        storage,
+        target_entity,
+        "Trade Request has been declined".to_string(),
+        String::new(),
+        MessageChannel::Private,
+        None,
+    )?;
+    send_message(
+        world,
+        storage,
+        entity,
+        "Trade Request has been declined".to_string(),
+        String::new(),
+        MessageChannel::Private,
+        None,
+    )
 }
