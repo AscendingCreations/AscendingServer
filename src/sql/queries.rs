@@ -1,5 +1,6 @@
 use crate::{containers::*, gametypes::*, sql::*};
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
+use chrono::Duration;
 use sqlx::{FromRow, PgPool};
 use tokio::{runtime::Runtime, task};
 use uuid::Uuid;
@@ -19,6 +20,8 @@ use general::*;
 use inventory::*;
 use location::*;
 use storage::*;
+
+use super::integers::Shifting;
 
 #[derive(Debug, PartialEq, Eq, FromRow)]
 pub struct PlayerWithPassword {
@@ -148,6 +151,8 @@ pub fn load_player(
     entity: GlobalKey,
     account_id: Uuid,
 ) -> Result<()> {
+    let tick = *storage.gettick.borrow();
+
     if let Some(Entity::Player(p_data)) = world.get_opt_entity(entity) {
         let mut p_data = p_data.try_lock()?;
 
@@ -161,16 +166,55 @@ pub fn load_player(
             .clone_from(&account_data.passresetcode);
 
         let general_data = sql_load_general(storage, account_id)?;
+        p_data.sprite.id = general_data.sprite.shift_signed();
+        p_data.money.vals = general_data.money.shift_signed();
+        p_data.general.resetcount = general_data.resetcount;
+        p_data.item_timer.itemtimer =
+            tick + Duration::try_milliseconds(general_data.itemtimer).unwrap_or_default();
+        p_data.combat.death_timer.0 =
+            tick + Duration::try_milliseconds(general_data.deathtimer).unwrap_or_default();
 
         let equipment_data = sql_load_equipment(storage, account_id)?;
+        for eq_data in equipment_data.slot.iter() {
+            if let Some(data) = p_data.equipment.items.get_mut(eq_data.id as usize) {
+                data.num = eq_data.num.shift_signed();
+                data.val = eq_data.val.shift_signed();
+                data.level = eq_data.level as u8;
+                data.data = eq_data.data;
+            }
+        }
 
         let inventory_data = sql_load_inventory(storage, account_id)?;
+        for inv_data in inventory_data.slot.iter() {
+            if let Some(data) = p_data.inventory.items.get_mut(inv_data.id as usize) {
+                data.num = inv_data.num.shift_signed();
+                data.val = inv_data.val.shift_signed();
+                data.level = inv_data.level as u8;
+                data.data = inv_data.data;
+            }
+        }
 
         let storage_data = sql_load_storage(storage, account_id)?;
+        for item_data in storage_data.slot.iter() {
+            if let Some(data) = p_data.storage.items.get_mut(item_data.id as usize) {
+                data.num = item_data.num.shift_signed();
+                data.val = item_data.val.shift_signed();
+                data.level = item_data.level as u8;
+                data.data = item_data.data;
+            }
+        }
 
         let combat_data = sql_load_combat(storage, account_id)?;
+        p_data.general.pk = combat_data.pk;
+        p_data.general.levelexp = combat_data.levelexp.shift_signed();
+        p_data.combat.level = combat_data.level;
+        p_data.combat.vitals.vital = combat_data.vital;
+        p_data.combat.vitals.vitalmax = combat_data.vital_max;
 
         let location_data = sql_load_location(storage, account_id)?;
+        p_data.movement.pos = location_data.pos;
+        p_data.movement.spawn.pos = location_data.spawn;
+        p_data.movement.dir = location_data.dir as u8;
     }
     Ok(())
 }
