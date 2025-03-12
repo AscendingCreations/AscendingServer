@@ -7,10 +7,14 @@ use uuid::Uuid;
 mod account;
 mod equipment;
 mod general;
+mod inventory;
+mod storage;
 
 use account::*;
 use equipment::*;
 use general::*;
+use inventory::*;
+use storage::*;
 
 #[derive(Debug, PartialEq, Eq, FromRow)]
 pub struct PlayerWithPassword {
@@ -126,6 +130,9 @@ pub fn new_player(
 
     sql_new_general(storage, uid)?;
     sql_new_equipment(storage, uid)?;
+    sql_new_inventory(storage, uid)?;
+    sql_new_storage(storage, uid)?;
+
     Ok(uid)
 }
 
@@ -150,6 +157,10 @@ pub fn load_player(
         let general_data = sql_load_general(storage, account_id)?;
 
         let equipment_data = sql_load_equipment(storage, account_id)?;
+
+        let inventory_data = sql_load_inventory(storage, account_id)?;
+
+        let storage_data = sql_load_storage(storage, account_id)?;
     }
     Ok(())
 }
