@@ -9,6 +9,7 @@ mod combat;
 mod equipment;
 mod general;
 mod inventory;
+mod location;
 mod storage;
 
 use account::*;
@@ -16,6 +17,7 @@ use combat::*;
 use equipment::*;
 use general::*;
 use inventory::*;
+use location::*;
 use storage::*;
 
 #[derive(Debug, PartialEq, Eq, FromRow)]
@@ -135,6 +137,7 @@ pub fn new_player(
     sql_new_inventory(storage, uid)?;
     sql_new_storage(storage, uid)?;
     sql_new_combat(storage, uid)?;
+    sql_new_location(storage, uid)?;
 
     Ok(uid)
 }
@@ -166,6 +169,8 @@ pub fn load_player(
         let storage_data = sql_load_storage(storage, account_id)?;
 
         let combat_data = sql_load_combat(storage, account_id)?;
+
+        let location_data = sql_load_location(storage, account_id)?;
     }
     Ok(())
 }
