@@ -1,42 +1,51 @@
 use crate::{
-    containers::{GlobalKey, Storage, World},
+    containers::{Entity, GlobalKey, Storage, World},
     gametypes::*,
+    sql::integers::Shifting,
+    time_ext::MyInstant,
 };
 
+use super::{
+    PGCombat, PGEquipmentSlot, PGGeneral, PGInventorySlot, PGLocation, PGStorageSlot,
+    sql_update_combat, sql_update_equipment_slot, sql_update_general, sql_update_inventory_slot,
+    sql_update_level, sql_update_location, sql_update_money, sql_update_resetcount,
+    sql_update_storage_slot,
+};
+
+pub fn get_time_left(cur_time: MyInstant, system_time: MyInstant) -> i64 {
+    let cur_timer = cur_time.to_dur();
+    let cur_time = system_time.to_dur();
+    cur_timer.saturating_sub(cur_time).max(0)
+}
+
 pub fn update_player(storage: &Storage, world: &mut World, entity: GlobalKey) -> Result<()> {
-    let rt = storage.rt.borrow_mut();
-    let local = storage.local.borrow();
-    let mut query = world.query_one::<(
-        &Account,
-        &PlayerItemTimer,
-        &Position,
-        &Vitals,
-        &DeathTimer,
-        &DeathType,
-        &Player,
-    )>(entity.0)?;
-    if let Some((account, itemtimer, position, vitals, death_timer, death_type, player)) =
-        query.get()
-    {
-        local.block_on(
-            &rt,
-            sqlx::query(
-                r#"
-        UPDATE public.player
-        SET itemtimer=$2, deathtimer=$3, pos=$4, vital=$5, indeath=$6, pk=$7, vital_max=$8
-        WHERE uid = $1;
-    "#,
-            )
-            .bind(account.id)
-            .bind(itemtimer.itemtimer)
-            .bind(death_timer.0)
-            .bind(position)
-            .bind(vitals.vital)
-            .bind(death_type.is_spirit())
-            .bind(player.pk)
-            .bind(vitals.vitalmax)
-            .execute(&storage.pgconn),
-        )?;
+    let tick = *storage.gettick.borrow();
+
+    if let Some(Entity::Player(p_data)) = world.get_opt_entity(entity) {
+        let p_data = p_data.try_lock()?;
+
+        sql_update_combat(storage, p_data.account.id, PGCombat {
+            level: p_data.combat.level,
+            levelexp: i64::unshift_signed(&p_data.general.levelexp),
+            vital: p_data.combat.vitals.vital,
+            vital_max: p_data.combat.vitals.vitalmax,
+            indeath: false,
+            pk: p_data.general.pk,
+        })?;
+
+        sql_update_general(storage, p_data.account.id, PGGeneral {
+            sprite: i16::unshift_signed(&p_data.sprite.id),
+            money: i64::unshift_signed(&p_data.money.vals),
+            resetcount: p_data.general.resetcount,
+            itemtimer: get_time_left(p_data.item_timer.itemtimer, tick),
+            deathtimer: get_time_left(p_data.combat.death_timer.0, tick),
+        })?;
+
+        sql_update_location(storage, p_data.account.id, PGLocation {
+            spawn: p_data.movement.spawn.pos,
+            pos: p_data.movement.pos,
+            dir: p_data.movement.dir as i16,
+        })?;
     }
 
     Ok(())
@@ -48,13 +57,20 @@ pub fn update_inv(
     entity: GlobalKey,
     slot: usize,
 ) -> Result<()> {
-    let rt = storage.rt.borrow_mut();
-    let local = storage.local.borrow();
-    let mut query = world.query_one::<(&Inventory, &Account)>(entity.0)?;
-    if let Some((inv, account)) = query.get() {
-        let update = PGInvItem::single(&inv.items, account.id, slot).into_update();
+    if let Some(Entity::Player(p_data)) = world.get_opt_entity(entity) {
+        let p_data = p_data.try_lock()?;
 
-        local.block_on(&rt, sqlx::query(&update).execute(&storage.pgconn))?;
+        let uid = p_data.account.id;
+
+        if let Some(slot_data) = p_data.inventory.items.get(slot) {
+            sql_update_inventory_slot(storage, uid, PGInventorySlot {
+                id: slot as i16,
+                num: i32::unshift_signed(&slot_data.num),
+                val: i16::unshift_signed(&slot_data.val),
+                level: slot_data.level as i16,
+                data: slot_data.data,
+            })?;
+        }
     }
 
     Ok(())
@@ -66,13 +82,20 @@ pub fn update_storage(
     entity: GlobalKey,
     slot: usize,
 ) -> Result<()> {
-    let rt = storage.rt.borrow_mut();
-    let local = storage.local.borrow();
-    let mut query = world.query_one::<(&PlayerStorage, &Account)>(entity.0)?;
-    if let Some((player_storage, account)) = query.get() {
-        let update = PGStorageItem::single(&player_storage.items, account.id, slot).into_update();
+    if let Some(Entity::Player(p_data)) = world.get_opt_entity(entity) {
+        let p_data = p_data.try_lock()?;
 
-        local.block_on(&rt, sqlx::query(&update).execute(&storage.pgconn))?;
+        let uid = p_data.account.id;
+
+        if let Some(slot_data) = p_data.storage.items.get(slot) {
+            sql_update_storage_slot(storage, uid, PGStorageSlot {
+                id: slot as i16,
+                num: i32::unshift_signed(&slot_data.num),
+                val: i16::unshift_signed(&slot_data.val),
+                level: slot_data.level as i16,
+                data: slot_data.data,
+            })?;
+        }
     }
 
     Ok(())
@@ -84,153 +107,47 @@ pub fn update_equipment(
     entity: GlobalKey,
     slot: usize,
 ) -> Result<()> {
-    let rt = storage.rt.borrow_mut();
-    let local = storage.local.borrow();
-    let mut query = world.query_one::<(&Equipment, &Account)>(entity.0)?;
-    if let Some((equip, account)) = query.get() {
-        let update = PGEquipItem::single(&equip.items, account.id, slot).into_update();
+    if let Some(Entity::Player(p_data)) = world.get_opt_entity(entity) {
+        let p_data = p_data.try_lock()?;
 
-        local.block_on(&rt, sqlx::query(&update).execute(&storage.pgconn))?;
-    }
+        let uid = p_data.account.id;
 
-    Ok(())
-}
-
-pub fn update_address(storage: &Storage, world: &mut World, entity: GlobalKey) -> Result<()> {
-    let rt = storage.rt.borrow_mut();
-    let local = storage.local.borrow();
-    let mut query = world.query_one::<(&Account, &Socket)>(entity.0)?;
-    if let Some((account, socket)) = query.get() {
-        local.block_on(
-            &rt,
-            sqlx::query(
-                r#"
-                UPDATE public.player
-                SET address=$2
-                WHERE uid = $1;
-            "#,
-            )
-            .bind(account.id)
-            .bind(&*socket.addr)
-            .execute(&storage.pgconn),
-        )?;
-    }
-
-    Ok(())
-}
-
-pub fn update_playerdata(storage: &Storage, world: &mut World, entity: GlobalKey) -> Result<()> {
-    let rt = storage.rt.borrow_mut();
-    let local = storage.local.borrow();
-    let mut query = world.query_one::<(&Account, &EntityData)>(entity.0)?;
-    if let Some((account, entity_data)) = query.get() {
-        local.block_on(
-            &rt,
-            sqlx::query(
-                r#"
-                UPDATE public.player
-                SET data=$2
-                WHERE uid = $1;
-            "#,
-            )
-            .bind(account.id)
-            .bind(entity_data.0)
-            .execute(&storage.pgconn),
-        )?;
-    }
-
-    Ok(())
-}
-
-pub fn update_passreset(
-    storage: &Storage,
-    world: &mut World,
-    entity: GlobalKey,
-    resetpassword: Option<String>,
-) -> Result<()> {
-    let rt = storage.rt.borrow_mut();
-    let local = storage.local.borrow();
-
-    local.block_on(
-        &rt,
-        sqlx::query(
-            r#"
-                UPDATE public.player
-                SET passresetcode=$2
-                WHERE uid = $1;
-            "#,
-        )
-        .bind(world.get::<&Account>(entity.0)?.id)
-        .bind(resetpassword)
-        .execute(&storage.pgconn),
-    )?;
-
-    Ok(())
-}
-
-pub fn update_spawn(storage: &Storage, world: &mut World, entity: GlobalKey) -> Result<()> {
-    let rt = storage.rt.borrow_mut();
-    let local = storage.local.borrow();
-    let mut query = world.query_one::<(&Account, &Spawn)>(entity.0)?;
-    if let Some((account, spawn)) = query.get() {
-        local.block_on(
-            &rt,
-            sqlx::query(
-                r#"
-                UPDATE public.player
-                SET spawn=$2
-                WHERE uid = $1;
-            "#,
-            )
-            .bind(account.id)
-            .bind(spawn.pos)
-            .execute(&storage.pgconn),
-        )?;
+        if let Some(slot_data) = p_data.equipment.items.get(slot) {
+            sql_update_equipment_slot(storage, uid, PGEquipmentSlot {
+                id: slot as i16,
+                num: i32::unshift_signed(&slot_data.num),
+                val: i16::unshift_signed(&slot_data.val),
+                level: slot_data.level as i16,
+                data: slot_data.data,
+            })?;
+        }
     }
 
     Ok(())
 }
 
 pub fn update_pos(storage: &Storage, world: &mut World, entity: GlobalKey) -> Result<()> {
-    let rt = storage.rt.borrow_mut();
-    let local = storage.local.borrow();
-    let mut query = world.query_one::<(&Account, &Position)>(entity.0)?;
-    if let Some((account, position)) = query.get() {
-        local.block_on(
-            &rt,
-            sqlx::query(
-                r#"
-                UPDATE public.player
-                SET pos=$2
-                WHERE uid = $1;
-            "#,
-            )
-            .bind(account.id)
-            .bind(position)
-            .execute(&storage.pgconn),
-        )?;
+    if let Some(Entity::Player(p_data)) = world.get_opt_entity(entity) {
+        let p_data = p_data.try_lock()?;
+
+        sql_update_location(storage, p_data.account.id, PGLocation {
+            spawn: p_data.movement.spawn.pos,
+            pos: p_data.movement.pos,
+            dir: p_data.movement.dir as i16,
+        })?;
     }
 
     Ok(())
 }
 
 pub fn update_currency(storage: &Storage, world: &mut World, entity: GlobalKey) -> Result<()> {
-    let rt = storage.rt.borrow_mut();
-    let local = storage.local.borrow();
-    let mut query = world.query_one::<(&Account, &Money)>(entity.0)?;
-    if let Some((account, money)) = query.get() {
-        local.block_on(
-            &rt,
-            sqlx::query(
-                r#"
-                UPDATE public.player
-                SET vals=$2
-                WHERE uid = $1;
-            "#,
-            )
-            .bind(account.id)
-            .bind(i64::unshift_signed(&money.vals))
-            .execute(&storage.pgconn),
+    if let Some(Entity::Player(p_data)) = world.get_opt_entity(entity) {
+        let p_data = p_data.try_lock()?;
+
+        sql_update_money(
+            storage,
+            p_data.account.id,
+            i64::unshift_signed(&p_data.money.vals),
         )?;
     }
 
@@ -238,50 +155,25 @@ pub fn update_currency(storage: &Storage, world: &mut World, entity: GlobalKey) 
 }
 
 pub fn update_level(storage: &Storage, world: &mut World, entity: GlobalKey) -> Result<()> {
-    let rt = storage.rt.borrow_mut();
-    let local = storage.local.borrow();
-    let mut query = world.query_one::<(&Account, &Level, &Player, &Vitals)>(entity.0)?;
-    if let Some((account, level, player, vitals)) = query.get() {
-        local.block_on(
-            &rt,
-            sqlx::query(
-                r#"
-                UPDATE public.player
-                SET level=$2, levelexp=$3, vital=$4, vital_max=$5
-                WHERE uid = $1;
-            "#,
-            )
-            .bind(account.id)
-            .bind(level.0)
-            .bind(i64::unshift_signed(&player.levelexp))
-            .bind(vitals.vital)
-            .bind(vitals.vitalmax)
-            .execute(&storage.pgconn),
-        )?;
-    }
+    if let Some(Entity::Player(p_data)) = world.get_opt_entity(entity) {
+        let p_data = p_data.try_lock()?;
 
+        sql_update_level(storage, p_data.account.id, PGCombat {
+            level: p_data.combat.level,
+            levelexp: i64::unshift_signed(&p_data.general.levelexp),
+            vital: p_data.combat.vitals.vital,
+            vital_max: p_data.combat.vitals.vitalmax,
+            ..Default::default()
+        })?;
+    }
     Ok(())
 }
 
 pub fn update_resetcount(storage: &Storage, world: &mut World, entity: GlobalKey) -> Result<()> {
-    let rt = storage.rt.borrow_mut();
-    let local = storage.local.borrow();
-    let mut query = world.query_one::<(&Account, &Player)>(entity.0)?;
-    if let Some((account, player)) = query.get() {
-        local.block_on(
-            &rt,
-            sqlx::query(
-                r#"
-                UPDATE public.player
-                SET resetcount=$2
-                WHERE uid = $1;
-            "#,
-            )
-            .bind(account.id)
-            .bind(player.resetcount)
-            .execute(&storage.pgconn),
-        )?;
-    }
+    if let Some(Entity::Player(p_data)) = world.get_opt_entity(entity) {
+        let p_data = p_data.try_lock()?;
 
+        sql_update_resetcount(storage, p_data.account.id, p_data.general.resetcount)?;
+    }
     Ok(())
 }

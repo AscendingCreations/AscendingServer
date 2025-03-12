@@ -76,3 +76,39 @@ pub fn sql_update_general(storage: &Storage, uid: Uuid, data: PGGeneral) -> Resu
 
     Ok(())
 }
+
+pub fn sql_update_resetcount(storage: &Storage, uid: Uuid, resetcount: i16) -> Result<()> {
+    let rt = storage.rt.borrow_mut();
+    let local = storage.local.borrow();
+
+    let query_text = format!(
+        r#"
+        UPDATE public.general
+        SET resetcount = {1}
+        WHERE uid = '{0}';
+        "#,
+        uid, resetcount
+    );
+
+    local.block_on(&rt, sqlx::query(&query_text).execute(&storage.pgconn))?;
+
+    Ok(())
+}
+
+pub fn sql_update_money(storage: &Storage, uid: Uuid, money: i64) -> Result<()> {
+    let rt = storage.rt.borrow_mut();
+    let local = storage.local.borrow();
+
+    let query_text = format!(
+        r#"
+        UPDATE public.general
+        SET money = {1}
+        WHERE uid = '{0}';
+        "#,
+        uid, money,
+    );
+
+    local.block_on(&rt, sqlx::query(&query_text).execute(&storage.pgconn))?;
+
+    Ok(())
+}

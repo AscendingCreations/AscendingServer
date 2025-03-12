@@ -127,7 +127,7 @@ pub fn handle_register(
         Err(_) => return Err(AscendingError::UserNotFound),
     }
 
-    return match new_player(storage, username.clone(), email, password, &socket) {
+    match new_player(storage, username.clone(), email, password, &socket) {
         Ok(uid) => {
             let code = Alphanumeric.sample_string(&mut rand::rng(), 32);
             let handshake = Alphanumeric.sample_string(&mut rand::rng(), 32);
@@ -180,7 +180,7 @@ pub fn handle_register(
             0,
             true,
         ),
-    };
+    }
 }
 
 pub fn handle_handshake(
@@ -357,5 +357,5 @@ pub fn handle_login(
         return send_infomsg(storage, socket.id, "Error Loading User.".into(), 1, true);
     };
 
-    return send_login_info(world, storage, entity, code, handshake, socket.id, name);
+    send_login_info(world, storage, entity, code, handshake, socket.id, name)
 }

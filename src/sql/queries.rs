@@ -13,13 +13,13 @@ mod inventory;
 mod location;
 mod storage;
 
-use account::*;
-use combat::*;
-use equipment::*;
-use general::*;
-use inventory::*;
-use location::*;
-use storage::*;
+pub use account::*;
+pub use combat::*;
+pub use equipment::*;
+pub use general::*;
+pub use inventory::*;
+pub use location::*;
+pub use storage::*;
 
 use super::integers::Shifting;
 

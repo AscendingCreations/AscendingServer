@@ -339,18 +339,18 @@ impl Storage {
         let _ = world.kinds.remove(id);
         let player = world.entities.remove(id);
 
-        if let Some(data) = player {
-            if let Entity::Player(p_data) = data {
-                let p_data = p_data.try_lock()?;
+        if let Some(data) = player
+            && let Entity::Player(p_data) = data
+        {
+            let p_data = p_data.try_lock()?;
 
-                println!("Players Disconnected : {}", &p_data.account.username);
-                self.player_names
-                    .borrow_mut()
-                    .remove(&p_data.account.username);
+            println!("Players Disconnected : {}", &p_data.account.username);
+            self.player_names
+                .borrow_mut()
+                .remove(&p_data.account.username);
 
-                self.player_ids.borrow_mut().swap_remove(&id);
-                return Ok((p_data.socket.clone(), p_data.movement.pos));
-            }
+            self.player_ids.borrow_mut().swap_remove(&id);
+            return Ok((p_data.socket.clone(), p_data.movement.pos));
         }
 
         Err(AscendingError::missing_entity())

@@ -6,7 +6,7 @@ use crate::gametypes::*;
 
 use sqlx::FromRow;
 
-#[derive(Debug, FromRow)]
+#[derive(Debug, FromRow, Default)]
 pub struct PGCombat {
     pub indeath: bool,
     pub level: i32,
@@ -83,6 +83,38 @@ pub fn sql_update_combat(storage: &Storage, uid: Uuid, data: PGCombat) -> Result
         WHERE uid = '{0}';
         "#,
         uid, data.indeath, data.level, data.levelexp, data.pk, vital, vitalmax
+    );
+
+    local.block_on(&rt, sqlx::query(&query_text).execute(&storage.pgconn))?;
+
+    Ok(())
+}
+
+pub fn sql_update_level(storage: &Storage, uid: Uuid, data: PGCombat) -> Result<()> {
+    let rt = storage.rt.borrow_mut();
+    let local = storage.local.borrow();
+
+    let vital = data
+        .vital
+        .iter()
+        .format_with(", ", |elt, f| f(&format_args!("{}", elt)))
+        .to_string();
+    let vitalmax = data
+        .vital_max
+        .iter()
+        .format_with(", ", |elt, f| f(&format_args!("{}", elt)))
+        .to_string();
+
+    let query_text = format!(
+        r#"
+        UPDATE public.combat
+        SET level = {1},
+            levelexp = {2},
+            vital = '{{{3}}}',
+            vital_max = '{{{4}}}'
+        WHERE uid = '{0}';
+        "#,
+        uid, data.level, data.levelexp, vital, vitalmax
     );
 
     local.block_on(&rt, sqlx::query(&query_text).execute(&storage.pgconn))?;

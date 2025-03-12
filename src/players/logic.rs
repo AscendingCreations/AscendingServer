@@ -456,10 +456,8 @@ pub fn left_game(world: &mut World, storage: &Storage, entity: GlobalKey) -> Res
             )?,
         )?;
 
-        update_playerdata(storage, world, entity)?;
         update_player(storage, world, entity)?;
         update_level(storage, world, entity)?;
-        update_spawn(storage, world, entity)?;
         update_pos(storage, world, entity)?;
         update_currency(storage, world, entity)?;
         update_resetcount(storage, world, entity)?;

@@ -257,7 +257,7 @@ pub fn kill_player(world: &mut World, storage: &Storage, entity: GlobalKey) -> R
 
             p_data.combat.death_type = DeathType::Dead;
 
-            p_data.combat.vitals.vital == p_data.combat.vitals.vitalmax;
+            p_data.combat.vitals.vital = p_data.combat.vitals.vitalmax;
             p_data.combat.target.target_entity = None;
 
             (p_data.combat.vitals, p_data.movement.spawn)
