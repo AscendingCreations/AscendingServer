@@ -55,6 +55,7 @@ sqlx = {version = "0.8.3", features = [
   "chrono",
   "time",
   "json",
+  "uuid",
 ]}
 thiserror = "1.0.63"
 tokio = {version = "1.43.0", features = ["full", "tracing"]}

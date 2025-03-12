@@ -2,6 +2,7 @@ use educe::Educe;
 use mmap_bytey::{MByteBufferRead, MByteBufferWrite};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use uuid::Uuid;
 
 use crate::{
     containers::{GlobalKey, HashSet},
@@ -54,7 +55,7 @@ pub struct PlayerEntity {
 pub struct Account {
     pub username: String,
     pub passresetcode: Option<String>,
-    pub id: i64,
+    pub id: Uuid,
 }
 
 #[derive(Clone, Debug)]

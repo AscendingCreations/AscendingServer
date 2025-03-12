@@ -1770,6 +1770,7 @@ dependencies = [
  "tokio-stream",
  "tracing",
  "url",
+ "uuid",
 ]
 
 [[package]]
@@ -1852,6 +1853,7 @@ dependencies = [
  "thiserror 2.0.12",
  "time",
  "tracing",
+ "uuid",
  "whoami",
 ]
 
@@ -1891,6 +1893,7 @@ dependencies = [
  "thiserror 2.0.12",
  "time",
  "tracing",
+ "uuid",
  "whoami",
 ]
 
@@ -1917,6 +1920,7 @@ dependencies = [
  "time",
  "tracing",
  "url",
+ "uuid",
 ]
 
 [[package]]
