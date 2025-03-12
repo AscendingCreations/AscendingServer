@@ -1,4 +1,5 @@
 listen = '0.0.0.0:7010'
+tls_listen = '0.0.0.0:7011'
 server_cert = 'keys/server.crt'
 server_key = 'keys/server-key.pem'
 ca_root = 'keys/ca-crt.pem'

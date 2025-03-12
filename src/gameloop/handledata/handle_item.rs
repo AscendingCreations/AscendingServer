@@ -538,7 +538,7 @@ pub fn handle_switchstorageslot(
             } else {
                 return send_fltalert(
                     storage,
-                    socket_id.id.0,
+                    socket_id.id,
                     "Can not swap slots with a different containing items unless you swap everything."
                         .into(),
                     FtlType::Error,

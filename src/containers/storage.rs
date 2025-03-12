@@ -8,7 +8,7 @@ use crate::{
     time_ext::MyInstant,
 };
 use chrono::Duration;
-use log::LevelFilter;
+use log::{error, info, trace, warn, LevelFilter};
 use mio::{Poll, Token};
 use rustls::{
     ServerConfig,
@@ -44,6 +44,7 @@ pub struct Storage {
     pub player_names: RefCell<HashMap<String, GlobalKey>>, //for player names to ID's
     pub maps: IndexMap<MapPosition, RefCell<MapData>>,
     pub map_items: RefCell<IndexMap<Position, GlobalKey>>,
+    pub disconnected_player: RefCell<IndexSet<GlobalKey>>, //Players get placed here to unload data later. allow reconnecting.
     pub player_timeout: RefCell<SecondaryMap<GlobalKey, PlayerConnectionTimer>>,
     pub hand_shakes: RefCell<HashMap<String, GlobalKey>>,
     pub player_code: RefCell<IndexMap<String, GlobalKey>>,
@@ -119,6 +120,7 @@ impl ServerLevelFilter {
 #[derive(Deserialize)]
 pub struct Config {
     pub listen: String,
+    pub tls_listen: String,
     pub server_cert: String,
     pub server_key: String,
     pub ca_root: String,
@@ -193,8 +195,14 @@ impl Storage {
         let mut poll = Poll::new().ok()?;
         let tls_config =
             build_tls_config(&config.server_cert, &config.server_key, &config.ca_root).unwrap();
-        let server =
-            Server::new(&mut poll, &config.listen, config.maxconnections, tls_config).ok()?;
+            let server = Server::new(
+                &mut poll,
+                &config.listen,
+                &config.tls_listen,
+                config.maxconnections,
+                tls_config,
+            )
+            .ok()?;
 
         let mut rt: Runtime = Runtime::new().unwrap();
         let local = task::LocalSet::new();
@@ -206,6 +214,7 @@ impl Storage {
             recv_ids: RefCell::new(IndexSet::default()),
             npc_ids: RefCell::new(IndexSet::default()),
             player_names: RefCell::new(HashMap::default()), //for player names to ID's
+            disconnected_player: RefCell::new(IndexSet::default()),
             player_timeout: RefCell::new(SecondaryMap::default()),
             maps: IndexMap::default(),
             map_items: RefCell::new(IndexMap::default()),
@@ -335,25 +344,41 @@ impl Storage {
         Ok(entity)
     }
 
-    pub fn remove_player(&self, world: &mut World, id: GlobalKey) -> Result<(Socket, Position)> {
+    pub fn remove_player(
+        &self,
+        world: &mut World,
+        id: GlobalKey,
+    ) -> Result<Option<Arc<Mutex<PlayerEntity>>>> {
         let _ = world.kinds.remove(id);
         let player = world.entities.remove(id);
+        self.player_ids.borrow_mut().swap_remove(&id);
 
-        if let Some(data) = player
-            && let Entity::Player(p_data) = data
-        {
-            let p_data = p_data.try_lock()?;
+        Ok(if let Some(data) = player {
+            if let Entity::Player(p_data) = data {
+                {
+                    let p_data = p_data.try_lock()?;
 
-            println!("Players Disconnected : {}", &p_data.account.username);
-            self.player_names
-                .borrow_mut()
-                .remove(&p_data.account.username);
+                    let _ = world.account_id.remove(&p_data.account.id);
 
-            self.player_ids.borrow_mut().swap_remove(&id);
-            return Ok((p_data.socket.clone(), p_data.movement.pos));
-        }
+                    // pos = Some((p_data.movement.pos, p_data.movement.map_instance));
 
-        Err(AscendingError::missing_entity())
+                    self.player_names
+                        .borrow_mut()
+                        .remove(&p_data.account.username);
+
+                    info!("Players Disconnected : {}", &p_data.account.username);
+                    trace!("Players Disconnected IP: {} ", &p_data.socket.addr);
+                }
+
+                Some(p_data)
+            } else {
+                error!("Was not a player entity woops?");
+                None
+            }
+        } else {
+            warn!("Player Removal failed: Cant find player");
+            None
+        })
     }
 
     pub fn add_npc(&self, world: &mut World, npc_id: u64) -> Result<Option<GlobalKey>> {

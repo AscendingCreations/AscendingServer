@@ -12,10 +12,9 @@ use crate::{
 #[inline]
 pub fn send_infomsg(
     storage: &Storage,
-    socket_id: usize,
+    socket_id: Token,
     message: String,
     close_socket: u8,
-    tls_send: bool,
 ) -> Result<()> {
     let mut buf = MByteBuffer::new_packet()?;
 
@@ -24,17 +23,13 @@ pub fn send_infomsg(
     buf.write(close_socket)?;
     buf.finish()?;
 
-    if tls_send {
-        tls_send_to(storage, socket_id, buf)
-    } else {
-        send_to(storage, socket_id, buf)
-    }
+    send_to(storage, socket_id, buf)
 }
 
 #[inline]
 pub fn send_fltalert(
     storage: &Storage,
-    socket_id: usize,
+    socket_id: Token,
     message: String,
     ftltype: FtlType,
 ) -> Result<()> {
@@ -49,7 +44,7 @@ pub fn send_fltalert(
 }
 
 #[inline]
-pub fn send_loginok(storage: &Storage, socket_id: usize) -> Result<()> {
+pub fn send_loginok(storage: &Storage, socket_id: Token) -> Result<()> {
     let mut buf = MByteBuffer::new_packet()?;
 
     buf.write(ServerPackets::LoginOk)?;
@@ -61,17 +56,17 @@ pub fn send_loginok(storage: &Storage, socket_id: usize) -> Result<()> {
 }
 
 #[inline]
-pub fn send_myindex(storage: &Storage, socket_id: usize, entity: GlobalKey) -> Result<()> {
+pub fn send_myindex(storage: &Storage, socket_id: Token, entity: GlobalKey) -> Result<()> {
     let mut buf = MByteBuffer::new_packet()?;
 
     buf.write(ServerPackets::MyIndex)?;
     buf.write(entity)?;
     buf.finish()?;
 
-    tls_send_to(storage, socket_id, buf)
+    send_to(storage, socket_id, buf)
 }
 
-pub fn send_move_ok(storage: &Storage, socket_id: usize, move_ok: bool) -> Result<()> {
+pub fn send_move_ok(storage: &Storage, socket_id: Token, move_ok: bool) -> Result<()> {
     let mut buf = MByteBuffer::new_packet()?;
 
     buf.write(ServerPackets::MoveOk)?;
@@ -85,7 +80,7 @@ pub fn send_move_ok(storage: &Storage, socket_id: usize, move_ok: bool) -> Resul
 pub fn send_playerdata(
     world: &mut World,
     storage: &Storage,
-    socket_id: usize,
+    socket_id: Token,
     entity: GlobalKey,
 ) -> Result<()> {
     if let Some(Entity::Player(data)) = world.get_opt_entity(entity) {
@@ -123,7 +118,7 @@ pub fn send_codes(
     handshake: String,
 ) -> Result<()> {
     let socket_id = if let Some(Entity::Player(data)) = world.get_opt_entity(entity) {
-        data.try_lock()?.socket.id
+        data.try_lock()?.socket.tls_id
     } else {
         return Ok(());
     };
@@ -136,8 +131,7 @@ pub fn send_codes(
     buf.finish()?;
 
     // Once the codes are Sent we need to set this to unencrypted mode as the client will be un unencrypted mode.
-    set_encryption_status(storage, socket_id, EncryptionState::WriteTransfering);
-    tls_send_to(storage, socket_id, buf)
+    send_to(storage, socket_id, buf)
 }
 
 pub fn send_ping(world: &mut World, storage: &Storage, entity: GlobalKey) -> Result<()> {
@@ -348,7 +342,7 @@ pub fn send_message(
                 buf.finish()?;
 
                 if let Some(token) = id {
-                    send_to(storage, token.0, buf.try_clone()?)?;
+                    send_to(storage, token, buf.try_clone()?)?;
                 }
                 send_to(storage, data.socket.id, buf)?;
             }
@@ -586,5 +580,5 @@ pub fn send_gameping(storage: &Storage, socket_id: Token) -> Result<()> {
     buf.write(0u64)?;
     buf.finish()?;
 
-    send_to(storage, socket_id.0, buf)
+    send_to(storage, socket_id, buf)
 }

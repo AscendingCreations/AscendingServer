@@ -82,7 +82,7 @@ pub fn handle_message(
             usersocket = match storage.player_names.borrow().get(&name) {
                 Some(id) => {
                     if let Some(Entity::Player(p_data)) = world.get_opt_entity(*id) {
-                        Some(Token(p_data.try_lock()?.socket.id))
+                        Some(p_data.try_lock()?.socket.id)
                     } else {
                         return Ok(());
                     }

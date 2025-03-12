@@ -1,5 +1,7 @@
 use std::backtrace::Backtrace;
 
+use mio::Token;
+
 use crate::{containers::*, gametypes::*, socket::*, sql::*, tasks::*};
 
 #[inline(always)]
@@ -191,15 +193,14 @@ pub fn player_take_vals(
 pub fn send_swap_error(
     _world: &mut World,
     storage: &Storage,
-    old_socket_id: usize,
-    socket_id: usize,
+    old_socket_id: Token,
+    socket_id: Token,
 ) -> Result<()> {
     send_infomsg(
         storage,
         old_socket_id,
         "Server Error in player swap".into(),
         1,
-        true,
     )?;
 
     send_infomsg(
@@ -207,7 +208,6 @@ pub fn send_swap_error(
         socket_id,
         "Server Error in player swap".into(),
         1,
-        true,
     )
 }
 
@@ -217,7 +217,7 @@ pub fn send_login_info(
     entity: GlobalKey,
     code: String,
     handshake: String,
-    socket_id: usize,
+    socket_id: Token,
     username: String,
 ) -> Result<()> {
     if let Some(Entity::Player(p_data)) = world.get_opt_entity(entity) {

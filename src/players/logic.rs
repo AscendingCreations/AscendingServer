@@ -461,7 +461,6 @@ pub fn left_game(world: &mut World, storage: &Storage, entity: GlobalKey) -> Res
         update_pos(storage, world, entity)?;
         update_currency(storage, world, entity)?;
         update_resetcount(storage, world, entity)?;
-
         //todo Add Update Players on map here.
     }
 

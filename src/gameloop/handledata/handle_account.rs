@@ -1,7 +1,6 @@
-use std::sync::Arc;
-
 use chrono::Duration;
 use log::info;
+use mio::Token;
 use mmap_bytey::MByteBuffer;
 use rand::distr::{Alphanumeric, SampleString};
 use regex::Regex;
@@ -39,10 +38,7 @@ pub fn handle_register(
 
     let socket = if let Some(client) = storage.server.borrow().clients.get(&socket_id.id) {
         let brw_client = client.borrow();
-        Socket {
-            addr: Arc::new(brw_client.addr.to_string()),
-            id: socket_id.id.0,
-        }
+        Socket::new(Token(0), socket_id.id, brw_client.addr.to_string())?
     } else {
         return Err(AscendingError::InvalidSocket);
     };
@@ -50,10 +46,9 @@ pub fn handle_register(
     if APP_MAJOR > appmajor && APP_MINOR > appminior && APP_REVISION > apprevision {
         return send_infomsg(
             storage,
-            socket.id,
+            socket.tls_id,
             "Client needs to be updated.".into(),
             1,
-            true,
         );
     }
 
@@ -64,40 +59,36 @@ pub fn handle_register(
     if !username.chars().all(is_name_acceptable) || !password.chars().all(is_password_acceptable) {
         return send_infomsg(
             storage,
-            socket.id,
+            socket.tls_id,
             "Username or Password contains unaccepted Characters".into(),
             0,
-            true,
         );
     }
 
     if username.len() >= 64 {
         return send_infomsg(
             storage,
-            socket.id,
+            socket.tls_id,
             "Username has too many Characters, 64 Characters Max".into(),
             0,
-            true,
         );
     }
 
     if password.len() >= 128 {
         return send_infomsg(
             storage,
-            socket.id,
+            socket.tls_id,
             "Password has too many Characters, 128 Characters Max".into(),
             0,
-            true,
         );
     }
 
     if !email_regex.is_match(&email) || sprite_id >= 6 {
         return send_infomsg(
             storage,
-            socket.id,
+            socket.tls_id,
             "Email must be an actual email.".into(),
             0,
-            true,
         );
     }
 
@@ -107,19 +98,17 @@ pub fn handle_register(
             1 => {
                 return send_infomsg(
                     storage,
-                    socket.id,
+                    socket.tls_id,
                     "Username Exists. Please try Another.".into(),
                     0,
-                    true,
                 );
             }
             2 => {
                 return send_infomsg(
                     storage,
-                    socket.id,
+                    socket.tls_id,
                     "Email Already Exists. Please Try Another.".into(),
                     0,
-                    true,
                 );
             }
             _ => return Err(AscendingError::RegisterFail),
@@ -175,10 +164,9 @@ pub fn handle_register(
         }
         Err(_) => send_infomsg(
             storage,
-            socket.id,
+            socket.tls_id,
             "There was an Issue Creating the player account. Please Contact Support.".into(),
             0,
-            true,
         ),
     }
 }
@@ -208,7 +196,7 @@ pub fn handle_handshake(
 
                 let _ = storage.player_timeout.borrow_mut().remove(entity);
 
-                p_data.socket.id = socket_id.id.0;
+                p_data.socket.id = socket_id.id;
 
                 if let Some(client) = storage.server.borrow().clients.get(&socket_id.id) {
                     client.borrow_mut().entity = Some(entity);
@@ -246,10 +234,7 @@ pub fn handle_login(
 
     let socket = if let Some(client) = storage.server.borrow().clients.get(&socket_id.id) {
         let brw_client = client.borrow();
-        Socket {
-            addr: Arc::new(brw_client.addr.to_string()),
-            id: socket_id.id.0,
-        }
+        Socket::new(Token(0), socket_id.id, brw_client.addr.to_string())?
     } else {
         return Err(AscendingError::InvalidSocket);
     };
@@ -257,20 +242,18 @@ pub fn handle_login(
     if APP_MAJOR > appmajor && APP_MINOR > appminior && APP_REVISION > apprevision {
         return send_infomsg(
             storage,
-            socket.id,
+            socket.tls_id,
             "Client needs to be updated.".into(),
             1,
-            true,
         );
     }
 
     if username.len() >= 64 || password.len() >= 128 {
         return send_infomsg(
             storage,
-            socket.id,
+            socket.tls_id,
             "Account does not Exist or Password is not Correct.".into(),
             0,
-            true,
         );
     }
 
@@ -279,10 +262,9 @@ pub fn handle_login(
         None => {
             return send_infomsg(
                 storage,
-                socket.id,
+                socket.tls_id,
                 "Account does not Exist or Password is not Correct.".into(),
                 1,
-                true,
             );
         }
     };
@@ -311,7 +293,7 @@ pub fn handle_login(
                                 .server
                                 .borrow()
                                 .clients
-                                .get(&mio::Token(old_socket.id))
+                                .get(&old_socket.id)
                             {
                                 client.borrow_mut().close_socket(world, storage)?;
                             } else {
@@ -323,10 +305,9 @@ pub fn handle_login(
                     } else {
                         return send_infomsg(
                             storage,
-                            socket.id,
+                            socket.tls_id,
                             "Error Loading User.".into(),
                             1,
-                            true,
                         );
                     }
                 }
@@ -337,7 +318,7 @@ pub fn handle_login(
     let entity = storage.add_player_data(world, code.clone(), handshake.clone(), socket.clone())?;
 
     if let Err(_e) = load_player(storage, world, entity, id) {
-        return send_infomsg(storage, socket.id, "Error Loading User.".into(), 1, true);
+        return send_infomsg(storage, socket.tls_id, "Error Loading User.".into(), 1);
     }
 
     let tick = *storage.gettick.borrow();
@@ -354,7 +335,7 @@ pub fn handle_login(
 
         name
     } else {
-        return send_infomsg(storage, socket.id, "Error Loading User.".into(), 1, true);
+        return send_infomsg(storage, socket.tls_id, "Error Loading User.".into(), 1);
     };
 
     send_login_info(world, storage, entity, code, handshake, socket.id, name)

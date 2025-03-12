@@ -91,5 +91,3 @@ panic = 'unwind'
 rpath = false
 strip = "none"
 
-[profile.dev.package."*"]
-opt-level = 2

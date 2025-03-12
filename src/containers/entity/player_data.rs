@@ -1,4 +1,5 @@
 use educe::Educe;
+use mio::Token;
 use mmap_bytey::{MByteBufferRead, MByteBufferWrite};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -22,6 +23,7 @@ pub struct PlayerEntity {
     pub online_type: OnlineType,
     pub login_handshake: LoginHandShake,
     pub relogin_code: ReloginCode,
+    pub connection: PlayerConnection,
 
     // General Data
     pub sprite: Sprite,
@@ -58,20 +60,42 @@ pub struct Account {
     pub id: Uuid,
 }
 
+#[derive(Copy, Clone, Debug, Educe)]
+#[educe(Default)]
+pub struct PlayerConnection {
+    #[educe(Default = MyInstant::now())]
+    pub disconnect_timer: MyInstant,
+    pub connection_code: Uuid,
+}
+
 #[derive(Clone, Debug)]
 pub struct Socket {
     // IP address
     pub addr: Arc<String>,
-    // Socket ID
-    pub id: usize,
+    // Unencrypted Socket ID
+    pub id: Token,
+    // Encrypted Socket ID
+    pub tls_id: Token,
 }
 
 impl Default for Socket {
     fn default() -> Self {
         Self {
             addr: Arc::new(String::new()),
-            id: 0,
+            id: Token(0),
+            tls_id: Token(0),
         }
+    }
+}
+
+impl Socket {
+    #[inline(always)]
+    pub fn new(id: Token, tls_id: Token, addr: String) -> Result<Self> {
+        Ok(Self {
+            id,
+            tls_id,
+            addr: Arc::new(addr),
+        })
     }
 }
 

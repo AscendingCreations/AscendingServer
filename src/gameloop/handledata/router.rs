@@ -9,6 +9,7 @@ use crate::{
 
 pub struct SocketID {
     pub id: Token,
+    pub is_tls: bool,
 }
 
 pub fn handle_data(
