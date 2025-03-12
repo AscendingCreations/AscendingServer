@@ -289,11 +289,8 @@ pub fn handle_login(
                     } else if !reconnect_code.is_empty() && old_code.code.contains(&reconnect_code)
                     {
                         if old_socket.id != socket.id {
-                            if let Some(client) = storage
-                                .server
-                                .borrow()
-                                .clients
-                                .get(&old_socket.id)
+                            if let Some(client) =
+                                storage.server.borrow().clients.get(&old_socket.id)
                             {
                                 client.borrow_mut().close_socket(world, storage)?;
                             } else {

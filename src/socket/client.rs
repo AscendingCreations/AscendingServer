@@ -54,7 +54,6 @@ impl Client {
         })
     }
 
-
     pub fn process(
         &mut self,
         event: &mio::event::Event,
@@ -113,7 +112,7 @@ impl Client {
                 self.deregister(&storage.poll.borrow_mut())?;
                 self.state = ClientState::Closed;
                 let _ = self.stream.shutdown(std::net::Shutdown::Both);
-                
+
                 let mut remove_entity = false;
 
                 if let Some(entity) = self.entity {
@@ -151,7 +150,7 @@ impl Client {
                 if remove_entity {
                     self.entity = None;
                 }
-                
+
                 Ok(())
             }
         }
@@ -337,7 +336,7 @@ impl Client {
                 return;
             }
         };
-        
+
         // lets only send 25 packets per socket each loop.
         loop {
             let mut packet = match self.sends.pop_front() {
@@ -437,20 +436,21 @@ pub fn disconnect(playerid: GlobalKey, world: &mut World, storage: &Storage) -> 
     let _ = storage.player_timeout.borrow_mut().remove(playerid);
 
     let position = if let Some(player) = storage.remove_player(world, playerid)? {
-            let lock = player.try_lock()?;
+        let lock = player.try_lock()?;
 
-            trace!("Players Disconnected IP: {} ", &lock.socket.addr);
+        trace!("Players Disconnected IP: {} ", &lock.socket.addr);
 
         Some(lock.movement.pos)
     } else {
         None
     };
 
-    if let Some(pos,) = position {
+    if let Some(pos) = position {
         if let Some(map) = storage.maps.get(&pos.map) {
             map.borrow_mut().remove_player(storage, playerid);
             map.borrow_mut().remove_entity_from_grid(pos);
-            DataTaskToken::EntityUnload(pos.map).add_task(storage, unload_entity_packet(playerid)?)?;
+            DataTaskToken::EntityUnload(pos.map)
+                .add_task(storage, unload_entity_packet(playerid)?)?;
         }
     }
 
@@ -518,9 +518,7 @@ pub fn send_to_maps(
                 let data = data.try_lock()?;
 
                 if data.online_type == OnlineType::Online {
-                    if let Some(client) =
-                        storage.server.borrow().clients.get(&data.socket.id)
-                    {
+                    if let Some(client) = storage.server.borrow().clients.get(&data.socket.id) {
                         client
                             .borrow_mut()
                             .send(&storage.poll.borrow(), buf.try_clone()?)?;
@@ -656,7 +654,7 @@ pub fn process_packets(world: &mut World, storage: &Storage, router: &PacketRout
                         continue 'user_loop;
                     }
 
-                    let socketid = SocketID { id: *token , is_tls};
+                    let socketid = SocketID { id: *token, is_tls };
 
                     if handle_data(router, world, storage, &mut packet, entity, socketid).is_err() {
                         warn!("IP: {} was disconnected due to invalid packets", address);

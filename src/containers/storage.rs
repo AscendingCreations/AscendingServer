@@ -8,7 +8,7 @@ use crate::{
     time_ext::MyInstant,
 };
 use chrono::Duration;
-use log::{error, info, trace, warn, LevelFilter};
+use log::{LevelFilter, error, info, trace, warn};
 use mio::{Poll, Token};
 use rustls::{
     ServerConfig,
@@ -195,14 +195,14 @@ impl Storage {
         let mut poll = Poll::new().ok()?;
         let tls_config =
             build_tls_config(&config.server_cert, &config.server_key, &config.ca_root).unwrap();
-            let server = Server::new(
-                &mut poll,
-                &config.listen,
-                &config.tls_listen,
-                config.maxconnections,
-                tls_config,
-            )
-            .ok()?;
+        let server = Server::new(
+            &mut poll,
+            &config.listen,
+            &config.tls_listen,
+            config.maxconnections,
+            tls_config,
+        )
+        .ok()?;
 
         let mut rt: Runtime = Runtime::new().unwrap();
         let local = task::LocalSet::new();

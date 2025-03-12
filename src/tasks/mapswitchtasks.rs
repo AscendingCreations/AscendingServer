@@ -117,11 +117,14 @@ pub fn init_data_lists(
         tasks.push(MapSwitchTasks::Npc(task_npc));
         tasks.push(MapSwitchTasks::Items(task_item));
     } else {
-        map_switch_tasks.insert(user, vec![
-            MapSwitchTasks::Player(task_player),
-            MapSwitchTasks::Npc(task_npc),
-            MapSwitchTasks::Items(task_item),
-        ]);
+        map_switch_tasks.insert(
+            user,
+            vec![
+                MapSwitchTasks::Player(task_player),
+                MapSwitchTasks::Npc(task_npc),
+                MapSwitchTasks::Items(task_item),
+            ],
+        );
     }
 
     Ok(())

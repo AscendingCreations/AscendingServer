@@ -5,7 +5,6 @@ mod sends;
 mod server;
 mod states;
 
-pub use states::*;
 pub use buffer::*;
 #[allow(unused_imports)]
 pub use bytey::{ByteBuffer, ByteBufferError, ByteBufferRead, ByteBufferWrite};
@@ -15,3 +14,4 @@ pub use mmap_bytey::{MByteBuffer, MByteBufferError, MByteBufferRead, MByteBuffer
 pub use packet_ids::*;
 pub use sends::*;
 pub use server::*;
+pub use states::*;

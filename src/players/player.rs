@@ -203,12 +203,7 @@ pub fn send_swap_error(
         1,
     )?;
 
-    send_infomsg(
-        storage,
-        socket_id,
-        "Server Error in player swap".into(),
-        1,
-    )
+    send_infomsg(storage, socket_id, "Server Error in player swap".into(), 1)
 }
 
 pub fn send_login_info(
