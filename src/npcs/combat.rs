@@ -101,7 +101,7 @@ pub fn try_cast(
 
                     if base.has_enemies
                         && casttype == NpcCastType::Enemy
-                        && base.enemies.iter().any(|e| *e == target_entity_index)
+                        && base.enemies.contains(&target_entity_index)
                     {
                         if let Some(dir) = caster_pos.checkdirection(target_pos) {
                             if is_dir_blocked(storage, caster_pos, dir as u8) {
