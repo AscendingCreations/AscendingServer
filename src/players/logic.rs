@@ -84,9 +84,21 @@ pub fn check_player_connection(world: &mut World, storage: &Storage) -> Result<(
 
     let tick = *storage.gettick.borrow();
 
+    for entity in &*storage.disconnected_player.borrow() {
+        if let Some(Entity::Player(p_data)) = world.get_opt_entity(*entity) {
+            let p_data = p_data.try_lock()?;
+
+            if p_data.connection.disconnect_timer < tick {
+                remove_player_list.push(*entity);
+                println!("Adding entity removal from Disconnected Player List");
+            }
+        }
+    }
+
     for (entity, connection_timer) in storage.player_timeout.borrow().iter() {
         if connection_timer.0 < tick {
             remove_player_list.push(entity);
+            println!("Adding entity removal from PlayerConnectionTimer");
         }
     }
 
@@ -94,6 +106,8 @@ pub fn check_player_connection(world: &mut World, storage: &Storage) -> Result<(
         // Close Socket
         disconnect(*i, world, storage)?;
     }
+
+    
     Ok(())
 }
 
