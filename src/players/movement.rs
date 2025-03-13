@@ -1,3 +1,5 @@
+use chrono::Duration;
+
 use crate::{
     containers::{Entity, EntityKind, GlobalKey, Storage, World},
     gametypes::*,
@@ -86,15 +88,11 @@ pub fn player_movement(
                     (31, player_position.y),
                 ];
                 let map_adj = [(0, -1), (1, 0), (0, 1), (-1, 0)];
-                new_pos = Position::new(
-                    adj[dir as usize].0,
-                    adj[dir as usize].1,
-                    MapPosition {
-                        x: player_position.map.x + map_adj[dir as usize].0,
-                        y: player_position.map.y + map_adj[dir as usize].1,
-                        group: player_position.map.group,
-                    },
-                );
+                new_pos = Position::new(adj[dir as usize].0, adj[dir as usize].1, MapPosition {
+                    x: player_position.map.x + map_adj[dir as usize].0,
+                    y: player_position.map.y + map_adj[dir as usize].1,
+                    group: player_position.map.group,
+                });
             }
 
             p_data.movement.dir = dir;
@@ -170,4 +168,54 @@ pub fn player_movement(
     } else {
         Ok(false)
     }
+}
+
+pub fn process_player_movement(
+    world: &mut World,
+    storage: &Storage,
+    entity: GlobalKey,
+) -> Result<()> {
+    if let Some(Entity::Player(p_data)) = world.get_opt_entity(entity) {
+        let (_old_dir, dir, _socket_id, _old_pos) = {
+            let mut p_data = p_data.try_lock()?;
+
+            if p_data.input.stop_move {
+                return Ok(());
+            }
+
+            let dir = if let Some(dir) = p_data.input.move_dir {
+                dir
+            } else {
+                return Ok(());
+            };
+
+            let tick = *storage.gettick.borrow();
+
+            if !p_data.combat.death_type.is_alive()
+                || p_data.is_using_type.inuse()
+                || p_data.combat.stunned
+                || p_data.combat.attacking
+                || p_data.movement.move_timer.0 > tick
+            {
+                return Ok(());
+            }
+
+            {
+                p_data.movement.move_timer.0 =
+                    tick + Duration::try_milliseconds(200).unwrap_or_default();
+            }
+
+            (
+                p_data.movement.dir,
+                dir,
+                p_data.socket.id,
+                p_data.movement.pos,
+            )
+        };
+
+        let _ = player_movement(world, storage, entity, dir)?;
+
+        //send_move_ok(storage, socket_id, moveok)?;
+    }
+    Ok(())
 }

@@ -31,6 +31,7 @@ pub struct PlayerEntity {
     pub money: Money,
     pub is_using_type: IsUsingType,
     pub user_access: UserAccess,
+    pub input: PlayerInput,
 
     // Location
     pub movement: MovementData,
@@ -217,6 +218,12 @@ pub struct Player {
     pub pvpon: bool,
     pub pk: bool,
     pub movesavecount: u16,
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+pub struct PlayerInput {
+    pub move_dir: Option<u8>,
+    pub stop_move: bool,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Default, MByteBufferRead, MByteBufferWrite)]

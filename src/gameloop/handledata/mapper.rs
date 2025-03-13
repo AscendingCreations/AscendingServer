@@ -103,6 +103,7 @@ impl PacketRouter {
                 handle_disconnect as PacketFunction,
             ),
             (ClientPacket::Reconnect, handle_reconnect as PacketFunction),
+            (ClientPacket::LoginOk, handle_login_ok as PacketFunction),
         ]))
     }
 }

@@ -55,6 +55,9 @@ pub fn update_players(world: &mut World, storage: &Storage) -> Result<()> {
                     }
                 }
 
+                // Movement
+                process_player_movement(world, storage, *id)?;
+
                 // Check Trade
                 if let IsUsingType::Trading(tradeentity) = is_using_type {
                     if !world.entities.contains_key(tradeentity) {

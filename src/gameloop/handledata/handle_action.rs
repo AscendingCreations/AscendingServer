@@ -5,8 +5,7 @@ use crate::{
     containers::{Entity, GlobalKey, Storage, World},
     gametypes::*,
     maps::player_interact_object,
-    players::{player_combat, player_movement, player_warp},
-    socket::send_move_ok,
+    players::player_combat,
     tasks::{DataTaskToken, dir_packet},
 };
 
@@ -14,7 +13,7 @@ use super::SocketID;
 
 pub fn handle_move(
     world: &mut World,
-    storage: &Storage,
+    _storage: &Storage,
     data: &mut MByteBuffer,
     entity: Option<GlobalKey>,
     _: SocketID,
@@ -24,6 +23,17 @@ pub fn handle_move(
         None => return Err(AscendingError::InvalidSocket),
     };
 
+    if let Some(Entity::Player(p_data)) = world.get_opt_entity(entity) {
+        let dir = data.read::<Option<u8>>()?;
+
+        p_data.try_lock()?.input.move_dir = dir;
+
+        return Ok(());
+    }
+
+    Err(AscendingError::InvalidSocket)
+
+    /*
     let dir = data.read::<u8>()?;
     let data_pos = data.read::<Position>()?;
 
@@ -51,7 +61,7 @@ pub fn handle_move(
         return Ok(());
     }
 
-    send_move_ok(storage, id, player_movement(world, storage, entity, dir)?)
+    send_move_ok(storage, id, player_movement(world, storage, entity, dir)?)*/
 }
 
 pub fn handle_dir(

@@ -36,7 +36,9 @@ pub fn handle_data(
             | ClientPacket::Register
             | ClientPacket::OnlineCheck
             | ClientPacket::HandShake
-            | ClientPacket::Ping => {}
+            | ClientPacket::Ping
+            | ClientPacket::TlsHandShake
+            | ClientPacket::TlsReconnect => {}
             _ => return Err(AscendingError::PacketManipulation { name: "".into() }),
         }
     }
@@ -47,8 +49,14 @@ pub fn handle_data(
 
     let fun = match router.0.get(&id) {
         Some(fun) => fun,
-        None => return Err(AscendingError::InvalidPacket),
+        None => {
+            println!("Packet {:?}", id);
+            return Err(AscendingError::InvalidPacket);
+        }
     };
 
-    fun(world, storage, data, entity, socket_id)
+    if fun(world, storage, data, entity, socket_id).is_err() {
+        println!("Packet {:?}", id);
+    }
+    Ok(())
 }

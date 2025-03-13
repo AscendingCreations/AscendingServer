@@ -126,6 +126,10 @@ pub fn handle_register(
             let entity =
                 storage.add_player_data(world, code.clone(), handshake.clone(), socket.clone())?;
 
+            if let Some(client) = storage.server.borrow_mut().clients.get_mut(&socket.tls_id) {
+                client.borrow_mut().entity = Some(entity);
+            }
+
             if let Some(Entity::Player(p_data)) = world.get_opt_entity(entity) {
                 let mut p_data = p_data.try_lock()?;
 
@@ -148,9 +152,9 @@ pub fn handle_register(
                 .borrow_mut()
                 .insert(code.to_owned(), entity);
 
-                if let Some(client) = storage.server.borrow_mut().clients.get_mut(&socket.tls_id) {
-                    client.borrow_mut().entity = Some(entity);
-                }
+            if let Some(client) = storage.server.borrow_mut().clients.get_mut(&socket.tls_id) {
+                client.borrow_mut().entity = Some(entity);
+            }
 
             let tick = *storage.gettick.borrow();
 
@@ -164,7 +168,7 @@ pub fn handle_register(
                 &username, &socket.addr
             );
 
-            send_myindex(storage, socket.id, entity)?;
+            send_myindex(storage, socket.tls_id, entity)?;
             send_codes(world, storage, entity, code, handshake)
         }
         Err(_) => send_infomsg(
@@ -399,14 +403,9 @@ pub fn handle_login(
         return send_infomsg(storage, socket.tls_id, "Error Loading User.".into(), 1);
     }
 
-    if let Some(client) = storage
-                .server
-                .borrow_mut()
-                .clients
-                .get_mut(&socket.tls_id)
-            {
-                client.borrow_mut().entity = Some(entity);
-            }
+    if let Some(client) = storage.server.borrow_mut().clients.get_mut(&socket.tls_id) {
+        client.borrow_mut().entity = Some(entity);
+    }
 
     let tick = *storage.gettick.borrow();
 
@@ -425,5 +424,5 @@ pub fn handle_login(
         return send_infomsg(storage, socket.tls_id, "Error Loading User.".into(), 1);
     };
 
-    send_login_info(world, storage, entity, code, handshake, socket.id, name)
+    send_login_info(world, storage, entity, code, handshake, socket.tls_id, name)
 }

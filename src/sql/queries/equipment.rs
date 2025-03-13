@@ -26,7 +26,7 @@ impl PGEquipment {
         let default_i16 = i16::unshift_signed(&0);
 
         let value_text = join(
-            (0..MAX_INV).map(|index| {
+            (0..MAX_EQPT).map(|index| {
                 format!(
                     "('{}', {}, {}, {}, 0, '{{0, 0, 0, 0, 0}}')",
                     uid, index, default_i32, default_i16
