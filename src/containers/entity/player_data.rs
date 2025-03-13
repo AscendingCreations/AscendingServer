@@ -198,6 +198,9 @@ pub struct PlayerConnectionTimer(#[educe(Default = MyInstant::now())] pub MyInst
 
 #[derive(Clone, Debug, Default)]
 pub struct ReloginCode {
+    /// Used to hold onto a few old and a new reconnect code.
+    /// We hold onto the old for a short time as just in case they have
+    /// major internet issues during a reconnect.
     pub code: HashSet<String>,
 }
 
