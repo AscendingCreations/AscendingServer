@@ -46,7 +46,7 @@ impl Client {
             token,
             entity: None,
             state: ClientState::Open,
-            poll_state: PollState::Read,
+            poll_state: PollState::ReadWrite,
             sends: VecDeque::with_capacity(32),
             tls,
             buffer: Arc::new(Mutex::new(ByteBuffer::with_capacity(8192)?)),

@@ -148,6 +148,10 @@ pub fn handle_register(
                 .borrow_mut()
                 .insert(code.to_owned(), entity);
 
+                if let Some(client) = storage.server.borrow_mut().clients.get_mut(&socket.tls_id) {
+                    client.borrow_mut().entity = Some(entity);
+                }
+
             let tick = *storage.gettick.borrow();
 
             storage.player_timeout.borrow_mut().insert(
@@ -394,6 +398,15 @@ pub fn handle_login(
     if let Err(_e) = load_player(storage, world, entity, id) {
         return send_infomsg(storage, socket.tls_id, "Error Loading User.".into(), 1);
     }
+
+    if let Some(client) = storage
+                .server
+                .borrow_mut()
+                .clients
+                .get_mut(&socket.tls_id)
+            {
+                client.borrow_mut().entity = Some(entity);
+            }
 
     let tick = *storage.gettick.borrow();
 

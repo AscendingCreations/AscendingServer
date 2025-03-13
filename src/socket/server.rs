@@ -30,7 +30,7 @@ impl Server {
         /* Create a bag of unique tokens. */
         let mut tokens = VecDeque::with_capacity(max);
 
-        for i in 1..max {
+        for i in 2..max {
             tokens.push_back(mio::Token(i));
         }
 
@@ -93,7 +93,7 @@ impl Server {
 
                 // Lets make the Client to handle hwo we send packets.
                 let mut client = Client::new(stream, token, tls_conn, addr.to_string())?;
-                client.poll_state.add(crate::socket::PollState::Write);
+                //client.poll_state.add(crate::socket::PollState::Write);
                 //Register the Poll to the client for recv and Sending
                 client.register(&storage.poll.borrow_mut())?;
 

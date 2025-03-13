@@ -161,7 +161,7 @@ CREATE TABLE IF NOT EXISTS public.equipment
     id smallint NOT NULL,
     num integer NOT NULL,
     val smallint NOT NULL,
-    itemlevel smallint NOT NULL,
+    level smallint NOT NULL,
     data smallint[] NOT NULL
 )
 
@@ -185,7 +185,7 @@ CREATE TABLE IF NOT EXISTS public.inventory
     id smallint NOT NULL,
     num integer NOT NULL,
     val smallint NOT NULL,
-    itemlevel smallint NOT NULL,
+    level smallint NOT NULL,
     data smallint[] NOT NULL
 )
 
@@ -209,7 +209,7 @@ CREATE TABLE IF NOT EXISTS public.storage
     id smallint NOT NULL,
     num integer NOT NULL,
     val smallint NOT NULL,
-    itemlevel smallint NOT NULL,
+    level smallint NOT NULL,
     data smallint[] NOT NULL
 )
 
