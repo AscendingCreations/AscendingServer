@@ -1,20 +1,26 @@
 use chrono::Duration;
-use log::debug;
+use log::{debug, info};
 use mio::Token;
 use mmap_bytey::MByteBuffer;
+use rand::distr::{Alphanumeric, SampleString};
 
 use crate::{
-    containers::{Entity, GlobalKey, IsUsingType, Storage, TradeRequestEntity, World},
+    containers::{
+        Entity, GlobalKey, IsUsingType, PlayerConnectionTimer, Socket, Storage, TradeRequestEntity,
+        World,
+    },
     gametypes::*,
     items::Item,
     maps::{can_target, spawn_npc},
     players::{
         can_trade, check_inv_space, close_trade, give_inv_item, player_give_vals, player_take_vals,
-        player_warp, take_inv_itemslot,
+        player_warp, reconnect_player, send_reconnect_info, send_tls_reconnect, take_inv_itemslot,
     },
     socket::{
-        send_clearisusingtype, send_fltalert, send_gameping, send_message, send_traderequest,
+        MByteBufferExt, send_clear_data, send_clearisusingtype, send_fltalert, send_gameping,
+        send_message, send_traderequest,
     },
+    time_ext::MyInstant,
 };
 
 use super::SocketID;
@@ -484,4 +490,204 @@ pub fn handle_sellitem(
         )?;
     }
     Ok(())
+}
+
+pub fn handle_login_ok(
+    world: &mut World,
+    storage: &Storage,
+    data: &mut MByteBuffer,
+    entity: Option<GlobalKey>,
+    _socket_id: SocketID,
+) -> Result<()> {
+    let entity = match entity {
+        Some(e) => e,
+        None => return Err(AscendingError::InvalidSocket),
+    };
+
+    if let Some(Entity::Player(p_data)) = world.get_opt_entity(entity) {
+        let connection_code = data.read_str()?;
+
+        let mut p_data = p_data.try_lock()?;
+        let mut player_codes = storage.player_code.borrow_mut();
+
+        for code in p_data.relogin_code.code.iter() {
+            if *code != connection_code {
+                player_codes.swap_remove(code);
+            }
+        }
+
+        p_data.relogin_code.code.clear();
+        p_data.relogin_code.code.insert(connection_code);
+
+        return Ok(());
+    }
+
+    Err(AscendingError::InvalidSocket)
+}
+
+pub fn handle_tls_reconnect(
+    world: &mut World,
+    storage: &Storage,
+    data: &mut MByteBuffer,
+    _entity: Option<GlobalKey>,
+    socket_id: SocketID,
+) -> Result<()> {
+    let connection_code = data.read_str()?;
+    let code = storage.player_code.borrow().get(&connection_code).cloned();
+
+    if let Some(entity) = code {
+        if let Some(Entity::Player(p_data)) = world.get_opt_entity(entity) {
+            let code = Alphanumeric.sample_string(&mut rand::rng(), 32);
+            let handshake = Alphanumeric.sample_string(&mut rand::rng(), 32);
+
+            if let Some(client) = storage.server.borrow().clients.get(&socket_id.id) {
+                client.borrow_mut().entity = Some(entity);
+            }
+
+            {
+                p_data.try_lock()?.socket.tls_id = socket_id.id;
+            }
+
+            return send_tls_reconnect(world, storage, entity, code, handshake);
+        }
+    }
+
+    Err(AscendingError::InvalidSocket)
+}
+
+pub fn handle_tls_handshake(
+    world: &mut World,
+    _storage: &Storage,
+    data: &mut MByteBuffer,
+    entity: Option<GlobalKey>,
+    _socket_id: SocketID,
+) -> Result<()> {
+    let handshake = data.read::<String>()?;
+
+    let entity = match entity {
+        Some(e) => e,
+        None => return Err(AscendingError::InvalidSocket),
+    };
+
+    if let Some(Entity::Player(p_data)) = world.get_opt_entity(entity) {
+        if p_data.try_lock()?.login_handshake.handshake == handshake {
+            println!("TLS Reconnect Complete");
+
+            return Ok(());
+        }
+    }
+
+    Err(AscendingError::InvalidSocket)
+}
+
+pub fn handle_disconnect(
+    world: &mut World,
+    storage: &Storage,
+    data: &mut MByteBuffer,
+    entity: Option<GlobalKey>,
+    _socket_id: SocketID,
+) -> Result<()> {
+    let entity = match entity {
+        Some(e) => e,
+        None => return Err(AscendingError::InvalidSocket),
+    };
+
+    if let Some(Entity::Player(p_data)) = world.get_opt_entity(entity) {
+        let _ = data.read::<u32>()?;
+
+        let can_exit = {
+            let p_data = p_data.try_lock()?;
+
+            if !p_data.combat.in_combat {
+                let socket = &p_data.socket;
+
+                if let Some(client) = storage.server.borrow_mut().clients.get_mut(&socket.id) {
+                    client.borrow_mut().entity = None;
+                }
+
+                if let Some(client) = storage.server.borrow_mut().clients.get_mut(&socket.tls_id) {
+                    client.borrow_mut().entity = None;
+                }
+            }
+
+            p_data.combat.in_combat
+        };
+
+        if !can_exit {
+            storage
+                .player_timeout
+                .borrow_mut()
+                .insert(entity, PlayerConnectionTimer(MyInstant::now()));
+        }
+    }
+
+    Ok(())
+}
+
+pub fn handle_reconnect(
+    world: &mut World,
+    storage: &Storage,
+    data: &mut MByteBuffer,
+    _entity: Option<GlobalKey>,
+    socket_id: SocketID,
+) -> Result<()> {
+    let connection_code = data.read_str()?;
+    let code = storage.player_code.borrow().get(&connection_code).cloned();
+
+    if let Some(old_entity) = code {
+        if let Some(Entity::Player(p_data)) = world.get_opt_entity(old_entity) {
+            if !storage.disconnected_player.borrow().contains(&old_entity) {
+                return Err(AscendingError::InvalidSocket);
+            }
+
+            let socket = if let Some(client) = storage.server.borrow().clients.get(&socket_id.id) {
+                let brw_client = client.borrow();
+                Socket::new(Token(0), socket_id.id, brw_client.addr.to_string())?
+            } else {
+                return Err(AscendingError::InvalidSocket);
+            };
+
+            let (socket_token, address) = (socket.tls_id, socket.addr.clone());
+
+            reconnect_player(world, storage, old_entity, socket)?;
+
+            let name = { p_data.try_lock()?.account.username.clone() };
+
+            info!(
+                "Player {} with IP: {}, Reconnecting on handle_reconnect .",
+                &name, address
+            );
+
+            let code = Alphanumeric.sample_string(&mut rand::rng(), 32);
+            let handshake = Alphanumeric.sample_string(&mut rand::rng(), 32);
+
+            {
+                let _ = storage
+                    .disconnected_player
+                    .borrow_mut()
+                    .swap_remove(&old_entity);
+            }
+
+            {
+                storage
+                    .hand_shakes
+                    .borrow_mut()
+                    .insert(handshake.clone(), old_entity);
+            }
+
+            send_clear_data(world, storage, old_entity)?;
+
+            return send_reconnect_info(
+                world,
+                storage,
+                old_entity,
+                code,
+                handshake,
+                socket_token,
+                name,
+            );
+        }
+    }
+
+    Err(AscendingError::InvalidSocket)
 }

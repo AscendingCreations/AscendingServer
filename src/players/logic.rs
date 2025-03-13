@@ -1,7 +1,7 @@
 use crate::{
     containers::{
-        DeathType, Entity, GlobalKey, IsUsingType, Storage, Target, TradeItem, TradeMoney,
-        TradeRequestEntity, TradeStatus, World,
+        ClearCodeData, DeathType, Entity, GlobalKey, IsUsingType, Storage, Target, TradeItem,
+        TradeMoney, TradeRequestEntity, TradeStatus, World,
     },
     gametypes::*,
     maps::can_target,
@@ -107,7 +107,19 @@ pub fn check_player_connection(world: &mut World, storage: &Storage) -> Result<(
         disconnect(*i, world, storage)?;
     }
 
-    
+    let mut code_to_remove = Vec::with_capacity(storage.clear_code.borrow().len());
+
+    for code_data in &*storage.clear_code.borrow() {
+        if code_data.timer < tick {
+            code_to_remove.push(code_data.clone());
+        }
+    }
+
+    for code in code_to_remove {
+        storage.player_code.borrow_mut().swap_remove(&code.code);
+        storage.clear_code.borrow_mut().swap_remove(&code);
+    }
+
     Ok(())
 }
 
@@ -446,13 +458,14 @@ pub fn joingame(world: &mut World, storage: &Storage, entity: GlobalKey) -> Resu
 
 pub fn left_game(world: &mut World, storage: &Storage, entity: GlobalKey) -> Result<()> {
     if let Some(Entity::Player(p_data)) = world.get_opt_entity(entity) {
-        let (online_type, position, account) = {
+        let (online_type, position, account, connection_code) = {
             let p_data = p_data.try_lock()?;
 
             (
                 p_data.online_type,
                 p_data.movement.pos,
                 p_data.account.clone(),
+                p_data.relogin_code.clone(),
             )
         };
 
@@ -476,6 +489,16 @@ pub fn left_game(world: &mut World, storage: &Storage, entity: GlobalKey) -> Res
         update_currency(storage, world, entity)?;
         update_resetcount(storage, world, entity)?;
         //todo Add Update Players on map here.
+
+        let tick = *storage.gettick.borrow();
+
+        //Add to clear list to Cancel all the codes out instantly since this is a full disconnect.
+        for code in connection_code.code.iter() {
+            storage.clear_code.borrow_mut().insert(ClearCodeData {
+                code: code.clone(),
+                timer: tick,
+            });
+        }
     }
 
     Ok(())

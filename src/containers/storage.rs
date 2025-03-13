@@ -37,6 +37,12 @@ use super::{
     World,
 };
 
+#[derive(Hash, PartialEq, Eq, Clone)]
+pub struct ClearCodeData {
+    pub code: String,
+    pub timer: MyInstant,
+}
+
 pub struct Storage {
     pub player_ids: RefCell<IndexSet<GlobalKey>>,
     pub recv_ids: RefCell<IndexSet<Token>>,
@@ -48,6 +54,8 @@ pub struct Storage {
     pub player_timeout: RefCell<SecondaryMap<GlobalKey, PlayerConnectionTimer>>,
     pub hand_shakes: RefCell<HashMap<String, GlobalKey>>,
     pub player_code: RefCell<IndexMap<String, GlobalKey>>,
+    //Keep track of older relogin codes so we can remove them after a set period of time.
+    pub clear_code: RefCell<IndexSet<ClearCodeData>>,
     //This is for buffering the specific packets needing to send.
     #[allow(clippy::type_complexity)]
     pub packet_cache: RefCell<IndexMap<DataTaskToken, VecDeque<(u32, MByteBuffer, bool)>>>,
@@ -222,6 +230,7 @@ impl Storage {
             packet_cache_ids: RefCell::new(IndexSet::default()),
             hand_shakes: RefCell::new(HashMap::default()),
             player_code: RefCell::new(IndexMap::default()),
+            clear_code: RefCell::new(IndexSet::default()),
             poll: RefCell::new(poll),
             server: RefCell::new(server),
             gettick: RefCell::new(MyInstant::now()),

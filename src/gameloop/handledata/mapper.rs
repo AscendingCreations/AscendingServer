@@ -90,6 +90,19 @@ impl PacketRouter {
                 handle_declinetrade as PacketFunction,
             ),
             (ClientPacket::Ping, handle_ping as PacketFunction),
+            (
+                ClientPacket::TlsReconnect,
+                handle_tls_reconnect as PacketFunction,
+            ),
+            (
+                ClientPacket::TlsHandShake,
+                handle_tls_handshake as PacketFunction,
+            ),
+            (
+                ClientPacket::Disconnect,
+                handle_disconnect as PacketFunction,
+            ),
+            (ClientPacket::Reconnect, handle_reconnect as PacketFunction),
         ]))
     }
 }

@@ -1,5 +1,6 @@
 use std::backtrace::Backtrace;
 
+use chrono::Duration;
 use mio::Token;
 
 use crate::{containers::*, gametypes::*, socket::*, sql::*, tasks::*};
@@ -190,23 +191,89 @@ pub fn player_take_vals(
     Ok(())
 }
 
-pub fn send_swap_error(
-    _world: &mut World,
+pub fn send_login_info(
+    world: &mut World,
     storage: &Storage,
-    old_socket_id: Token,
+    entity: GlobalKey,
+    code: String,
+    handshake: String,
     socket_id: Token,
+    username: String,
 ) -> Result<()> {
-    send_infomsg(
-        storage,
-        old_socket_id,
-        "Server Error in player swap".into(),
-        1,
-    )?;
+    if let Some(Entity::Player(p_data)) = world.get_opt_entity(entity) {
+        let mut p_data = p_data.try_lock()?;
 
-    send_infomsg(storage, socket_id, "Server Error in player swap".into(), 1)
+        p_data.relogin_code.code.insert(code.to_owned());
+        p_data.login_handshake.handshake = handshake.to_owned();
+    }
+
+    storage.player_names.borrow_mut().insert(username, entity);
+    storage
+        .player_code
+        .borrow_mut()
+        .insert(code.to_owned(), entity);
+
+    send_myindex(storage, socket_id, entity)?;
+    send_codes(world, storage, entity, code, handshake)
 }
 
-pub fn send_login_info(
+pub fn send_tls_reconnect(
+    world: &mut World,
+    storage: &Storage,
+    entity: GlobalKey,
+    code: String,
+    handshake: String,
+) -> Result<()> {
+    if let Some(Entity::Player(p_data)) = world.get_opt_entity(entity) {
+        let mut p_data = p_data.try_lock()?;
+
+        p_data.relogin_code.code.insert(code.to_owned());
+        p_data.login_handshake.handshake = handshake.to_owned();
+    }
+
+    storage
+        .player_code
+        .borrow_mut()
+        .insert(code.to_owned(), entity);
+
+    send_tls_codes(world, storage, entity, code, handshake)
+}
+
+pub fn reconnect_player(
+    world: &mut World,
+    storage: &Storage,
+    old_entity: GlobalKey,
+    new_socket: Socket,
+) -> Result<()> {
+    if let Some(Entity::Player(p_data)) = world.get_opt_entity(old_entity) {
+        let tick = *storage.gettick.borrow();
+
+        if let Some(client) = storage.server.borrow().clients.get(&new_socket.id) {
+            client.borrow_mut().entity = Some(old_entity);
+        }
+
+        let position = {
+            let mut p_data = p_data.try_lock()?;
+
+            p_data.online_type = OnlineType::Accepted;
+
+            p_data.movement.pos
+        };
+
+        let _ = storage.player_timeout.borrow_mut().insert(
+            old_entity,
+            PlayerConnectionTimer(tick + Duration::try_milliseconds(600000).unwrap_or_default()),
+        );
+
+        if let Some(map) = storage.maps.get(&position.map) {
+            map.borrow_mut().remove_entity_from_grid(position);
+        }
+    }
+
+    Ok(())
+}
+
+pub fn send_reconnect_info(
     world: &mut World,
     storage: &Storage,
     entity: GlobalKey,

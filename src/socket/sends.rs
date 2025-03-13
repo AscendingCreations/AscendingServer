@@ -582,3 +582,43 @@ pub fn send_gameping(storage: &Storage, socket_id: Token) -> Result<()> {
 
     send_to(storage, socket_id, buf)
 }
+
+pub fn send_tls_codes(
+    world: &mut World,
+    storage: &Storage,
+    entity: GlobalKey,
+    code: String,
+    handshake: String,
+) -> Result<()> {
+    let socket_id = if let Some(Entity::Player(data)) = world.get_opt_entity(entity) {
+        data.try_lock()?.socket.tls_id
+    } else {
+        return Ok(());
+    };
+
+    let mut buf = MByteBuffer::new_packet()?;
+
+    buf.write(ServerPackets::TlsHandShake)?;
+    buf.write(&code)?;
+    buf.write(&handshake)?;
+    buf.finish()?;
+
+    // Once the codes are Sent we need to set this to unencrypted mode as the client will be un unencrypted mode.
+    send_to(storage, socket_id, buf)
+}
+
+pub fn send_clear_data(world: &mut World, storage: &Storage, entity: GlobalKey) -> Result<()> {
+    let socket_id = if let Some(Entity::Player(data)) = world.get_opt_entity(entity) {
+        data.try_lock()?.socket.tls_id
+    } else {
+        return Ok(());
+    };
+
+    let mut buf = MByteBuffer::new_packet()?;
+
+    buf.write(ServerPackets::ClearData)?;
+    buf.write(0u32)?;
+    buf.finish()?;
+
+    send_to(storage, socket_id, buf)
+}

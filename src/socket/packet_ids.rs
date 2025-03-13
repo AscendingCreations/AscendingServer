@@ -55,6 +55,8 @@ pub enum ServerPackets {
     PlayItemSfx,
     Damage,
     Ping,
+    TlsHandShake,
+    ClearData,
 }
 
 #[derive(
@@ -104,4 +106,9 @@ pub enum ClientPacket {
     AcceptTrade,
     DeclineTrade,
     Ping,
+    TlsReconnect,
+    TlsHandShake,
+    Reconnect,
+    Disconnect,
+    LoginOk,
 }
