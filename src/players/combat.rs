@@ -194,6 +194,8 @@ pub fn player_combat_damage(
         return Ok(0);
     }
 
+    let weapon_damage = player_get_weapon_damage(world, storage, entity)?;
+
     if let Some(Entity::Player(p_data)) = world.get_opt_entity(entity) {
         let p_data = p_data.try_lock()?;
 
@@ -230,6 +232,8 @@ pub fn player_combat_damage(
             .saturating_sub(def / offset)
             .max(1);
         let mut rng = rng();
+
+        damage += weapon_damage.0 as u32;
 
         //protect from accidental heals due to u32 to i32 conversion.
         if damage >= i32::MAX as u32 {

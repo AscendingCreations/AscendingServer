@@ -111,18 +111,11 @@ pub fn send_playerdata(
 }
 
 pub fn send_codes(
-    world: &mut World,
     storage: &Storage,
-    entity: GlobalKey,
     code: String,
     handshake: String,
+    socket_id: Token,
 ) -> Result<()> {
-    let socket_id = if let Some(Entity::Player(data)) = world.get_opt_entity(entity) {
-        data.try_lock()?.socket.tls_id
-    } else {
-        return Ok(());
-    };
-
     let mut buf = MByteBuffer::new_packet()?;
 
     buf.write(ServerPackets::HandShake)?;
@@ -235,16 +228,20 @@ pub fn send_storageslot(
 #[inline]
 pub fn send_equipment(world: &mut World, storage: &Storage, entity: GlobalKey) -> Result<()> {
     if let Some(Entity::Player(data)) = world.get_opt_entity(entity) {
-        let data = data.try_lock()?;
+        let (equipment, map) = {
+            let data = data.try_lock()?;
+
+            (data.equipment.clone(), data.movement.pos.map)
+        };
 
         let mut buf = MByteBuffer::new_packet()?;
 
         buf.write(ServerPackets::PlayerEquipment)?;
         buf.write(entity)?;
-        buf.write(data.equipment.clone())?;
+        buf.write(equipment)?;
         buf.finish()?;
 
-        send_to_maps(world, storage, data.movement.pos.map, buf, None)?;
+        send_to_maps(world, storage, map, buf, None)?;
     }
     Ok(())
 }

@@ -169,7 +169,7 @@ pub fn handle_register(
             );
 
             send_myindex(storage, socket.tls_id, entity)?;
-            send_codes(world, storage, entity, code, handshake)
+            send_codes(storage, code, handshake, socket.tls_id)
         }
         Err(_) => send_infomsg(
             storage,
@@ -343,6 +343,15 @@ pub fn handle_login(
     }
 
     if let Some((old_entity, name, socket_token)) = send_reconnect {
+        if let Some(client) = storage.server.borrow_mut().clients.get_mut(&socket.tls_id) {
+            client.borrow_mut().entity = Some(old_entity);
+        }
+
+        storage
+            .hand_shakes
+            .borrow_mut()
+            .insert(handshake.clone(), old_entity);
+
         return send_reconnect_info(
             world,
             storage,
