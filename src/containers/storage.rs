@@ -315,39 +315,12 @@ impl Storage {
         handshake: String,
         socket: Socket,
     ) -> Result<GlobalKey> {
-        let mut hash_code = HashSet::default();
-        hash_code.insert(code.to_owned());
-
         let entity = world.kinds.insert(EntityKind::Player);
+        let player_entity = create_player_entity(code, handshake, socket);
 
-        let start_pos = Position {
-            x: 0,
-            y: 0,
-            map: MapPosition {
-                x: 0,
-                y: 0,
-                group: 0,
-            },
-        };
-
-        world.entities.insert(
-            entity,
-            Entity::Player(Arc::new(Mutex::new(PlayerEntity {
-                movement: MovementData {
-                    pos: start_pos,
-                    spawn: Spawn {
-                        pos: start_pos,
-                        ..Default::default()
-                    },
-                    ..Default::default()
-                },
-                login_handshake: LoginHandShake { handshake },
-                relogin_code: ReloginCode { code: hash_code },
-                online_type: OnlineType::Accepted,
-                socket,
-                ..Default::default()
-            }))),
-        );
+        world
+            .entities
+            .insert(entity, Entity::Player(Arc::new(Mutex::new(player_entity))));
 
         self.player_ids.borrow_mut().insert(entity);
         Ok(entity)
@@ -444,5 +417,36 @@ impl Storage {
         }
 
         Err(AscendingError::missing_entity())
+    }
+}
+
+pub fn create_player_entity(code: String, handshake: String, socket: Socket) -> PlayerEntity {
+    let mut hash_code = HashSet::default();
+    hash_code.insert(code.to_owned());
+
+    let start_pos = Position {
+        x: 0,
+        y: 0,
+        map: MapPosition {
+            x: 0,
+            y: 0,
+            group: 0,
+        },
+    };
+
+    PlayerEntity {
+        movement: MovementData {
+            pos: start_pos,
+            spawn: Spawn {
+                pos: start_pos,
+                ..Default::default()
+            },
+            ..Default::default()
+        },
+        login_handshake: LoginHandShake { handshake },
+        relogin_code: ReloginCode { code: hash_code },
+        online_type: OnlineType::Accepted,
+        socket,
+        ..Default::default()
     }
 }

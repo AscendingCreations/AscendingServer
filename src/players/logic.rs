@@ -485,13 +485,6 @@ pub fn left_game(world: &mut World, storage: &Storage, entity: GlobalKey) -> Res
             )?,
         )?;
 
-        update_player(storage, world, entity)?;
-        update_level(storage, world, entity)?;
-        update_pos(storage, world, entity)?;
-        update_currency(storage, world, entity)?;
-        update_resetcount(storage, world, entity)?;
-        update_pos(storage, world, entity)?;
-
         let tick = *storage.gettick.borrow();
 
         //Add to clear list to Cancel all the codes out instantly since this is a full disconnect.

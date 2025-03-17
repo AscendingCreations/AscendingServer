@@ -78,7 +78,7 @@ pub fn sql_load_account(storage: &Storage, account_id: Uuid) -> Result<PGAccount
     Ok(data)
 }
 
-pub fn sql_update_account(storage: &Storage, uid: Uuid, data: PGAccount) -> Result<()> {
+pub fn sql_update_account(storage: &Storage, uid: Uuid, user_access: UserAccess) -> Result<()> {
     let rt = storage.rt.borrow_mut();
     let local = storage.local.borrow();
 
@@ -94,7 +94,7 @@ pub fn sql_update_account(storage: &Storage, uid: Uuid, data: PGAccount) -> Resu
     local.block_on(
         &rt,
         sqlx::query(&query_text)
-            .bind(data.useraccess)
+            .bind(user_access)
             .execute(&storage.pgconn),
     )?;
 

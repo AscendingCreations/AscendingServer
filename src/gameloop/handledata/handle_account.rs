@@ -1,3 +1,5 @@
+use std::sync::{Arc, Mutex};
+
 use chrono::Duration;
 use log::info;
 use mio::Token;
@@ -6,7 +8,10 @@ use rand::distr::{Alphanumeric, SampleString};
 use regex::Regex;
 
 use crate::{
-    containers::{Entity, GlobalKey, PlayerConnectionTimer, Socket, Storage, World},
+    containers::{
+        Entity, EntityKind, GlobalKey, PlayerConnectionTimer, Socket, Storage, World,
+        create_player_entity,
+    },
     gametypes::*,
     players::{
         is_name_acceptable, is_password_acceptable, joingame, reconnect_player, send_login_info,
@@ -406,11 +411,18 @@ pub fn handle_login(
         }
     }
 
-    let entity = storage.add_player_data(world, code.clone(), handshake.clone(), socket.clone())?;
+    let entity = world.kinds.insert(EntityKind::Player);
+    let mut player_entity = create_player_entity(code.clone(), handshake.clone(), socket.clone());
 
-    if let Err(_e) = load_player(storage, world, entity, id) {
+    if let Err(_e) = load_player(storage, &mut player_entity, id) {
         return send_infomsg(storage, socket.tls_id, "Error Loading User.".into(), 1);
     }
+
+    world
+        .entities
+        .insert(entity, Entity::Player(Arc::new(Mutex::new(player_entity))));
+
+    storage.player_ids.borrow_mut().insert(entity);
 
     if let Some(client) = storage.server.borrow_mut().clients.get_mut(&socket.tls_id) {
         client.borrow_mut().entity = Some(entity);

@@ -7,6 +7,7 @@ use crate::{
     maps::*,
     players::*,
     socket::*,
+    sql::save_player,
     tasks::{DataTaskToken, unload_entity_packet},
 };
 use chrono::Duration;
@@ -436,11 +437,17 @@ pub fn disconnect(playerid: GlobalKey, world: &mut World, storage: &Storage) -> 
     let _ = storage.player_timeout.borrow_mut().remove(playerid);
 
     let position = if let Some(player) = storage.remove_player(world, playerid)? {
-        let lock = player.try_lock()?;
+        let pos = {
+            let player = player.try_lock()?;
 
-        trace!("Players Disconnected IP: {} ", &lock.socket.addr);
+            trace!("Players Disconnected IP: {} ", &player.socket.addr);
 
-        Some(lock.movement.pos)
+            player.movement.pos
+        };
+
+        save_player(storage, player)?;
+
+        Some(pos)
     } else {
         None
     };
