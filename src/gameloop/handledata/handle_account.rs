@@ -414,6 +414,11 @@ pub fn handle_login(
         PlayerConnectionTimer(tick + Duration::try_milliseconds(60000).unwrap_or_default()),
     );
 
+    storage
+        .hand_shakes
+        .borrow_mut()
+        .insert(handshake.clone(), entity);
+
     let name = if let Some(Entity::Player(p_data)) = world.get_opt_entity(entity) {
         let name = p_data.try_lock()?.account.username.clone();
 

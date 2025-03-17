@@ -416,7 +416,6 @@ pub fn joingame(world: &mut World, storage: &Storage, entity: GlobalKey) -> Resu
         };
 
         // Send player index and data
-        //send_myindex(storage, socket_id, entity)?;
         send_playerdata(world, storage, socket_id, entity)?;
 
         // Set player position based on the loaded data
@@ -491,7 +490,7 @@ pub fn left_game(world: &mut World, storage: &Storage, entity: GlobalKey) -> Res
         update_pos(storage, world, entity)?;
         update_currency(storage, world, entity)?;
         update_resetcount(storage, world, entity)?;
-        //todo Add Update Players on map here.
+        update_pos(storage, world, entity)?;
 
         let tick = *storage.gettick.borrow();
 
