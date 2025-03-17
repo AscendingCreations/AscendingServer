@@ -259,7 +259,7 @@ pub fn kill_player(world: &mut World, storage: &Storage, entity: GlobalKey) -> R
         let (vitals, spawn) = {
             let mut p_data = p_data.try_lock()?;
 
-            p_data.combat.death_type = DeathType::Dead;
+            p_data.combat.death_type = DeathType::Alive;
 
             p_data.combat.vitals.vital = p_data.combat.vitals.vitalmax;
             p_data.combat.target.target_entity = None;

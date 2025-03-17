@@ -286,6 +286,8 @@ pub fn update_target_pos(world: &mut World, entity: GlobalKey) -> Result<Target>
                     }
 
                     n_data.combat.target = target;
+                } else {
+                    target = Target::default();
                 }
             }
         }
