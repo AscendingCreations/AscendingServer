@@ -1,12 +1,10 @@
 use crate::{containers::*, gametypes::*, tasks::*};
 use std::collections::VecDeque;
 
-#[inline(always)]
 pub fn is_npc_same(from_entity: GlobalKey, to_entity: GlobalKey) -> bool {
     from_entity == to_entity
 }
 
-#[inline(always)]
 pub fn npc_set_move_path(
     world: &mut World,
     entity: GlobalKey,
@@ -21,7 +19,6 @@ pub fn npc_set_move_path(
     Ok(())
 }
 
-#[inline(always)]
 pub fn npc_clear_move_path(world: &mut World, entity: GlobalKey) -> Result<()> {
     if let Some(Entity::Npc(n_data)) = world.get_opt_entity(entity) {
         let mut n_data = n_data.try_lock()?;
@@ -32,7 +29,6 @@ pub fn npc_clear_move_path(world: &mut World, entity: GlobalKey) -> Result<()> {
     Ok(())
 }
 
-#[inline(always)]
 pub fn set_npc_dir(world: &mut World, storage: &Storage, entity: GlobalKey, dir: u8) -> Result<()> {
     if let Some(Entity::Npc(n_data)) = world.get_opt_entity(entity) {
         let mut n_data = n_data.try_lock()?;
@@ -48,7 +44,6 @@ pub fn set_npc_dir(world: &mut World, storage: &Storage, entity: GlobalKey, dir:
     Ok(())
 }
 
-#[inline(always)]
 pub fn npc_switch_maps(
     world: &mut World,
     storage: &Storage,
@@ -82,7 +77,6 @@ pub fn npc_switch_maps(
     }
 }
 
-#[inline(always)]
 pub fn npc_swap_pos(
     world: &mut World,
     storage: &Storage,

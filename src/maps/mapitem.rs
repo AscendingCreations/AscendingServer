@@ -14,7 +14,6 @@ use crate::{
 use super::{MapAttribute, create_mapitem};
 
 impl MapItem {
-    #[inline(always)]
     pub fn new(num: u32) -> Self {
         let mut item = MapItem::default();
         item.item.num = num;

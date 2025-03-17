@@ -90,7 +90,6 @@ impl Default for Socket {
 }
 
 impl Socket {
-    #[inline(always)]
     pub fn new(id: Token, tls_id: Token, addr: String) -> Result<Self> {
         Ok(Self {
             id,

@@ -24,10 +24,9 @@ pub fn handle_data(
 
     if entity.is_some() {
         match id {
-            ClientPacket::Login
-            | ClientPacket::Register
-            | ClientPacket::HandShake
-            | ClientPacket::OnlineCheck => return Err(AscendingError::MultiLogin),
+            ClientPacket::Login | ClientPacket::Register | ClientPacket::HandShake => {
+                return Err(AscendingError::MultiLogin);
+            }
             _ => {}
         }
     } else {

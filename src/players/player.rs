@@ -1,11 +1,8 @@
-use std::backtrace::Backtrace;
-
 use chrono::Duration;
 use mio::Token;
 
 use crate::{containers::*, gametypes::*, socket::*, sql::*, tasks::*};
 
-#[inline(always)]
 pub fn player_switch_maps(
     world: &mut World,
     storage: &Storage,
@@ -17,7 +14,7 @@ pub fn player_switch_maps(
 
         if let Some(mapref) = storage.maps.get(&p_data.movement.pos.map) {
             let mut map = mapref.borrow_mut();
-            map.remove_npc(entity);
+            map.remove_player(storage, entity);
             map.remove_entity_from_grid(p_data.movement.pos);
         } else {
             return Ok((p_data.movement.pos, false));
@@ -25,7 +22,7 @@ pub fn player_switch_maps(
 
         if let Some(mapref) = storage.maps.get(&new_pos.map) {
             let mut map = mapref.borrow_mut();
-            map.add_npc(entity);
+            map.add_player(storage, entity);
             map.add_entity_to_grid(new_pos);
         } else {
             return Ok((p_data.movement.pos, false));
@@ -35,13 +32,10 @@ pub fn player_switch_maps(
 
         Ok((p_data.movement.pos, true))
     } else {
-        Err(AscendingError::MissingEntity {
-            backtrace: Box::new(Backtrace::capture()),
-        })
+        Err(AscendingError::missing_entity())
     }
 }
 
-#[inline(always)]
 pub fn player_swap_pos(
     world: &mut World,
     storage: &Storage,

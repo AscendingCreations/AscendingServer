@@ -5,10 +5,10 @@ use crate::{
     gametypes::*,
     maps::*,
     players::*,
+    sql::update_pos,
     tasks::*,
 };
 
-//TODO: Add Result<(), AscendingError> to all Functions that return nothing.
 pub fn player_warp(
     world: &mut World,
     storage: &Storage,
@@ -24,11 +24,11 @@ pub fn player_warp(
             if !old_pos.1 {
                 println!("Failed to switch map");
             }
-            DataTaskToken::Warp(old_pos.0.map).add_task(storage, warp_packet(entity, *new_pos)?)?;
+            DataTaskToken::Warp(pos.map).add_task(storage, warp_packet(entity, *new_pos)?)?;
             DataTaskToken::Warp(new_pos.map).add_task(storage, warp_packet(entity, *new_pos)?)?;
             DataTaskToken::PlayerSpawn(new_pos.map)
                 .add_task(storage, player_spawn_packet(world, entity, true)?)?;
-            init_data_lists(world, storage, entity, Some(old_pos.0.map))?;
+            init_data_lists(world, storage, entity, Some(pos.map))?;
         } else {
             player_swap_pos(world, storage, entity, *new_pos)?;
             if spawn {
@@ -50,10 +50,9 @@ pub fn player_warp(
         };
 
         if movesavecount >= 25 {
-            //update_location(storage, world, entity)?;
-            {
-                p_data.try_lock()?.general.movesavecount = 0;
-            }
+            update_pos(storage, world, entity)?;
+
+            p_data.try_lock()?.general.movesavecount = 0;
         }
     }
 

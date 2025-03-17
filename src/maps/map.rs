@@ -167,7 +167,6 @@ impl MapData {
         get_surrounding(self.position, include_corners)
     }
 
-    #[inline(always)]
     pub fn players_on_map(&self) -> bool {
         self.players_on_map > 0
     }

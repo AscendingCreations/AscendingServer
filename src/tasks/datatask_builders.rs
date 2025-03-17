@@ -70,9 +70,7 @@ pub fn npc_spawn_packet(
 
         Ok(buffer)
     } else {
-        Err(AscendingError::MissingEntity {
-            backtrace: Box::new(std::backtrace::Backtrace::capture()),
-        })
+        Err(AscendingError::missing_entity())
     }
 }
 
@@ -105,9 +103,7 @@ pub fn player_spawn_packet(
 
         Ok(buffer)
     } else {
-        Err(AscendingError::MissingEntity {
-            backtrace: Box::new(std::backtrace::Backtrace::capture()),
-        })
+        Err(AscendingError::missing_entity())
     }
 }
 

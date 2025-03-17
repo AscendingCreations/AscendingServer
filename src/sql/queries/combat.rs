@@ -21,7 +21,7 @@ impl PGCombat {
         format!(
             r#"
             INSERT INTO public.combat(uid, indeath, level, levelexp, pk, vital, vital_max)
-            VALUES ('{0}', false, 0, {1}, false, '{{0, 0, 0}}', '{{0, 0, 0}}');
+            VALUES ('{0}', false, 0, {1}, false, '{{25, 2, 100}}', '{{25, 2, 100}}');
             "#,
             uid,
             i64::unshift_signed(&0),
