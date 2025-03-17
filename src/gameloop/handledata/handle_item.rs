@@ -504,10 +504,7 @@ pub fn handle_switchstorageslot(
 
         let (mut old_slot, new_slot) = {
             let p_data = p_data.try_lock()?;
-            (
-                p_data.inventory.items[oldslot],
-                p_data.inventory.items[newslot],
-            )
+            (p_data.storage.items[oldslot], p_data.storage.items[newslot])
         };
 
         if newslot >= MAX_STORAGE || old_slot.val == 0 {
