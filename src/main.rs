@@ -16,11 +16,10 @@ mod time_ext;
 
 #[allow(unused_imports)]
 use backtrace::Backtrace;
-use containers::Storage;
+use containers::{Storage, World};
 use gameloop::*;
 use gametypes::*;
-use hecs::World;
-use log::{error, info, Level, Metadata, Record};
+use log::{Level, Metadata, Record, error, info};
 use std::{env, fs::File, io::Write, panic};
 
 use crate::containers::read_config;
@@ -76,7 +75,7 @@ fn main() {
     log::set_max_level(config.level_filter.parse_enum());
 
     if config.enable_backtrace {
-        env::set_var("RUST_BACKTRACE", "1");
+        unsafe { env::set_var("RUST_BACKTRACE", "1") };
     }
 
     panic::set_hook(Box::new(|panic_info| {
@@ -99,7 +98,7 @@ fn main() {
     info!("Initializing PacketRouter");
     let router = PacketRouter::init();
     info!("Initializing World");
-    let mut world = World::new();
+    let mut world = World::default();
 
     info!("Game Server is Running.");
     game_loop(&mut world, &storage, &router);

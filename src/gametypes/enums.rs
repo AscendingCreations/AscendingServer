@@ -1,29 +1,7 @@
-use crate::{containers::*, gametypes::*, maps::MapItem};
-use hecs::World;
+use crate::gametypes::*;
 use mmap_bytey::{MByteBufferRead, MByteBufferWrite};
 use serde::{Deserialize, Serialize};
 use speedy::{Readable, Writable};
-
-#[derive(
-    Copy,
-    Clone,
-    Debug,
-    PartialEq,
-    Eq,
-    Serialize,
-    Deserialize,
-    Default,
-    MByteBufferRead,
-    MByteBufferWrite,
-    sqlx::Type,
-)]
-#[sqlx(type_name = "user_access")]
-pub enum UserAccess {
-    #[default]
-    None,
-    Monitor,
-    Admin,
-}
 
 #[derive(
     Copy,
@@ -72,25 +50,6 @@ pub enum AIBehavior {
     ReactiveHealer,  //Will attack when attacked and heal
 }
 
-#[derive(
-    Copy,
-    Clone,
-    Debug,
-    PartialEq,
-    Eq,
-    Serialize,
-    Deserialize,
-    Default,
-    MByteBufferRead,
-    MByteBufferWrite,
-)]
-pub enum NpcCastType {
-    #[default]
-    SelfOnly,
-    Enemy,  // for Attack spells/bad effects
-    Friend, // for healing/revival/good effects
-    Ground, // no target just Attack at position
-}
 impl AIBehavior {
     pub fn is_agressive(&self) -> bool {
         matches!(self, AIBehavior::Agressive | AIBehavior::AgressiveHealer)
@@ -121,84 +80,18 @@ impl AIBehavior {
     Debug,
     PartialEq,
     Eq,
-    Default,
-    Deserialize,
     Serialize,
+    Deserialize,
+    Default,
     MByteBufferRead,
     MByteBufferWrite,
 )]
-// Used to seperate Entity data within Hecs World.
-pub enum WorldEntityType {
+pub enum NpcCastType {
     #[default]
-    None,
-    Player,
-    Npc,
-    MapItem,
-    Map,
-}
-
-//used to pass and to Target Entity's
-#[derive(
-    Copy,
-    Clone,
-    Debug,
-    PartialEq,
-    Eq,
-    Default,
-    Deserialize,
-    Serialize,
-    MByteBufferRead,
-    MByteBufferWrite,
-)]
-pub enum EntityType {
-    #[default]
-    None,
-    Player(Entity, i64), //ArrID, AccID used for comparison if still same player.
-    Npc(Entity),
-    MapItem(Entity),
-    Map(Position),
-}
-
-impl EntityType {
-    pub fn get_id(&self) -> Entity {
-        match self {
-            EntityType::Player(i, _) | EntityType::Npc(i) | EntityType::MapItem(i) => *i,
-            _ => Entity(hecs::Entity::DANGLING),
-        }
-    }
-
-    pub fn get_pos(&self, world: &mut World, _storage: &Storage) -> Option<Position> {
-        match self {
-            EntityType::Map(position) => Some(*position),
-            EntityType::Player(i, _) => world.get_or_err::<Position>(i).ok(),
-            EntityType::Npc(i) => world.get_or_err::<Position>(i).ok(),
-            EntityType::MapItem(i) => world
-                .get_or_err::<MapItem>(i)
-                .map(|mapitem| mapitem.pos)
-                .ok(),
-            EntityType::None => None,
-        }
-    }
-
-    pub fn is_player(&self) -> bool {
-        matches!(self, EntityType::Player(_, _))
-    }
-
-    pub fn is_map(&self) -> bool {
-        matches!(self, EntityType::Map(_))
-    }
-
-    pub fn is_npc(&self) -> bool {
-        matches!(self, EntityType::Npc(_))
-    }
-
-    pub fn is_mapitem(&self) -> bool {
-        matches!(self, EntityType::MapItem(_))
-    }
-
-    pub fn is_none(&self) -> bool {
-        matches!(self, EntityType::None)
-    }
+    SelfOnly,
+    Enemy,  // for Attack spells/bad effects
+    Friend, // for healing/revival/good effects
+    Ground, // no target just Attack at position
 }
 
 #[derive(
@@ -345,27 +238,6 @@ pub enum OnlineType {
     Copy,
     Clone,
     Debug,
-    Serialize,
-    Deserialize,
-    PartialEq,
-    Eq,
-    Default,
-    MByteBufferRead,
-    MByteBufferWrite,
-)]
-pub enum NpcMode {
-    None,
-    #[default]
-    Normal,
-    Pet,
-    Summon,
-    Boss,
-}
-
-#[derive(
-    Copy,
-    Clone,
-    Debug,
     PartialEq,
     Eq,
     Serialize,
@@ -383,101 +255,10 @@ pub enum LogType {
     Error,
 }
 
-#[derive(
-    Copy,
-    Clone,
-    Debug,
-    PartialEq,
-    Eq,
-    Deserialize,
-    Serialize,
-    Default,
-    MByteBufferRead,
-    MByteBufferWrite,
-)]
-pub enum IsUsingType {
-    #[default]
-    None,
-    Bank,
-    Fishing(i64),
-    Crafting(i64),
-    Trading(Entity),
-    Store(i64),
-    Other(i64),
-}
-
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum SlotSpace {
     NoSpace(u16),
     Completed,
-}
-
-impl IsUsingType {
-    pub fn inuse(self) -> bool {
-        !matches!(self, IsUsingType::None)
-    }
-
-    pub fn is_bank(self) -> bool {
-        matches!(self, IsUsingType::Bank)
-    }
-
-    pub fn is_fishing(self) -> bool {
-        matches!(self, IsUsingType::Fishing(_))
-    }
-
-    pub fn is_crafting(self) -> bool {
-        matches!(self, IsUsingType::Crafting(_))
-    }
-
-    pub fn is_trading(self) -> bool {
-        matches!(self, IsUsingType::Trading(_))
-    }
-
-    pub fn is_instore(self) -> bool {
-        matches!(self, IsUsingType::Store(_))
-    }
-
-    pub fn is_other(self) -> bool {
-        matches!(self, IsUsingType::Other(_))
-    }
-}
-
-#[derive(
-    Copy,
-    Clone,
-    Debug,
-    PartialEq,
-    Eq,
-    Default,
-    Serialize,
-    Deserialize,
-    MByteBufferRead,
-    MByteBufferWrite,
-)]
-pub enum DeathType {
-    #[default]
-    Alive,
-    Spirit,
-    Dead,
-    Spawning,
-}
-
-impl DeathType {
-    pub fn is_dead(self) -> bool {
-        !matches!(self, DeathType::Alive)
-    }
-
-    pub fn is_spirit(self) -> bool {
-        matches!(self, DeathType::Spirit)
-    }
-
-    pub fn is_alive(self) -> bool {
-        matches!(self, DeathType::Alive)
-    }
-
-    pub fn is_spawning(self) -> bool {
-        matches!(self, DeathType::Spawning)
-    }
 }
 
 #[derive(

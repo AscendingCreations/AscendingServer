@@ -1,8 +1,8 @@
-use chrono::{offset::Utc, Duration, NaiveDate};
+use chrono::{Duration, NaiveDate, offset::Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::{Postgres, Type};
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct MyDate(pub NaiveDate);
 
 impl sqlx::Type<Postgres> for MyDate {

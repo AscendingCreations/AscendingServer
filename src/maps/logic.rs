@@ -1,20 +1,24 @@
 use crate::{
-    containers::Storage,
+    containers::{
+        DeathType, DespawnTimer, Entity, EntityKind, GlobalKey, MapItem, MapItemEntity, Storage,
+        World,
+    },
     gametypes::*,
     items::Item,
     maps::is_dir_blocked,
-    npcs::NpcSpawnedZone,
-    tasks::{map_item_packet, DataTaskToken},
+    tasks::{DataTaskToken, map_item_packet},
 };
 use chrono::Duration;
-use hecs::World;
-use rand::{thread_rng, Rng};
-use std::cmp::min;
+use rand::{Rng, rng};
+use std::{
+    cmp::min,
+    sync::{Arc, Mutex},
+};
 
-use super::{check_surrounding, MapItem};
+use super::check_surrounding;
 
 pub fn update_maps(world: &mut World, storage: &Storage) -> Result<()> {
-    let mut rng = thread_rng();
+    let mut rng = rng();
     let mut spawnable = Vec::new();
     let mut len = storage.npc_ids.borrow().len();
     let tick = *storage.gettick.borrow();
@@ -62,7 +66,7 @@ pub fn update_maps(world: &mut World, storage: &Storage) -> Result<()> {
 
                             //Give them a percentage chance to actually spawn
                             //or see if we can spawn them yet within the time frame.
-                            if rng.gen_range(0..2) > 0 || !game_time.in_range(from, to) {
+                            if rng.random_range(0..2) > 0 || !game_time.in_range(from, to) {
                                 continue;
                             }
 
@@ -76,14 +80,14 @@ pub fn update_maps(world: &mut World, storage: &Storage) -> Result<()> {
                             //Only try to find a spot so many times randomly.
                             if !map.zonespawns[id].is_empty() {
                                 while loop_count < 10 {
-                                    let pos_id = rng.gen_range(0..map.zonespawns[id].len());
+                                    let pos_id = rng.random_range(0..map.zonespawns[id].len());
                                     let (x, y) = map.zonespawns[id][pos_id];
                                     let spawn = Position::new(x as i32, y as i32, *position);
 
                                     loop_count += 1;
 
                                     //Check if the tile is blocked or not.
-                                    if !data.is_blocked_tile(spawn, WorldEntityType::Npc) {
+                                    if !data.is_blocked_tile(spawn, EntityKind::Npc) {
                                         //Set NPC as spawnable and to do further checks later.
                                         //Doing this to make the code more readable.
                                         spawnable.push((spawn, id, npc_id));
@@ -115,23 +119,29 @@ pub fn update_maps(world: &mut World, storage: &Storage) -> Result<()> {
                 if !storage_mapitem.contains_key(&data.pos) {
                     if data.timer <= tick {
                         let map_item = create_mapitem(data.index, data.amount, data.pos);
-                        let id = world.spawn((WorldEntityType::MapItem, map_item));
-                        world.insert(
+
+                        let id = world.kinds.insert(EntityKind::MapItem);
+
+                        world.entities.insert(
                             id,
-                            (EntityType::MapItem(Entity(id)), DespawnTimer::default()),
-                        )?;
-                        storage_mapitem.insert(data.pos, Entity(id));
+                            Entity::MapItem(Arc::new(Mutex::new(MapItemEntity {
+                                general: map_item,
+                                despawn_timer: DespawnTimer::default(),
+                            }))),
+                        );
+
+                        storage_mapitem.insert(data.pos, id);
                         DataTaskToken::ItemLoad(data.pos.map).add_task(
                             storage,
                             map_item_packet(
-                                Entity(id),
+                                id,
                                 map_item.pos,
                                 map_item.item,
                                 map_item.ownerid,
                                 true,
                             )?,
                         )?;
-                        add_items.push(Entity(id));
+                        add_items.push(id);
                     }
                 } else {
                     data.timer = tick
@@ -166,13 +176,16 @@ pub fn spawn_npc(
     world: &mut World,
     pos: Position,
     zone: Option<usize>,
-    entity: Entity,
+    entity: GlobalKey,
 ) -> Result<()> {
-    *world.get::<&mut Position>(entity.0)? = pos;
-    world.get::<&mut Spawn>(entity.0)?.pos = pos;
-    world.get::<&mut NpcSpawnedZone>(entity.0)?.0 = zone;
-    *world.get::<&mut DeathType>(entity.0)? = DeathType::Spawning;
+    if let Some(Entity::Npc(n_data)) = world.get_opt_entity(entity) {
+        let mut n_data = n_data.try_lock()?;
 
+        n_data.movement.pos = pos;
+        n_data.movement.spawn.pos = pos;
+        n_data.spawned_zone.0 = zone;
+        n_data.combat.death_type = DeathType::Spawning;
+    }
     Ok(())
 }
 

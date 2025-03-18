@@ -3,36 +3,59 @@ use crate::{
     gametypes::*,
     maps::*,
     npcs::*,
-    players::*,
     socket::*,
     tasks::{DataTaskToken, MapSwitchTasks},
     time_ext::MyInstant,
 };
 use chrono::Duration;
-use hecs::World;
-use log::LevelFilter;
-use mio::Poll;
+use log::{LevelFilter, error, info, trace, warn};
+use mio::{Poll, Token};
 use rustls::{
-    crypto::{ring as provider, CryptoProvider},
-    pki_types::{CertificateDer, PrivateKeyDer},
     ServerConfig,
+    crypto::{CryptoProvider, ring as provider},
+    pki_types::{CertificateDer, PrivateKeyDer},
 };
 use serde::{Deserialize, Serialize};
+use slotmap::SecondaryMap;
 use sqlx::{
-    postgres::{PgConnectOptions, PgPoolOptions},
     ConnectOptions, PgPool,
+    postgres::{PgConnectOptions, PgPoolOptions},
 };
-use std::{cell::RefCell, collections::VecDeque, fs, io::BufReader, sync::Arc};
+use std::{
+    cell::RefCell,
+    collections::VecDeque,
+    fs,
+    io::BufReader,
+    sync::{Arc, Mutex},
+};
 use tokio::runtime::Runtime;
 use tokio::task;
 
+use super::{
+    CombatData, Entity, EntityKind, GlobalKey, HashSet, LoginHandShake, MovementData, NpcEntity,
+    NpcMode, NpcTimer, PlayerConnectionTimer, PlayerEntity, ReloginCode, Socket, Spawn, Vitals,
+    World,
+};
+
+#[derive(Hash, PartialEq, Eq, Clone)]
+pub struct ClearCodeData {
+    pub code: String,
+    pub timer: MyInstant,
+}
+
 pub struct Storage {
-    pub player_ids: RefCell<IndexSet<Entity>>,
-    pub recv_ids: RefCell<IndexSet<Entity>>,
-    pub npc_ids: RefCell<IndexSet<Entity>>,
-    pub player_names: RefCell<HashMap<String, Entity>>, //for player names to ID's
+    pub player_ids: RefCell<IndexSet<GlobalKey>>,
+    pub recv_ids: RefCell<IndexSet<Token>>,
+    pub npc_ids: RefCell<IndexSet<GlobalKey>>,
+    pub player_names: RefCell<HashMap<String, GlobalKey>>, //for player names to ID's
     pub maps: IndexMap<MapPosition, RefCell<MapData>>,
-    pub map_items: RefCell<IndexMap<Position, Entity>>,
+    pub map_items: RefCell<IndexMap<Position, GlobalKey>>,
+    pub disconnected_player: RefCell<IndexSet<GlobalKey>>, //Players get placed here to unload data later. allow reconnecting.
+    pub player_timeout: RefCell<SecondaryMap<GlobalKey, PlayerConnectionTimer>>,
+    pub hand_shakes: RefCell<HashMap<String, GlobalKey>>,
+    pub player_code: RefCell<IndexMap<String, GlobalKey>>,
+    //Keep track of older relogin codes so we can remove them after a set period of time.
+    pub clear_code: RefCell<IndexSet<ClearCodeData>>,
     //This is for buffering the specific packets needing to send.
     #[allow(clippy::type_complexity)]
     pub packet_cache: RefCell<IndexMap<DataTaskToken, VecDeque<(u32, MByteBuffer, bool)>>>,
@@ -43,11 +66,12 @@ pub struct Storage {
     pub gettick: RefCell<MyInstant>,
     pub pgconn: PgPool,
     pub time: RefCell<GameTime>,
-    pub map_switch_tasks: RefCell<IndexMap<Entity, Vec<MapSwitchTasks>>>, //Data Tasks For dealing with Player Warp and MapSwitch
+    pub map_switch_tasks: RefCell<IndexMap<GlobalKey, Vec<MapSwitchTasks>>>, //Data Tasks For dealing with Player Warp and MapSwitch
     pub bases: Bases,
     pub rt: RefCell<Runtime>,
     pub local: RefCell<task::LocalSet>,
     pub config: Config,
+    pub unload_npc: RefCell<Vec<GlobalKey>>,
 }
 
 fn establish_connection(
@@ -105,6 +129,7 @@ impl ServerLevelFilter {
 #[derive(Deserialize)]
 pub struct Config {
     pub listen: String,
+    pub tls_listen: String,
     pub server_cert: String,
     pub server_key: String,
     pub ca_root: String,
@@ -179,8 +204,14 @@ impl Storage {
         let mut poll = Poll::new().ok()?;
         let tls_config =
             build_tls_config(&config.server_cert, &config.server_key, &config.ca_root).unwrap();
-        let server =
-            Server::new(&mut poll, &config.listen, config.maxconnections, tls_config).ok()?;
+        let server = Server::new(
+            &mut poll,
+            &config.listen,
+            &config.tls_listen,
+            config.maxconnections,
+            tls_config,
+        )
+        .ok()?;
 
         let mut rt: Runtime = Runtime::new().unwrap();
         let local = task::LocalSet::new();
@@ -192,10 +223,15 @@ impl Storage {
             recv_ids: RefCell::new(IndexSet::default()),
             npc_ids: RefCell::new(IndexSet::default()),
             player_names: RefCell::new(HashMap::default()), //for player names to ID's
+            disconnected_player: RefCell::new(IndexSet::default()),
+            player_timeout: RefCell::new(SecondaryMap::default()),
             maps: IndexMap::default(),
             map_items: RefCell::new(IndexMap::default()),
             packet_cache: RefCell::new(IndexMap::default()),
             packet_cache_ids: RefCell::new(IndexSet::default()),
+            hand_shakes: RefCell::new(HashMap::default()),
+            player_code: RefCell::new(IndexMap::default()),
+            clear_code: RefCell::new(IndexSet::default()),
             poll: RefCell::new(poll),
             server: RefCell::new(server),
             gettick: RefCell::new(MyInstant::now()),
@@ -206,6 +242,7 @@ impl Storage {
             rt: RefCell::new(rt),
             local: RefCell::new(local),
             config,
+            unload_npc: RefCell::new(Vec::with_capacity(32)),
         };
 
         let mut map_data_entry = crate::maps::get_maps();
@@ -273,177 +310,145 @@ impl Storage {
         Some(storage)
     }
 
-    pub fn add_empty_player(&self, world: &mut World, id: usize, addr: String) -> Result<Entity> {
-        let socket = Socket::new(id, addr)?;
-
-        let identity = world.spawn((WorldEntityType::Player, socket, OnlineType::Accepted));
-        world.insert_one(identity, EntityType::Player(Entity(identity), 0))?;
-
-        Ok(Entity(identity))
-    }
-
     pub fn add_player_data(
         &self,
         world: &mut World,
-        entity: &Entity,
         code: String,
         handshake: String,
-        time: MyInstant,
-    ) -> Result<()> {
-        world.insert(
-            entity.0,
-            (
-                Account::default(),
-                PlayerItemTimer::default(),
-                PlayerMapTimer::default(),
-                Inventory::default(),
-                Equipment::default(),
-                Sprite::default(),
-                Money::default(),
-                Player::default(),
-                Spawn::default(),
-                Target::default(),
-                KillCount::default(),
-                Vitals::default(),
-                Dir::default(),
-                AttackTimer::default(),
-                WorldEntityType::Player,
-            ),
-        )?;
-        world.insert(
-            entity.0,
-            (
-                DeathTimer::default(),
-                MoveTimer::default(),
-                Combat::default(),
-                Physical::default(),
-                Hidden::default(),
-                Stunned::default(),
-                Attacking::default(),
-                Level::default(),
-                InCombat::default(),
-                EntityData::default(),
-                UserAccess::default(),
-                Position::default(),
-                DeathType::default(),
-                IsUsingType::default(),
-                PlayerTarget::default(),
-            ),
-        )?;
-        world.insert(
-            entity.0,
-            (
-                PlayerStorage::default(),
-                TradeItem::default(),
-                ReloginCode { code },
-                LoginHandShake { handshake },
-                TradeMoney::default(),
-                TradeStatus::default(),
-                TradeRequestEntity::default(),
-                ConnectionLoginTimer(time + Duration::try_milliseconds(600000).unwrap_or_default()),
-            ),
-        )?;
-        self.player_ids.borrow_mut().insert(*entity);
-        Ok(())
+        socket: Socket,
+    ) -> Result<GlobalKey> {
+        let entity = world.kinds.insert(EntityKind::Player);
+        let player_entity = create_player_entity(code, handshake, socket);
+
+        world
+            .entities
+            .insert(entity, Entity::Player(Arc::new(Mutex::new(player_entity))));
+
+        self.player_ids.borrow_mut().insert(entity);
+        Ok(entity)
     }
 
     pub fn remove_player(
         &self,
         world: &mut World,
-        id: Entity,
-    ) -> Result<(Socket, Option<Position>)> {
-        // only removes the Components in the Fisbone ::<>
-        let (socket,) = world.remove::<(Socket,)>(id.0)?;
-        let pos = world.remove::<(Position,)>(id.0).ok().map(|v| v.0);
-        if let Ok((account,)) = world.remove::<(Account,)>(id.0) {
-            println!("Players Disconnected : {}", &account.username);
-            self.player_names.borrow_mut().remove(&account.username);
-        }
-        //Removes Everything related to the Entity.
-        world.despawn(id.0)?;
-
+        id: GlobalKey,
+    ) -> Result<Option<Arc<Mutex<PlayerEntity>>>> {
+        let _ = world.kinds.remove(id);
+        let player = world.entities.remove(id);
         self.player_ids.borrow_mut().swap_remove(&id);
-        Ok((socket, pos))
+
+        Ok(if let Some(data) = player {
+            if let Entity::Player(p_data) = data {
+                {
+                    let p_data = p_data.try_lock()?;
+
+                    let _ = world.account_id.remove(&p_data.account.id);
+
+                    // pos = Some((p_data.movement.pos, p_data.movement.map_instance));
+
+                    self.player_names
+                        .borrow_mut()
+                        .remove(&p_data.account.username);
+
+                    info!("Players Disconnected : {}", &p_data.account.username);
+                    trace!("Players Disconnected IP: {} ", &p_data.socket.addr);
+                }
+
+                Some(p_data)
+            } else {
+                error!("Was not a player entity woops?");
+                None
+            }
+        } else {
+            warn!("Player Removal failed: Cant find player");
+            None
+        })
     }
 
-    pub fn add_npc(&self, world: &mut World, npc_id: u64) -> Result<Option<Entity>> {
+    pub fn add_npc(&self, world: &mut World, npc_id: u64) -> Result<Option<GlobalKey>> {
         if let Some(npcdata) = NpcData::load_npc(self, npc_id) {
-            let identity = world.spawn((
-                WorldEntityType::Npc,
-                Position::default(),
-                NpcIndex(npc_id),
-                NpcTimer {
-                    spawntimer: *self.gettick.borrow()
-                        + Duration::try_milliseconds(npcdata.spawn_wait).unwrap_or_default(),
+            let entity = world.kinds.insert(EntityKind::Npc);
+
+            let mut vitals = Vitals::default();
+
+            vitals.vital[VitalTypes::Hp as usize] = npcdata.maxhp as i32;
+            vitals.vitalmax[VitalTypes::Hp as usize] = npcdata.maxhp as i32;
+
+            world.entities.insert(
+                entity,
+                Entity::Npc(Arc::new(Mutex::new(NpcEntity {
+                    index: npc_id,
+                    timer: NpcTimer {
+                        spawntimer: *self.gettick.borrow()
+                            + Duration::try_milliseconds(npcdata.spawn_wait).unwrap_or_default(),
+                        ..Default::default()
+                    },
+                    combat: CombatData {
+                        vitals,
+                        ..Default::default()
+                    },
+                    mode: NpcMode::Normal,
                     ..Default::default()
-                },
-                NpcAITimer::default(),
-                NpcDespawns::default(),
-                NpcMoving::default(),
-                NpcRetreating::default(),
-                NpcWalkToSpawn::default(),
-                NpcMoves::default(),
-                NpcSpawnedZone::default(),
-                Dir::default(),
-                MoveTimer::default(),
-                EntityData::default(),
-                Sprite::default(),
-            ));
-            world.insert(
-                identity,
-                (
-                    Spawn::default(),
-                    NpcMode::Normal,
-                    Hidden::default(),
-                    Level::default(),
-                    Vitals::default(),
-                    Physical::default(),
-                    DeathType::default(),
-                    NpcMovePos::default(),
-                    Target::default(),
-                    InCombat::default(),
-                    AttackTimer::default(),
-                    NpcPathTimer::default(),
-                ),
-            )?;
+                }))),
+            );
 
-            if !npcdata.behaviour.is_friendly() {
-                world.insert(
-                    identity,
-                    (
-                        NpcHitBy::default(),
-                        Target::default(),
-                        AttackTimer::default(),
-                        DeathTimer::default(),
-                        Combat::default(),
-                        Stunned::default(),
-                        Attacking::default(),
-                        InCombat::default(),
-                    ),
-                )?;
-            }
-            world.insert_one(identity, EntityType::Npc(Entity(identity)))?;
+            self.npc_ids.borrow_mut().insert(entity);
 
-            self.npc_ids.borrow_mut().insert(Entity(identity));
-
-            Ok(Some(Entity(identity)))
+            Ok(Some(entity))
         } else {
             Ok(None)
         }
     }
 
-    pub fn remove_npc(&self, world: &mut World, id: Entity) -> Result<Position> {
-        let ret: Position = world.get_or_err::<Position>(&id)?;
-        //Removes Everything related to the Entity.
-        world.despawn(id.0)?;
+    pub fn remove_npc(&self, world: &mut World, id: GlobalKey) -> Result<Position> {
+        let _ = world.kinds.remove(id);
+        let npc = world.entities.remove(id);
         self.npc_ids.borrow_mut().swap_remove(&id);
 
-        //Removes the NPC from the block map.
-        //TODO expand this to support larger npc's liek bosses basedon their Block size.
-        if let Some(map) = self.maps.get(&ret.map) {
-            map.borrow_mut().remove_entity_from_grid(ret);
+        if let Some(Entity::Npc(n_data)) = npc {
+            let n_data = n_data.try_lock()?;
+
+            //Removes the NPC from the block map.
+            //TODO_ON_DEV expand this to support larger npc's liek bosses basedon their Block size.
+            if let Some(map) = self.maps.get(&n_data.movement.pos.map) {
+                map.borrow_mut()
+                    .remove_entity_from_grid(n_data.movement.pos);
+            }
+
+            return Ok(n_data.movement.pos);
         }
 
-        Ok(ret)
+        Err(AscendingError::missing_entity())
+    }
+}
+
+pub fn create_player_entity(code: String, handshake: String, socket: Socket) -> PlayerEntity {
+    let mut hash_code = HashSet::default();
+    hash_code.insert(code.to_owned());
+
+    let start_pos = Position {
+        x: 0,
+        y: 0,
+        map: MapPosition {
+            x: 0,
+            y: 0,
+            group: 0,
+        },
+    };
+
+    PlayerEntity {
+        movement: MovementData {
+            pos: start_pos,
+            spawn: Spawn {
+                pos: start_pos,
+                ..Default::default()
+            },
+            ..Default::default()
+        },
+        login_handshake: LoginHandShake { handshake },
+        relogin_code: ReloginCode { code: hash_code },
+        online_type: OnlineType::Accepted,
+        socket,
+        ..Default::default()
     }
 }

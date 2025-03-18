@@ -1,8 +1,12 @@
-use crate::{gametypes::*, items::*, npcs::*, players::*, socket::*};
-use hecs::{NoSuchEntity, World};
+use crate::{
+    containers::{DeathType, Entity, GlobalKey, UserAccess, World},
+    gametypes::*,
+    items::*,
+    socket::*,
+};
 
 pub fn move_packet(
-    entity: Entity,
+    entity: GlobalKey,
     position: Position,
     warp: bool,
     switch: bool,
@@ -19,21 +23,21 @@ pub fn move_packet(
     Ok(buffer)
 }
 
-pub fn warp_packet(entity: Entity, position: Position) -> Result<MByteBuffer> {
+pub fn warp_packet(entity: GlobalKey, position: Position) -> Result<MByteBuffer> {
     let mut buffer = MByteBuffer::new()?;
     buffer.write(entity)?.write(position)?;
 
     Ok(buffer)
 }
 
-pub fn dir_packet(entity: Entity, dir: u8) -> Result<MByteBuffer> {
+pub fn dir_packet(entity: GlobalKey, dir: u8) -> Result<MByteBuffer> {
     let mut buffer = MByteBuffer::new()?;
     buffer.write(entity)?.write(dir)?;
 
     Ok(buffer)
 }
 
-pub fn death_packet(entity: Entity, life: DeathType) -> Result<MByteBuffer> {
+pub fn death_packet(entity: GlobalKey, life: DeathType) -> Result<MByteBuffer> {
     let mut buffer = MByteBuffer::new()?;
     buffer.write(entity)?.write(life)?;
 
@@ -42,112 +46,64 @@ pub fn death_packet(entity: Entity, life: DeathType) -> Result<MByteBuffer> {
 
 pub fn npc_spawn_packet(
     world: &mut World,
-    entity: &Entity,
+    entity: GlobalKey,
     did_spawn: bool,
 ) -> Result<MByteBuffer> {
-    let mut query = world.query_one::<(
-        &Dir,
-        &Hidden,
-        &Level,
-        &DeathType,
-        &Physical,
-        &Position,
-        &Sprite,
-        &Vitals,
-        &NpcMode,
-        &NpcIndex,
-    )>(entity.0)?;
+    if let Some(Entity::Npc(n_data)) = world.get_opt_entity(entity) {
+        let n_data = n_data.try_lock()?;
 
-    if let Some((dir, hidden, level, life, physical, position, sprite, vitals, mode, npc_index)) =
-        query.get()
-    {
         let mut buffer = MByteBuffer::new()?;
         buffer
-            .write(dir.0)?
-            .write(hidden.0)?
+            .write(n_data.movement.dir)?
             .write(entity)?
-            .write(level.0)?
-            .write(life)?
-            .write(mode)?
-            .write(npc_index.0)?
-            .write(physical.damage)?
-            .write(physical.defense)?
-            .write(position)?
-            .write(sprite.id)?
-            .write(vitals.vital)?
-            .write(vitals.vitalmax)?
+            .write(n_data.combat.level)?
+            .write(n_data.combat.death_type)?
+            .write(n_data.mode)?
+            .write(n_data.index)?
+            .write(n_data.combat.physical.damage)?
+            .write(n_data.combat.physical.defense)?
+            .write(n_data.movement.pos)?
+            .write(n_data.sprite.id)?
+            .write(n_data.combat.vitals.vital)?
+            .write(n_data.combat.vitals.vitalmax)?
             .write(did_spawn)?;
 
         Ok(buffer)
     } else {
-        Err(AscendingError::HecNoEntity {
-            error: NoSuchEntity,
-            backtrace: Box::new(std::backtrace::Backtrace::capture()),
-        })
+        Err(AscendingError::missing_entity())
     }
 }
 
 pub fn player_spawn_packet(
     world: &mut World,
-    entity: &Entity,
+    entity: GlobalKey,
     did_spawn: bool,
 ) -> Result<MByteBuffer> {
-    let mut query = world.query_one::<(
-        &Account,
-        &Dir,
-        &Hidden,
-        &Level,
-        &DeathType,
-        &Physical,
-        &Position,
-        &Sprite,
-        &Vitals,
-        &UserAccess,
-        &Equipment,
-        &Player,
-    )>(entity.0)?;
+    if let Some(Entity::Player(p_data)) = world.get_opt_entity(entity) {
+        let p_data = p_data.try_lock()?;
 
-    if let Some((
-        account,
-        dir,
-        hidden,
-        level,
-        life,
-        physical,
-        position,
-        sprite,
-        vitals,
-        access,
-        equipment,
-        player,
-    )) = query.get()
-    {
         let mut buffer = MByteBuffer::new()?;
         buffer
-            .write(&account.username)?
-            .write(dir.0)?
-            .write(hidden.0)?
+            .write(&p_data.account.username)?
+            .write(p_data.movement.dir)?
             .write(entity)?
-            .write(level.0)?
-            .write(life)?
-            .write(physical.damage)?
-            .write(physical.defense)?
-            .write(position)?
-            .write(sprite.id)?
-            .write(vitals.vital)?
-            .write(vitals.vitalmax)?
-            .write(access)?
-            .write(equipment)? //85
-            .write(player.pk)?
-            .write(player.pvpon)?
+            .write(p_data.combat.level)?
+            .write(p_data.combat.death_type)?
+            .write(p_data.combat.physical.damage)?
+            .write(p_data.combat.physical.defense)?
+            .write(p_data.movement.pos)?
+            .write(p_data.sprite.id)?
+            .write(p_data.combat.vitals.vital)?
+            .write(p_data.combat.vitals.vitalmax)?
+            .write(p_data.user_access)?
+            .write(p_data.equipment.clone())? //85
+            .write(p_data.general.pk)?
+            .write(p_data.general.pvpon)?
             .write(did_spawn)?;
 
         Ok(buffer)
     } else {
-        Err(AscendingError::HecNoEntity {
-            error: NoSuchEntity,
-            backtrace: Box::new(std::backtrace::Backtrace::capture()),
-        })
+        Err(AscendingError::missing_entity())
     }
 }
 
@@ -168,10 +124,10 @@ pub fn message_packet(
 }
 
 pub fn map_item_packet(
-    id: Entity,
+    id: GlobalKey,
     position: Position,
     item: Item,
-    owner: Option<Entity>,
+    owner: Option<GlobalKey>,
     did_spawn: bool,
 ) -> Result<MByteBuffer> {
     let mut buffer = MByteBuffer::new()?;
@@ -186,7 +142,7 @@ pub fn map_item_packet(
 }
 
 pub fn vitals_packet(
-    entity: Entity,
+    entity: GlobalKey,
     vital: [i32; VITALS_MAX],
     vitalmax: [i32; VITALS_MAX],
 ) -> Result<MByteBuffer> {
@@ -197,7 +153,7 @@ pub fn vitals_packet(
 }
 
 pub fn damage_packet(
-    entity: Entity,
+    entity: GlobalKey,
     damage: u16,
     pos: Position,
     is_damage: bool,
@@ -212,21 +168,21 @@ pub fn damage_packet(
     Ok(buffer)
 }
 
-pub fn level_packet(entity: Entity, level: i32, levelexp: u64) -> Result<MByteBuffer> {
+pub fn level_packet(entity: GlobalKey, level: i32, levelexp: u64) -> Result<MByteBuffer> {
     let mut buffer = MByteBuffer::new()?;
     buffer.write(entity)?.write(level)?.write(levelexp)?;
 
     Ok(buffer)
 }
 
-pub fn unload_entity_packet(entity: Entity) -> Result<MByteBuffer> {
+pub fn unload_entity_packet(entity: GlobalKey) -> Result<MByteBuffer> {
     let mut buffer = MByteBuffer::new()?;
     buffer.write(entity)?;
 
     Ok(buffer)
 }
 
-pub fn attack_packet(entity: Entity) -> Result<MByteBuffer> {
+pub fn attack_packet(entity: GlobalKey) -> Result<MByteBuffer> {
     let mut buffer = MByteBuffer::new()?;
     buffer.write(entity)?;
 

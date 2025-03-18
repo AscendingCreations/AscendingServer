@@ -3,7 +3,7 @@ use mmap_bytey::{MByteBuffer, MByteBufferRead, MByteBufferWrite};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use sqlx::{Postgres, Type};
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct MyDuration(pub chrono::Duration);
 
 impl MyDuration {

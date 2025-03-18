@@ -1,37 +1,45 @@
+use mio::Token;
+
 use crate::{
-    containers::Storage, gametypes::Result, socket::*, AscendingError, Entity, OnlineType,
-    PacketRouter, WorldExtras,
+    AscendingError, PacketRouter,
+    containers::{GlobalKey, Storage, World},
+    gametypes::Result,
+    socket::*,
 };
-use hecs::World;
+
+pub struct SocketID {
+    pub id: Token,
+    pub is_tls: bool,
+}
 
 pub fn handle_data(
     router: &PacketRouter,
     world: &mut World,
     storage: &Storage,
     data: &mut MByteBuffer,
-    entity: &Entity,
+    entity: Option<GlobalKey>,
+    socket_id: SocketID,
 ) -> Result<()> {
     let id: ClientPacket = data.read()?;
 
-    let onlinetype = world.get_or_err::<OnlineType>(entity)?;
-
-    match onlinetype {
-        OnlineType::Online => match id {
-            ClientPacket::Login
-            | ClientPacket::Register
-            | ClientPacket::HandShake
-            | ClientPacket::OnlineCheck => return Err(AscendingError::MultiLogin),
+    if entity.is_some() {
+        match id {
+            ClientPacket::Login | ClientPacket::Register | ClientPacket::HandShake => {
+                return Err(AscendingError::MultiLogin);
+            }
             _ => {}
-        },
-        OnlineType::Accepted => match id {
+        }
+    } else {
+        match id {
             ClientPacket::Login
             | ClientPacket::Register
             | ClientPacket::OnlineCheck
             | ClientPacket::HandShake
-            | ClientPacket::Ping => {}
+            | ClientPacket::Ping
+            | ClientPacket::TlsHandShake
+            | ClientPacket::TlsReconnect => {}
             _ => return Err(AscendingError::PacketManipulation { name: "".into() }),
-        },
-        OnlineType::None => return Err(AscendingError::PacketManipulation { name: "".into() }),
+        }
     }
 
     if id == ClientPacket::OnlineCheck {
@@ -40,8 +48,14 @@ pub fn handle_data(
 
     let fun = match router.0.get(&id) {
         Some(fun) => fun,
-        None => return Err(AscendingError::InvalidPacket),
+        None => {
+            println!("Packet {:?}", id);
+            return Err(AscendingError::InvalidPacket);
+        }
     };
 
-    fun(world, storage, data, entity)
+    if fun(world, storage, data, entity, socket_id).is_err() {
+        println!("Packet {:?}", id);
+    }
+    Ok(())
 }

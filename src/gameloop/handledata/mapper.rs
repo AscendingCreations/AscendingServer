@@ -1,127 +1,109 @@
-use super::routes;
-use crate::{containers::Storage, gametypes::*, socket::*};
-use hecs::World;
+use super::{
+    SocketID, handle_account::*, handle_action::*, handle_general::*, handle_item::*,
+    handle_trade::*,
+};
+use crate::{
+    containers::{GlobalKey, Storage, World},
+    gametypes::*,
+    socket::*,
+};
 use std::collections::HashMap;
 
-type PacketFunction = fn(&mut World, &Storage, &mut MByteBuffer, &Entity) -> Result<()>;
+type PacketFunction =
+    fn(&mut World, &Storage, &mut MByteBuffer, Option<GlobalKey>, SocketID) -> Result<()>;
 
 pub struct PacketRouter(pub HashMap<ClientPacket, PacketFunction>);
 
 impl PacketRouter {
     pub fn init() -> Self {
         Self(HashMap::from([
-            (
-                ClientPacket::Register,
-                routes::handle_register as PacketFunction,
-            ),
-            (ClientPacket::Login, routes::handle_login as PacketFunction),
-            (ClientPacket::Move, routes::handle_move as PacketFunction),
-            (ClientPacket::Dir, routes::handle_dir as PacketFunction),
-            (
-                ClientPacket::Attack,
-                routes::handle_attack as PacketFunction,
-            ),
-            (
-                ClientPacket::UseItem,
-                routes::handle_useitem as PacketFunction,
-            ),
-            (
-                ClientPacket::Unequip,
-                routes::handle_unequip as PacketFunction,
-            ),
+            (ClientPacket::Register, handle_register as PacketFunction),
+            (ClientPacket::Login, handle_login as PacketFunction),
+            (ClientPacket::Move, handle_move as PacketFunction),
+            (ClientPacket::Dir, handle_dir as PacketFunction),
+            (ClientPacket::Attack, handle_attack as PacketFunction),
+            (ClientPacket::UseItem, handle_useitem as PacketFunction),
+            (ClientPacket::Unequip, handle_unequip as PacketFunction),
             (
                 ClientPacket::SwitchInvSlot,
-                routes::handle_switchinvslot as PacketFunction,
+                handle_switchinvslot as PacketFunction,
             ),
-            (
-                ClientPacket::PickUp,
-                routes::handle_pickup as PacketFunction,
-            ),
-            (
-                ClientPacket::DropItem,
-                routes::handle_dropitem as PacketFunction,
-            ),
+            (ClientPacket::PickUp, handle_pickup as PacketFunction),
+            (ClientPacket::DropItem, handle_dropitem as PacketFunction),
             (
                 ClientPacket::DeleteItem,
-                routes::handle_deleteitem as PacketFunction,
+                handle_deleteitem as PacketFunction,
             ),
             (
                 ClientPacket::SwitchStorageSlot,
-                routes::handle_switchstorageslot as PacketFunction,
+                handle_switchstorageslot as PacketFunction,
             ),
             (
                 ClientPacket::DeleteStorageItem,
-                routes::handle_deletestorageitem as PacketFunction,
+                handle_deletestorageitem as PacketFunction,
             ),
             (
                 ClientPacket::DepositItem,
-                routes::handle_deposititem as PacketFunction,
+                handle_deposititem as PacketFunction,
             ),
             (
                 ClientPacket::WithdrawItem,
-                routes::handle_withdrawitem as PacketFunction,
+                handle_withdrawitem as PacketFunction,
             ),
-            (
-                ClientPacket::Message,
-                routes::handle_message as PacketFunction,
-            ),
-            (
-                ClientPacket::Command,
-                routes::handle_command as PacketFunction,
-            ),
-            (
-                ClientPacket::SetTarget,
-                routes::handle_settarget as PacketFunction,
-            ),
+            (ClientPacket::Message, handle_message as PacketFunction),
+            (ClientPacket::Command, handle_command as PacketFunction),
+            (ClientPacket::SetTarget, handle_settarget as PacketFunction),
             (
                 ClientPacket::CloseStorage,
-                routes::handle_closestorage as PacketFunction,
+                handle_closestorage as PacketFunction,
             ),
-            (
-                ClientPacket::CloseShop,
-                routes::handle_closeshop as PacketFunction,
-            ),
+            (ClientPacket::CloseShop, handle_closeshop as PacketFunction),
             (
                 ClientPacket::CloseTrade,
-                routes::handle_closetrade as PacketFunction,
+                handle_closetrade as PacketFunction,
             ),
-            (
-                ClientPacket::BuyItem,
-                routes::handle_buyitem as PacketFunction,
-            ),
-            (
-                ClientPacket::SellItem,
-                routes::handle_sellitem as PacketFunction,
-            ),
+            (ClientPacket::BuyItem, handle_buyitem as PacketFunction),
+            (ClientPacket::SellItem, handle_sellitem as PacketFunction),
             (
                 ClientPacket::AddTradeItem,
-                routes::handle_addtradeitem as PacketFunction,
+                handle_addtradeitem as PacketFunction,
             ),
             (
                 ClientPacket::RemoveTradeItem,
-                routes::handle_removetradeitem as PacketFunction,
+                handle_removetradeitem as PacketFunction,
             ),
             (
                 ClientPacket::UpdateTradeMoney,
-                routes::handle_updatetrademoney as PacketFunction,
+                handle_updatetrademoney as PacketFunction,
             ),
             (
                 ClientPacket::SubmitTrade,
-                routes::handle_submittrade as PacketFunction,
+                handle_submittrade as PacketFunction,
             ),
-            (
-                ClientPacket::HandShake,
-                routes::handle_handshake as PacketFunction,
-            ),
+            (ClientPacket::HandShake, handle_handshake as PacketFunction),
             (
                 ClientPacket::AcceptTrade,
-                routes::handle_accepttrade as PacketFunction,
+                handle_accepttrade as PacketFunction,
             ),
             (
                 ClientPacket::DeclineTrade,
-                routes::handle_declinetrade as PacketFunction,
+                handle_declinetrade as PacketFunction,
             ),
-            (ClientPacket::Ping, routes::handle_ping as PacketFunction),
+            (ClientPacket::Ping, handle_ping as PacketFunction),
+            (
+                ClientPacket::TlsReconnect,
+                handle_tls_reconnect as PacketFunction,
+            ),
+            (
+                ClientPacket::TlsHandShake,
+                handle_tls_handshake as PacketFunction,
+            ),
+            (
+                ClientPacket::Disconnect,
+                handle_disconnect as PacketFunction,
+            ),
+            (ClientPacket::Reconnect, handle_reconnect as PacketFunction),
+            (ClientPacket::LoginOk, handle_login_ok as PacketFunction),
         ]))
     }
 }

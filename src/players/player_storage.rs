@@ -1,12 +1,10 @@
-use hecs::World;
-
-use crate::{containers::*, gametypes::*, items::*, players::*, socket::*, sql::*};
+use crate::{containers::*, gametypes::*, items::*, socket::*, sql::*};
 
 #[inline]
 pub fn save_storage_item(
     world: &mut World,
     storage: &Storage,
-    entity: &Entity,
+    entity: GlobalKey,
     slot: usize,
 ) -> Result<()> {
     update_storage(storage, world, entity, slot)?;
@@ -51,53 +49,55 @@ pub fn find_storage_slot(item: &Item, storage: &[Item], base: &ItemData) -> Opti
 pub fn auto_set_storage_item(
     world: &mut World,
     storage: &Storage,
-    entity: &crate::Entity,
+    entity: GlobalKey,
     item: &mut Item,
     base: &ItemData,
 ) -> Result<()> {
-    let mut save_item_list = Vec::new();
-    let mut total_left = if item.val == 0 { 1 } else { item.val };
+    if let Some(Entity::Player(p_data)) = world.get_opt_entity(entity) {
+        let mut save_item_list = Vec::new();
+        let mut total_left = if item.val == 0 { 1 } else { item.val };
 
-    {
-        let mut player_storage = world.get::<&mut PlayerStorage>(entity.0)?;
+        {
+            let mut p_data = p_data.try_lock()?;
 
-        if base.stackable {
-            for id in 0..MAX_STORAGE {
-                if player_storage.items[id].num == item.num
-                    && player_storage.items[id].val < base.stacklimit
-                    && player_storage.items[id].val > 0
-                {
-                    val_add_rem(
-                        &mut player_storage.items[id].val,
-                        &mut total_left,
-                        base.stacklimit,
-                    );
+            if base.stackable {
+                for id in 0..MAX_STORAGE {
+                    if p_data.storage.items[id].num == item.num
+                        && p_data.storage.items[id].val < base.stacklimit
+                        && p_data.storage.items[id].val > 0
+                    {
+                        val_add_rem(
+                            &mut p_data.storage.items[id].val,
+                            &mut total_left,
+                            base.stacklimit,
+                        );
 
-                    save_item_list.push(id);
+                        save_item_list.push(id);
 
-                    if total_left == 0 {
+                        if total_left == 0 {
+                            break;
+                        }
+                    }
+                }
+            }
+
+            item.val = total_left;
+
+            if total_left > 0 {
+                for id in 0..MAX_STORAGE {
+                    if p_data.storage.items[id].val == 0 {
+                        p_data.storage.items[id] = *item;
+                        item.val = 0;
+                        save_item_list.push(id);
                         break;
                     }
                 }
             }
         }
 
-        item.val = total_left;
-
-        if total_left > 0 {
-            for id in 0..MAX_STORAGE {
-                if player_storage.items[id].val == 0 {
-                    player_storage.items[id] = *item;
-                    item.val = 0;
-                    save_item_list.push(id);
-                    break;
-                }
-            }
+        for slot in save_item_list.iter() {
+            save_storage_item(world, storage, entity, *slot)?;
         }
-    }
-
-    for slot in save_item_list.iter() {
-        save_storage_item(world, storage, entity, *slot)?;
     }
 
     Ok(())
@@ -105,32 +105,35 @@ pub fn auto_set_storage_item(
 
 pub fn check_storage_space(
     world: &mut World,
-    entity: &crate::Entity,
+    entity: GlobalKey,
     item: &mut Item,
     base: &ItemData,
 ) -> Result<bool> {
     let mut total_left = if item.val == 0 { 1 } else { item.val };
     let mut empty_space_count = 0;
-    let player_storage = world.get::<&PlayerStorage>(entity.0)?;
 
-    //First try to add it to other of the same type
-    for id in 0..MAX_STORAGE {
-        if base.stackable
-            && player_storage.items[id].num == item.num
-            && player_storage.items[id].val < base.stacklimit
-            && player_storage.items[id].val > 0
-        {
-            if player_storage.items[id].val + total_left > base.stacklimit {
-                total_left = total_left + player_storage.items[id].val - base.stacklimit;
-            } else {
-                return Ok(true);
-            }
-        } else if player_storage.items[id].val == 0 {
-            if !base.stackable {
-                return Ok(true);
-            }
+    if let Some(Entity::Player(p_data)) = world.get_opt_entity(entity) {
+        let p_data = p_data.try_lock()?;
 
-            empty_space_count += 1;
+        //First try to add it to other of the same type
+        for id in 0..MAX_STORAGE {
+            if base.stackable
+                && p_data.storage.items[id].num == item.num
+                && p_data.storage.items[id].val < base.stacklimit
+                && p_data.storage.items[id].val > 0
+            {
+                if p_data.storage.items[id].val + total_left > base.stacklimit {
+                    total_left = total_left + p_data.storage.items[id].val - base.stacklimit;
+                } else {
+                    return Ok(true);
+                }
+            } else if p_data.storage.items[id].val == 0 {
+                if !base.stackable {
+                    return Ok(true);
+                }
+
+                empty_space_count += 1;
+            }
         }
     }
 
@@ -139,33 +142,36 @@ pub fn check_storage_space(
 
 pub fn check_storage_item_partial_space(
     world: &mut World,
-    entity: &crate::Entity,
+    entity: GlobalKey,
     item: &mut Item,
     base: &ItemData,
 ) -> Result<(u16, u16)> {
     let mut total_left = if item.val == 0 { 1 } else { item.val };
     let start_val = if item.val == 0 { 1 } else { item.val };
-    let player_storage = world.get::<&PlayerStorage>(entity.0)?;
 
-    //First try to add it to other of the same type
-    if base.stackable {
-        for id in 0..MAX_STORAGE {
-            if player_storage.items[id].num == item.num
-                && player_storage.items[id].val < base.stacklimit
-                && player_storage.items[id].val > 0
-            {
-                if player_storage.items[id].val + total_left > base.stacklimit {
-                    total_left = total_left + player_storage.items[id].val - base.stacklimit;
-                } else {
-                    return Ok((0, start_val));
+    if let Some(Entity::Player(p_data)) = world.get_opt_entity(entity) {
+        let p_data = p_data.try_lock()?;
+
+        //First try to add it to other of the same type
+        if base.stackable {
+            for id in 0..MAX_STORAGE {
+                if p_data.storage.items[id].num == item.num
+                    && p_data.storage.items[id].val < base.stacklimit
+                    && p_data.storage.items[id].val > 0
+                {
+                    if p_data.storage.items[id].val + total_left > base.stacklimit {
+                        total_left = total_left + p_data.storage.items[id].val - base.stacklimit;
+                    } else {
+                        return Ok((0, start_val));
+                    }
                 }
             }
         }
-    }
 
-    for id in 0..MAX_STORAGE {
-        if player_storage.items[id].val == 0 {
-            return Ok((0, start_val));
+        for id in 0..MAX_STORAGE {
+            if p_data.storage.items[id].val == 0 {
+                return Ok((0, start_val));
+            }
         }
     }
 
@@ -177,7 +183,7 @@ pub fn check_storage_item_partial_space(
 pub fn check_storage_partial_space(
     world: &mut World,
     storage: &Storage,
-    entity: &crate::Entity,
+    entity: GlobalKey,
     item: &mut Item,
 ) -> Result<(bool, u16, u16)> {
     let base = &storage.bases.items[item.num as usize];
@@ -196,36 +202,42 @@ pub fn check_storage_partial_space(
 pub fn set_storage_item(
     world: &mut World,
     storage: &Storage,
-    entity: &crate::Entity,
+    entity: GlobalKey,
     item: &mut Item,
     base: &ItemData,
     slot: usize,
     amount: u16,
 ) -> Result<u16> {
-    let player_storage = world.cloned_get_or_err::<PlayerStorage>(entity)?;
-
     let mut rem = 0u16;
-    let item_min = std::cmp::min(amount, item.val);
 
-    if player_storage.items[slot].val == 0 {
-        {
-            let mut storage = world.get::<&mut PlayerStorage>(entity.0)?;
-            storage.items[slot] = *item;
-            storage.items[slot].val = item_min;
-        }
-        save_storage_item(world, storage, entity, slot)?;
-        return Ok(0);
-    } else if player_storage.items[slot].num == item.num {
-        {
-            rem = val_add_amount_rem(
-                &mut world.get::<&mut PlayerStorage>(entity.0)?.items[slot].val,
-                &mut item.val,
-                item_min,
-                base.stacklimit,
-            );
-        }
+    if let Some(Entity::Player(p_data)) = world.get_opt_entity(entity) {
+        let player_storage = { p_data.try_lock()?.storage.items[slot] };
 
-        save_storage_item(world, storage, entity, slot)?;
+        let item_min = std::cmp::min(amount, item.val);
+
+        if player_storage.val == 0 {
+            {
+                let mut p_data = p_data.try_lock()?;
+
+                p_data.storage.items[slot] = *item;
+                p_data.storage.items[slot].val = item_min;
+            }
+            save_storage_item(world, storage, entity, slot)?;
+            return Ok(0);
+        } else if player_storage.num == item.num {
+            {
+                let mut p_data = p_data.try_lock()?;
+
+                rem = val_add_amount_rem(
+                    &mut p_data.storage.items[slot].val,
+                    &mut item.val,
+                    item_min,
+                    base.stacklimit,
+                );
+            }
+
+            save_storage_item(world, storage, entity, slot)?;
+        }
     }
 
     Ok(rem)
@@ -235,7 +247,7 @@ pub fn set_storage_item(
 pub fn give_storage_item(
     world: &mut World,
     storage: &Storage,
-    entity: &crate::Entity,
+    entity: GlobalKey,
     item: &mut Item,
 ) -> Result<()> {
     let base = &storage.bases.items[item.num as usize];
@@ -247,7 +259,7 @@ pub fn give_storage_item(
 pub fn check_storage_item_fits(
     world: &mut World,
     storage: &Storage,
-    entity: &crate::Entity,
+    entity: GlobalKey,
     item: &mut Item,
 ) -> Result<bool> {
     let base = &storage.bases.items[item.num as usize];
@@ -259,7 +271,7 @@ pub fn check_storage_item_fits(
 pub fn set_storage_slot(
     world: &mut World,
     storage: &Storage,
-    entity: &crate::Entity,
+    entity: GlobalKey,
     item: &mut Item,
     slot: usize,
     amount: u16,
@@ -273,24 +285,26 @@ pub fn set_storage_slot(
 pub fn take_storage_items(
     world: &mut World,
     storage: &Storage,
-    entity: &crate::Entity,
+    entity: GlobalKey,
     num: u32,
     mut amount: u16,
 ) -> Result<u16> {
-    let player_storage = world.cloned_get_or_err::<PlayerStorage>(entity)?;
+    if let Some(Entity::Player(p_data)) = world.get_opt_entity(entity) {
+        let player_storage = { p_data.try_lock()?.storage.clone() };
 
-    if count_storage_item(num, &player_storage.items) >= amount as u64 {
-        while let Some(slot) = find_storage_item(num, &player_storage.items) {
-            {
-                world.get::<&mut PlayerStorage>(entity.0)?.items[slot].val =
-                    player_storage.items[slot].val.saturating_sub(amount);
-            }
-            amount = player_storage.items[slot].val;
+        if count_storage_item(num, &player_storage.items) >= amount as u64 {
+            while let Some(slot) = find_storage_item(num, &player_storage.items) {
+                {
+                    p_data.try_lock()?.storage.items[slot].val =
+                        player_storage.items[slot].val.saturating_sub(amount);
+                }
+                amount = player_storage.items[slot].val;
 
-            save_storage_item(world, storage, entity, slot)?;
+                save_storage_item(world, storage, entity, slot)?;
 
-            if amount == 0 {
-                return Ok(0);
+                if amount == 0 {
+                    return Ok(0);
+                }
             }
         }
     }
@@ -302,21 +316,28 @@ pub fn take_storage_items(
 pub fn take_storage_itemslot(
     world: &mut World,
     storage: &Storage,
-    entity: &crate::Entity,
+    entity: GlobalKey,
     slot: usize,
     mut amount: u16,
 ) -> Result<u16> {
-    let player_storage = world.cloned_get_or_err::<PlayerStorage>(entity)?;
-    amount = std::cmp::min(amount, player_storage.items[slot].val);
-    {
-        if let Ok(mut player_storage) = world.get::<&mut PlayerStorage>(entity.0) {
-            player_storage.items[slot].val = player_storage.items[slot].val.saturating_sub(amount);
-            if player_storage.items[slot].val == 0 {
-                player_storage.items[slot] = Item::default();
-            }
-        }
-    }
-    save_storage_item(world, storage, entity, slot)?;
+    if let Some(Entity::Player(p_data)) = world.get_opt_entity(entity) {
+        let storage_item_val = {
+            let mut p_data = p_data.try_lock()?;
 
-    Ok(world.get::<&PlayerStorage>(entity.0)?.items[slot].val)
+            amount = std::cmp::min(amount, p_data.storage.items[slot].val);
+
+            p_data.storage.items[slot].val = p_data.storage.items[slot].val.saturating_sub(amount);
+            if p_data.storage.items[slot].val == 0 {
+                p_data.storage.items[slot] = Item::default();
+            }
+
+            p_data.storage.items[slot].val
+        };
+
+        save_storage_item(world, storage, entity, slot)?;
+
+        Ok(storage_item_val)
+    } else {
+        Ok(0)
+    }
 }

@@ -64,7 +64,6 @@ impl<'q> sqlx::Encode<'q, Postgres> for Position {
 }
 
 impl Position {
-    #[inline(always)]
     pub fn new(x: i32, y: i32, map: MapPosition) -> Position {
         Position { x, y, map }
     }
