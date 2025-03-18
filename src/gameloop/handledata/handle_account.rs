@@ -58,9 +58,7 @@ pub fn handle_register(
         );
     }
 
-    let email_regex = Regex::new(
-        r"^([a-z0-9_+]([a-z0-9_+.]*[a-z0-9_+])?)@([a-z0-9]+([\-\.]{1}[a-z0-9]+)*\.[a-z]{2,6})",
-    )?;
+    let email_regex = Regex::new(r#"^[^\s@]+@([^\s@.,]+\.)+[^\s@.,]{2,}$"#)?;
 
     if !username.chars().all(is_name_acceptable) || !password.chars().all(is_password_acceptable) {
         return send_infomsg(
