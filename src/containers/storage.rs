@@ -71,6 +71,7 @@ pub struct Storage {
     pub rt: RefCell<Runtime>,
     pub local: RefCell<task::LocalSet>,
     pub config: Config,
+    pub unload_npc: RefCell<Vec<GlobalKey>>,
 }
 
 fn establish_connection(
@@ -241,6 +242,7 @@ impl Storage {
             rt: RefCell::new(rt),
             local: RefCell::new(local),
             config,
+            unload_npc: RefCell::new(Vec::with_capacity(32)),
         };
 
         let mut map_data_entry = crate::maps::get_maps();

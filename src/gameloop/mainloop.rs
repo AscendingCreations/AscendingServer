@@ -13,21 +13,66 @@ use chrono::Duration;
 pub fn game_loop(world: &mut World, storage: &Storage, router: &PacketRouter) {
     let mut tick: MyInstant;
     let mut tmr100: MyInstant = MyInstant::now();
+    let mut tmr150: MyInstant = MyInstant::now();
     let mut tmr500: MyInstant = MyInstant::now();
     let mut tmr1000: MyInstant = MyInstant::now();
     let mut tmr60000: MyInstant = MyInstant::now();
     let mut ping_timer: MyInstant = MyInstant::now();
+
+    let mut entity_progress = 0u64;
+    let mut npc_progress = 0u64;
+    let mut npc_batch = 0usize;
+    let mut max_batch = (storage.npc_ids.borrow().len() as f32 / 5.0).ceil() as usize;
 
     loop {
         let _ = storage.gettick.replace(MyInstant::now());
         tick = *storage.gettick.borrow();
 
         if tick > tmr100 {
-            update_npcs(world, storage).unwrap();
-            update_players(world, storage).unwrap();
-            update_map_items(world, storage).unwrap();
-            check_player_connection(world, storage).unwrap();
-            tmr100 = tick + Duration::try_milliseconds(100).unwrap_or_default();
+            match entity_progress {
+                1 => {
+                    check_player_connection(world, storage).unwrap();
+                }
+                2 => {
+                    update_map_items(world, storage).unwrap();
+                }
+                _ => {
+                    update_players(world, storage).unwrap();
+                    entity_progress = 0;
+                    tmr100 = tick + Duration::try_milliseconds(100).unwrap_or_default();
+                }
+            }
+
+            entity_progress += 1;
+        }
+
+        if tick > tmr150 {
+            if npc_batch >= max_batch {
+                unload_npcs(world, storage).unwrap();
+
+                max_batch = (storage.npc_ids.borrow().len() as f32 / 5.0).ceil() as usize;
+                npc_batch = 0;
+                tmr150 = tick + Duration::try_milliseconds(150).unwrap_or_default();
+            } else {
+                match npc_progress {
+                    1 => {
+                        update_npcs_targetting(world, storage, npc_batch).unwrap();
+                    }
+                    2 => {
+                        update_npcs_movement(world, storage, npc_batch).unwrap();
+                    }
+                    3 => {
+                        update_npcs_combat(world, storage, npc_batch).unwrap();
+                    }
+                    _ => {
+                        update_npcs_spawn(world, storage, npc_batch).unwrap();
+                        npc_progress = 0;
+                        npc_batch += 1;
+                    }
+                }
+
+                npc_progress += 1;
+            }
         }
 
         if tick > tmr500 {
