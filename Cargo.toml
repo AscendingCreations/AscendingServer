@@ -22,10 +22,10 @@ educe = {version = "0.6.0", default-features = false, features = [
   "PartialEq",
   "Default",
 ]}
-indexmap = "2.7.0"
+indexmap = "2.9.0"
 itertools = "0.14.0"
 log = {version = "0.4.21", default-features = false}
-mio = {version = "1.0.2", features = ["os-poll", "net"]}
+mio = {version = "1.0.3", features = ["os-poll", "net"]}
 mmap_bytey = "0.2.0"
 password-hash = {version = "0.5.0", features = ["rand_core"]}
 pki-types = {package = "rustls-pki-types", version = "1.11.0", features = [
@@ -33,12 +33,12 @@ pki-types = {package = "rustls-pki-types", version = "1.11.0", features = [
 ]}
 rand = "0.9.0"
 rangemap = {version = "1.5.1", features = ["serde1"]}
-rcgen = {version = "0.13.1", features = [
+rcgen = {version = "0.13.2", features = [
   "pem",
   "ring",
 ], default-features = false}
-regex = "1.10.6"
-rustls = {version = "0.23.23", default-features = false, features = [
+regex = "1.11.1"
+rustls = {version = "0.23.25", default-features = false, features = [
   "logging",
   "ring",
   "std",
@@ -57,10 +57,10 @@ sqlx = {version = "0.8.3", features = [
   "json",
   "uuid",
 ]}
-thiserror = "1.0.63"
-tokio = {version = "1.43.0", features = ["full", "tracing"]}
+thiserror = "2.0.12"
+tokio = {version = "1.44.0", features = ["full", "tracing"]}
 toml = "0.8.20"
-uuid = {version = "1.13.1", features = [
+uuid = {version = "1.16.0", features = [
   "v7", # Lets you generate random UUIDs
   "fast-rng", # Use a faster (but still sufficiently random) RNG
   "macro-diagnostics", # Enable better diagnostics for compile-time UUIDs

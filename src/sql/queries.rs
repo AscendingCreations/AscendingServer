@@ -228,26 +228,38 @@ pub fn save_player(storage: &Storage, player: Arc<Mutex<PlayerEntity>>) -> Resul
     let accountid = p_data.account.id;
 
     sql_update_account(storage, accountid, p_data.user_access)?;
-    sql_update_general(storage, accountid, PGGeneral {
-        sprite: i16::unshift_signed(&p_data.sprite.id),
-        money: i64::unshift_signed(&p_data.money.vals),
-        resetcount: p_data.general.resetcount,
-        itemtimer: get_time_left(p_data.item_timer.itemtimer, tick),
-        deathtimer: get_time_left(p_data.combat.death_timer.0, tick),
-    })?;
-    sql_update_combat(storage, accountid, PGCombat {
-        indeath: p_data.combat.death_type.is_dead(),
-        level: p_data.combat.level,
-        levelexp: i64::unshift_signed(&p_data.general.levelexp),
-        pk: p_data.general.pk,
-        vital: p_data.combat.vitals.vital,
-        vital_max: p_data.combat.vitals.vitalmax,
-    })?;
-    sql_update_location(storage, accountid, PGLocation {
-        spawn: p_data.movement.spawn.pos,
-        pos: p_data.movement.pos,
-        dir: p_data.movement.dir as i16,
-    })?;
+    sql_update_general(
+        storage,
+        accountid,
+        PGGeneral {
+            sprite: i16::unshift_signed(&p_data.sprite.id),
+            money: i64::unshift_signed(&p_data.money.vals),
+            resetcount: p_data.general.resetcount,
+            itemtimer: get_time_left(p_data.item_timer.itemtimer, tick),
+            deathtimer: get_time_left(p_data.combat.death_timer.0, tick),
+        },
+    )?;
+    sql_update_combat(
+        storage,
+        accountid,
+        PGCombat {
+            indeath: p_data.combat.death_type.is_dead(),
+            level: p_data.combat.level,
+            levelexp: i64::unshift_signed(&p_data.general.levelexp),
+            pk: p_data.general.pk,
+            vital: p_data.combat.vitals.vital,
+            vital_max: p_data.combat.vitals.vitalmax,
+        },
+    )?;
+    sql_update_location(
+        storage,
+        accountid,
+        PGLocation {
+            spawn: p_data.movement.spawn.pos,
+            pos: p_data.movement.pos,
+            dir: p_data.movement.dir as i16,
+        },
+    )?;
 
     // Inventory Not needed since its saved per change.
     // Equipment Not needed since its saved per change.

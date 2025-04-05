@@ -1,5 +1,5 @@
 use crate::{
-    containers::{DeathType, Entity, EntityKind, Storage, World},
+    containers::{DeathType, Entity, Storage, World},
     gametypes::*,
     npcs::*,
     tasks::*,
