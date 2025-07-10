@@ -1,8 +1,9 @@
 use mio::Token;
 
 use crate::{
-    AscendingError, PacketRouter,
+    AscendingError,
     containers::{GlobalKey, Storage, World},
+    gameloop::handledata::mapper::run_packet,
     gametypes::Result,
     socket::*,
 };
@@ -13,7 +14,6 @@ pub struct SocketID {
 }
 
 pub fn handle_data(
-    router: &PacketRouter,
     world: &mut World,
     storage: &Storage,
     data: &mut MByteBuffer,
@@ -46,7 +46,7 @@ pub fn handle_data(
         return Ok(());
     }
 
-    let fun = match router.0.get(&id) {
+    let fun = match run_packet(&id) {
         Some(fun) => fun,
         None => {
             println!("Packet {id:?}");

@@ -1,5 +1,4 @@
 use crate::{
-    PacketRouter,
     containers::{Entity, GlobalKey, Storage, World},
     gameloop::SocketID,
     gametypes::*,
@@ -581,7 +580,7 @@ pub fn get_length(storage: &Storage, buffer: &mut ByteBuffer, token: Token) -> R
 
 pub const MAX_PROCESSED_PACKETS: i32 = 25;
 
-pub fn process_packets(world: &mut World, storage: &Storage, router: &PacketRouter) -> Result<()> {
+pub fn process_packets(world: &mut World, storage: &Storage) -> Result<()> {
     let mut rem_arr: Vec<(Token, bool)> = Vec::with_capacity(64);
     let mut packet = MByteBuffer::new()?;
 
@@ -655,7 +654,7 @@ pub fn process_packets(world: &mut World, storage: &Storage, router: &PacketRout
 
                     let socketid = SocketID { id: *token, is_tls };
 
-                    if handle_data(router, world, storage, &mut packet, entity, socketid).is_err() {
+                    if handle_data(world, storage, &mut packet, entity, socketid).is_err() {
                         warn!("IP: {address} was disconnected due to invalid packets");
                         rem_arr.push((*token, true));
                         continue 'user_loop;

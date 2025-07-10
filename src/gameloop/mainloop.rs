@@ -1,5 +1,4 @@
 use crate::{
-    PacketRouter,
     containers::{Storage, World},
     maps::{update_map_items, update_maps},
     npcs::*,
@@ -10,7 +9,7 @@ use crate::{
 };
 use chrono::Duration;
 
-pub fn game_loop(world: &mut World, storage: &Storage, router: &PacketRouter) {
+pub fn game_loop(world: &mut World, storage: &Storage) {
     let mut tick: MyInstant;
     let mut tmr100: MyInstant = MyInstant::now();
     let mut tmr150: MyInstant = MyInstant::now();
@@ -104,7 +103,7 @@ pub fn game_loop(world: &mut World, storage: &Storage, router: &PacketRouter) {
         }
 
         poll_events(world, storage).unwrap();
-        process_packets(world, storage, router).unwrap();
+        process_packets(world, storage).unwrap();
         process_data_lists(world, storage).unwrap();
         process_tasks(world, storage).unwrap();
         std::thread::sleep(std::time::Duration::from_millis(1));

@@ -94,11 +94,9 @@ fn main() {
     info!("Starting up");
     info!("Initializing Storage");
     let storage = Storage::new(config).unwrap();
-    info!("Initializing PacketRouter");
-    let router = PacketRouter::init();
     info!("Initializing World");
     let mut world = World::default();
 
     info!("Game Server is Running.");
-    game_loop(&mut world, &storage, &router);
+    game_loop(&mut world, &storage);
 }
