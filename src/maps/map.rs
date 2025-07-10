@@ -99,10 +99,10 @@ pub fn get_maps() -> Vec<Map> {
     let mut map_data: Vec<Map> = Vec::new();
 
     for entry_data in entries.flatten() {
-        if let Ok(filename) = entry_data.file_name().into_string() {
-            if let Some(mapdata) = load_map(filename) {
-                map_data.push(mapdata);
-            }
+        if let Ok(filename) = entry_data.file_name().into_string()
+            && let Some(mapdata) = load_map(filename)
+        {
+            map_data.push(mapdata);
         }
     }
 
@@ -110,7 +110,7 @@ pub fn get_maps() -> Vec<Map> {
 }
 
 fn load_map(filename: String) -> Option<Map> {
-    let name = format!("{}{}", MAP_PATH, filename);
+    let name = format!("{MAP_PATH}{filename}");
 
     if !Path::new(&name).exists() {
         println!("Map does not exist");
@@ -123,13 +123,13 @@ fn load_map(filename: String) -> Option<Map> {
             match file.read_to_end(&mut bytes) {
                 Ok(_) => Some(Map::read_from_buffer(&bytes).unwrap()),
                 Err(e) => {
-                    println!("Failed to load {}, Err {:?}", name, e);
+                    println!("Failed to load {name}, Err {e:?}");
                     None
                 }
             }
         }
         Err(e) => {
-            println!("Failed to load {}, Err {:?}", name, e);
+            println!("Failed to load {name}, Err {e:?}");
             None
         }
     }

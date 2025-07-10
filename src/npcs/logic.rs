@@ -31,17 +31,15 @@ pub fn update_npcs_targetting(
                 )
             };
 
-            if death_type == DeathType::Alive {
-                if let Some(npcdata) = storage.bases.npcs.get(entity_index as usize) {
-                    if npcdata.can_target
-                        && match storage.maps.get(&map_pos) {
-                            Some(map) => map.borrow().players_on_map(),
-                            None => continue,
-                        }
-                    {
-                        targeting(world, storage, id, npcdata)?;
-                    }
+            if death_type == DeathType::Alive
+                && let Some(npcdata) = storage.bases.npcs.get(entity_index as usize)
+                && npcdata.can_target
+                && match storage.maps.get(&map_pos) {
+                    Some(map) => map.borrow().players_on_map(),
+                    None => continue,
                 }
+            {
+                targeting(world, storage, id, npcdata)?;
             }
         }
     }
@@ -75,15 +73,15 @@ pub fn update_npcs_movement(
                 )
             };
 
-            if death_type.is_alive() {
-                if let Some(npcdata) = storage.bases.npcs.get(entity_index as usize) {
-                    //movement
-                    if npcdata.can_move && movement_timer.0 <= tick {
-                        npc_update_path(world, storage, id, npcdata)?;
-                        npc_movement(world, storage, id, npcdata)?;
-                        n_data.try_lock()?.movement.move_timer.0 = tick
-                            + Duration::try_milliseconds(npcdata.movement_wait).unwrap_or_default();
-                    }
+            if death_type.is_alive()
+                && let Some(npcdata) = storage.bases.npcs.get(entity_index as usize)
+            {
+                //movement
+                if npcdata.can_move && movement_timer.0 <= tick {
+                    npc_update_path(world, storage, id, npcdata)?;
+                    npc_movement(world, storage, id, npcdata)?;
+                    n_data.try_lock()?.movement.move_timer.0 = tick
+                        + Duration::try_milliseconds(npcdata.movement_wait).unwrap_or_default();
                 }
             }
         }
@@ -116,21 +114,21 @@ pub fn update_npcs_combat(world: &mut World, storage: &Storage, batch_index: usi
                 )
             };
 
-            if death_type.is_alive() {
-                if let Some(npcdata) = storage.bases.npcs.get(entity_index as usize) {
-                    //attacking
-                    if npcdata.can_attack
-                        && match storage.maps.get(&map_pos) {
-                            Some(map) => map.borrow().players_on_map(),
-                            None => continue,
-                        }
-                        && attack_timer.0 <= tick
-                    {
-                        npc_combat(world, storage, id, npcdata)?;
-
-                        n_data.try_lock()?.combat.attack_timer.0 = tick
-                            + Duration::try_milliseconds(npcdata.attack_wait).unwrap_or_default();
+            if death_type.is_alive()
+                && let Some(npcdata) = storage.bases.npcs.get(entity_index as usize)
+            {
+                //attacking
+                if npcdata.can_attack
+                    && match storage.maps.get(&map_pos) {
+                        Some(map) => map.borrow().players_on_map(),
+                        None => continue,
                     }
+                    && attack_timer.0 <= tick
+                {
+                    npc_combat(world, storage, id, npcdata)?;
+
+                    n_data.try_lock()?.combat.attack_timer.0 =
+                        tick + Duration::try_milliseconds(npcdata.attack_wait).unwrap_or_default();
                 }
             }
         }
@@ -173,16 +171,15 @@ pub fn update_npcs_spawn(world: &mut World, storage: &Storage, batch_index: usiz
                         continue;
                     }
 
-                    if let Some(npcdata) = storage.bases.npcs.get(entity_index as usize) {
-                        if !storage
+                    if let Some(npcdata) = storage.bases.npcs.get(entity_index as usize)
+                        && !storage
                             .time
                             .borrow()
                             .in_range(npcdata.spawntime.0, npcdata.spawntime.1)
-                        {
-                            n_data.try_lock()?.combat.death_type = DeathType::Dead;
-                            storage.unload_npc.borrow_mut().push(id);
-                            continue;
-                        }
+                    {
+                        n_data.try_lock()?.combat.death_type = DeathType::Dead;
+                        storage.unload_npc.borrow_mut().push(id);
+                        continue;
                     }
                 }
                 DeathType::Dead => storage.unload_npc.borrow_mut().push(id),

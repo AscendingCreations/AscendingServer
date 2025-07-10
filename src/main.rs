@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 #![recursion_limit = "256"]
-#![feature(let_chains, error_generic_member_access)]
+#![feature(error_generic_member_access)]
 
 mod containers;
 mod gameloop;
@@ -83,12 +83,11 @@ fn main() {
 
         error!(
             "::::::::PANIC::::::::\n 
-            {}\n
+            {panic_info}\n
             :::::::::::::::::::::\n
             ::::::BACKTRACE::::::\n
-            {:?}\n
-            :::::::::::::::::::::\n",
-            panic_info, bt
+            {bt:?}\n
+            :::::::::::::::::::::\n"
         );
     }));
 

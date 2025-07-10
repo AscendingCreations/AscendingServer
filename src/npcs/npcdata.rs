@@ -139,7 +139,7 @@ pub fn get_npc() -> Vec<NpcData> {
 }
 
 fn load_file(id: u64) -> Option<NpcData> {
-    let name = format!("./data/npcs/{}.bin", id);
+    let name = format!("./data/npcs/{id}.bin");
 
     match OpenOptions::new().read(true).open(name) {
         Ok(mut file) => {

@@ -74,14 +74,13 @@ pub fn find_drop_pos(
     let mut got_slot = false;
     if !storage_mapitem.contains_key(&drop_item.pos) {
         let mapdata = storage.maps.get(&drop_item.pos.map);
-        if let Some(map_data) = mapdata {
-            if !map_data
+        if let Some(map_data) = mapdata
+            && !map_data
                 .borrow()
                 .is_blocked_tile(drop_item.pos, EntityKind::MapItem)
-            {
-                result.push((drop_item.pos, None));
-                got_slot = true;
-            }
+        {
+            result.push((drop_item.pos, None));
+            got_slot = true;
         }
     } else {
         'endcheck: for x in drop_item.pos.x - 1..=drop_item.pos.x + 1 {
@@ -110,15 +109,14 @@ pub fn find_drop_pos(
 
                 if !storage_mapitem.contains_key(&check_pos) {
                     let mapdata = storage.maps.get(&check_pos.map);
-                    if let Some(map_data) = mapdata {
-                        if !map_data
+                    if let Some(map_data) = mapdata
+                        && !map_data
                             .borrow()
                             .is_blocked_tile(check_pos, EntityKind::MapItem)
-                        {
-                            result.push((check_pos, None));
-                            got_slot = true;
-                            break 'endcheck;
-                        }
+                    {
+                        result.push((check_pos, None));
+                        got_slot = true;
+                        break 'endcheck;
                     }
                 }
             }
@@ -152,20 +150,20 @@ pub fn find_drop_pos(
                     check_pos.map.y += 1;
                 }
 
-                if let Some(entity) = storage_mapitem.get(&check_pos) {
-                    if let Some(Entity::MapItem(mi_data)) = world.get_opt_entity(*entity) {
-                        let mi_data = mi_data.try_lock()?;
+                if let Some(entity) = storage_mapitem.get(&check_pos)
+                    && let Some(Entity::MapItem(mi_data)) = world.get_opt_entity(*entity)
+                {
+                    let mi_data = mi_data.try_lock()?;
 
-                        if mi_data.general.item.num == drop_item.index
-                            && mi_data.general.item.val < item_base.stacklimit
-                        {
-                            let remaining_val = item_base.stacklimit - mi_data.general.item.val;
-                            leftover = leftover.saturating_sub(remaining_val);
-                            result.push((check_pos, Some(*entity)));
+                    if mi_data.general.item.num == drop_item.index
+                        && mi_data.general.item.val < item_base.stacklimit
+                    {
+                        let remaining_val = item_base.stacklimit - mi_data.general.item.val;
+                        leftover = leftover.saturating_sub(remaining_val);
+                        result.push((check_pos, Some(*entity)));
 
-                            if leftover == 0 {
-                                break 'endcheck;
-                            }
+                        if leftover == 0 {
+                            break 'endcheck;
                         }
                     }
                 }

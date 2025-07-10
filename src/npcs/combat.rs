@@ -144,8 +144,8 @@ pub fn npc_cast(
                     n_data.combat.target
                 };
 
-                if let Some(t_entity) = target.target_entity {
-                    if try_cast(
+                if let Some(t_entity) = target.target_entity
+                    && try_cast(
                         world,
                         storage,
                         npc,
@@ -153,9 +153,9 @@ pub fn npc_cast(
                         t_entity,
                         base.range,
                         NpcCastType::Enemy,
-                    )? {
-                        return Ok(Some(t_entity));
-                    }
+                    )?
+                {
+                    return Ok(Some(t_entity));
                 }
             }
             AIBehavior::Healer | AIBehavior::Friendly => {}

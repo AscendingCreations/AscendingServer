@@ -16,9 +16,8 @@ impl PGLocation {
         format!(
             r#"
             INSERT INTO public.locations(uid, spawn, pos, dir)
-            VALUES ('{0}', $1, $2, 0);
+            VALUES ('{uid}', $1, $2, 0);
             "#,
-            uid,
         )
     }
 }
@@ -47,9 +46,8 @@ pub fn sql_load_location(storage: &Storage, account_id: Uuid) -> Result<PGLocati
         r#"
         SELECT spawn, pos, dir
         FROM public.locations
-        WHERE uid = '{}';
+        WHERE uid = '{account_id}';
         "#,
-        account_id,
     );
     let data: PGLocation =
         local.block_on(&rt, sqlx::query_as(&query).fetch_one(&storage.pgconn))?;

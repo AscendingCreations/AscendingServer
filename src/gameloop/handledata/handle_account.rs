@@ -288,55 +288,55 @@ pub fn handle_login(
     let mut disconnect_player = None;
     let mut unload_socket = None;
 
-    if let Some(old_entity) = storage.player_code.borrow().get(&reconnect_code) {
-        if let Some(Entity::Player(p_data)) = world.get_opt_entity(*old_entity) {
-            if storage.disconnected_player.borrow().contains(old_entity) {
-                // Character is on disconnected list
-                reconnect_player(world, storage, *old_entity, socket.clone())?;
+    if let Some(old_entity) = storage.player_code.borrow().get(&reconnect_code)
+        && let Some(Entity::Player(p_data)) = world.get_opt_entity(*old_entity)
+    {
+        if storage.disconnected_player.borrow().contains(old_entity) {
+            // Character is on disconnected list
+            reconnect_player(world, storage, *old_entity, socket.clone())?;
 
+            let name = { p_data.try_lock()?.account.username.clone() };
+
+            info!(
+                "Player {} with IP: {}, Reconnecting from disconnected player.",
+                &name, socket.addr
+            );
+
+            {
+                let _ = storage
+                    .disconnected_player
+                    .borrow_mut()
+                    .swap_remove(old_entity);
+            }
+
+            send_reconnect = Some((*old_entity, name, socket.tls_id));
+        } else {
+            // Connected in same code but not disconnected
+            let old_code = { p_data.try_lock()?.relogin_code.clone() };
+
+            // if old code is empty means they did get unloaded just not all the way for some reason.
+            if old_code.code.is_empty() {
                 let name = { p_data.try_lock()?.account.username.clone() };
 
-                info!(
-                    "Player {} with IP: {}, Reconnecting from disconnected player.",
-                    &name, socket.addr
-                );
+                let _ = storage.player_names.borrow_mut().remove(&name);
+            } else if !reconnect_code.is_empty() && old_code.code.contains(&reconnect_code) {
+                let p_data = p_data.try_lock()?;
 
-                {
-                    let _ = storage
-                        .disconnected_player
-                        .borrow_mut()
-                        .swap_remove(old_entity);
-                }
-
-                send_reconnect = Some((*old_entity, name, socket.tls_id));
-            } else {
-                // Connected in same code but not disconnected
-                let old_code = { p_data.try_lock()?.relogin_code.clone() };
-
-                // if old code is empty means they did get unloaded just not all the way for some reason.
-                if old_code.code.is_empty() {
-                    let name = { p_data.try_lock()?.account.username.clone() };
-
-                    let _ = storage.player_names.borrow_mut().remove(&name);
-                } else if !reconnect_code.is_empty() && old_code.code.contains(&reconnect_code) {
-                    let p_data = p_data.try_lock()?;
-
-                    if p_data.socket.tls_id != socket.tls_id {
-                        disconnect_player = Some(*old_entity);
-                        unload_socket = Some((p_data.socket.tls_id, p_data.socket.id))
-                    } else {
-                        let name = p_data.account.username.clone();
-
-                        info!(
-                            "Player {} with IP: {}, Reconnecting not in disconnected player.",
-                            &name, &p_data.socket.addr
-                        );
-
-                        send_reconnect = Some((*old_entity, name, p_data.socket.id));
-                    }
+                if p_data.socket.tls_id != socket.tls_id {
+                    disconnect_player = Some(*old_entity);
+                    unload_socket = Some((p_data.socket.tls_id, p_data.socket.id))
                 } else {
-                    return send_infomsg(storage, socket.tls_id, "Error Loading User.".into(), 1);
+                    let name = p_data.account.username.clone();
+
+                    info!(
+                        "Player {} with IP: {}, Reconnecting not in disconnected player.",
+                        &name, &p_data.socket.addr
+                    );
+
+                    send_reconnect = Some((*old_entity, name, p_data.socket.id));
                 }
+            } else {
+                return send_infomsg(storage, socket.tls_id, "Error Loading User.".into(), 1);
             }
         }
     }
@@ -392,20 +392,20 @@ pub fn handle_login(
     });
 
     // This check is in case the account is connected on different entity
-    if let Some(old_entity) = user_entity {
-        if let Some(Entity::Player(p_data)) = world.get_opt_entity(old_entity) {
-            let old_code = { p_data.try_lock()?.relogin_code.clone() };
+    if let Some(old_entity) = user_entity
+        && let Some(Entity::Player(p_data)) = world.get_opt_entity(old_entity)
+    {
+        let old_code = { p_data.try_lock()?.relogin_code.clone() };
 
-            // if old code is empty means they did get unloaded just not all the way for some reason.
-            if old_code.code.is_empty() {
-                let name = { p_data.try_lock()?.account.username.clone() };
+        // if old code is empty means they did get unloaded just not all the way for some reason.
+        if old_code.code.is_empty() {
+            let name = { p_data.try_lock()?.account.username.clone() };
 
-                let _ = storage.player_names.borrow_mut().remove(&name);
-            } else if !reconnect_code.is_empty() && old_code.code.contains(&reconnect_code) {
-                disconnect(old_entity, world, storage)?;
-            } else {
-                return send_infomsg(storage, socket.tls_id, "Error Loading User.".into(), 1);
-            }
+            let _ = storage.player_names.borrow_mut().remove(&name);
+        } else if !reconnect_code.is_empty() && old_code.code.contains(&reconnect_code) {
+            disconnect(old_entity, world, storage)?;
+        } else {
+            return send_infomsg(storage, socket.tls_id, "Error Loading User.".into(), 1);
         }
     }
 

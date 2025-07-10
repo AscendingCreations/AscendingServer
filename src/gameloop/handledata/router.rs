@@ -49,13 +49,13 @@ pub fn handle_data(
     let fun = match router.0.get(&id) {
         Some(fun) => fun,
         None => {
-            println!("Packet {:?}", id);
+            println!("Packet {id:?}");
             return Err(AscendingError::InvalidPacket);
         }
     };
 
     if fun(world, storage, data, entity, socket_id).is_err() {
-        println!("Packet {:?}", id);
+        println!("Packet {id:?}");
     }
     Ok(())
 }

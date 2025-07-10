@@ -31,14 +31,14 @@ pub fn find_storage_item(num: u32, storage: &[Item]) -> Option<usize> {
 
 #[inline]
 pub fn find_storage_slot(item: &Item, storage: &[Item], base: &ItemData) -> Option<usize> {
-    if base.stackable {
-        if let Some(id) = (0..MAX_STORAGE).find(|id| {
+    if base.stackable
+        && let Some(id) = (0..MAX_STORAGE).find(|id| {
             storage[*id].num == item.num
                 && storage[*id].val < base.stacklimit
                 && storage[*id].val > 0
-        }) {
-            return Some(id);
-        }
+        })
+    {
+        return Some(id);
     }
 
     (0..MAX_STORAGE).find(|id| storage[*id].val == 0)

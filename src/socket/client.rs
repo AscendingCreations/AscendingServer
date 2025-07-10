@@ -116,35 +116,35 @@ impl Client {
 
                 let mut remove_entity = false;
 
-                if let Some(entity) = self.entity {
-                    if let Some(Entity::Player(data)) = world.get_opt_entity(entity) {
-                        let mut data = data.try_lock()?;
+                if let Some(entity) = self.entity
+                    && let Some(Entity::Player(data)) = world.get_opt_entity(entity)
+                {
+                    let mut data = data.try_lock()?;
 
-                        if self.tls.is_some() {
-                            data.socket.tls_id = Token(0);
-                            println!("TLS Socket unloaded");
-                        } else {
-                            data.socket.id = Token(0);
-                            println!("Socket unloaded");
-                        }
-                        remove_entity = true;
+                    if self.tls.is_some() {
+                        data.socket.tls_id = Token(0);
+                        println!("TLS Socket unloaded");
+                    } else {
+                        data.socket.id = Token(0);
+                        println!("Socket unloaded");
+                    }
+                    remove_entity = true;
 
-                        let tls_connected = data.socket.tls_id != Token(0);
-                        let non_tls_connected = data.socket.id != Token(0);
+                    let tls_connected = data.socket.tls_id != Token(0);
+                    let non_tls_connected = data.socket.id != Token(0);
 
-                        if !non_tls_connected
-                            && (data.online_type == OnlineType::Online || !tls_connected)
-                        {
-                            let _ = storage.disconnected_player.borrow_mut().insert(entity);
+                    if !non_tls_connected
+                        && (data.online_type == OnlineType::Online || !tls_connected)
+                    {
+                        let _ = storage.disconnected_player.borrow_mut().insert(entity);
 
-                            info!(
-                                "Added player on disconnected list : {}",
-                                &data.account.username
-                            );
+                        info!(
+                            "Added player on disconnected list : {}",
+                            &data.account.username
+                        );
 
-                            data.connection.disconnect_timer = *storage.gettick.borrow()
-                                + Duration::try_milliseconds(60000).unwrap_or_default();
-                        }
+                        data.connection.disconnect_timer = *storage.gettick.borrow()
+                            + Duration::try_milliseconds(60000).unwrap_or_default();
                     }
                 }
 
@@ -182,7 +182,7 @@ impl Client {
                     continue;
                 }
                 Err(error) => {
-                    error!("TLS read error: {:?}", error);
+                    error!("TLS read error: {error:?}");
                     self.state = ClientState::Closing;
                     buffer.move_cursor(pos)?;
                     return Ok(());
@@ -199,7 +199,7 @@ impl Client {
             let io_state = match tls.process_new_packets() {
                 Ok(io_state) => io_state,
                 Err(err) => {
-                    error!("TLS error: {:?}", err);
+                    error!("TLS error: {err:?}");
                     self.state = ClientState::Closing;
                     buffer.move_cursor(pos)?;
                     return Ok(());
@@ -209,14 +209,14 @@ impl Client {
             if io_state.plaintext_bytes_to_read() > 0 {
                 let mut buf = vec![0u8; io_state.plaintext_bytes_to_read()];
                 if let Err(e) = tls.reader().read_exact(&mut buf) {
-                    trace!("TLS read error: {}", e);
+                    trace!("TLS read error: {e}");
                     self.state = ClientState::Closing;
                     buffer.move_cursor(pos)?;
                     return Ok(());
                 }
 
                 if let Err(e) = buffer.write_slice(&buf) {
-                    trace!("TLS read buffer write error: {}", e);
+                    trace!("TLS read buffer write error: {e}");
                     self.state = ClientState::Closing;
                     buffer.move_cursor(pos)?;
                     return Ok(());
@@ -257,12 +257,12 @@ impl Client {
                 Err(ref err) if err.kind() == io::ErrorKind::Interrupted => continue,
                 Ok(0) => closing = true,
                 Err(e) => {
-                    trace!("stream.read, error in socket read: {}", e);
+                    trace!("stream.read, error in socket read: {e}");
                     closing = true;
                 }
                 Ok(n) => {
                     if let Err(e) = buffer.write_slice(&buf[0..n]) {
-                        trace!("buffer.write_slice, error in socket read: {}", e);
+                        trace!("buffer.write_slice, error in socket read: {e}");
                         closing = true;
                     }
                 }
@@ -314,7 +314,7 @@ impl Client {
                     break;
                 }
                 Err(e) => {
-                    trace!("stream.write_all error in socket write: {}", e);
+                    trace!("stream.write_all error in socket write: {e}");
                     self.state = ClientState::Closing;
                     return;
                 }
@@ -361,7 +361,7 @@ impl Client {
                     break;
                 }
                 Err(e) => {
-                    trace!("tls write, error in write_all: {}", e);
+                    trace!("tls write, error in write_all: {e}");
                     self.state = ClientState::Closing;
                     return;
                 }
@@ -379,7 +379,7 @@ impl Client {
                         continue;
                     }
                     Err(e) => {
-                        trace!("tls write, error in write_tls: {}", e);
+                        trace!("tls write, error in write_tls: {e}");
                         self.state = ClientState::Closing;
                         return;
                     }
@@ -452,13 +452,12 @@ pub fn disconnect(playerid: GlobalKey, world: &mut World, storage: &Storage) -> 
         None
     };
 
-    if let Some(pos) = position {
-        if let Some(map) = storage.maps.get(&pos.map) {
-            map.borrow_mut().remove_player(storage, playerid);
-            map.borrow_mut().remove_entity_from_grid(pos);
-            DataTaskToken::EntityUnload(pos.map)
-                .add_task(storage, unload_entity_packet(playerid)?)?;
-        }
+    if let Some(pos) = position
+        && let Some(map) = storage.maps.get(&pos.map)
+    {
+        map.borrow_mut().remove_player(storage, playerid);
+        map.borrow_mut().remove_entity_from_grid(pos);
+        DataTaskToken::EntityUnload(pos.map).add_task(storage, unload_entity_packet(playerid)?)?;
     }
 
     Ok(())
@@ -488,12 +487,12 @@ pub fn send_to_all(world: &mut World, storage: &Storage, buf: MByteBuffer) -> Re
         if let Entity::Player(data) = entity {
             let data = data.try_lock()?;
 
-            if data.online_type == OnlineType::Online {
-                if let Some(client) = storage.server.borrow().clients.get(&data.socket.id) {
-                    client
-                        .borrow_mut()
-                        .send(&storage.poll.borrow(), buf.try_clone()?)?;
-                }
+            if data.online_type == OnlineType::Online
+                && let Some(client) = storage.server.borrow().clients.get(&data.socket.id)
+            {
+                client
+                    .borrow_mut()
+                    .send(&storage.poll.borrow(), buf.try_clone()?)?;
             }
         }
     }
@@ -524,12 +523,12 @@ pub fn send_to_maps(
             if let Some(Entity::Player(data)) = world.get_opt_entity(*entity) {
                 let data = data.try_lock()?;
 
-                if data.online_type == OnlineType::Online {
-                    if let Some(client) = storage.server.borrow().clients.get(&data.socket.id) {
-                        client
-                            .borrow_mut()
-                            .send(&storage.poll.borrow(), buf.try_clone()?)?;
-                    }
+                if data.online_type == OnlineType::Online
+                    && let Some(client) = storage.server.borrow().clients.get(&data.socket.id)
+                {
+                    client
+                        .borrow_mut()
+                        .send(&storage.poll.borrow(), buf.try_clone()?)?;
                 }
             }
         }
@@ -549,12 +548,12 @@ pub fn send_to_entities(
         if let Some(Entity::Player(data)) = world.get_opt_entity(*entity) {
             let data = data.try_lock()?;
 
-            if data.online_type == OnlineType::Online {
-                if let Some(client) = storage.server.borrow().clients.get(&data.socket.id) {
-                    client
-                        .borrow_mut()
-                        .send(&storage.poll.borrow(), buf.try_clone()?)?;
-                }
+            if data.online_type == OnlineType::Online
+                && let Some(client) = storage.server.borrow().clients.get(&data.socket.id)
+            {
+                client
+                    .borrow_mut()
+                    .send(&storage.poll.borrow(), buf.try_clone()?)?;
             }
         }
     }
@@ -566,12 +565,12 @@ pub fn get_length(storage: &Storage, buffer: &mut ByteBuffer, token: Token) -> R
     if buffer.length() - buffer.cursor() >= 8 {
         let length = buffer.read::<u64>()?;
 
-        if !(1..=8192).contains(&length) {
-            if let Some(client) = storage.server.borrow().clients.get(&token) {
-                trace!("Player was disconnected on get_length LENGTH: {:?}", length);
-                client.borrow_mut().set_to_closing();
-                return Ok(None);
-            }
+        if !(1..=8192).contains(&length)
+            && let Some(client) = storage.server.borrow().clients.get(&token)
+        {
+            trace!("Player was disconnected on get_length LENGTH: {length:?}");
+            client.borrow_mut().set_to_closing();
+            return Ok(None);
         }
 
         Ok(Some(length))
@@ -620,10 +619,7 @@ pub fn process_packets(world: &mut World, storage: &Storage, router: &PacketRout
                 };
 
                 if length == 0 {
-                    trace!(
-                        "Length was Zero. Bad or malformed packet from IP: {}",
-                        address
-                    );
+                    trace!("Length was Zero. Bad or malformed packet from IP: {address}");
 
                     rem_arr.push((*token, true));
                     continue 'user_loop;
@@ -631,8 +627,7 @@ pub fn process_packets(world: &mut World, storage: &Storage, router: &PacketRout
 
                 if length > BUFFER_SIZE as u64 {
                     trace!(
-                        "Length was {} greater than the max packet size of {}. Bad or malformed packet from IP: {}",
-                        length, address, BUFFER_SIZE
+                        "Length was {length} greater than the max packet size of {address}. Bad or malformed packet from IP: {BUFFER_SIZE}"
                     );
 
                     rem_arr.push((*token, true));
@@ -653,10 +648,7 @@ pub fn process_packets(world: &mut World, storage: &Storage, router: &PacketRout
                     }
 
                     if errored {
-                        warn!(
-                            "IP: {} was disconnected due to error on packet length.",
-                            address
-                        );
+                        warn!("IP: {address} was disconnected due to error on packet length.");
                         rem_arr.push((*token, true));
                         continue 'user_loop;
                     }
@@ -664,7 +656,7 @@ pub fn process_packets(world: &mut World, storage: &Storage, router: &PacketRout
                     let socketid = SocketID { id: *token, is_tls };
 
                     if handle_data(router, world, storage, &mut packet, entity, socketid).is_err() {
-                        warn!("IP: {} was disconnected due to invalid packets", address);
+                        warn!("IP: {address} was disconnected due to invalid packets");
                         rem_arr.push((*token, true));
                         continue 'user_loop;
                     }
@@ -712,10 +704,8 @@ pub fn process_packets(world: &mut World, storage: &Storage, router: &PacketRout
     for (token, should_close) in rem_arr {
         storage.recv_ids.borrow_mut().swap_remove(&token);
 
-        if should_close {
-            if let Some(client) = storage.server.borrow().clients.get(&token) {
-                client.borrow_mut().set_to_closing();
-            }
+        if should_close && let Some(client) = storage.server.borrow().clients.get(&token) {
+            client.borrow_mut().set_to_closing();
         }
     }
 

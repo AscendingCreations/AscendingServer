@@ -46,9 +46,8 @@ pub fn sql_load_general(storage: &Storage, account_id: Uuid) -> Result<PGGeneral
         r#"
         SELECT sprite, money, resetcount, itemtimer, deathtimer
         FROM public.general
-        WHERE uid = '{}';
+        WHERE uid = '{account_id}';
         "#,
-        account_id,
     );
     let data: PGGeneral = local.block_on(&rt, sqlx::query_as(&query).fetch_one(&storage.pgconn))?;
 
@@ -84,10 +83,9 @@ pub fn sql_update_resetcount(storage: &Storage, uid: Uuid, resetcount: i16) -> R
     let query_text = format!(
         r#"
         UPDATE public.general
-        SET resetcount = {1}
-        WHERE uid = '{0}';
-        "#,
-        uid, resetcount
+        SET resetcount = {resetcount}
+        WHERE uid = '{uid}';
+        "#
     );
 
     local.block_on(&rt, sqlx::query(&query_text).execute(&storage.pgconn))?;
@@ -102,10 +100,9 @@ pub fn sql_update_money(storage: &Storage, uid: Uuid, money: i64) -> Result<()> 
     let query_text = format!(
         r#"
         UPDATE public.general
-        SET money = {1}
-        WHERE uid = '{0}';
+        SET money = {money}
+        WHERE uid = '{uid}';
         "#,
-        uid, money,
     );
 
     local.block_on(&rt, sqlx::query(&query_text).execute(&storage.pgconn))?;

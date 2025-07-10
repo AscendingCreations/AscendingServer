@@ -47,9 +47,8 @@ pub fn sql_load_combat(storage: &Storage, account_id: Uuid) -> Result<PGCombat> 
         r#"
         SELECT indeath, level, levelexp, pk, vital, vital_max
         FROM public.combat
-        WHERE uid = '{}';
+        WHERE uid = '{account_id}';
         "#,
-        account_id,
     );
     let data: PGCombat = local.block_on(&rt, sqlx::query_as(&query).fetch_one(&storage.pgconn))?;
 
@@ -63,12 +62,12 @@ pub fn sql_update_combat(storage: &Storage, uid: Uuid, data: PGCombat) -> Result
     let vital = data
         .vital
         .iter()
-        .format_with(", ", |elt, f| f(&format_args!("{}", elt)))
+        .format_with(", ", |elt, f| f(&format_args!("{elt}")))
         .to_string();
     let vitalmax = data
         .vital_max
         .iter()
-        .format_with(", ", |elt, f| f(&format_args!("{}", elt)))
+        .format_with(", ", |elt, f| f(&format_args!("{elt}")))
         .to_string();
 
     let query_text = format!(
@@ -97,12 +96,12 @@ pub fn sql_update_level(storage: &Storage, uid: Uuid, data: PGCombat) -> Result<
     let vital = data
         .vital
         .iter()
-        .format_with(", ", |elt, f| f(&format_args!("{}", elt)))
+        .format_with(", ", |elt, f| f(&format_args!("{elt}")))
         .to_string();
     let vitalmax = data
         .vital_max
         .iter()
-        .format_with(", ", |elt, f| f(&format_args!("{}", elt)))
+        .format_with(", ", |elt, f| f(&format_args!("{elt}")))
         .to_string();
 
     let query_text = format!(

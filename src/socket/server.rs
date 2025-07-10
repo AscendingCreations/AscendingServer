@@ -66,7 +66,7 @@ impl Server {
                 Ok((stream, addr)) => (stream, addr),
                 Err(ref err) if err.kind() == io::ErrorKind::WouldBlock => break,
                 Err(e) => {
-                    trace!("listener.accept error: {}", e);
+                    trace!("listener.accept error: {e}");
                     return Err(e.into());
                 }
             };
@@ -77,10 +77,7 @@ impl Server {
 
             if let Some(token) = self.tokens.pop_front() {
                 if self.clients.len() + 1 >= MAX_SOCKET_PLAYERS {
-                    warn!(
-                        "Server is full. has reached MAX_SOCKET_PLAYERS: {} ",
-                        MAX_SOCKET_PLAYERS
-                    );
+                    warn!("Server is full. has reached MAX_SOCKET_PLAYERS: {MAX_SOCKET_PLAYERS} ");
                     drop(stream);
                     return Ok(());
                 }

@@ -59,21 +59,21 @@ pub fn update_players(world: &mut World, storage: &Storage) -> Result<()> {
                 process_player_movement(world, storage, *id)?;
 
                 // Check Trade
-                if let IsUsingType::Trading(tradeentity) = is_using_type {
-                    if !world.entities.contains_key(tradeentity) {
-                        close_trade(world, storage, *id)?;
-                        send_message(
-                            world,
-                            storage,
-                            *id,
-                            "Trade has cancelled the trade".into(),
-                            String::new(),
-                            MessageChannel::Private,
-                            None,
-                        )?;
+                if let IsUsingType::Trading(tradeentity) = is_using_type
+                    && !world.entities.contains_key(tradeentity)
+                {
+                    close_trade(world, storage, *id)?;
+                    send_message(
+                        world,
+                        storage,
+                        *id,
+                        "Trade has cancelled the trade".into(),
+                        String::new(),
+                        MessageChannel::Private,
+                        None,
+                    )?;
 
-                        p_data.try_lock()?.trade_request_entity = TradeRequestEntity::default();
-                    }
+                    p_data.try_lock()?.trade_request_entity = TradeRequestEntity::default();
                 };
             }
         }
@@ -291,14 +291,13 @@ pub fn player_get_weapon_damage(
 
             let mut dmg = (0, 0);
 
-            if p_data.equipment.items[EquipmentType::Weapon as usize].val > 0 {
-                if let Some(item) = storage
+            if p_data.equipment.items[EquipmentType::Weapon as usize].val > 0
+                && let Some(item) = storage
                     .bases
                     .items
                     .get(p_data.equipment.items[EquipmentType::Weapon as usize].num as usize)
-                {
-                    dmg = (item.data[0], item.data[1]);
-                }
+            {
+                dmg = (item.data[0], item.data[1]);
             }
 
             dmg
@@ -508,12 +507,11 @@ pub fn remove_all_npc_target(world: &mut World, entity: GlobalKey) -> Result<()>
 
             let data_entity = *data;
 
-            if let Entity::Npc(data) = data_entity.clone() {
-                if let Ok(data) = data.try_lock() {
-                    if let Some(t_entity) = data.combat.target.target_entity {
-                        result = t_entity == entity
-                    }
-                }
+            if let Entity::Npc(data) = data_entity.clone()
+                && let Ok(data) = data.try_lock()
+                && let Some(t_entity) = data.combat.target.target_entity
+            {
+                result = t_entity == entity
             }
 
             result
@@ -544,65 +542,65 @@ pub fn init_trade(
         return Ok(());
     }
 
-    if let Some(Entity::Player(p1_data)) = world.get_opt_entity(entity) {
-        if let Some(Entity::Player(p2_data)) = world.get_opt_entity(target_entity) {
-            let (p1_position, p2_position, p2_death_type, p1_isusingtype, p2_isusingtype) = {
-                let p1_data = p1_data.try_lock()?;
-                let p2_data = p2_data.try_lock()?;
+    if let Some(Entity::Player(p1_data)) = world.get_opt_entity(entity)
+        && let Some(Entity::Player(p2_data)) = world.get_opt_entity(target_entity)
+    {
+        let (p1_position, p2_position, p2_death_type, p1_isusingtype, p2_isusingtype) = {
+            let p1_data = p1_data.try_lock()?;
+            let p2_data = p2_data.try_lock()?;
 
-                (
-                    p1_data.movement.pos,
-                    p2_data.movement.pos,
-                    p2_data.combat.death_type,
-                    p1_data.is_using_type,
-                    p2_data.is_using_type,
-                )
-            };
+            (
+                p1_data.movement.pos,
+                p2_data.movement.pos,
+                p2_data.combat.death_type,
+                p1_data.is_using_type,
+                p2_data.is_using_type,
+            )
+        };
 
-            if p1_isusingtype.inuse() || p2_isusingtype.inuse() {
-                return send_message(
-                    world,
-                    storage,
-                    entity,
-                    "Player is busy".to_string(),
-                    String::new(),
-                    MessageChannel::Private,
-                    None,
-                );
-            }
-
-            if !can_target(p1_position, p2_position, p2_death_type, 2) {
-                return send_message(
-                    world,
-                    storage,
-                    entity,
-                    "Player is not in range".to_string(),
-                    String::new(),
-                    MessageChannel::Private,
-                    None,
-                );
-            }
-
-            {
-                let mut p1_data = p1_data.try_lock()?;
-                let mut p2_data = p2_data.try_lock()?;
-
-                p1_data.is_using_type = IsUsingType::Trading(target_entity);
-                p2_data.is_using_type = IsUsingType::Trading(entity);
-
-                p1_data.trade_item = TradeItem::default();
-                p2_data.trade_item = TradeItem::default();
-
-                p1_data.trade_money = TradeMoney::default();
-                p2_data.trade_money = TradeMoney::default();
-
-                p1_data.trade_status = TradeStatus::default();
-                p2_data.trade_status = TradeStatus::default();
-            }
-
-            send_inittrade(world, storage, entity, target_entity)?;
-            send_inittrade(world, storage, target_entity, entity)?;
+        if p1_isusingtype.inuse() || p2_isusingtype.inuse() {
+            return send_message(
+                world,
+                storage,
+                entity,
+                "Player is busy".to_string(),
+                String::new(),
+                MessageChannel::Private,
+                None,
+            );
         }
+
+        if !can_target(p1_position, p2_position, p2_death_type, 2) {
+            return send_message(
+                world,
+                storage,
+                entity,
+                "Player is not in range".to_string(),
+                String::new(),
+                MessageChannel::Private,
+                None,
+            );
+        }
+
+        {
+            let mut p1_data = p1_data.try_lock()?;
+            let mut p2_data = p2_data.try_lock()?;
+
+            p1_data.is_using_type = IsUsingType::Trading(target_entity);
+            p2_data.is_using_type = IsUsingType::Trading(entity);
+
+            p1_data.trade_item = TradeItem::default();
+            p2_data.trade_item = TradeItem::default();
+
+            p1_data.trade_money = TradeMoney::default();
+            p2_data.trade_money = TradeMoney::default();
+
+            p1_data.trade_status = TradeStatus::default();
+            p2_data.trade_status = TradeStatus::default();
+        }
+
+        send_inittrade(world, storage, entity, target_entity)?;
+        send_inittrade(world, storage, target_entity, entity)?;
     }
     Ok(())
 }
@@ -617,68 +615,68 @@ pub fn process_player_trade(
         return Ok(false);
     }
 
-    if let Some(Entity::Player(p1_data)) = world.get_opt_entity(entity) {
-        if let Some(Entity::Player(p2_data)) = world.get_opt_entity(target_entity) {
-            let (
-                entity_item,
-                target_item,
-                entity_money,
-                target_money,
-                mut entity_clone_inv,
-                mut target_clone_inv,
-            ) = {
-                let p1_data = p1_data.try_lock()?;
-                let p2_data = p2_data.try_lock()?;
+    if let Some(Entity::Player(p1_data)) = world.get_opt_entity(entity)
+        && let Some(Entity::Player(p2_data)) = world.get_opt_entity(target_entity)
+    {
+        let (
+            entity_item,
+            target_item,
+            entity_money,
+            target_money,
+            mut entity_clone_inv,
+            mut target_clone_inv,
+        ) = {
+            let p1_data = p1_data.try_lock()?;
+            let p2_data = p2_data.try_lock()?;
 
-                (
-                    p1_data.trade_item.clone(),
-                    p2_data.trade_item.clone(),
-                    p1_data.trade_money.vals,
-                    p2_data.trade_money.vals,
-                    p1_data.inventory.clone(),
-                    p2_data.inventory.clone(),
-                )
-            };
+            (
+                p1_data.trade_item.clone(),
+                p2_data.trade_item.clone(),
+                p1_data.trade_money.vals,
+                p2_data.trade_money.vals,
+                p1_data.inventory.clone(),
+                p2_data.inventory.clone(),
+            )
+        };
 
-            for item in entity_item.items.clone().iter_mut() {
-                if item.val > 0 && !check_temp_inv_space(storage, item, &mut target_clone_inv)? {
-                    return Ok(false);
-                }
+        for item in entity_item.items.clone().iter_mut() {
+            if item.val > 0 && !check_temp_inv_space(storage, item, &mut target_clone_inv)? {
+                return Ok(false);
             }
-            for item in target_item.items.clone().iter_mut() {
-                if item.val > 0 && !check_temp_inv_space(storage, item, &mut entity_clone_inv)? {
-                    return Ok(false);
-                }
-            }
-
-            for item in entity_item.items.iter() {
-                if item.val > 0 {
-                    take_inv_items(world, storage, entity, item.num, item.val)?;
-                }
-            }
-            player_take_vals(world, storage, entity, entity_money)?;
-            for item in target_item.items.iter() {
-                if item.val > 0 {
-                    take_inv_items(world, storage, target_entity, item.num, item.val)?;
-                }
-            }
-            player_take_vals(world, storage, target_entity, target_money)?;
-
-            for item in entity_item.items.clone().iter_mut() {
-                if item.val > 0 {
-                    give_inv_item(world, storage, target_entity, item)?;
-                }
-            }
-            player_give_vals(world, storage, target_entity, entity_money)?;
-            for item in target_item.items.clone().iter_mut() {
-                if item.val > 0 {
-                    give_inv_item(world, storage, entity, item)?;
-                }
-            }
-            player_give_vals(world, storage, entity, target_money)?;
-
-            return Ok(true);
         }
+        for item in target_item.items.clone().iter_mut() {
+            if item.val > 0 && !check_temp_inv_space(storage, item, &mut entity_clone_inv)? {
+                return Ok(false);
+            }
+        }
+
+        for item in entity_item.items.iter() {
+            if item.val > 0 {
+                take_inv_items(world, storage, entity, item.num, item.val)?;
+            }
+        }
+        player_take_vals(world, storage, entity, entity_money)?;
+        for item in target_item.items.iter() {
+            if item.val > 0 {
+                take_inv_items(world, storage, target_entity, item.num, item.val)?;
+            }
+        }
+        player_take_vals(world, storage, target_entity, target_money)?;
+
+        for item in entity_item.items.clone().iter_mut() {
+            if item.val > 0 {
+                give_inv_item(world, storage, target_entity, item)?;
+            }
+        }
+        player_give_vals(world, storage, target_entity, entity_money)?;
+        for item in target_item.items.clone().iter_mut() {
+            if item.val > 0 {
+                give_inv_item(world, storage, entity, item)?;
+            }
+        }
+        player_give_vals(world, storage, entity, target_money)?;
+
+        return Ok(true);
     }
     Ok(false)
 }

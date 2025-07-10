@@ -27,19 +27,15 @@ impl PGStorage {
 
         let value_text = (0..MAX_INV)
             .map(|index| {
-                format!(
-                    "('{}', {}, {}, {}, 0, '{{0, 0, 0, 0, 0}}')",
-                    uid, index, default_i32, default_i16
-                )
+                format!("('{uid}', {index}, {default_i32}, {default_i16}, 0, '{{0, 0, 0, 0, 0}}')")
             })
             .join(", ");
 
         format!(
             r#"
             INSERT INTO public.storage(uid, id, num, val, level, data)
-            VALUES {0};
-            "#,
-            value_text
+            VALUES {value_text};
+            "#
         )
     }
 }
@@ -62,10 +58,9 @@ pub fn sql_load_storage(storage: &Storage, account_id: Uuid) -> Result<PGStorage
         r#"
         SELECT id, num, val, level, data
         FROM public.storage
-        WHERE uid = '{}'
+        WHERE uid = '{account_id}'
         ORDER BY id ASC;
         "#,
-        account_id,
     );
     let data = PGStorage {
         slot: local.block_on(&rt, sqlx::query_as(&query).fetch_all(&storage.pgconn))?,
@@ -81,7 +76,7 @@ pub fn sql_update_storage_slot(storage: &Storage, uid: Uuid, data: PGStorageSlot
     let data_str = data
         .data
         .iter()
-        .format_with(", ", |elt, f| f(&format_args!("{}", elt)))
+        .format_with(", ", |elt, f| f(&format_args!("{elt}")))
         .to_string();
 
     let query_text = format!(

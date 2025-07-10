@@ -69,9 +69,8 @@ pub fn sql_load_account(storage: &Storage, account_id: Uuid) -> Result<PGAccount
         r#"
         SELECT username, email, passresetcode, useraccess
         FROM public.account
-        WHERE uid = '{}';
+        WHERE uid = '{account_id}';
         "#,
-        account_id,
     );
     let data: PGAccount = local.block_on(&rt, sqlx::query_as(&query).fetch_one(&storage.pgconn))?;
 
@@ -86,9 +85,8 @@ pub fn sql_update_account(storage: &Storage, uid: Uuid, user_access: UserAccess)
         r#"
         UPDATE public.account
         SET useraccess=$1
-        WHERE uid = '{0}';
-        "#,
-        uid
+        WHERE uid = '{uid}';
+        "#
     );
 
     local.block_on(

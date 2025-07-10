@@ -17,10 +17,9 @@ impl MyInstant {
 
         if let Ok(approx) =
             chrono::Duration::from_std(self.0.saturating_duration_since(Instant::now()))
+            && approx > chrono::Duration::try_milliseconds(1).unwrap_or_default()
         {
-            if approx > chrono::Duration::try_milliseconds(1).unwrap_or_default() {
-                dur = approx.num_milliseconds();
-            }
+            dur = approx.num_milliseconds();
         }
 
         dur

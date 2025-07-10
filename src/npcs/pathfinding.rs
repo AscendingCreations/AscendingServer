@@ -101,12 +101,11 @@ pub fn a_star_path(
         //If we hit the Final location we then go backwards from the current node
         //And follow the Parents till the Start location. if the final location is blocked we will
         //find a location within a range of 1 regardless if blocked or not.
-        if let Some(map) = storage.maps.get(&current_node.pos.map) {
-            if map.borrow().is_blocked_tile(stop, EntityKind::Npc)
-                && in_dir_attack_zone(storage, current_node.pos, stop, 1)
-            {
-                return npc_path_gather(&nodes, &current_node, start);
-            }
+        if let Some(map) = storage.maps.get(&current_node.pos.map)
+            && map.borrow().is_blocked_tile(stop, EntityKind::Npc)
+            && in_dir_attack_zone(storage, current_node.pos, stop, 1)
+        {
+            return npc_path_gather(&nodes, &current_node, start);
         }
 
         if current_node.pos == stop {

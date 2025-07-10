@@ -177,61 +177,60 @@ pub fn try_target_entity(
 
         if let Some(base) = npc_base
             && cantarget
+            && let Some(e_data) = world.get_opt_entity(target_entity)
         {
-            if let Some(e_data) = world.get_opt_entity(target_entity) {
-                match e_data {
-                    Entity::Npc(n2_data) => {
-                        let (can_proceed, target_pos) = {
-                            let n2_data = n2_data.try_lock()?;
+            match e_data {
+                Entity::Npc(n2_data) => {
+                    let (can_proceed, target_pos) = {
+                        let n2_data = n2_data.try_lock()?;
 
-                            (
-                                can_target(
-                                    pos,
-                                    n2_data.movement.pos,
-                                    n2_data.combat.death_type,
-                                    base.sight,
-                                ),
+                        (
+                            can_target(
+                                pos,
                                 n2_data.movement.pos,
-                            )
-                        };
+                                n2_data.combat.death_type,
+                                base.sight,
+                            ),
+                            n2_data.movement.pos,
+                        )
+                    };
 
-                        if can_proceed {
-                            let mut n_data = n_data.try_lock()?;
+                    if can_proceed {
+                        let mut n_data = n_data.try_lock()?;
 
-                            n_data.combat.target.target_pos = target_pos;
-                            n_data.combat.target.target_entity = Some(target_entity);
-                            n_data.combat.target.target_timer = *storage.gettick.borrow()
-                                + Duration::try_milliseconds(base.target_auto_switch_chance)
-                                    .unwrap_or_default();
-                        }
+                        n_data.combat.target.target_pos = target_pos;
+                        n_data.combat.target.target_entity = Some(target_entity);
+                        n_data.combat.target.target_timer = *storage.gettick.borrow()
+                            + Duration::try_milliseconds(base.target_auto_switch_chance)
+                                .unwrap_or_default();
                     }
-                    Entity::Player(p_data) => {
-                        let (can_proceed, target_pos) = {
-                            let p_data = p_data.try_lock()?;
-
-                            (
-                                can_target(
-                                    pos,
-                                    p_data.movement.pos,
-                                    p_data.combat.death_type,
-                                    base.sight,
-                                ),
-                                p_data.movement.pos,
-                            )
-                        };
-
-                        if can_proceed {
-                            let mut n_data = n_data.try_lock()?;
-
-                            n_data.combat.target.target_pos = target_pos;
-                            n_data.combat.target.target_entity = Some(target_entity);
-                            n_data.combat.target.target_timer = *storage.gettick.borrow()
-                                + Duration::try_milliseconds(base.target_auto_switch_chance)
-                                    .unwrap_or_default();
-                        }
-                    }
-                    _ => {}
                 }
+                Entity::Player(p_data) => {
+                    let (can_proceed, target_pos) = {
+                        let p_data = p_data.try_lock()?;
+
+                        (
+                            can_target(
+                                pos,
+                                p_data.movement.pos,
+                                p_data.combat.death_type,
+                                base.sight,
+                            ),
+                            p_data.movement.pos,
+                        )
+                    };
+
+                    if can_proceed {
+                        let mut n_data = n_data.try_lock()?;
+
+                        n_data.combat.target.target_pos = target_pos;
+                        n_data.combat.target.target_entity = Some(target_entity);
+                        n_data.combat.target.target_timer = *storage.gettick.borrow()
+                            + Duration::try_milliseconds(base.target_auto_switch_chance)
+                                .unwrap_or_default();
+                    }
+                }
+                _ => {}
             }
         }
     }
@@ -248,47 +247,47 @@ pub fn update_target_pos(world: &mut World, entity: GlobalKey) -> Result<Target>
 
         let mut target = n_data.combat.target;
 
-        if let Some(target_entity) = n_data.combat.target.target_entity {
-            if target_entity != entity {
-                if let Some(e_data) = world.get_opt_entity(target_entity) {
-                    match e_data {
-                        Entity::Player(p_data) => {
-                            let p_data = p_data.try_lock()?;
+        if let Some(target_entity) = n_data.combat.target.target_entity
+            && target_entity != entity
+        {
+            if let Some(e_data) = world.get_opt_entity(target_entity) {
+                match e_data {
+                    Entity::Player(p_data) => {
+                        let p_data = p_data.try_lock()?;
 
-                            let target_pos = p_data.movement.pos;
-                            let deathtype = p_data.combat.death_type;
+                        let target_pos = p_data.movement.pos;
+                        let deathtype = p_data.combat.death_type;
 
-                            if check_surrounding(n_data.movement.pos.map, target_pos.map, true)
-                                == MapPos::None
-                                || !deathtype.is_alive()
-                            {
-                                target = Target::default();
-                            } else {
-                                target.target_pos = target_pos;
-                            }
+                        if check_surrounding(n_data.movement.pos.map, target_pos.map, true)
+                            == MapPos::None
+                            || !deathtype.is_alive()
+                        {
+                            target = Target::default();
+                        } else {
+                            target.target_pos = target_pos;
                         }
-                        Entity::Npc(n2_data) => {
-                            let n2_data = n2_data.try_lock()?;
-
-                            let target_pos = n2_data.movement.pos;
-                            let deathtype = n2_data.combat.death_type;
-
-                            if check_surrounding(n_data.movement.pos.map, target_pos.map, true)
-                                == MapPos::None
-                                || !deathtype.is_alive()
-                            {
-                                target = Target::default();
-                            } else {
-                                target.target_pos = target_pos;
-                            }
-                        }
-                        _ => {}
                     }
+                    Entity::Npc(n2_data) => {
+                        let n2_data = n2_data.try_lock()?;
 
-                    n_data.combat.target = target;
-                } else {
-                    target = Target::default();
+                        let target_pos = n2_data.movement.pos;
+                        let deathtype = n2_data.combat.death_type;
+
+                        if check_surrounding(n_data.movement.pos.map, target_pos.map, true)
+                            == MapPos::None
+                            || !deathtype.is_alive()
+                        {
+                            target = Target::default();
+                        } else {
+                            target.target_pos = target_pos;
+                        }
+                    }
+                    _ => {}
                 }
+
+                n_data.combat.target = target;
+            } else {
+                target = Target::default();
             }
         }
 

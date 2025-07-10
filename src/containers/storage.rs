@@ -170,10 +170,7 @@ fn load_private_key(filename: &str) -> PrivateKeyDer<'static> {
         }
     }
 
-    panic!(
-        "no keys found in {:?} (encrypted keys not supported)",
-        filename
-    );
+    panic!("no keys found in {filename:?} (encrypted keys not supported)");
 }
 
 fn build_tls_config(

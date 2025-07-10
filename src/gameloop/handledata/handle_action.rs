@@ -168,10 +168,10 @@ pub fn handle_settarget(
 
         let mut p_data = p_data.try_lock()?;
 
-        if let Some(target_entity) = target {
-            if !world.entities.contains_key(target_entity) {
-                return Ok(());
-            }
+        if let Some(target_entity) = target
+            && !world.entities.contains_key(target_entity)
+        {
+            return Ok(());
         }
 
         p_data.combat.target.target_entity = target;

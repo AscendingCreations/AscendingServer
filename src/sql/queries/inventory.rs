@@ -27,10 +27,7 @@ impl PGInventory {
 
         let value_text = join(
             (0..MAX_INV).map(|index| {
-                format!(
-                    "('{}', {}, {}, {}, 0, '{{0, 0, 0, 0, 0}}')",
-                    uid, index, default_i32, default_i16
-                )
+                format!("('{uid}', {index}, {default_i32}, {default_i16}, 0, '{{0, 0, 0, 0, 0}}')")
             }),
             ", ",
         );
@@ -38,9 +35,8 @@ impl PGInventory {
         format!(
             r#"
             INSERT INTO public.inventory(uid, id, num, val, level, data)
-            VALUES {0};
-            "#,
-            value_text
+            VALUES {value_text};
+            "#
         )
     }
 }
@@ -63,10 +59,9 @@ pub fn sql_load_inventory(storage: &Storage, account_id: Uuid) -> Result<PGInven
         r#"
         SELECT id, num, val, level, data
         FROM public.inventory
-        WHERE uid = '{}'
+        WHERE uid = '{account_id}'
         ORDER BY id ASC;
         "#,
-        account_id,
     );
     let data = PGInventory {
         slot: local.block_on(&rt, sqlx::query_as(&query).fetch_all(&storage.pgconn))?,
@@ -86,7 +81,7 @@ pub fn sql_update_inventory_slot(
     let data_str = data
         .data
         .iter()
-        .format_with(", ", |elt, f| f(&format_args!("{}", elt)))
+        .format_with(", ", |elt, f| f(&format_args!("{elt}")))
         .to_string();
 
     let query_text = format!(

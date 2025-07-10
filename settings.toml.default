@@ -8,6 +8,6 @@ database = 'ascending'
 host = '127.0.0.1'
 port = 5432
 username = 'server'
-password = 'test'
+password = 'testserver1'
 level_filter = "Info"
 enable_backtrace = false

@@ -39,12 +39,12 @@ pub fn find_inv_item(num: u32, inv: &[Item]) -> Option<usize> {
 
 #[inline]
 pub fn find_inv_slot(item: &Item, inv: &[Item], base: &ItemData) -> Option<usize> {
-    if base.stackable {
-        if let Some(id) = (0..MAX_INV).find(|id| {
+    if base.stackable
+        && let Some(id) = (0..MAX_INV).find(|id| {
             inv[*id].num == item.num && inv[*id].val < base.stacklimit && inv[*id].val > 0
-        }) {
-            return Some(id);
-        }
+        })
+    {
+        return Some(id);
     }
 
     (0..MAX_INV).find(|id| inv[*id].val == 0)
@@ -366,14 +366,14 @@ pub fn count_trade_item(num: u32, trade_slot: &[Item]) -> u64 {
 
 #[inline]
 pub fn find_trade_slot(item: &Item, trade_slot: &[Item], base: &ItemData) -> Option<usize> {
-    if base.stackable {
-        if let Some(id) = (0..MAX_INV).find(|id| {
+    if base.stackable
+        && let Some(id) = (0..MAX_INV).find(|id| {
             trade_slot[*id].num == item.num
                 && trade_slot[*id].val < base.stacklimit
                 && trade_slot[*id].val > 0
-        }) {
-            return Some(id);
-        }
+        })
+    {
+        return Some(id);
     }
 
     (0..MAX_INV).find(|id| trade_slot[*id].val == 0)

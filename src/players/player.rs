@@ -178,7 +178,7 @@ pub fn player_take_vals(
         send_fltalert(
             storage,
             socket_id,
-            format!("You Lost {} Vals.", cur),
+            format!("You Lost {cur} Vals."),
             FtlType::Money,
         )?;
     }
