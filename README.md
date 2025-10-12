@@ -31,21 +31,36 @@ Client. this checks if the keys are legit and not fakes.
 
 Generate a Server Certificate
 ```openssl genrsa -out server-key.pem 4096```
+
+Generate the Server csr Certificate
 ```openssl req -new -key server-key.pem -out server-csr.pem```
+
 You’ll be prompted to specify a CA Common Name. Insert that you prefer like localhost or server.localhost.
 Optionally insert a challenge password
 
 The client will need to verify the Common Name, so make sure you have a valid DNS name for this.
 Now sign the certificate using the Certificate Authority
 ```echo 'subjectAltName = IP:127.0.0.1, IP:12.0.0.1' > server-crt.ext```
+
+Then Finally put it all together to get the Cert Needed to connect the Client and Server together.
 ```openssl x509 -req -days 365 -CA ca-crt.pem -CAkey ca-key.pem -CAcreateserial -in server-csr.pem -out server.crt -extfile server-crt.ext```
 
 Now Check if the Cert is Valid by running
 ```openssl verify -CAfile ca-crt.pem server.crt```
 
+The Client Side should only need
+- ca-crt.pem
+
+The Server Side Only Needs
+- server.crt
+- server-key.pem
+- ca-crt.pem
+
 Generate a Client Certificate. You only need a Client Certificate if you are going to make 1 cert per users client and use it to deturmine if that client 
 can connect to the server or not by exluding it or including it. Otherwise you do not need to make client certs.
 ```openssl genrsa -out client-key.pem 4096```
+
+Generate the Client csr Certificate
 ```openssl req -new -key client-key.pem -out client-csr.pem```
 
 You’ll be prompted to specify a CA Common Name. Insert that you prefer like client.localhost. The server should not verify this, since it should not do a reverse DNS lookup.
@@ -53,6 +68,8 @@ Optionally insert a challenge password
 
 Now sign the certificate using the Certificate Authority changing the 12.0.0.1 ip address with the one your server will use.
 ```echo 'subjectAltName = IP:127.0.0.1, IP:12.0.0.1' > client-crt.ext```
+
+Then Finally put it all together to get the Cert Needed to connect the Client and Server together.
 ```openssl x509 -req -days 365 -CA ca-crt.pem -CAkey ca-key.pem -CAcreateserial -in client-csr.pem -out client.crt -extfile client-crt.ext```
 
 And then Verify the key
