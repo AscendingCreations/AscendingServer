@@ -66,16 +66,6 @@ pub fn send_myindex(storage: &Storage, socket_id: Token, entity: GlobalKey) -> R
     send_to(storage, socket_id, buf)
 }
 
-pub fn send_move_ok(storage: &Storage, socket_id: Token, move_ok: bool) -> Result<()> {
-    let mut buf = MByteBuffer::new_packet()?;
-
-    buf.write(ServerPackets::MoveOk)?;
-    buf.write(move_ok)?;
-    buf.finish()?;
-
-    send_to_front(storage, socket_id, buf)
-}
-
 #[inline]
 pub fn send_playerdata(
     world: &mut World,

@@ -25,7 +25,6 @@ pub enum ServerPackets {
     MapItems,
     MyIndex,
     Move,
-    MoveOk,
     Warp,
     Dir,
     Vitals,

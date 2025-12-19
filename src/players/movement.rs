@@ -217,8 +217,6 @@ pub fn process_player_movement(
         };
 
         let _ = player_movement(world, storage, entity, dir)?;
-
-        //send_move_ok(storage, socket_id, moveok)?;
     }
     Ok(())
 }

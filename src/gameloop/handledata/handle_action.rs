@@ -32,36 +32,6 @@ pub fn handle_move(
     }
 
     Err(AscendingError::InvalidSocket)
-
-    /*
-    let dir = data.read::<u8>()?;
-    let data_pos = data.read::<Position>()?;
-
-    let (id, pos) = if let Some(Entity::Player(p_data)) = world.get_opt_entity(entity) {
-        let p_data = p_data.try_lock()?;
-
-        if !p_data.combat.death_type.is_alive()
-            || p_data.is_using_type.inuse()
-            || p_data.combat.stunned
-        {
-            return Ok(());
-        }
-
-        (p_data.socket.id, p_data.movement.pos)
-    } else {
-        return Ok(());
-    };
-
-    if storage.bases.maps.get(&data_pos.map).is_none() || dir > 3 {
-        return Err(AscendingError::InvalidPacket);
-    }
-
-    if data_pos != pos {
-        player_warp(world, storage, entity, &pos, false)?;
-        return Ok(());
-    }
-
-    send_move_ok(storage, id, player_movement(world, storage, entity, dir)?)*/
 }
 
 pub fn handle_dir(
