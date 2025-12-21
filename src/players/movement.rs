@@ -17,15 +17,22 @@ pub fn player_warp(
     spawn: bool,
 ) -> Result<()> {
     if let Some(Entity::Player(p_data)) = world.get_opt_entity(entity) {
-        let pos = { p_data.try_lock()?.movement.pos };
+        let (pos, dir) = {
+            let mut p_data = p_data.try_lock()?;
+
+            p_data.input.move_dir = None;
+
+            (p_data.movement.pos, p_data.movement.dir)
+        };
 
         if pos.map != new_pos.map {
             let old_pos = player_switch_maps(world, storage, entity, *new_pos)?;
             if !old_pos.1 {
                 println!("Failed to switch map");
             }
-            DataTaskToken::Warp(pos.map).add_task(storage, warp_packet(entity, *new_pos)?)?;
-            DataTaskToken::Warp(new_pos.map).add_task(storage, warp_packet(entity, *new_pos)?)?;
+            DataTaskToken::Warp(pos.map).add_task(storage, warp_packet(entity, *new_pos, dir)?)?;
+            DataTaskToken::Warp(new_pos.map)
+                .add_task(storage, warp_packet(entity, *new_pos, dir)?)?;
             DataTaskToken::PlayerSpawn(new_pos.map)
                 .add_task(storage, player_spawn_packet(world, entity, true)?)?;
             init_data_lists(world, storage, entity, Some(pos.map))?;
@@ -37,7 +44,7 @@ pub fn player_warp(
                 init_data_lists(world, storage, entity, None)?;
             } else {
                 DataTaskToken::Warp(new_pos.map)
-                    .add_task(storage, warp_packet(entity, *new_pos)?)?;
+                    .add_task(storage, warp_packet(entity, *new_pos, dir)?)?;
             }
         }
 

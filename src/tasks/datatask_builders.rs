@@ -23,9 +23,9 @@ pub fn move_packet(
     Ok(buffer)
 }
 
-pub fn warp_packet(entity: GlobalKey, position: Position) -> Result<MByteBuffer> {
+pub fn warp_packet(entity: GlobalKey, position: Position, dir: u8) -> Result<MByteBuffer> {
     let mut buffer = MByteBuffer::new()?;
-    buffer.write(entity)?.write(position)?;
+    buffer.write(entity)?.write(position)?.write(dir)?;
 
     Ok(buffer)
 }
