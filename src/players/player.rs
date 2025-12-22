@@ -268,7 +268,12 @@ pub fn reconnect_player(
     if let Some(Entity::Player(p_data)) = world.get_opt_entity(old_entity) {
         let tick = *storage.gettick.borrow();
 
-        if let Some(client) = storage.server.borrow().clients.get(&new_socket.id) {
+        if let Some(client) = storage
+            .server
+            .borrow()
+            .clients
+            .get(new_socket.id.0 - CLIENT_OFFSET)
+        {
             client.borrow_mut().entity = Some(old_entity);
         }
 

@@ -17,8 +17,8 @@ use crate::{
         player_warp, reconnect_player, send_reconnect_info, send_tls_reconnect, take_inv_itemslot,
     },
     socket::{
-        MByteBufferExt, send_clear_data, send_clearisusingtype, send_fltalert, send_gameping,
-        send_message, send_traderequest,
+        CLIENT_OFFSET, MByteBufferExt, send_clear_data, send_clearisusingtype, send_fltalert,
+        send_gameping, send_message, send_traderequest,
     },
     time_ext::MyInstant,
 };
@@ -541,7 +541,12 @@ pub fn handle_tls_reconnect(
         let code = Alphanumeric.sample_string(&mut rand::rng(), 32);
         let handshake = Alphanumeric.sample_string(&mut rand::rng(), 32);
 
-        if let Some(client) = storage.server.borrow().clients.get(&socket_id.id) {
+        if let Some(client) = storage
+            .server
+            .borrow()
+            .clients
+            .get(socket_id.id.0 - CLIENT_OFFSET)
+        {
             client.borrow_mut().entity = Some(entity);
         }
 
@@ -601,11 +606,21 @@ pub fn handle_disconnect(
             if !p_data.combat.in_combat {
                 let socket = &p_data.socket;
 
-                if let Some(client) = storage.server.borrow_mut().clients.get_mut(&socket.id) {
+                if let Some(client) = storage
+                    .server
+                    .borrow_mut()
+                    .clients
+                    .get_mut(socket.id.0 - CLIENT_OFFSET)
+                {
                     client.borrow_mut().entity = None;
                 }
 
-                if let Some(client) = storage.server.borrow_mut().clients.get_mut(&socket.tls_id) {
+                if let Some(client) = storage
+                    .server
+                    .borrow_mut()
+                    .clients
+                    .get_mut(socket.tls_id.0 - CLIENT_OFFSET)
+                {
                     client.borrow_mut().entity = None;
                 }
             }
@@ -641,7 +656,12 @@ pub fn handle_reconnect(
             return Err(AscendingError::InvalidSocket);
         }
 
-        let socket = if let Some(client) = storage.server.borrow().clients.get(&socket_id.id) {
+        let socket = if let Some(client) = storage
+            .server
+            .borrow()
+            .clients
+            .get(socket_id.id.0 - CLIENT_OFFSET)
+        {
             let brw_client = client.borrow();
             Socket::new(Token(0), socket_id.id, brw_client.addr.to_string())?
         } else {

@@ -464,7 +464,12 @@ pub fn disconnect(playerid: GlobalKey, world: &mut World, storage: &Storage) -> 
 
 #[inline]
 pub fn send_to(storage: &Storage, socket_id: Token, buf: MByteBuffer) -> Result<()> {
-    if let Some(client) = storage.server.borrow().clients.get(&socket_id) {
+    if let Some(client) = storage
+        .server
+        .borrow()
+        .clients
+        .get(socket_id.0 - CLIENT_OFFSET)
+    {
         client.borrow_mut().send(&storage.poll.borrow(), buf)
     } else {
         Ok(())
@@ -473,7 +478,12 @@ pub fn send_to(storage: &Storage, socket_id: Token, buf: MByteBuffer) -> Result<
 
 #[inline]
 pub fn send_to_front(storage: &Storage, socket_id: Token, buf: MByteBuffer) -> Result<()> {
-    if let Some(client) = storage.server.borrow().clients.get(&socket_id) {
+    if let Some(client) = storage
+        .server
+        .borrow()
+        .clients
+        .get(socket_id.0 - CLIENT_OFFSET)
+    {
         client.borrow_mut().send_first(&storage.poll.borrow(), buf)
     } else {
         Ok(())
@@ -487,7 +497,11 @@ pub fn send_to_all(world: &mut World, storage: &Storage, buf: MByteBuffer) -> Re
             let data = data.try_lock()?;
 
             if data.online_type == OnlineType::Online
-                && let Some(client) = storage.server.borrow().clients.get(&data.socket.id)
+                && let Some(client) = storage
+                    .server
+                    .borrow()
+                    .clients
+                    .get(data.socket.id.0 - CLIENT_OFFSET)
             {
                 client
                     .borrow_mut()
@@ -523,7 +537,11 @@ pub fn send_to_maps(
                 let data = data.try_lock()?;
 
                 if data.online_type == OnlineType::Online
-                    && let Some(client) = storage.server.borrow().clients.get(&data.socket.id)
+                    && let Some(client) = storage
+                        .server
+                        .borrow()
+                        .clients
+                        .get(data.socket.id.0 - CLIENT_OFFSET)
                 {
                     client
                         .borrow_mut()
@@ -548,7 +566,11 @@ pub fn send_to_entities(
             let data = data.try_lock()?;
 
             if data.online_type == OnlineType::Online
-                && let Some(client) = storage.server.borrow().clients.get(&data.socket.id)
+                && let Some(client) = storage
+                    .server
+                    .borrow()
+                    .clients
+                    .get(data.socket.id.0 - CLIENT_OFFSET)
             {
                 client
                     .borrow_mut()
@@ -565,7 +587,7 @@ pub fn get_length(storage: &Storage, buffer: &mut ByteBuffer, token: Token) -> R
         let length = buffer.read::<u64>()?;
 
         if !(1..=8192).contains(&length)
-            && let Some(client) = storage.server.borrow().clients.get(&token)
+            && let Some(client) = storage.server.borrow().clients.get(token.0 - CLIENT_OFFSET)
         {
             trace!("Player was disconnected on get_length LENGTH: {length:?}");
             client.borrow_mut().set_to_closing();
@@ -588,7 +610,7 @@ pub fn process_packets(world: &mut World, storage: &Storage) -> Result<()> {
         let mut count = 0;
 
         let (lock, entity, address, is_tls) = {
-            match storage.server.borrow().clients.get(token) {
+            match storage.server.borrow().clients.get(token.0 - CLIENT_OFFSET) {
                 Some(v) => {
                     let brw_client = v.borrow();
                     (
@@ -703,7 +725,9 @@ pub fn process_packets(world: &mut World, storage: &Storage) -> Result<()> {
     for (token, should_close) in rem_arr {
         storage.recv_ids.borrow_mut().swap_remove(&token);
 
-        if should_close && let Some(client) = storage.server.borrow().clients.get(&token) {
+        if should_close
+            && let Some(client) = storage.server.borrow().clients.get(token.0 - CLIENT_OFFSET)
+        {
             client.borrow_mut().set_to_closing();
         }
     }
