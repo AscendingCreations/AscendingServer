@@ -628,14 +628,12 @@ pub fn process_packets(world: &mut World, storage: &Storage) -> Result<()> {
                 let length = match get_length(storage, &mut buffer, token)? {
                     Some(n) => n,
                     None => {
-                        rerun.push(token);
                         break;
                     }
                 };
 
                 if length == 0 {
                     trace!("Length was Zero. Bad or malformed packet from IP: {address}");
-
                     set_client_as_closed(storage, token);
                     continue 'user_loop;
                 }
@@ -644,7 +642,6 @@ pub fn process_packets(world: &mut World, storage: &Storage) -> Result<()> {
                     trace!(
                         "Length was {length} greater than the max packet size of {address}. Bad or malformed packet from IP: {BUFFER_SIZE}"
                     );
-
                     set_client_as_closed(storage, token);
                     continue 'user_loop;
                 }
@@ -680,11 +677,11 @@ pub fn process_packets(world: &mut World, storage: &Storage) -> Result<()> {
                 } else {
                     let cursor = buffer.cursor() - 8;
                     buffer.move_cursor(cursor)?;
-                    rerun.push(token);
                     break;
                 }
 
                 if count == MAX_PROCESSED_PACKETS {
+                    rerun.push(token);
                     break;
                 }
             }
