@@ -589,13 +589,19 @@ pub fn get_length(storage: &Storage, buffer: &mut ByteBuffer, token: usize) -> R
     }
 }
 
+pub fn set_client_as_closed(storage: &Storage, token: usize) {
+    if let Some(client) = storage.server.borrow().clients.get(token) {
+        client.borrow_mut().set_to_closing();
+    }
+}
+
 pub const MAX_PROCESSED_PACKETS: i32 = 25;
 
 pub fn process_packets(world: &mut World, storage: &Storage) -> Result<()> {
-    let mut rem_arr: Vec<(usize, bool)> = Vec::with_capacity(64);
     let mut packet = MByteBuffer::new()?;
+    let mut rerun: Vec<usize> = Vec::with_capacity(64);
 
-    'user_loop: for &token in &*storage.recv_ids.borrow() {
+    'user_loop: for token in storage.recv_ids.borrow_mut().drain(..) {
         let mut count = 0;
 
         let (lock, entity, address, is_tls) = {
@@ -611,7 +617,6 @@ pub fn process_packets(world: &mut World, storage: &Storage) -> Result<()> {
                 }
                 None => {
                     error!("Socket was missing in server clients.");
-                    rem_arr.push((token, false));
                     continue 'user_loop;
                 }
             }
@@ -623,7 +628,7 @@ pub fn process_packets(world: &mut World, storage: &Storage) -> Result<()> {
                 let length = match get_length(storage, &mut buffer, token)? {
                     Some(n) => n,
                     None => {
-                        rem_arr.push((token, false));
+                        rerun.push(token);
                         break;
                     }
                 };
@@ -631,7 +636,7 @@ pub fn process_packets(world: &mut World, storage: &Storage) -> Result<()> {
                 if length == 0 {
                     trace!("Length was Zero. Bad or malformed packet from IP: {address}");
 
-                    rem_arr.push((token, true));
+                    set_client_as_closed(storage, token);
                     continue 'user_loop;
                 }
 
@@ -640,7 +645,7 @@ pub fn process_packets(world: &mut World, storage: &Storage) -> Result<()> {
                         "Length was {length} greater than the max packet size of {address}. Bad or malformed packet from IP: {BUFFER_SIZE}"
                     );
 
-                    rem_arr.push((token, true));
+                    set_client_as_closed(storage, token);
                     continue 'user_loop;
                 }
 
@@ -659,7 +664,7 @@ pub fn process_packets(world: &mut World, storage: &Storage) -> Result<()> {
 
                     if errored {
                         warn!("IP: {address} was disconnected due to error on packet length.");
-                        rem_arr.push((token, true));
+                        set_client_as_closed(storage, token);
                         continue 'user_loop;
                     }
 
@@ -667,7 +672,7 @@ pub fn process_packets(world: &mut World, storage: &Storage) -> Result<()> {
 
                     if handle_data(world, storage, &mut packet, entity, socketid).is_err() {
                         warn!("IP: {address} was disconnected due to invalid packets");
-                        rem_arr.push((token, true));
+                        set_client_as_closed(storage, token);
                         continue 'user_loop;
                     }
 
@@ -675,8 +680,7 @@ pub fn process_packets(world: &mut World, storage: &Storage) -> Result<()> {
                 } else {
                     let cursor = buffer.cursor() - 8;
                     buffer.move_cursor(cursor)?;
-
-                    rem_arr.push((token, false));
+                    rerun.push(token);
                     break;
                 }
 
@@ -711,12 +715,9 @@ pub fn process_packets(world: &mut World, storage: &Storage) -> Result<()> {
         };
     }
 
-    for (token, should_close) in rem_arr {
-        storage.recv_ids.borrow_mut().swap_remove(&token);
-
-        if should_close && let Some(client) = storage.server.borrow().clients.get(token) {
-            client.borrow_mut().set_to_closing();
-        }
+    let mut store = storage.recv_ids.borrow_mut();
+    for token in rerun {
+        store.insert(token);
     }
 
     Ok(())
