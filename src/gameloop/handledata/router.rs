@@ -1,5 +1,3 @@
-use mio::Token;
-
 use crate::{
     AscendingError,
     containers::{GlobalKey, Storage, World},
@@ -9,7 +7,7 @@ use crate::{
 };
 
 pub struct SocketID {
-    pub id: Token,
+    pub id: usize,
     pub is_tls: bool,
 }
 

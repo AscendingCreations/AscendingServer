@@ -1,18 +1,15 @@
-use std::ops::Range;
-
-use mio::Token;
-
 use crate::{
     containers::{Entity, GlobalKey, Storage, TradeStatus, World},
     gametypes::*,
     socket::*,
     tasks::*,
 };
+use std::ops::Range;
 
 #[inline]
 pub fn send_infomsg(
     storage: &Storage,
-    socket_id: Token,
+    socket_id: usize,
     message: String,
     close_socket: u8,
 ) -> Result<()> {
@@ -29,7 +26,7 @@ pub fn send_infomsg(
 #[inline]
 pub fn send_fltalert(
     storage: &Storage,
-    socket_id: Token,
+    socket_id: usize,
     message: String,
     ftltype: FtlType,
 ) -> Result<()> {
@@ -44,7 +41,7 @@ pub fn send_fltalert(
 }
 
 #[inline]
-pub fn send_loginok(storage: &Storage, socket_id: Token) -> Result<()> {
+pub fn send_loginok(storage: &Storage, socket_id: usize) -> Result<()> {
     let mut buf = MByteBuffer::new_packet()?;
 
     buf.write(ServerPackets::LoginOk)?;
@@ -56,7 +53,7 @@ pub fn send_loginok(storage: &Storage, socket_id: Token) -> Result<()> {
 }
 
 #[inline]
-pub fn send_myindex(storage: &Storage, socket_id: Token, entity: GlobalKey) -> Result<()> {
+pub fn send_myindex(storage: &Storage, socket_id: usize, entity: GlobalKey) -> Result<()> {
     let mut buf = MByteBuffer::new_packet()?;
 
     buf.write(ServerPackets::MyIndex)?;
@@ -70,7 +67,7 @@ pub fn send_myindex(storage: &Storage, socket_id: Token, entity: GlobalKey) -> R
 pub fn send_playerdata(
     world: &mut World,
     storage: &Storage,
-    socket_id: Token,
+    socket_id: usize,
     entity: GlobalKey,
 ) -> Result<()> {
     if let Some(Entity::Player(data)) = world.get_opt_entity(entity) {
@@ -104,7 +101,7 @@ pub fn send_codes(
     storage: &Storage,
     code: String,
     handshake: String,
-    socket_id: Token,
+    socket_id: usize,
 ) -> Result<()> {
     let mut buf = MByteBuffer::new_packet()?;
 
@@ -305,7 +302,7 @@ pub fn send_message(
     msg: String,
     head: String,
     chan: MessageChannel,
-    id: Option<Token>,
+    id: Option<usize>,
 ) -> Result<()> {
     if let Some(Entity::Player(data)) = world.get_opt_entity(entity) {
         let data = data.try_lock()?;
@@ -560,7 +557,7 @@ pub fn send_playitemsfx(
 }
 
 #[inline]
-pub fn send_gameping(storage: &Storage, socket_id: Token) -> Result<()> {
+pub fn send_gameping(storage: &Storage, socket_id: usize) -> Result<()> {
     let mut buf = MByteBuffer::new_packet()?;
 
     buf.write(ServerPackets::Ping)?;

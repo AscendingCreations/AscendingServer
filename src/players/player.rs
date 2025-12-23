@@ -1,7 +1,5 @@
-use chrono::Duration;
-use mio::Token;
-
 use crate::{containers::*, gametypes::*, socket::*, sql::*, tasks::*};
+use chrono::Duration;
 
 pub fn player_switch_maps(
     world: &mut World,
@@ -191,7 +189,7 @@ pub fn send_login_info(
     entity: GlobalKey,
     code: String,
     handshake: String,
-    socket_id: Token,
+    socket_id: usize,
     username: String,
 ) -> Result<()> {
     if let Some(Entity::Player(p_data)) = world.get_opt_entity(entity) {
@@ -217,7 +215,7 @@ pub fn send_reconnect_info(
     entity: GlobalKey,
     code: String,
     handshake: String,
-    socket_id: Token,
+    socket_id: usize,
     username: String,
 ) -> Result<()> {
     if let Some(Entity::Player(p_data)) = world.get_opt_entity(entity) {
@@ -268,12 +266,7 @@ pub fn reconnect_player(
     if let Some(Entity::Player(p_data)) = world.get_opt_entity(old_entity) {
         let tick = *storage.gettick.borrow();
 
-        if let Some(client) = storage
-            .server
-            .borrow()
-            .clients
-            .get(new_socket.id.0 - CLIENT_OFFSET)
-        {
+        if let Some(client) = storage.server.borrow().clients.get(new_socket.id) {
             client.borrow_mut().entity = Some(old_entity);
         }
 

@@ -1,18 +1,15 @@
-use educe::Educe;
-use mio::Token;
-use mmap_bytey::{MByteBufferRead, MByteBufferWrite};
-use serde::{Deserialize, Serialize};
-use std::sync::Arc;
-use uuid::Uuid;
-
+use super::{CombatData, MovementData};
 use crate::{
     containers::{GlobalKey, HashSet},
     gametypes::*,
     items::Item,
     time_ext::MyInstant,
 };
-
-use super::{CombatData, MovementData};
+use educe::Educe;
+use mmap_bytey::{MByteBufferRead, MByteBufferWrite};
+use serde::{Deserialize, Serialize};
+use std::sync::Arc;
+use uuid::Uuid;
 
 #[derive(Debug, Clone, Default)]
 pub struct PlayerEntity {
@@ -74,23 +71,23 @@ pub struct Socket {
     // IP address
     pub addr: Arc<String>,
     // Unencrypted Socket ID
-    pub id: Token,
+    pub id: usize,
     // Encrypted Socket ID
-    pub tls_id: Token,
+    pub tls_id: usize,
 }
 
 impl Default for Socket {
     fn default() -> Self {
         Self {
             addr: Arc::new(String::new()),
-            id: Token(0),
-            tls_id: Token(0),
+            id: usize::MAX,
+            tls_id: usize::MAX,
         }
     }
 }
 
 impl Socket {
-    pub fn new(id: Token, tls_id: Token, addr: String) -> Result<Self> {
+    pub fn new(id: usize, tls_id: usize, addr: String) -> Result<Self> {
         Ok(Self {
             id,
             tls_id,

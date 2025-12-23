@@ -121,16 +121,16 @@ impl Client {
                     let mut data = data.try_lock()?;
 
                     if self.tls.is_some() {
-                        data.socket.tls_id = Token(0);
+                        data.socket.tls_id = usize::MAX;
                         println!("TLS Socket unloaded");
                     } else {
-                        data.socket.id = Token(0);
+                        data.socket.id = usize::MAX;
                         println!("Socket unloaded");
                     }
                     remove_entity = true;
 
-                    let tls_connected = data.socket.tls_id != Token(0);
-                    let non_tls_connected = data.socket.id != Token(0);
+                    let tls_connected = data.socket.tls_id != usize::MAX;
+                    let non_tls_connected = data.socket.id != usize::MAX;
 
                     if !non_tls_connected
                         && (data.online_type == OnlineType::Online || !tls_connected)
@@ -463,13 +463,8 @@ pub fn disconnect(playerid: GlobalKey, world: &mut World, storage: &Storage) -> 
 }
 
 #[inline]
-pub fn send_to(storage: &Storage, socket_id: Token, buf: MByteBuffer) -> Result<()> {
-    if let Some(client) = storage
-        .server
-        .borrow()
-        .clients
-        .get(socket_id.0 - CLIENT_OFFSET)
-    {
+pub fn send_to(storage: &Storage, socket_id: usize, buf: MByteBuffer) -> Result<()> {
+    if let Some(client) = storage.server.borrow().clients.get(socket_id) {
         client.borrow_mut().send(&storage.poll.borrow(), buf)
     } else {
         Ok(())
@@ -497,11 +492,7 @@ pub fn send_to_all(world: &mut World, storage: &Storage, buf: MByteBuffer) -> Re
             let data = data.try_lock()?;
 
             if data.online_type == OnlineType::Online
-                && let Some(client) = storage
-                    .server
-                    .borrow()
-                    .clients
-                    .get(data.socket.id.0 - CLIENT_OFFSET)
+                && let Some(client) = storage.server.borrow().clients.get(data.socket.id)
             {
                 client
                     .borrow_mut()
@@ -537,11 +528,7 @@ pub fn send_to_maps(
                 let data = data.try_lock()?;
 
                 if data.online_type == OnlineType::Online
-                    && let Some(client) = storage
-                        .server
-                        .borrow()
-                        .clients
-                        .get(data.socket.id.0 - CLIENT_OFFSET)
+                    && let Some(client) = storage.server.borrow().clients.get(data.socket.id)
                 {
                     client
                         .borrow_mut()
@@ -566,11 +553,7 @@ pub fn send_to_entities(
             let data = data.try_lock()?;
 
             if data.online_type == OnlineType::Online
-                && let Some(client) = storage
-                    .server
-                    .borrow()
-                    .clients
-                    .get(data.socket.id.0 - CLIENT_OFFSET)
+                && let Some(client) = storage.server.borrow().clients.get(data.socket.id)
             {
                 client
                     .borrow_mut()
@@ -674,7 +657,10 @@ pub fn process_packets(world: &mut World, storage: &Storage) -> Result<()> {
                         continue 'user_loop;
                     }
 
-                    let socketid = SocketID { id: *token, is_tls };
+                    let socketid = SocketID {
+                        id: token.0 - CLIENT_OFFSET,
+                        is_tls,
+                    };
 
                     if handle_data(world, storage, &mut packet, entity, socketid).is_err() {
                         warn!("IP: {address} was disconnected due to invalid packets");

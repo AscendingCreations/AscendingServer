@@ -1,12 +1,4 @@
-use std::sync::{Arc, Mutex};
-
-use chrono::Duration;
-use log::info;
-use mio::Token;
-use mmap_bytey::MByteBuffer;
-use rand::distr::{Alphanumeric, SampleString};
-use regex::Regex;
-
+use super::SocketID;
 use crate::{
     containers::{
         Entity, EntityKind, GlobalKey, PlayerConnectionTimer, Socket, Storage, World,
@@ -17,11 +9,15 @@ use crate::{
         is_name_acceptable, is_password_acceptable, joingame, reconnect_player, send_login_info,
         send_reconnect_info,
     },
-    socket::{CLIENT_OFFSET, ClientState, disconnect, send_codes, send_infomsg, send_myindex},
+    socket::{ClientState, disconnect, send_codes, send_infomsg, send_myindex},
     sql::{check_existance, find_player, load_player, new_player},
 };
-
-use super::SocketID;
+use chrono::Duration;
+use log::info;
+use mmap_bytey::MByteBuffer;
+use rand::distr::{Alphanumeric, SampleString};
+use regex::Regex;
+use std::sync::{Arc, Mutex};
 
 pub fn handle_register(
     world: &mut World,
@@ -42,14 +38,9 @@ pub fn handle_register(
         return Err(AscendingError::InvalidSocket);
     }
 
-    let socket = if let Some(client) = storage
-        .server
-        .borrow()
-        .clients
-        .get(socket_id.id.0 - CLIENT_OFFSET)
-    {
+    let socket = if let Some(client) = storage.server.borrow().clients.get(socket_id.id) {
         let brw_client = client.borrow();
-        Socket::new(Token(0), socket_id.id, brw_client.addr.to_string())?
+        Socket::new(usize::MAX, socket_id.id, brw_client.addr.to_string())?
     } else {
         return Err(AscendingError::InvalidSocket);
     };
@@ -134,12 +125,7 @@ pub fn handle_register(
             let entity =
                 storage.add_player_data(world, code.clone(), handshake.clone(), socket.clone())?;
 
-            if let Some(client) = storage
-                .server
-                .borrow_mut()
-                .clients
-                .get_mut(socket.tls_id.0 - CLIENT_OFFSET)
-            {
+            if let Some(client) = storage.server.borrow_mut().clients.get_mut(socket.tls_id) {
                 client.borrow_mut().entity = Some(entity);
             }
 
@@ -165,12 +151,7 @@ pub fn handle_register(
                 .borrow_mut()
                 .insert(code.to_owned(), entity);
 
-            if let Some(client) = storage
-                .server
-                .borrow_mut()
-                .clients
-                .get_mut(socket.tls_id.0 - CLIENT_OFFSET)
-            {
+            if let Some(client) = storage.server.borrow_mut().clients.get_mut(socket.tls_id) {
                 client.borrow_mut().entity = Some(entity);
             }
 
@@ -225,12 +206,7 @@ pub fn handle_handshake(
 
                 p_data.socket.id = socket_id.id;
 
-                if let Some(client) = storage
-                    .server
-                    .borrow()
-                    .clients
-                    .get(socket_id.id.0 - CLIENT_OFFSET)
-                {
+                if let Some(client) = storage.server.borrow().clients.get(socket_id.id) {
                     client.borrow_mut().entity = Some(entity);
                 }
 
@@ -264,14 +240,9 @@ pub fn handle_login(
         return Err(AscendingError::InvalidSocket);
     }
 
-    let socket = if let Some(client) = storage
-        .server
-        .borrow()
-        .clients
-        .get(socket_id.id.0 - CLIENT_OFFSET)
-    {
+    let socket = if let Some(client) = storage.server.borrow().clients.get(socket_id.id) {
         let brw_client = client.borrow();
-        Socket::new(Token(0), socket_id.id, brw_client.addr.to_string())?
+        Socket::new(usize::MAX, socket_id.id, brw_client.addr.to_string())?
     } else {
         return Err(AscendingError::InvalidSocket);
     };
@@ -371,12 +342,7 @@ pub fn handle_login(
     }
 
     if let Some((old_entity, name, socket_token)) = send_reconnect {
-        if let Some(client) = storage
-            .server
-            .borrow_mut()
-            .clients
-            .get_mut(socket.tls_id.0 - CLIENT_OFFSET)
-        {
+        if let Some(client) = storage.server.borrow_mut().clients.get_mut(socket.tls_id) {
             client.borrow_mut().entity = Some(old_entity);
         }
 
@@ -397,20 +363,10 @@ pub fn handle_login(
     }
 
     if let Some((tls_socket, non_tls_socket)) = unload_socket {
-        if let Some(client) = storage
-            .server
-            .borrow_mut()
-            .clients
-            .get_mut(tls_socket.0 - CLIENT_OFFSET)
-        {
+        if let Some(client) = storage.server.borrow_mut().clients.get_mut(tls_socket) {
             client.borrow_mut().state = ClientState::Closing;
         }
-        if let Some(client) = storage
-            .server
-            .borrow_mut()
-            .clients
-            .get_mut(non_tls_socket.0 - CLIENT_OFFSET)
-        {
+        if let Some(client) = storage.server.borrow_mut().clients.get_mut(non_tls_socket) {
             client.borrow_mut().state = ClientState::Closing;
         }
     }
@@ -462,12 +418,7 @@ pub fn handle_login(
 
     storage.player_ids.borrow_mut().insert(entity);
 
-    if let Some(client) = storage
-        .server
-        .borrow_mut()
-        .clients
-        .get_mut(socket.tls_id.0 - CLIENT_OFFSET)
-    {
+    if let Some(client) = storage.server.borrow_mut().clients.get_mut(socket.tls_id) {
         client.borrow_mut().entity = Some(entity);
     }
 

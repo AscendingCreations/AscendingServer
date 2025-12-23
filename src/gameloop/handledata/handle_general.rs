@@ -1,6 +1,5 @@
 use chrono::Duration;
 use log::{debug, info};
-use mio::Token;
 use mmap_bytey::MByteBuffer;
 use rand::distr::{Alphanumeric, SampleString};
 
@@ -17,8 +16,8 @@ use crate::{
         player_warp, reconnect_player, send_reconnect_info, send_tls_reconnect, take_inv_itemslot,
     },
     socket::{
-        CLIENT_OFFSET, MByteBufferExt, send_clear_data, send_clearisusingtype, send_fltalert,
-        send_gameping, send_message, send_traderequest,
+        MByteBufferExt, send_clear_data, send_clearisusingtype, send_fltalert, send_gameping,
+        send_message, send_traderequest,
     },
     time_ext::MyInstant,
 };
@@ -47,7 +46,7 @@ pub fn handle_message(
         None => return Err(AscendingError::InvalidSocket),
     };
 
-    let mut usersocket: Option<Token> = None;
+    let mut usersocket: Option<usize> = None;
 
     let channel = data.read::<MessageChannel>()?;
     let msg = data.read::<String>()?;
@@ -541,12 +540,7 @@ pub fn handle_tls_reconnect(
         let code = Alphanumeric.sample_string(&mut rand::rng(), 32);
         let handshake = Alphanumeric.sample_string(&mut rand::rng(), 32);
 
-        if let Some(client) = storage
-            .server
-            .borrow()
-            .clients
-            .get(socket_id.id.0 - CLIENT_OFFSET)
-        {
+        if let Some(client) = storage.server.borrow().clients.get(socket_id.id) {
             client.borrow_mut().entity = Some(entity);
         }
 
@@ -606,21 +600,11 @@ pub fn handle_disconnect(
             if !p_data.combat.in_combat {
                 let socket = &p_data.socket;
 
-                if let Some(client) = storage
-                    .server
-                    .borrow_mut()
-                    .clients
-                    .get_mut(socket.id.0 - CLIENT_OFFSET)
-                {
+                if let Some(client) = storage.server.borrow_mut().clients.get_mut(socket.id) {
                     client.borrow_mut().entity = None;
                 }
 
-                if let Some(client) = storage
-                    .server
-                    .borrow_mut()
-                    .clients
-                    .get_mut(socket.tls_id.0 - CLIENT_OFFSET)
-                {
+                if let Some(client) = storage.server.borrow_mut().clients.get_mut(socket.tls_id) {
                     client.borrow_mut().entity = None;
                 }
             }
@@ -656,14 +640,9 @@ pub fn handle_reconnect(
             return Err(AscendingError::InvalidSocket);
         }
 
-        let socket = if let Some(client) = storage
-            .server
-            .borrow()
-            .clients
-            .get(socket_id.id.0 - CLIENT_OFFSET)
-        {
+        let socket = if let Some(client) = storage.server.borrow().clients.get(socket_id.id) {
             let brw_client = client.borrow();
-            Socket::new(Token(0), socket_id.id, brw_client.addr.to_string())?
+            Socket::new(usize::MAX, socket_id.id, brw_client.addr.to_string())?
         } else {
             return Err(AscendingError::InvalidSocket);
         };

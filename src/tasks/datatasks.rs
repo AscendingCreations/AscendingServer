@@ -5,7 +5,6 @@ use crate::{
 };
 use indexmap::map::Entry;
 use log::warn;
-use mio::Token;
 use mmap_bytey::BUFFER_SIZE;
 use std::collections::VecDeque;
 /* Information Packet Data Portion Worse case is 1400 bytes
@@ -29,9 +28,9 @@ pub enum DataTaskToken {
     MapChat(MapPosition),
     ItemLoad(MapPosition),
     EntityUnload(MapPosition),
-    PlayerSpawnToEntity(Token), //SocketID
-    NpcSpawnToEntity(Token),    //SocketID
-    ItemLoadToEntity(Token),    //SocketID
+    PlayerSpawnToEntity(usize), //SocketID
+    NpcSpawnToEntity(usize),    //SocketID
+    ItemLoadToEntity(usize),    //SocketID
     GlobalChat,
 }
 
