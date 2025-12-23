@@ -234,7 +234,10 @@ impl Client {
         buffer.move_cursor(pos)?;
 
         if !buffer.is_empty() {
-            storage.recv_ids.borrow_mut().insert(self.token);
+            storage
+                .recv_ids
+                .borrow_mut()
+                .insert(self.token.0 - CLIENT_OFFSET);
         }
 
         Ok(())
@@ -278,7 +281,10 @@ impl Client {
         buffer.move_cursor(pos)?;
 
         if !buffer.is_empty() {
-            storage.recv_ids.borrow_mut().insert(self.token);
+            storage
+                .recv_ids
+                .borrow_mut()
+                .insert(self.token.0 - CLIENT_OFFSET);
         }
 
         Ok(())
@@ -565,12 +571,12 @@ pub fn send_to_entities(
     Ok(())
 }
 
-pub fn get_length(storage: &Storage, buffer: &mut ByteBuffer, token: Token) -> Result<Option<u64>> {
+pub fn get_length(storage: &Storage, buffer: &mut ByteBuffer, token: usize) -> Result<Option<u64>> {
     if buffer.length() - buffer.cursor() >= 8 {
         let length = buffer.read::<u64>()?;
 
         if !(1..=8192).contains(&length)
-            && let Some(client) = storage.server.borrow().clients.get(token.0 - CLIENT_OFFSET)
+            && let Some(client) = storage.server.borrow().clients.get(token)
         {
             trace!("Player was disconnected on get_length LENGTH: {length:?}");
             client.borrow_mut().set_to_closing();
@@ -586,14 +592,14 @@ pub fn get_length(storage: &Storage, buffer: &mut ByteBuffer, token: Token) -> R
 pub const MAX_PROCESSED_PACKETS: i32 = 25;
 
 pub fn process_packets(world: &mut World, storage: &Storage) -> Result<()> {
-    let mut rem_arr: Vec<(Token, bool)> = Vec::with_capacity(64);
+    let mut rem_arr: Vec<(usize, bool)> = Vec::with_capacity(64);
     let mut packet = MByteBuffer::new()?;
 
-    'user_loop: for token in &*storage.recv_ids.borrow() {
+    'user_loop: for &token in &*storage.recv_ids.borrow() {
         let mut count = 0;
 
         let (lock, entity, address, is_tls) = {
-            match storage.server.borrow().clients.get(token.0 - CLIENT_OFFSET) {
+            match storage.server.borrow().clients.get(token) {
                 Some(v) => {
                     let brw_client = v.borrow();
                     (
@@ -605,7 +611,7 @@ pub fn process_packets(world: &mut World, storage: &Storage) -> Result<()> {
                 }
                 None => {
                     error!("Socket was missing in server clients.");
-                    rem_arr.push((*token, false));
+                    rem_arr.push((token, false));
                     continue 'user_loop;
                 }
             }
@@ -614,10 +620,10 @@ pub fn process_packets(world: &mut World, storage: &Storage) -> Result<()> {
         if let Ok(mut buffer) = lock.lock() {
             loop {
                 packet.move_cursor_to_start();
-                let length = match get_length(storage, &mut buffer, *token)? {
+                let length = match get_length(storage, &mut buffer, token)? {
                     Some(n) => n,
                     None => {
-                        rem_arr.push((*token, false));
+                        rem_arr.push((token, false));
                         break;
                     }
                 };
@@ -625,7 +631,7 @@ pub fn process_packets(world: &mut World, storage: &Storage) -> Result<()> {
                 if length == 0 {
                     trace!("Length was Zero. Bad or malformed packet from IP: {address}");
 
-                    rem_arr.push((*token, true));
+                    rem_arr.push((token, true));
                     continue 'user_loop;
                 }
 
@@ -634,7 +640,7 @@ pub fn process_packets(world: &mut World, storage: &Storage) -> Result<()> {
                         "Length was {length} greater than the max packet size of {address}. Bad or malformed packet from IP: {BUFFER_SIZE}"
                     );
 
-                    rem_arr.push((*token, true));
+                    rem_arr.push((token, true));
                     continue 'user_loop;
                 }
 
@@ -653,18 +659,15 @@ pub fn process_packets(world: &mut World, storage: &Storage) -> Result<()> {
 
                     if errored {
                         warn!("IP: {address} was disconnected due to error on packet length.");
-                        rem_arr.push((*token, true));
+                        rem_arr.push((token, true));
                         continue 'user_loop;
                     }
 
-                    let socketid = SocketID {
-                        id: token.0 - CLIENT_OFFSET,
-                        is_tls,
-                    };
+                    let socketid = SocketID { id: token, is_tls };
 
                     if handle_data(world, storage, &mut packet, entity, socketid).is_err() {
                         warn!("IP: {address} was disconnected due to invalid packets");
-                        rem_arr.push((*token, true));
+                        rem_arr.push((token, true));
                         continue 'user_loop;
                     }
 
@@ -673,7 +676,7 @@ pub fn process_packets(world: &mut World, storage: &Storage) -> Result<()> {
                     let cursor = buffer.cursor() - 8;
                     buffer.move_cursor(cursor)?;
 
-                    rem_arr.push((*token, false));
+                    rem_arr.push((token, false));
                     break;
                 }
 
@@ -711,9 +714,7 @@ pub fn process_packets(world: &mut World, storage: &Storage) -> Result<()> {
     for (token, should_close) in rem_arr {
         storage.recv_ids.borrow_mut().swap_remove(&token);
 
-        if should_close
-            && let Some(client) = storage.server.borrow().clients.get(token.0 - CLIENT_OFFSET)
-        {
+        if should_close && let Some(client) = storage.server.borrow().clients.get(token) {
             client.borrow_mut().set_to_closing();
         }
     }

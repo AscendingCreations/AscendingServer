@@ -9,7 +9,7 @@ use crate::{
 };
 use chrono::Duration;
 use log::{LevelFilter, error, info, trace, warn};
-use mio::{Poll, Token};
+use mio::Poll;
 use rustls::{
     ServerConfig,
     crypto::{CryptoProvider, ring as provider},
@@ -45,7 +45,7 @@ pub struct ClearCodeData {
 
 pub struct Storage {
     pub player_ids: RefCell<IndexSet<GlobalKey>>,
-    pub recv_ids: RefCell<IndexSet<Token>>,
+    pub recv_ids: RefCell<IndexSet<usize>>,
     pub npc_ids: RefCell<IndexSet<GlobalKey>>,
     pub player_names: RefCell<HashMap<String, GlobalKey>>, //for player names to ID's
     pub maps: IndexMap<MapPosition, RefCell<MapData>>,
