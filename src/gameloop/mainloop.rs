@@ -11,12 +11,12 @@ use chrono::Duration;
 
 pub fn game_loop(world: &mut World, storage: &Storage) {
     let mut tick: MyInstant;
-    let mut tmr100: MyInstant = MyInstant::now();
-    let mut tmr150: MyInstant = MyInstant::now();
-    let mut tmr500: MyInstant = MyInstant::now();
-    let mut tmr1000: MyInstant = MyInstant::now();
-    let mut tmr60000: MyInstant = MyInstant::now();
-    let mut ping_timer: MyInstant = MyInstant::now();
+    let mut tmr100: MyInstant = MyInstant::recent();
+    let mut tmr150: MyInstant = MyInstant::recent();
+    let mut tmr500: MyInstant = MyInstant::recent();
+    let mut tmr1000: MyInstant = MyInstant::recent();
+    let mut tmr60000: MyInstant = MyInstant::recent();
+    let mut ping_timer: MyInstant = MyInstant::recent();
 
     let mut entity_progress = 0u64;
     let mut npc_progress = 0u64;
@@ -24,7 +24,7 @@ pub fn game_loop(world: &mut World, storage: &Storage) {
     let mut max_batch = (storage.npc_ids.borrow().len() as f32 / 5.0).ceil() as usize;
 
     loop {
-        let _ = storage.gettick.replace(MyInstant::now());
+        let _ = storage.gettick.replace(MyInstant::recent());
         tick = *storage.gettick.borrow();
 
         if tick > tmr100 {

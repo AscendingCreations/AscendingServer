@@ -143,7 +143,7 @@ pub struct SpawnItemData {
     pub pos: Position,
     pub timer_set: u64,
     // Editable
-    #[educe(Default = MyInstant::now())]
+    #[educe(Default = MyInstant::recent())]
     pub timer: MyInstant,
 }
 

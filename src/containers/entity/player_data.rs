@@ -61,7 +61,7 @@ pub struct Account {
 #[derive(Copy, Clone, Debug, Educe)]
 #[educe(Default)]
 pub struct PlayerConnection {
-    #[educe(Default = MyInstant::now())]
+    #[educe(Default = MyInstant::recent())]
     pub disconnect_timer: MyInstant,
     pub connection_code: Uuid,
 }
@@ -99,14 +99,14 @@ impl Socket {
 #[derive(Copy, Clone, Debug, Educe)]
 #[educe(Default)]
 pub struct PlayerItemTimer {
-    #[educe(Default = MyInstant::now())]
+    #[educe(Default = MyInstant::recent())]
     pub itemtimer: MyInstant,
 }
 
 #[derive(Copy, Clone, Debug, Educe)]
 #[educe(Default)]
 pub struct PlayerMapTimer {
-    #[educe(Default = MyInstant::now())]
+    #[educe(Default = MyInstant::recent())]
     pub mapitemtimer: MyInstant,
 }
 
@@ -157,7 +157,7 @@ pub enum TradeStatus {
 pub struct TradeRequestEntity {
     #[educe(Default = None)]
     pub entity: Option<GlobalKey>,
-    #[educe(Default = MyInstant::now())]
+    #[educe(Default = MyInstant::recent())]
     pub requesttimer: MyInstant,
 }
 
@@ -191,7 +191,7 @@ pub struct Money {
 
 #[derive(Educe, Debug, Copy, Clone, PartialEq, Eq)]
 #[educe(Default)]
-pub struct PlayerConnectionTimer(#[educe(Default = MyInstant::now())] pub MyInstant);
+pub struct PlayerConnectionTimer(#[educe(Default = MyInstant::recent())] pub MyInstant);
 
 #[derive(Clone, Debug, Default)]
 pub struct ReloginCode {

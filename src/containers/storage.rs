@@ -231,7 +231,7 @@ impl Storage {
             clear_code: RefCell::new(IndexSet::default()),
             poll: RefCell::new(poll),
             server: RefCell::new(server),
-            gettick: RefCell::new(MyInstant::now()),
+            gettick: RefCell::new(MyInstant::recent()),
             pgconn,
             time: RefCell::new(GameTime::default()),
             map_switch_tasks: RefCell::new(IndexMap::default()),

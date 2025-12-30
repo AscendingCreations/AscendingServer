@@ -21,7 +21,7 @@ pub struct MovementData {
 pub struct Spawn {
     #[educe(Default = Position::new(10, 10, MapPosition::new(0,0,0)))]
     pub pos: Position,
-    #[educe(Default  = MyInstant::now())]
+    #[educe(Default  = MyInstant::recent())]
     pub just_spawned: MyInstant,
 }
 
@@ -55,26 +55,26 @@ pub struct Vitals {
 
 #[derive(Educe, Debug, Copy, Clone, PartialEq, Eq)]
 #[educe(Default)]
-pub struct AttackTimer(#[educe(Default = MyInstant::now())] pub MyInstant);
+pub struct AttackTimer(#[educe(Default = MyInstant::recent())] pub MyInstant);
 
 #[derive(Educe, Debug, Copy, Clone, PartialEq, Eq)]
 #[educe(Default)]
-pub struct DeathTimer(#[educe(Default = MyInstant::now())] pub MyInstant);
+pub struct DeathTimer(#[educe(Default = MyInstant::recent())] pub MyInstant);
 
 #[derive(Educe, Debug, Copy, Clone, PartialEq, Eq)]
 #[educe(Default)]
-pub struct CombatTimer(#[educe(Default = MyInstant::now())] pub MyInstant);
+pub struct CombatTimer(#[educe(Default = MyInstant::recent())] pub MyInstant);
 
 #[derive(Educe, Debug, Copy, Clone, PartialEq, Eq)]
 #[educe(Default)]
-pub struct MoveTimer(#[educe(Default = MyInstant::now())] pub MyInstant);
+pub struct MoveTimer(#[educe(Default = MyInstant::recent())] pub MyInstant);
 
 #[derive(Educe, Debug, Copy, Clone, PartialEq, Eq)]
 #[educe(Default)]
 pub struct Target {
     pub target_entity: Option<GlobalKey>,
     pub target_pos: Position,
-    #[educe(Default = MyInstant::now())]
+    #[educe(Default = MyInstant::recent())]
     pub target_timer: MyInstant,
 }
 

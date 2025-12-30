@@ -23,4 +23,4 @@ pub struct MapItem {
 
 #[derive(Educe, Debug, Copy, Clone, PartialEq, Eq)]
 #[educe(Default)]
-pub struct DespawnTimer(#[educe(Default = MyInstant::now())] pub MyInstant);
+pub struct DespawnTimer(#[educe(Default = MyInstant::recent())] pub MyInstant);

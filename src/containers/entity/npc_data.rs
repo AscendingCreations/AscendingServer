@@ -38,20 +38,20 @@ pub struct NpcEntity {
 #[derive(Educe, Debug, Copy, Clone, PartialEq, Eq)]
 #[educe(Default)]
 pub struct NpcTimer {
-    #[educe(Default = MyInstant::now())]
+    #[educe(Default = MyInstant::recent())]
     pub despawntimer: MyInstant,
-    #[educe(Default = MyInstant::now())]
+    #[educe(Default = MyInstant::recent())]
     pub spawntimer: MyInstant,
 }
 
 #[derive(Educe, Debug, Copy, Clone, PartialEq, Eq)]
 #[educe(Default)]
-pub struct NpcAITimer(#[educe(Default = MyInstant::now())] pub MyInstant); //for rebuilding the a* paths
+pub struct NpcAITimer(#[educe(Default = MyInstant::recent())] pub MyInstant); //for rebuilding the a* paths
 
 #[derive(Educe, Debug, Copy, Clone, PartialEq, Eq)]
 #[educe(Default)]
 pub struct NpcPathTimer {
-    #[educe(Default = MyInstant::now())]
+    #[educe(Default = MyInstant::recent())]
     pub timer: MyInstant,
     pub tries: usize,
     //when failing to move due to blocks in movement.

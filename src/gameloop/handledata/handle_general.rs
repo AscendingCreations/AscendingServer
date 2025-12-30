@@ -616,7 +616,7 @@ pub fn handle_disconnect(
             storage
                 .player_timeout
                 .borrow_mut()
-                .insert(entity, PlayerConnectionTimer(MyInstant::now()));
+                .insert(entity, PlayerConnectionTimer(MyInstant::recent()));
         }
     }
 

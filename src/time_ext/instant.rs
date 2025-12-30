@@ -14,6 +14,10 @@ impl MyInstant {
         MyInstant(Instant::now())
     }
 
+    pub fn recent() -> MyInstant {
+        MyInstant(Instant::recent())
+    }
+
     pub fn to_dur(self) -> i64 {
         let mut dur: i64 = 0;
 
