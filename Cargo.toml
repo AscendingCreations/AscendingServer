@@ -67,6 +67,7 @@ uuid = {version = "1.16.0", features = [
   "macro-diagnostics", # Enable better diagnostics for compile-time UUIDs
 ]}
 webpki-roots = "0.26.8"
+coarsetime = "0.1.36"
 
 [profile.dev]
 codegen-units = 256

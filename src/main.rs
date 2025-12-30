@@ -23,6 +23,7 @@ use log::{Level, Metadata, Record, error, info};
 use std::{env, fs::File, io::Write, panic};
 
 use crate::containers::read_config;
+use coarsetime::Updater;
 
 // used to get string input when we add a command console to control the game.
 // until then we will just not use this.
@@ -92,6 +93,12 @@ fn main() {
     }));
 
     info!("Starting up");
+    info!("Initializing Timer");
+    // the timer is coarse so it only updates every 10-17ms.
+    let updater = Updater::new(17).start().unwrap();
+
+    // Start the Instant Timer thread.
+    let updater = updater.start().unwrap();
     info!("Initializing Storage");
     let storage = Storage::new(config).unwrap();
     info!("Initializing World");
@@ -99,4 +106,6 @@ fn main() {
 
     info!("Game Server is Running.");
     game_loop(&mut world, &storage);
+
+    updater.stop().unwrap();
 }
