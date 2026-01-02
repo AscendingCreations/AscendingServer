@@ -1,3 +1,8 @@
+use super::{
+    CombatData, Entity, EntityKind, GlobalKey, HashSet, LoginHandShake, MovementData, NpcEntity,
+    NpcMode, NpcTimer, PlayerConnectionTimer, PlayerEntity, ReloginCode, Socket, Spawn, Vitals,
+    World,
+};
 use crate::{
     containers::{Bases, HashMap, IndexMap, IndexSet},
     gametypes::*,
@@ -5,7 +10,6 @@ use crate::{
     npcs::*,
     socket::*,
     tasks::{DataTaskToken, MapSwitchTasks},
-    time_ext::MyInstant,
 };
 use chrono::Duration;
 use log::{LevelFilter, error, info, trace, warn};
@@ -28,19 +32,14 @@ use std::{
     io::BufReader,
     sync::{Arc, Mutex},
 };
+use time::Instant;
 use tokio::runtime::Runtime;
 use tokio::task;
-
-use super::{
-    CombatData, Entity, EntityKind, GlobalKey, HashSet, LoginHandShake, MovementData, NpcEntity,
-    NpcMode, NpcTimer, PlayerConnectionTimer, PlayerEntity, ReloginCode, Socket, Spawn, Vitals,
-    World,
-};
 
 #[derive(Hash, PartialEq, Eq, Clone)]
 pub struct ClearCodeData {
     pub code: String,
-    pub timer: MyInstant,
+    pub timer: Instant,
 }
 
 pub struct Storage {
@@ -63,7 +62,7 @@ pub struct Storage {
     pub packet_cache_ids: RefCell<IndexSet<DataTaskToken>>,
     pub poll: RefCell<mio::Poll>,
     pub server: RefCell<Server>,
-    pub gettick: RefCell<MyInstant>,
+    pub gettick: RefCell<Instant>,
     pub pgconn: PgPool,
     pub time: RefCell<GameTime>,
     pub map_switch_tasks: RefCell<IndexMap<GlobalKey, Vec<MapSwitchTasks>>>, //Data Tasks For dealing with Player Warp and MapSwitch
@@ -231,7 +230,7 @@ impl Storage {
             clear_code: RefCell::new(IndexSet::default()),
             poll: RefCell::new(poll),
             server: RefCell::new(server),
-            gettick: RefCell::new(MyInstant::recent()),
+            gettick: RefCell::new(Instant::recent()),
             pgconn,
             time: RefCell::new(GameTime::default()),
             map_switch_tasks: RefCell::new(IndexMap::default()),

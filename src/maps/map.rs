@@ -1,7 +1,6 @@
 use crate::{
     containers::{EntityKind, GlobalKey, HashSet, IndexSet, Storage},
     gametypes::*,
-    time_ext::MyInstant,
 };
 use bit_op::{BitOp, bit_u8::*};
 use educe::Educe;
@@ -12,6 +11,7 @@ use std::{
     fs::{self, OpenOptions},
     io::Read,
 };
+use time::Instant;
 
 const MAP_PATH: &str = "./data/maps/";
 
@@ -143,8 +143,8 @@ pub struct SpawnItemData {
     pub pos: Position,
     pub timer_set: u64,
     // Editable
-    #[educe(Default = MyInstant::recent())]
-    pub timer: MyInstant,
+    #[educe(Default = Instant::recent())]
+    pub timer: Instant,
 }
 
 #[derive(Clone, Educe)]

@@ -5,18 +5,18 @@ use crate::{
     players::*,
     socket::*,
     tasks::{process_data_lists, process_tasks},
-    time_ext::MyInstant,
 };
 use chrono::Duration;
+use time::Instant;
 
 pub fn game_loop(world: &mut World, storage: &Storage) {
-    let mut tick: MyInstant;
-    let mut tmr100: MyInstant = MyInstant::recent();
-    let mut tmr150: MyInstant = MyInstant::recent();
-    let mut tmr500: MyInstant = MyInstant::recent();
-    let mut tmr1000: MyInstant = MyInstant::recent();
-    let mut tmr60000: MyInstant = MyInstant::recent();
-    let mut ping_timer: MyInstant = MyInstant::recent();
+    let mut tick: Instant;
+    let mut tmr100: Instant = Instant::recent();
+    let mut tmr150: Instant = Instant::recent();
+    let mut tmr500: Instant = Instant::recent();
+    let mut tmr1000: Instant = Instant::recent();
+    let mut tmr60000: Instant = Instant::recent();
+    let mut ping_timer: Instant = Instant::recent();
 
     let mut entity_progress = 0u64;
     let mut npc_progress = 0u64;
@@ -24,7 +24,7 @@ pub fn game_loop(world: &mut World, storage: &Storage) {
     let mut max_batch = (storage.npc_ids.borrow().len() as f32 / 5.0).ceil() as usize;
 
     loop {
-        let _ = storage.gettick.replace(MyInstant::recent());
+        let _ = storage.gettick.replace(Instant::recent());
         tick = *storage.gettick.borrow();
 
         if tick > tmr100 {

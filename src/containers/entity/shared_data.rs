@@ -1,12 +1,11 @@
-use educe::Educe;
-use mmap_bytey::{MByteBufferRead, MByteBufferWrite};
-use serde::{Deserialize, Serialize};
-
 use crate::{
     containers::GlobalKey,
     gametypes::{MapPosition, Position, VITALS_MAX},
-    time_ext::MyInstant,
 };
+use educe::Educe;
+use mmap_bytey::{MByteBufferRead, MByteBufferWrite};
+use serde::{Deserialize, Serialize};
+use time::Instant;
 
 #[derive(Debug, Clone, Default)]
 pub struct MovementData {
@@ -21,8 +20,8 @@ pub struct MovementData {
 pub struct Spawn {
     #[educe(Default = Position::new(10, 10, MapPosition::new(0,0,0)))]
     pub pos: Position,
-    #[educe(Default  = MyInstant::recent())]
-    pub just_spawned: MyInstant,
+    #[educe(Default  = Instant::recent())]
+    pub just_spawned: Instant,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -55,27 +54,27 @@ pub struct Vitals {
 
 #[derive(Educe, Debug, Copy, Clone, PartialEq, Eq)]
 #[educe(Default)]
-pub struct AttackTimer(#[educe(Default = MyInstant::recent())] pub MyInstant);
+pub struct AttackTimer(#[educe(Default = Instant::recent())] pub Instant);
 
 #[derive(Educe, Debug, Copy, Clone, PartialEq, Eq)]
 #[educe(Default)]
-pub struct DeathTimer(#[educe(Default = MyInstant::recent())] pub MyInstant);
+pub struct DeathTimer(#[educe(Default = Instant::recent())] pub Instant);
 
 #[derive(Educe, Debug, Copy, Clone, PartialEq, Eq)]
 #[educe(Default)]
-pub struct CombatTimer(#[educe(Default = MyInstant::recent())] pub MyInstant);
+pub struct CombatTimer(#[educe(Default = Instant::recent())] pub Instant);
 
 #[derive(Educe, Debug, Copy, Clone, PartialEq, Eq)]
 #[educe(Default)]
-pub struct MoveTimer(#[educe(Default = MyInstant::recent())] pub MyInstant);
+pub struct MoveTimer(#[educe(Default = Instant::recent())] pub Instant);
 
 #[derive(Educe, Debug, Copy, Clone, PartialEq, Eq)]
 #[educe(Default)]
 pub struct Target {
     pub target_entity: Option<GlobalKey>,
     pub target_pos: Position,
-    #[educe(Default = MyInstant::recent())]
-    pub target_timer: MyInstant,
+    #[educe(Default = Instant::recent())]
+    pub target_timer: Instant,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Default)]

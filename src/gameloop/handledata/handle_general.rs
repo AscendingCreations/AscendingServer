@@ -3,6 +3,7 @@ use log::{debug, info};
 use mmap_bytey::MByteBuffer;
 use rand::distr::{Alphanumeric, SampleString};
 
+use super::SocketID;
 use crate::{
     containers::{
         Entity, GlobalKey, IsUsingType, PlayerConnectionTimer, Socket, Storage, TradeRequestEntity,
@@ -19,10 +20,8 @@ use crate::{
         MByteBufferExt, send_clear_data, send_clearisusingtype, send_fltalert, send_gameping,
         send_message, send_traderequest,
     },
-    time_ext::MyInstant,
 };
-
-use super::SocketID;
+use time::Instant;
 
 pub fn handle_ping(
     _world: &mut World,
@@ -616,7 +615,7 @@ pub fn handle_disconnect(
             storage
                 .player_timeout
                 .borrow_mut()
-                .insert(entity, PlayerConnectionTimer(MyInstant::recent()));
+                .insert(entity, PlayerConnectionTimer(Instant::recent()));
         }
     }
 

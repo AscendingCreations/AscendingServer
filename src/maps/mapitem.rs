@@ -1,5 +1,6 @@
 use std::sync::{Arc, Mutex};
 
+use super::{MapAttribute, create_mapitem};
 use crate::{
     containers::{
         DespawnTimer, Entity, EntityKind, GlobalKey, IsUsingType, MapItem, MapItemEntity, Storage,
@@ -8,10 +9,8 @@ use crate::{
     gametypes::*,
     socket::*,
     tasks::{DataTaskToken, map_item_packet, unload_entity_packet},
-    time_ext::MyInstant,
 };
-
-use super::{MapAttribute, create_mapitem};
+use time::Instant;
 
 impl MapItem {
     pub fn new(num: u32) -> Self {
@@ -178,8 +177,8 @@ pub fn try_drop_item(
     world: &mut World,
     storage: &Storage,
     drop_item: DropItem,
-    despawn: Option<MyInstant>,
-    ownertimer: Option<MyInstant>,
+    despawn: Option<Instant>,
+    ownertimer: Option<Instant>,
     ownerid: Option<GlobalKey>,
 ) -> Result<bool> {
     let item_base = match storage.bases.items.get(drop_item.index as usize) {

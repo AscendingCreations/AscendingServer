@@ -1,12 +1,10 @@
+use super::{CombatData, MovementData, Sprite};
+use crate::gametypes::Position;
+use educe::Educe;
 use mmap_bytey::{MByteBufferRead, MByteBufferWrite};
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
-
-use educe::Educe;
-
-use crate::{gametypes::Position, time_ext::MyInstant};
-
-use super::{CombatData, MovementData, Sprite};
+use time::Instant;
 
 #[derive(Debug, Clone, Default)]
 pub struct NpcEntity {
@@ -38,21 +36,21 @@ pub struct NpcEntity {
 #[derive(Educe, Debug, Copy, Clone, PartialEq, Eq)]
 #[educe(Default)]
 pub struct NpcTimer {
-    #[educe(Default = MyInstant::recent())]
-    pub despawntimer: MyInstant,
-    #[educe(Default = MyInstant::recent())]
-    pub spawntimer: MyInstant,
+    #[educe(Default = Instant::recent())]
+    pub despawntimer: Instant,
+    #[educe(Default = Instant::recent())]
+    pub spawntimer: Instant,
 }
 
 #[derive(Educe, Debug, Copy, Clone, PartialEq, Eq)]
 #[educe(Default)]
-pub struct NpcAITimer(#[educe(Default = MyInstant::recent())] pub MyInstant); //for rebuilding the a* paths
+pub struct NpcAITimer(#[educe(Default = Instant::recent())] pub Instant); //for rebuilding the a* paths
 
 #[derive(Educe, Debug, Copy, Clone, PartialEq, Eq)]
 #[educe(Default)]
 pub struct NpcPathTimer {
-    #[educe(Default = MyInstant::recent())]
-    pub timer: MyInstant,
+    #[educe(Default = Instant::recent())]
+    pub timer: Instant,
     pub tries: usize,
     //when failing to move due to blocks in movement.
     pub fails: usize,

@@ -67,7 +67,16 @@ uuid = {version = "1.16.0", features = [
   "macro-diagnostics", # Enable better diagnostics for compile-time UUIDs
 ]}
 webpki-roots = "0.26.8"
-coarsetime = "0.1.36"
+
+[dependencies.time]
+#path = "../ascendinglibraries/time"
+#branch = "main"
+#features = ["static_dx"]
+#git = "https://github.com/AscendingCreations/AscendingLibraries"
+package = "ascending_time"
+version = "0.1.0"
+features = ["enable_serde", "enable_mmap_bytey", "enable_bytey", "sqlx_runtime-tokio", "sqlx_rustls", "sqlx_postgres" ]
+
 
 [profile.dev]
 codegen-units = 256

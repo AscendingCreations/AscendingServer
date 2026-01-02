@@ -1,18 +1,17 @@
-use crate::{
-    containers::{Entity, GlobalKey, Storage, World},
-    gametypes::*,
-    sql::integers::Shifting,
-    time_ext::MyInstant,
-};
-
 use super::{
     PGCombat, PGEquipmentSlot, PGGeneral, PGInventorySlot, PGLocation, PGStorageSlot,
     sql_update_combat, sql_update_equipment_slot, sql_update_general, sql_update_inventory_slot,
     sql_update_level, sql_update_location, sql_update_money, sql_update_resetcount,
     sql_update_storage_slot,
 };
+use crate::{
+    containers::{Entity, GlobalKey, Storage, World},
+    gametypes::*,
+    sql::integers::Shifting,
+};
+use time::Instant;
 
-pub fn get_time_left(cur_time: MyInstant, system_time: MyInstant) -> i64 {
+pub fn get_time_left(cur_time: Instant, system_time: Instant) -> i64 {
     let cur_timer = cur_time.to_dur();
     let cur_time = system_time.to_dur();
     cur_timer.saturating_sub(cur_time).max(0)

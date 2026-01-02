@@ -1,0 +1,1 @@
+subjectAltName = IP:127.0.0.1, IP:104.254.187.43 openssl x509 -req -days 365 -CA ca-crt.pem -CAkey ca-key.pem -CAcreateserial -in server-csr.pem -out server.crt -extfile server-crt.ext

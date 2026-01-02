@@ -3,12 +3,12 @@ use crate::{
     containers::{GlobalKey, HashSet},
     gametypes::*,
     items::Item,
-    time_ext::MyInstant,
 };
 use educe::Educe;
 use mmap_bytey::{MByteBufferRead, MByteBufferWrite};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use time::Instant;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Default)]
@@ -61,8 +61,8 @@ pub struct Account {
 #[derive(Copy, Clone, Debug, Educe)]
 #[educe(Default)]
 pub struct PlayerConnection {
-    #[educe(Default = MyInstant::recent())]
-    pub disconnect_timer: MyInstant,
+    #[educe(Default = Instant::recent())]
+    pub disconnect_timer: Instant,
     pub connection_code: Uuid,
 }
 
@@ -99,15 +99,15 @@ impl Socket {
 #[derive(Copy, Clone, Debug, Educe)]
 #[educe(Default)]
 pub struct PlayerItemTimer {
-    #[educe(Default = MyInstant::recent())]
-    pub itemtimer: MyInstant,
+    #[educe(Default = Instant::recent())]
+    pub itemtimer: Instant,
 }
 
 #[derive(Copy, Clone, Debug, Educe)]
 #[educe(Default)]
 pub struct PlayerMapTimer {
-    #[educe(Default = MyInstant::recent())]
-    pub mapitemtimer: MyInstant,
+    #[educe(Default = Instant::recent())]
+    pub mapitemtimer: Instant,
 }
 
 #[derive(
@@ -157,8 +157,8 @@ pub enum TradeStatus {
 pub struct TradeRequestEntity {
     #[educe(Default = None)]
     pub entity: Option<GlobalKey>,
-    #[educe(Default = MyInstant::recent())]
-    pub requesttimer: MyInstant,
+    #[educe(Default = Instant::recent())]
+    pub requesttimer: Instant,
 }
 
 #[derive(
@@ -191,7 +191,7 @@ pub struct Money {
 
 #[derive(Educe, Debug, Copy, Clone, PartialEq, Eq)]
 #[educe(Default)]
-pub struct PlayerConnectionTimer(#[educe(Default = MyInstant::recent())] pub MyInstant);
+pub struct PlayerConnectionTimer(#[educe(Default = Instant::recent())] pub Instant);
 
 #[derive(Clone, Debug, Default)]
 pub struct ReloginCode {
