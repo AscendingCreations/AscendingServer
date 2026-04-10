@@ -73,10 +73,9 @@ webpki-roots = "0.26.8"
 #branch = "main"
 #features = ["static_dx"]
 #git = "https://github.com/AscendingCreations/AscendingLibraries"
+features = ["enable_serde", "enable_mmap_bytey", "enable_bytey", "sqlx_runtime-tokio", "sqlx_rustls", "sqlx_postgres"]
 package = "ascending_time"
-version = "0.1.0"
-features = ["enable_serde", "enable_mmap_bytey", "enable_bytey", "sqlx_runtime-tokio", "sqlx_rustls", "sqlx_postgres" ]
-
+version = "0.2.3"
 
 [profile.dev]
 codegen-units = 256
@@ -101,4 +100,3 @@ overflow-checks = true
 panic = 'unwind'
 rpath = false
 strip = "none"
-
