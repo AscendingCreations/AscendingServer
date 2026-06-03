@@ -1,5 +1,4 @@
-use argon2::{Argon2, PasswordHasher};
-use password_hash::SaltString;
+use argon2::{Argon2, PasswordHasher, password_hash::SaltString};
 use uuid::Uuid;
 
 use crate::{
@@ -7,7 +6,7 @@ use crate::{
     gametypes::*,
 };
 
-use sqlx::FromRow;
+use sqlx::{AssertSqlSafe, FromRow};
 
 #[derive(Debug, FromRow, Default)]
 pub struct PGAccount {
@@ -50,7 +49,7 @@ pub fn sql_new_account(
     let query = PGAccount::into_empty();
     let result: (Uuid,) = local.block_on(
         &rt,
-        sqlx::query_as(&query)
+        sqlx::query_as(AssertSqlSafe(query))
             .bind(username)
             .bind(address)
             .bind(hashed_password)
@@ -72,7 +71,10 @@ pub fn sql_load_account(storage: &Storage, account_id: Uuid) -> Result<PGAccount
         WHERE uid = '{account_id}';
         "#,
     );
-    let data: PGAccount = local.block_on(&rt, sqlx::query_as(&query).fetch_one(&storage.pgconn))?;
+    let data: PGAccount = local.block_on(
+        &rt,
+        sqlx::query_as(AssertSqlSafe(query)).fetch_one(&storage.pgconn),
+    )?;
 
     Ok(data)
 }
@@ -91,7 +93,7 @@ pub fn sql_update_account(storage: &Storage, uid: Uuid, user_access: UserAccess)
 
     local.block_on(
         &rt,
-        sqlx::query(&query_text)
+        sqlx::query(AssertSqlSafe(query_text))
             .bind(user_access)
             .execute(&storage.pgconn),
     )?;

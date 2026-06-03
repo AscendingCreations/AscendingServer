@@ -9,7 +9,7 @@ use crate::{
     tasks::{DataTaskToken, map_item_packet},
 };
 use chrono::Duration;
-use rand::{Rng, rng};
+use rand::{RngExt, rng};
 use std::{
     cmp::min,
     sync::{Arc, Mutex},

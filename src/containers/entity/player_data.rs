@@ -8,7 +8,7 @@ use educe::Educe;
 use mmap_bytey::{MByteBufferRead, MByteBufferWrite};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use time::Instant;
+use ascending_time::Instant;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Default)]

@@ -4,7 +4,7 @@ use uuid::Uuid;
 
 use crate::gametypes::*;
 
-use sqlx::FromRow;
+use sqlx::{AssertSqlSafe, FromRow};
 
 #[derive(Debug, FromRow)]
 pub struct PGEquipmentSlot {
@@ -47,7 +47,10 @@ pub fn sql_new_equipment(storage: &Storage, uid: Uuid) -> Result<()> {
 
     let query = PGEquipment::into_empty(uid);
 
-    local.block_on(&rt, sqlx::query(&query).execute(&storage.pgconn))?;
+    local.block_on(
+        &rt,
+        sqlx::query(AssertSqlSafe(query)).execute(&storage.pgconn),
+    )?;
 
     Ok(())
 }
@@ -65,7 +68,10 @@ pub fn sql_load_equipment(storage: &Storage, account_id: Uuid) -> Result<PGEquip
         "#,
     );
     let data = PGEquipment {
-        slot: local.block_on(&rt, sqlx::query_as(&query).fetch_all(&storage.pgconn))?,
+        slot: local.block_on(
+            &rt,
+            sqlx::query_as(AssertSqlSafe(query)).fetch_all(&storage.pgconn),
+        )?,
     };
 
     Ok(data)
@@ -94,7 +100,10 @@ pub fn sql_update_equipment_slot(
         uid, data.id, data.num, data.val, data.level, data_str
     );
 
-    local.block_on(&rt, sqlx::query(&query_text).execute(&storage.pgconn))?;
+    local.block_on(
+        &rt,
+        sqlx::query(AssertSqlSafe(query_text)).execute(&storage.pgconn),
+    )?;
 
     Ok(())
 }

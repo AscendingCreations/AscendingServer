@@ -4,7 +4,7 @@ use uuid::Uuid;
 
 use crate::gametypes::*;
 
-use sqlx::FromRow;
+use sqlx::{AssertSqlSafe, FromRow};
 
 #[derive(Debug, FromRow)]
 pub struct PGStorageSlot {
@@ -45,7 +45,10 @@ pub fn sql_new_storage(storage: &Storage, uid: Uuid) -> Result<()> {
     let local = storage.local.borrow();
 
     let query = PGStorage::into_empty(uid);
-    local.block_on(&rt, sqlx::query(&query).execute(&storage.pgconn))?;
+    local.block_on(
+        &rt,
+        sqlx::query(AssertSqlSafe(query)).execute(&storage.pgconn),
+    )?;
 
     Ok(())
 }
@@ -63,7 +66,10 @@ pub fn sql_load_storage(storage: &Storage, account_id: Uuid) -> Result<PGStorage
         "#,
     );
     let data = PGStorage {
-        slot: local.block_on(&rt, sqlx::query_as(&query).fetch_all(&storage.pgconn))?,
+        slot: local.block_on(
+            &rt,
+            sqlx::query_as(AssertSqlSafe(query)).fetch_all(&storage.pgconn),
+        )?,
     };
 
     Ok(data)
@@ -88,7 +94,10 @@ pub fn sql_update_storage_slot(storage: &Storage, uid: Uuid, data: PGStorageSlot
         uid, data.id, data.num, data.val, data.level, data_str
     );
 
-    local.block_on(&rt, sqlx::query(&query_text).execute(&storage.pgconn))?;
+    local.block_on(
+        &rt,
+        sqlx::query(AssertSqlSafe(query_text)).execute(&storage.pgconn),
+    )?;
 
     Ok(())
 }

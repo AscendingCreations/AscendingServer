@@ -1,5 +1,5 @@
 use crate::{containers::*, gametypes::*, maps::*};
-use rand::{Rng, rng};
+use rand::{RngExt, rng};
 use std::{
     cmp::Reverse,
     collections::{BinaryHeap, VecDeque},

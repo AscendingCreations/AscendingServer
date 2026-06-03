@@ -21,7 +21,7 @@ use crate::{
         send_message, send_traderequest,
     },
 };
-use time::Instant;
+use ascending_time::Instant;
 
 pub fn handle_ping(
     _world: &mut World,

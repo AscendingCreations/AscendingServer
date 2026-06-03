@@ -11,7 +11,7 @@ use std::{
     fs::{self, OpenOptions},
     io::Read,
 };
-use time::Instant;
+use ascending_time::Instant;
 
 const MAP_PATH: &str = "./data/maps/";
 

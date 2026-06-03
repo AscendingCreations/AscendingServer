@@ -4,7 +4,7 @@ use educe::Educe;
 use mmap_bytey::{MByteBufferRead, MByteBufferWrite};
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
-use time::Instant;
+use ascending_time::Instant;
 
 #[derive(Debug, Clone, Default)]
 pub struct NpcEntity {

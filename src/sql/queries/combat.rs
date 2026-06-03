@@ -4,7 +4,7 @@ use uuid::Uuid;
 
 use crate::gametypes::*;
 
-use sqlx::FromRow;
+use sqlx::{AssertSqlSafe, FromRow};
 
 #[derive(Debug, FromRow, Default)]
 pub struct PGCombat {
@@ -34,7 +34,10 @@ pub fn sql_new_combat(storage: &Storage, uid: Uuid) -> Result<()> {
     let local = storage.local.borrow();
 
     let query = PGCombat::into_empty(uid);
-    local.block_on(&rt, sqlx::query(&query).execute(&storage.pgconn))?;
+    local.block_on(
+        &rt,
+        sqlx::query(AssertSqlSafe(query)).execute(&storage.pgconn),
+    )?;
 
     Ok(())
 }
@@ -50,7 +53,10 @@ pub fn sql_load_combat(storage: &Storage, account_id: Uuid) -> Result<PGCombat> 
         WHERE uid = '{account_id}';
         "#,
     );
-    let data: PGCombat = local.block_on(&rt, sqlx::query_as(&query).fetch_one(&storage.pgconn))?;
+    let data: PGCombat = local.block_on(
+        &rt,
+        sqlx::query_as(AssertSqlSafe(query)).fetch_one(&storage.pgconn),
+    )?;
 
     Ok(data)
 }
@@ -84,7 +90,10 @@ pub fn sql_update_combat(storage: &Storage, uid: Uuid, data: PGCombat) -> Result
         uid, data.indeath, data.level, data.levelexp, data.pk, vital, vitalmax
     );
 
-    local.block_on(&rt, sqlx::query(&query_text).execute(&storage.pgconn))?;
+    local.block_on(
+        &rt,
+        sqlx::query(AssertSqlSafe(query_text)).execute(&storage.pgconn),
+    )?;
 
     Ok(())
 }
@@ -116,7 +125,10 @@ pub fn sql_update_level(storage: &Storage, uid: Uuid, data: PGCombat) -> Result<
         uid, data.level, data.levelexp, vital, vitalmax
     );
 
-    local.block_on(&rt, sqlx::query(&query_text).execute(&storage.pgconn))?;
+    local.block_on(
+        &rt,
+        sqlx::query(AssertSqlSafe(query_text)).execute(&storage.pgconn),
+    )?;
 
     Ok(())
 }

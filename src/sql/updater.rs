@@ -9,7 +9,7 @@ use crate::{
     gametypes::*,
     sql::integers::Shifting,
 };
-use time::Instant;
+use ascending_time::Instant;
 
 pub fn get_time_left(cur_time: Instant, system_time: Instant) -> i64 {
     let cur_timer = cur_time.to_dur();

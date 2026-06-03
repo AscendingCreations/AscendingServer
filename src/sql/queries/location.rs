@@ -2,7 +2,7 @@ use uuid::Uuid;
 
 use crate::{containers::Storage, gametypes::*};
 
-use sqlx::FromRow;
+use sqlx::{AssertSqlSafe, FromRow};
 
 #[derive(Debug, FromRow)]
 pub struct PGLocation {
@@ -29,7 +29,7 @@ pub fn sql_new_location(storage: &Storage, uid: Uuid) -> Result<()> {
     let query = PGLocation::into_empty(uid);
     local.block_on(
         &rt,
-        sqlx::query(&query)
+        sqlx::query(AssertSqlSafe(query))
             .bind(Position::default())
             .bind(Position::default())
             .execute(&storage.pgconn),
@@ -49,8 +49,10 @@ pub fn sql_load_location(storage: &Storage, account_id: Uuid) -> Result<PGLocati
         WHERE uid = '{account_id}';
         "#,
     );
-    let data: PGLocation =
-        local.block_on(&rt, sqlx::query_as(&query).fetch_one(&storage.pgconn))?;
+    let data: PGLocation = local.block_on(
+        &rt,
+        sqlx::query_as(AssertSqlSafe(query)).fetch_one(&storage.pgconn),
+    )?;
 
     Ok(data)
 }
@@ -70,7 +72,7 @@ pub fn sql_update_location(storage: &Storage, uid: Uuid, data: PGLocation) -> Re
 
     local.block_on(
         &rt,
-        sqlx::query(&query_text)
+        sqlx::query(AssertSqlSafe(query_text))
             .bind(data.spawn)
             .bind(data.pos)
             .execute(&storage.pgconn),

@@ -22,7 +22,7 @@ use log::{Level, Metadata, Record, error, info};
 use std::{env, fs::File, io::Write, panic};
 
 use crate::containers::read_config;
-use time::Updater;
+use ascending_time::Updater;
 
 // used to get string input when we add a command console to control the game.
 // until then we will just not use this.

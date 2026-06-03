@@ -6,8 +6,8 @@ use crate::{
     socket::*,
     tasks::{process_data_lists, process_tasks},
 };
+use ascending_time::Instant;
 use chrono::Duration;
-use time::Instant;
 
 pub fn game_loop(world: &mut World, storage: &Storage) {
     let mut tick: Instant;

@@ -3,7 +3,7 @@ use uuid::Uuid;
 
 use crate::gametypes::*;
 
-use sqlx::FromRow;
+use sqlx::{AssertSqlSafe, FromRow};
 
 #[derive(Debug, FromRow)]
 pub struct PGGeneral {
@@ -33,7 +33,10 @@ pub fn sql_new_general(storage: &Storage, uid: Uuid) -> Result<()> {
     let local = storage.local.borrow();
 
     let query = PGGeneral::into_empty(uid);
-    local.block_on(&rt, sqlx::query(&query).execute(&storage.pgconn))?;
+    local.block_on(
+        &rt,
+        sqlx::query(AssertSqlSafe(query)).execute(&storage.pgconn),
+    )?;
 
     Ok(())
 }
@@ -49,7 +52,10 @@ pub fn sql_load_general(storage: &Storage, account_id: Uuid) -> Result<PGGeneral
         WHERE uid = '{account_id}';
         "#,
     );
-    let data: PGGeneral = local.block_on(&rt, sqlx::query_as(&query).fetch_one(&storage.pgconn))?;
+    let data: PGGeneral = local.block_on(
+        &rt,
+        sqlx::query_as(AssertSqlSafe(query)).fetch_one(&storage.pgconn),
+    )?;
 
     Ok(data)
 }
@@ -71,7 +77,10 @@ pub fn sql_update_general(storage: &Storage, uid: Uuid, data: PGGeneral) -> Resu
         uid, data.sprite, data.money, data.resetcount, data.itemtimer, data.deathtimer,
     );
 
-    local.block_on(&rt, sqlx::query(&query_text).execute(&storage.pgconn))?;
+    local.block_on(
+        &rt,
+        sqlx::query(AssertSqlSafe(query_text)).execute(&storage.pgconn),
+    )?;
 
     Ok(())
 }
@@ -88,7 +97,10 @@ pub fn sql_update_resetcount(storage: &Storage, uid: Uuid, resetcount: i16) -> R
         "#
     );
 
-    local.block_on(&rt, sqlx::query(&query_text).execute(&storage.pgconn))?;
+    local.block_on(
+        &rt,
+        sqlx::query(AssertSqlSafe(query_text)).execute(&storage.pgconn),
+    )?;
 
     Ok(())
 }
@@ -105,7 +117,10 @@ pub fn sql_update_money(storage: &Storage, uid: Uuid, money: i64) -> Result<()> 
         "#,
     );
 
-    local.block_on(&rt, sqlx::query(&query_text).execute(&storage.pgconn))?;
+    local.block_on(
+        &rt,
+        sqlx::query(AssertSqlSafe(query_text)).execute(&storage.pgconn),
+    )?;
 
     Ok(())
 }

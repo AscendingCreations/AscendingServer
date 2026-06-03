@@ -10,7 +10,7 @@ use crate::{
     socket::*,
     tasks::{DataTaskToken, map_item_packet, unload_entity_packet},
 };
-use time::Instant;
+use ascending_time::Instant;
 
 impl MapItem {
     pub fn new(num: u32) -> Self {

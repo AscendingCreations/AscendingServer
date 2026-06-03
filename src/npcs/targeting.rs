@@ -5,7 +5,7 @@ use crate::{
     npcs::*,
 };
 use chrono::Duration;
-use rand::{Rng, rng};
+use rand::{RngExt, rng};
 
 pub fn targeting(
     world: &mut World,

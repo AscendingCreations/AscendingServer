@@ -8,7 +8,7 @@ use crate::{
     players::*,
     tasks::*,
 };
-use rand::{Rng, rng};
+use rand::{RngExt, rng};
 
 pub fn damage_npc(world: &mut World, entity: GlobalKey, damage: i32) -> Result<()> {
     if let Some(Entity::Npc(n_data)) = world.get_opt_entity(entity) {

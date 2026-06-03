@@ -11,6 +11,7 @@ use crate::{
     socket::*,
     tasks::{DataTaskToken, MapSwitchTasks},
 };
+use ascending_time::Instant;
 use chrono::Duration;
 use log::{LevelFilter, error, info, trace, warn};
 use mio::Poll;
@@ -32,7 +33,6 @@ use std::{
     io::BufReader,
     sync::{Arc, Mutex},
 };
-use time::Instant;
 use tokio::runtime::Runtime;
 use tokio::task;
 
