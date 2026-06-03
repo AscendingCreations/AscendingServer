@@ -15,6 +15,7 @@ use ascending_time::Instant;
 use chrono::Duration;
 use log::{LevelFilter, error, info, trace, warn};
 use mio::Poll;
+use pki_types::pem::PemObject;
 use rustls::{
     ServerConfig,
     crypto::{CryptoProvider, ring as provider},
@@ -147,38 +148,16 @@ pub fn read_config(path: &str) -> Config {
     toml::from_str(&data).unwrap()
 }
 
-fn load_certs(filename: &str) -> Vec<CertificateDer<'static>> {
-    let certfile = fs::File::open(filename).expect("cannot open certificate file");
-    let mut reader = BufReader::new(certfile);
-    rustls_pemfile::certs(&mut reader)
-        .map(|result| result.unwrap())
-        .collect()
-}
-
-fn load_private_key(filename: &str) -> PrivateKeyDer<'static> {
-    let keyfile = fs::File::open(filename).expect("cannot open private key file");
-    let mut reader = BufReader::new(keyfile);
-
-    loop {
-        match rustls_pemfile::read_one(&mut reader).expect("cannot parse private key .pem file") {
-            Some(rustls_pemfile::Item::Pkcs1Key(key)) => return key.into(),
-            Some(rustls_pemfile::Item::Pkcs8Key(key)) => return key.into(),
-            Some(rustls_pemfile::Item::Sec1Key(key)) => return key.into(),
-            None => break,
-            _ => {}
-        }
-    }
-
-    panic!("no keys found in {filename:?} (encrypted keys not supported)");
-}
-
 fn build_tls_config(
     server_certs_path: &str,
     server_key_path: &str,
     _ca_root_path: &str,
 ) -> Result<Arc<rustls::ServerConfig>> {
-    let certs = load_certs(server_certs_path);
-    let private_key = load_private_key(server_key_path);
+    let certs: Vec<CertificateDer> = CertificateDer::pem_file_iter(server_certs_path)
+        .unwrap()
+        .map(|t| t.unwrap())
+        .collect();
+    let private_key = PrivateKeyDer::from_pem_file(server_key_path).unwrap();
 
     let config = ServerConfig::builder_with_provider(
         CryptoProvider {
