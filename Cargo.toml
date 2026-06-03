@@ -13,7 +13,7 @@ version = "0.1.0"
 [dependencies]
 ahash = "0.8.11"
 argon2 = "0.5.3"
-ascending_time = {version = "0.2.3", features = ["enable_serde", "enable_mmap_bytey", "enable_bytey", "sqlx_rustls"]}
+ascending_time = {version = "0.3.0", features = ["enable_serde", "enable_mmap_bytey", "enable_bytey", "sqlx_rustls"]}
 backtrace = "0.3.76"
 bit_op = "0.1.1"
 bytey = "0.4.0"
