@@ -654,7 +654,7 @@ pub fn handle_reconnect(
 
         info!(
             "Player {} with IP: {}, Reconnecting on handle_reconnect .",
-            &name, address
+            name, address
         );
 
         let code = Alphanumeric.sample_string(&mut rand::rng(), 32);

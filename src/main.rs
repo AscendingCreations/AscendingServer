@@ -48,7 +48,7 @@ impl log::Log for MyLogger {
     fn log(&self, record: &Record) {
         if self.enabled(record.metadata()) {
             let msg = format!("{} - {}\n", record.level(), record.args());
-            println!("{}", &msg);
+            println!("{}", msg);
 
             let mut file = match File::options()
                 .append(true)
@@ -62,7 +62,7 @@ impl log::Log for MyLogger {
             let _ = file.write(msg.as_bytes());
         } else if self.0 == Level::Info {
             let msg = format!("{} - {}\n", record.level(), record.args());
-            println!("{}", &msg);
+            println!("{}", msg);
         }
     }
     fn flush(&self) {}

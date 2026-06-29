@@ -183,28 +183,26 @@ pub fn update_npcs_spawn(world: &mut World, storage: &Storage, batch_index: usiz
                     }
                 }
                 DeathType::Dead => storage.unload_npc.borrow_mut().push(id),
-                DeathType::Spawning => {
-                    if spawn_timer < tick {
-                        let map_data = match storage.maps.get(&spawn_pos.map) {
-                            Some(map) => map,
-                            None => continue,
-                        };
+                DeathType::Spawning if spawn_timer < tick => {
+                    let map_data = match storage.maps.get(&spawn_pos.map) {
+                        Some(map) => map,
+                        None => continue,
+                    };
 
-                        let world_entity_type = world.get_kind(id)?;
+                    let world_entity_type = world.get_kind(id)?;
 
-                        //make sure we can spawn here before even spawning them.
-                        if !map_data
-                            .borrow()
-                            .is_blocked_tile(spawn_pos, world_entity_type)
+                    //make sure we can spawn here before even spawning them.
+                    if !map_data
+                        .borrow()
+                        .is_blocked_tile(spawn_pos, world_entity_type)
+                    {
                         {
-                            {
-                                n_data.try_lock()?.combat.death_type = DeathType::Alive;
-                            }
-                            map_data.borrow_mut().add_entity_to_grid(spawn_pos);
-
-                            DataTaskToken::NpcSpawn(spawn_pos.map)
-                                .add_task(storage, npc_spawn_packet(world, id, true)?)?;
+                            n_data.try_lock()?.combat.death_type = DeathType::Alive;
                         }
+                        map_data.borrow_mut().add_entity_to_grid(spawn_pos);
+
+                        DataTaskToken::NpcSpawn(spawn_pos.map)
+                            .add_task(storage, npc_spawn_packet(world, id, true)?)?;
                     }
                 }
                 _ => {}

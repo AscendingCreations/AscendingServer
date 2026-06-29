@@ -31,7 +31,6 @@ use std::{
     cell::RefCell,
     collections::VecDeque,
     fs,
-    io::BufReader,
     sync::{Arc, Mutex},
 };
 use tokio::runtime::Runtime;
@@ -325,8 +324,8 @@ impl Storage {
                         .borrow_mut()
                         .remove(&p_data.account.username);
 
-                    info!("Players Disconnected : {}", &p_data.account.username);
-                    trace!("Players Disconnected IP: {} ", &p_data.socket.addr);
+                    info!("Players Disconnected : {}", p_data.account.username);
+                    trace!("Players Disconnected IP: {} ", p_data.socket.addr);
                 }
 
                 Some(p_data)

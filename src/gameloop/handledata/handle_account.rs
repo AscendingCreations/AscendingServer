@@ -164,7 +164,7 @@ pub fn handle_register(
 
             info!(
                 "New Player {} with IP {}, Logging in.",
-                &username, &socket.addr
+                username, socket.addr
             );
 
             send_myindex(storage, socket.tls_id, entity)?;
@@ -295,7 +295,7 @@ pub fn handle_login(
 
             info!(
                 "Player {} with IP: {}, Reconnecting from disconnected player.",
-                &name, socket.addr
+                name, socket.addr
             );
 
             {
@@ -326,7 +326,7 @@ pub fn handle_login(
 
                     info!(
                         "Player {} with IP: {}, Reconnecting not in disconnected player.",
-                        &name, &p_data.socket.addr
+                        name, p_data.socket.addr
                     );
 
                     send_reconnect = Some((*old_entity, name, p_data.socket.id));
@@ -437,7 +437,7 @@ pub fn handle_login(
     let name = if let Some(Entity::Player(p_data)) = world.get_opt_entity(entity) {
         let name = p_data.try_lock()?.account.username.clone();
 
-        info!("Player {} with IP: {}, Logging in.", &name, &socket.addr);
+        info!("Player {} with IP: {}, Logging in.", name, socket.addr);
 
         name
     } else {

@@ -139,7 +139,7 @@ impl Client {
 
                         info!(
                             "Added player on disconnected list : {}",
-                            &data.account.username
+                            data.account.username
                         );
 
                         data.connection.disconnect_timer = *storage.gettick.borrow()
@@ -445,7 +445,7 @@ pub fn disconnect(playerid: GlobalKey, world: &mut World, storage: &Storage) -> 
         let pos = {
             let player = player.try_lock()?;
 
-            trace!("Players Disconnected IP: {} ", &player.socket.addr);
+            trace!("Players Disconnected IP: {} ", player.socket.addr);
 
             player.movement.pos
         };
