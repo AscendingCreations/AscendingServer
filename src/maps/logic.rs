@@ -36,7 +36,7 @@ pub fn update_maps(world: &mut World, storage: &Storage) -> Result<()> {
                     .bases
                     .maps
                     .get(position)
-                    .ok_or(AscendingError::MapNotFound(*position))?;
+                    .ok_or_else(|| AscendingError::MapNotFound(*position))?;
 
                 for (id, (max_npcs, zone_npcs)) in map.zones.iter().enumerate() {
                     let data = map_data.borrow();
@@ -61,7 +61,7 @@ pub fn update_maps(world: &mut World, storage: &Storage) -> Result<()> {
                                 .bases
                                 .npcs
                                 .get(npc_id as usize)
-                                .ok_or(AscendingError::NpcNotFound(npc_id))?
+                                .ok_or_else(|| AscendingError::NpcNotFound(npc_id))?
                                 .spawntime;
 
                             //Give them a percentage chance to actually spawn

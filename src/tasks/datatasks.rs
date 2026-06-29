@@ -56,7 +56,7 @@ impl DataTaskToken {
                 } else {
                     let (count, buffer, is_finished) = buffers
                         .back_mut()
-                        .ok_or(AscendingError::PacketCacheNotFound(self))?;
+                        .ok_or_else(|| AscendingError::PacketCacheNotFound(self))?;
 
                     if data.length() + buffer.length() > BUFFER_SIZE {
                         *is_finished = true;

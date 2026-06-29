@@ -35,7 +35,7 @@ impl World {
         self.kinds
             .get(key)
             .copied()
-            .ok_or(AscendingError::missing_kind())
+            .ok_or_else(AscendingError::missing_kind)
     }
 
     /// Returns a Copied Kind or Default of None if doesnt exist.
@@ -54,7 +54,7 @@ impl World {
         self.entities
             .get(key)
             .cloned()
-            .ok_or(AscendingError::missing_kind())
+            .ok_or_else(AscendingError::missing_kind)
     }
 
     /// Returns a Cloned Entity. This is Efficient since Entity is Arc.
