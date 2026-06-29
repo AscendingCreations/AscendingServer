@@ -192,14 +192,53 @@ impl Storage {
         let pgconn = establish_connection(&config, &mut rt, &local).unwrap();
         crate::sql::initiate(&pgconn, &mut rt, &local).unwrap();
 
-        let mut storage = Self {
+        let mut maps = IndexMap::default();
+
+        let bases = Bases {
+            maps: crate::maps::get_maps(),
+            npcs: crate::npcs::get_npc(),
+            items: crate::items::get_item(),
+            shops: crate::items::get_shop(),
+        };
+
+        for (position, map) in bases.maps.iter() {
+            let mut map_data = MapData {
+                position: *position,
+                ..Default::default()
+            };
+
+            for id in 0..MAP_MAX_X * MAP_MAX_Y {
+                match &map.attribute[id] {
+                    MapAttribute::Blocked | MapAttribute::Storage | MapAttribute::Shop(_) => {
+                        map_data.move_grid[id].attr = GridAttribute::Blocked;
+                    }
+                    MapAttribute::NpcBlocked => {
+                        map_data.move_grid[id].attr = GridAttribute::NpcBlock;
+                    }
+                    MapAttribute::ItemSpawn(itemdata) => {
+                        map_data.add_spawnable_item(
+                            Position::new(id as i32 % 32, id as i32 / 32, map_data.position),
+                            itemdata.index,
+                            itemdata.amount,
+                            itemdata.timer,
+                        );
+                    }
+                    _ => {}
+                }
+                map_data.move_grid[id].dir_block = map.dir_block[id];
+            }
+
+            maps.insert(*position, RefCell::new(map_data));
+        }
+
+        Some(Self {
             player_ids: RefCell::new(IndexSet::default()),
             recv_ids: RefCell::new(IndexSet::default()),
             npc_ids: RefCell::new(IndexSet::default()),
             player_names: RefCell::new(HashMap::default()), //for player names to ID's
             disconnected_player: RefCell::new(IndexSet::default()),
             player_timeout: RefCell::new(SecondaryMap::default()),
-            maps: IndexMap::default(),
+            maps,
             map_items: RefCell::new(IndexMap::default()),
             packet_cache: RefCell::new(IndexMap::default()),
             packet_cache_ids: RefCell::new(IndexSet::default()),
@@ -212,76 +251,12 @@ impl Storage {
             pgconn,
             time: RefCell::new(GameTime::default()),
             map_switch_tasks: RefCell::new(IndexMap::default()),
-            bases: Bases::new()?,
+            bases,
             rt: RefCell::new(rt),
             local: RefCell::new(local),
             config,
             unload_npc: RefCell::new(Vec::with_capacity(32)),
-        };
-
-        let mut map_data_entry = crate::maps::get_maps();
-        while let Some(map_data) = map_data_entry.pop() {
-            let position = MapPosition {
-                x: map_data.position.x,
-                y: map_data.position.y,
-                group: map_data.position.group,
-            };
-
-            let mut map = MapData {
-                position,
-                ..Default::default()
-            };
-
-            for id in 0..MAP_MAX_X * MAP_MAX_Y {
-                match map_data.attribute[id].clone() {
-                    MapAttribute::Blocked | MapAttribute::Storage | MapAttribute::Shop(_) => {
-                        map.move_grid[id].attr = GridAttribute::Blocked;
-                    }
-                    MapAttribute::NpcBlocked => {
-                        map.move_grid[id].attr = GridAttribute::NpcBlock;
-                    }
-                    MapAttribute::ItemSpawn(itemdata) => {
-                        map.add_spawnable_item(
-                            Position::new(id as i32 % 32, id as i32 / 32, map_data.position),
-                            itemdata.index,
-                            itemdata.amount,
-                            itemdata.timer,
-                        );
-                    }
-                    _ => {}
-                }
-                map.move_grid[id].dir_block = map_data.dir_block[id];
-            }
-
-            storage.maps.insert(position, RefCell::new(map));
-            storage.bases.maps.insert(position, map_data);
-        }
-
-        let npc_data_entry = crate::npcs::get_npc();
-        npc_data_entry
-            .iter()
-            .enumerate()
-            .for_each(|(index, npc_data)| {
-                storage.bases.npcs[index] = npc_data.clone();
-            });
-
-        let item_data_entry = crate::items::get_item();
-        item_data_entry
-            .iter()
-            .enumerate()
-            .for_each(|(index, item_data)| {
-                storage.bases.items[index] = item_data.clone();
-            });
-
-        let shop_data_entry = crate::items::get_shop();
-        shop_data_entry
-            .iter()
-            .enumerate()
-            .for_each(|(index, shopdata)| {
-                storage.bases.shops[index] = shopdata.clone();
-            });
-
-        Some(storage)
+        })
     }
 
     pub fn add_player_data(

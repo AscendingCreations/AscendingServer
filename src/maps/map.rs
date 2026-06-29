@@ -1,7 +1,8 @@
 use crate::{
-    containers::{EntityKind, GlobalKey, HashSet, IndexSet, Storage},
+    containers::{EntityKind, GlobalKey, HashSet, IndexMap, IndexSet, Storage},
     gametypes::*,
 };
+use ascending_time::Instant;
 use bit_op::{BitOp, bit_u8::*};
 use educe::Educe;
 use serde::{Deserialize, Serialize};
@@ -11,7 +12,6 @@ use std::{
     fs::{self, OpenOptions},
     io::Read,
 };
-use ascending_time::Instant;
 
 const MAP_PATH: &str = "./data/maps/";
 
@@ -93,16 +93,16 @@ impl Map {
     }
 }
 
-pub fn get_maps() -> Vec<Map> {
+pub fn get_maps() -> IndexMap<MapPosition, Map> {
     let entries = fs::read_dir(MAP_PATH).unwrap();
 
-    let mut map_data: Vec<Map> = Vec::new();
+    let mut map_data = IndexMap::default();
 
     for entry_data in entries.flatten() {
         if let Ok(filename) = entry_data.file_name().into_string()
             && let Some(mapdata) = load_map(filename)
         {
-            map_data.push(mapdata);
+            map_data.insert(mapdata.position, mapdata);
         }
     }
 
