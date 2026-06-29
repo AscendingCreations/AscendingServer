@@ -372,16 +372,11 @@ pub fn handle_login(
     }
 
     let user_entity = world.entities.iter().find_map(|(entity, data)| {
-        if let Entity::Player(p_data) = data {
-            if let Ok(player) = p_data.try_lock() {
-                if player.account.username == username {
-                    Some(entity)
-                } else {
-                    None
-                }
-            } else {
-                None
-            }
+        if let Entity::Player(p_data) = data
+            && let Ok(player) = p_data.try_lock()
+            && player.account.username == username
+        {
+            Some(entity)
         } else {
             None
         }
