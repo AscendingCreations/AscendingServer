@@ -104,7 +104,7 @@ pub fn npc_update_path(
 
                     n_data.path_timer.tries = 0;
                     n_data.path_timer.timer = *storage.gettick.borrow()
-                        + Duration::try_milliseconds(100).unwrap_or_default();
+                        + jiff::Span::new().try_milliseconds(100).unwrap_or_default();
                     n_data.path_timer.fails = 0;
                 }
             }
@@ -127,7 +127,9 @@ pub fn npc_update_path(
 
                 n_data.path_timer.tries = 0;
                 n_data.path_timer.timer = *storage.gettick.borrow()
-                    + Duration::try_milliseconds(base.movement_wait + 750).unwrap_or_default();
+                    + jiff::Span::new()
+                        .try_milliseconds(base.movement_wait + 750)
+                        .unwrap_or_default();
                 n_data.path_timer.fails = 0;
             }
         } else if new_target.target_entity.is_some() && players_on_map {
@@ -143,7 +145,7 @@ pub fn npc_update_path(
 
                     n_data.path_timer.tries = 0;
                     n_data.path_timer.timer = *storage.gettick.borrow()
-                        + Duration::try_milliseconds(100).unwrap_or_default();
+                        + jiff::Span::new().try_milliseconds(100).unwrap_or_default();
                     n_data.path_timer.fails = 0;
                 }
             } else if path_timer.tries + 1 < 10 {
@@ -155,12 +157,13 @@ pub fn npc_update_path(
 
                     n_data.path_timer.tries += 1;
                     n_data.path_timer.timer = *storage.gettick.borrow()
-                        + Duration::try_milliseconds(
-                            base.movement_wait + ((path_timer.tries + 1) as i64 * 250),
-                        )
-                        .unwrap_or_default();
+                        + jiff::Span::new()
+                            .try_milliseconds(
+                                base.movement_wait + ((path_timer.tries + 1) as i64 * 250),
+                            )
+                            .unwrap_or_default();
                     n_data.ai_timer.0 = *storage.gettick.borrow()
-                        + Duration::try_milliseconds(3000).unwrap_or_default();
+                        + jiff::Span::new().try_milliseconds(3000).unwrap_or_default();
                 }
             } else {
                 {
@@ -186,8 +189,8 @@ pub fn npc_update_path(
 
             npc_set_move_path(world, entity, moves)?;
 
-            n_data.try_lock()?.ai_timer.0 =
-                *storage.gettick.borrow() + Duration::try_milliseconds(3000).unwrap_or_default();
+            n_data.try_lock()?.ai_timer.0 = *storage.gettick.borrow()
+                + jiff::Span::new().try_milliseconds(3000).unwrap_or_default();
         }
     }
     Ok(())

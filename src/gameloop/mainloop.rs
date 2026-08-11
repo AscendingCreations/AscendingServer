@@ -38,7 +38,7 @@ pub fn game_loop(world: &mut World, storage: &Storage) {
                 _ => {
                     update_players(world, storage).unwrap();
                     entity_progress = 0;
-                    tmr100 = tick + Duration::try_milliseconds(100).unwrap_or_default();
+                    tmr100 = tick + jiff::Span::new().try_milliseconds(100).unwrap_or_default();
                 }
             }
 
@@ -51,7 +51,7 @@ pub fn game_loop(world: &mut World, storage: &Storage) {
 
                 max_batch = (storage.npc_ids.borrow().len() as f32 / 5.0).ceil() as usize;
                 npc_batch = 0;
-                tmr150 = tick + Duration::try_milliseconds(150).unwrap_or_default();
+                tmr150 = tick + jiff::Span::new().try_milliseconds(150).unwrap_or_default();
             } else {
                 match npc_progress {
                     1 => {
@@ -76,11 +76,11 @@ pub fn game_loop(world: &mut World, storage: &Storage) {
 
         if tick > tmr500 {
             update_maps(world, storage).unwrap();
-            tmr500 = tick + Duration::try_milliseconds(500).unwrap_or_default();
+            tmr500 = tick + jiff::Span::new().try_milliseconds(500).unwrap_or_default();
         }
 
         if tick > tmr1000 {
-            tmr1000 = tick + Duration::try_milliseconds(1000).unwrap_or_default();
+            tmr1000 = tick + jiff::Span::new().try_milliseconds(1000).unwrap_or_default();
         }
 
         if tick > tmr60000 {
@@ -93,13 +93,16 @@ pub fn game_loop(world: &mut World, storage: &Storage) {
                     time.hour = 0;
                 }
             }
-            tmr60000 = tick + Duration::try_milliseconds(60000).unwrap_or_default();
+            tmr60000 = tick
+                + jiff::Span::new()
+                    .try_milliseconds(60000)
+                    .unwrap_or_default();
         }
 
         //to ping sockets to ensure they are still connected. we will then unload those who are not.
         if tick > ping_timer {
             send_connection_pings(world, storage).unwrap();
-            ping_timer = tick + Duration::try_hours(2).unwrap_or_default();
+            ping_timer = tick + jiff::Span::new().try_hours(2).unwrap_or_default();
         }
 
         poll_events(world, storage).unwrap();

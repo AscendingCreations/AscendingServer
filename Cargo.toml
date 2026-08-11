@@ -13,40 +13,41 @@ version = "0.1.0"
 [dependencies]
 ahash = "0.8.11"
 argon2 = "0.5.3"
-ascending_time = {version = "0.3.0", features = ["enable_serde", "enable_mmap_bytey", "enable_bytey", "sqlx_rustls"]}
+ascending_time = {version = "0.5.0", features = ["enable_serde", "enable_mmap_bytey", "enable_bytey", "sqlx_rustls"]}
 backtrace = "0.3.76"
 bit_op = "0.1.1"
 bytey = "0.4.0"
 chrono = {version = "0.4.45", features = ["serde"]}
-educe = {version = "0.6.0", default-features = false, features = [
+educe = {version = "0.7.6", default-features = false, features = [
   "Debug",
   "PartialEq",
   "Default",
+  "full"
 ]}
 indexmap = "2.14.0"
 itertools = "0.15.0"
 log = {version = "0.4.33", default-features = false}
-mio = {version = "1.2.1", features = ["os-poll", "net"]}
-mmap_bytey = "0.2.0"
+mio = {version = "1.2.2", features = ["os-poll", "net"]}
+mmap_bytey = "0.3.0"
 password-hash = {version = "0.6.1", features = ["rand_core"]}
-pki-types = {package = "rustls-pki-types", version = "1.14.1", features = [
+pki-types = {package = "rustls-pki-types", version = "1.15.1", features = [
   "std",
 ]}
-rand = "0.10.1"
+rand = "0.10.2"
 rangemap = {version = "1.7.1", features = ["serde1"]}
-rcgen = {version = "0.14.8", features = [
+rcgen = {version = "0.14.9", features = [
   "pem",
   "ring",
 ], default-features = false}
-regex = "1.12.4"
-rustls = {version = "0.23.41", default-features = false, features = [
+regex = "1.13.1"
+rustls = {version = "0.23.43", default-features = false, features = [
   "logging",
   "ring",
   "std",
   "tls12",
 ]}
 serde = {version = "1.0.207", features = ["derive"]}
-serde_json = "1.0.150"
+serde_json = "1.0.151"
 slab = "0.4.12"
 slotmap = "1.1.1"
 speedy = "0.8.7"
@@ -58,15 +59,16 @@ sqlx = {version = "0.9.0", features = [
   "json",
   "uuid",
 ]}
-thiserror = "2.0.18"
-tokio = {version = "1.52.3", features = ["full", "tracing"]}
-toml = "1.1.2+spec-1.1.0"
-uuid = {version = "1.23.4", features = [
+thiserror = "2.0.20"
+tokio = {version = "1.53.1", features = ["full", "tracing"]}
+toml = "1.1.4+spec-1.1.0"
+uuid = {version = "1.24.0", features = [
   "v7", # Lets you generate random UUIDs
   "fast-rng", # Use a faster (but still sufficiently random) RNG
   "macro-diagnostics", # Enable better diagnostics for compile-time UUIDs
 ]}
-webpki-roots = "1.0.8"
+webpki-roots = "1.0.9"
+jiff = "0.2.35"
 
 [profile.dev]
 codegen-units = 256

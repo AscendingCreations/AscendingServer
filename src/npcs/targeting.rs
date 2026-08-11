@@ -201,7 +201,8 @@ pub fn try_target_entity(
                         n_data.combat.target.target_pos = target_pos;
                         n_data.combat.target.target_entity = Some(target_entity);
                         n_data.combat.target.target_timer = *storage.gettick.borrow()
-                            + Duration::try_milliseconds(base.target_auto_switch_chance)
+                            + jiff::Span::new()
+                                .try_milliseconds(base.target_auto_switch_chance)
                                 .unwrap_or_default();
                     }
                 }
@@ -226,7 +227,8 @@ pub fn try_target_entity(
                         n_data.combat.target.target_pos = target_pos;
                         n_data.combat.target.target_entity = Some(target_entity);
                         n_data.combat.target.target_timer = *storage.gettick.borrow()
-                            + Duration::try_milliseconds(base.target_auto_switch_chance)
+                            + jiff::Span::new()
+                                .try_milliseconds(base.target_auto_switch_chance)
                                 .unwrap_or_default();
                     }
                 }
@@ -363,9 +365,13 @@ pub fn npc_targeting(
         n_data.combat.target.target_pos = pos;
         n_data.combat.target.target_entity = Some(target_entity);
         n_data.combat.target.target_timer = *storage.gettick.borrow()
-            + Duration::try_milliseconds(base.target_auto_switch_chance).unwrap_or_default();
+            + jiff::Span::new()
+                .try_milliseconds(base.target_auto_switch_chance)
+                .unwrap_or_default();
         n_data.combat.attack_timer.0 = *storage.gettick.borrow()
-            + Duration::try_milliseconds(base.attack_wait).unwrap_or_default();
+            + jiff::Span::new()
+                .try_milliseconds(base.attack_wait)
+                .unwrap_or_default();
 
         Ok(true)
     } else {

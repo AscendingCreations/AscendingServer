@@ -212,7 +212,7 @@ pub fn process_player_movement(
 
             {
                 p_data.movement.move_timer.0 =
-                    tick + Duration::try_milliseconds(200).unwrap_or_default();
+                    tick + jiff::Span::new().try_milliseconds(200).unwrap_or_default();
             }
 
             (

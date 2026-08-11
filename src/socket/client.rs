@@ -143,7 +143,9 @@ impl Client {
                         );
 
                         data.connection.disconnect_timer = *storage.gettick.borrow()
-                            + Duration::try_milliseconds(60000).unwrap_or_default();
+                            + jiff::Span::new()
+                                .try_milliseconds(60000)
+                                .unwrap_or_default();
                     }
                 }
 

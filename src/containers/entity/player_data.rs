@@ -4,11 +4,11 @@ use crate::{
     gametypes::*,
     items::Item,
 };
+use ascending_time::Instant;
 use educe::Educe;
 use mmap_bytey::{MByteBufferRead, MByteBufferWrite};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use ascending_time::Instant;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Default)]
@@ -115,7 +115,7 @@ pub struct PlayerMapTimer {
 )]
 #[educe(Default)]
 pub struct Inventory {
-    #[educe(Default = (0..MAX_INV).map(|_| Item::default()).collect())]
+    #[educe(Default (expression(vec![Item::default(); MAX_INV])))]
     pub items: Vec<Item>,
 }
 
@@ -124,7 +124,7 @@ pub struct Inventory {
 )]
 #[educe(Default)]
 pub struct TradeItem {
-    #[educe(Default = (0..MAX_TRADE_SLOT).map(|_| Item::default()).collect())]
+    #[educe(Default (expression(vec![Item::default(); MAX_TRADE_SLOT])))]
     pub items: Vec<Item>,
 }
 
@@ -166,7 +166,7 @@ pub struct TradeRequestEntity {
 )]
 #[educe(Default)]
 pub struct PlayerStorage {
-    #[educe(Default = (0..MAX_STORAGE).map(|_| Item::default()).collect())]
+    #[educe(Default (expression(vec![Item::default(); MAX_STORAGE])))]
     pub items: Vec<Item>,
 }
 
@@ -175,7 +175,7 @@ pub struct PlayerStorage {
 )]
 #[educe(Default)]
 pub struct Equipment {
-    #[educe(Default = (0..MAX_EQPT).map(|_| Item::default()).collect())]
+    #[educe(Default (expression(vec![Item::default(); MAX_EQPT])))]
     pub items: Vec<Item>,
 }
 

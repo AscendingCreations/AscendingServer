@@ -145,7 +145,9 @@ pub fn update_maps(world: &mut World, storage: &Storage) -> Result<()> {
                     }
                 } else {
                     data.timer = tick
-                        + Duration::try_milliseconds(data.timer_set as i64).unwrap_or_default();
+                        + jiff::Span::new()
+                            .try_milliseconds(data.timer_set as i64)
+                            .unwrap_or_default();
                 }
             }
 

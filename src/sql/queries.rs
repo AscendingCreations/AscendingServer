@@ -177,10 +177,14 @@ pub fn load_player(storage: &Storage, entity: &mut PlayerEntity, account_id: Uui
     entity.sprite.id = general_data.sprite.shift_signed();
     entity.money.vals = general_data.money.shift_signed();
     entity.general.resetcount = general_data.resetcount;
-    entity.item_timer.itemtimer =
-        tick + Duration::try_milliseconds(general_data.itemtimer).unwrap_or_default();
-    entity.combat.death_timer.0 =
-        tick + Duration::try_milliseconds(general_data.deathtimer).unwrap_or_default();
+    entity.item_timer.itemtimer = tick
+        + jiff::Span::new()
+            .try_milliseconds(general_data.itemtimer)
+            .unwrap_or_default();
+    entity.combat.death_timer.0 = tick
+        + jiff::Span::new()
+            .try_milliseconds(general_data.deathtimer)
+            .unwrap_or_default();
 
     for eq_data in equipment_data.slot.iter() {
         if let Some(data) = entity.equipment.items.get_mut(eq_data.id as usize) {

@@ -280,7 +280,11 @@ pub fn reconnect_player(
 
         let _ = storage.player_timeout.borrow_mut().insert(
             old_entity,
-            PlayerConnectionTimer(tick + Duration::try_milliseconds(600000).unwrap_or_default()),
+            PlayerConnectionTimer(
+                tick + jiff::Span::new()
+                    .try_milliseconds(600000)
+                    .unwrap_or_default(),
+            ),
         );
 
         if let Some(map) = storage.maps.get(&position.map) {

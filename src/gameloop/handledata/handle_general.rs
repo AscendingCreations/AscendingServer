@@ -184,13 +184,17 @@ pub fn handle_command(
                                 p1_data.trade_request_entity.entity = Some(target_entity);
                                 p1_data.trade_request_entity.requesttimer =
                                     *storage.gettick.borrow()
-                                        + Duration::try_milliseconds(60000).unwrap_or_default();
+                                        + jiff::Span::new()
+                                            .try_milliseconds(60000)
+                                            .unwrap_or_default();
                                 // 1 Minute
 
                                 p2_data.trade_request_entity.entity = Some(entity);
                                 p2_data.trade_request_entity.requesttimer =
                                     *storage.gettick.borrow()
-                                        + Duration::try_milliseconds(60000).unwrap_or_default();
+                                        + jiff::Span::new()
+                                            .try_milliseconds(60000)
+                                            .unwrap_or_default();
                                 // 1 Minute
                             }
 

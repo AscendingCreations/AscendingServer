@@ -81,7 +81,9 @@ pub fn update_npcs_movement(
                     npc_update_path(world, storage, id, npcdata)?;
                     npc_movement(world, storage, id, npcdata)?;
                     n_data.try_lock()?.movement.move_timer.0 = tick
-                        + Duration::try_milliseconds(npcdata.movement_wait).unwrap_or_default();
+                        + jiff::Span::new()
+                            .try_milliseconds(npcdata.movement_wait)
+                            .unwrap_or_default();
                 }
             }
         }
@@ -127,8 +129,10 @@ pub fn update_npcs_combat(world: &mut World, storage: &Storage, batch_index: usi
                 {
                     npc_combat(world, storage, id, npcdata)?;
 
-                    n_data.try_lock()?.combat.attack_timer.0 =
-                        tick + Duration::try_milliseconds(npcdata.attack_wait).unwrap_or_default();
+                    n_data.try_lock()?.combat.attack_timer.0 = tick
+                        + jiff::Span::new()
+                            .try_milliseconds(npcdata.attack_wait)
+                            .unwrap_or_default();
                 }
             }
         }

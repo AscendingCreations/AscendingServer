@@ -45,7 +45,7 @@ pub fn handle_useitem(
         }
 
         p_data.item_timer.itemtimer =
-            *storage.gettick.borrow() + Duration::try_milliseconds(250).unwrap_or_default();
+            *storage.gettick.borrow() + jiff::Span::new().try_milliseconds(250).unwrap_or_default();
     }
 
     player_use_item(world, storage, entity, slot)
@@ -236,7 +236,7 @@ pub fn handle_pickup(
         }
 
         p_data.map_timer.mapitemtimer =
-            *storage.gettick.borrow() + Duration::try_milliseconds(100).unwrap_or_default();
+            *storage.gettick.borrow() + jiff::Span::new().try_milliseconds(100).unwrap_or_default();
 
         p_data.movement.pos
     } else {
@@ -423,10 +423,16 @@ pub fn handle_dropitem(
         match user_access {
             UserAccess::Admin => None,
             _ => Some(
-                *storage.gettick.borrow() + Duration::try_milliseconds(600000).unwrap_or_default(),
+                *storage.gettick.borrow()
+                    + jiff::Span::new()
+                        .try_milliseconds(600000)
+                        .unwrap_or_default(),
             ),
         },
-        Some(*storage.gettick.borrow() + Duration::try_milliseconds(5000).unwrap_or_default()),
+        Some(
+            *storage.gettick.borrow()
+                + jiff::Span::new().try_milliseconds(5000).unwrap_or_default(),
+        ),
         Some(entity),
     )? {
         take_inv_itemslot(world, storage, entity, slot, amount)?;

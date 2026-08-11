@@ -159,7 +159,11 @@ pub fn handle_register(
 
             storage.player_timeout.borrow_mut().insert(
                 entity,
-                PlayerConnectionTimer(tick + Duration::try_milliseconds(60000).unwrap_or_default()),
+                PlayerConnectionTimer(
+                    tick + jiff::Span::new()
+                        .try_milliseconds(60000)
+                        .unwrap_or_default(),
+                ),
             );
 
             info!(
@@ -421,7 +425,11 @@ pub fn handle_login(
 
     storage.player_timeout.borrow_mut().insert(
         entity,
-        PlayerConnectionTimer(tick + Duration::try_milliseconds(60000).unwrap_or_default()),
+        PlayerConnectionTimer(
+            tick + jiff::Span::new()
+                .try_milliseconds(60000)
+                .unwrap_or_default(),
+        ),
     );
 
     storage

@@ -329,7 +329,9 @@ impl Storage {
                     index: npc_id,
                     timer: NpcTimer {
                         spawntimer: *self.gettick.borrow()
-                            + Duration::try_milliseconds(npcdata.spawn_wait).unwrap_or_default(),
+                            + jiff::Span::new()
+                                .try_milliseconds(npcdata.spawn_wait)
+                                .unwrap_or_default(),
                         ..Default::default()
                     },
                     combat: CombatData {

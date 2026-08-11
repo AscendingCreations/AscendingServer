@@ -2,10 +2,10 @@ use crate::{
     containers::GlobalKey,
     gametypes::{MapPosition, Position, VITALS_MAX},
 };
+use ascending_time::Instant;
 use educe::Educe;
 use mmap_bytey::{MByteBufferRead, MByteBufferWrite};
 use serde::{Deserialize, Serialize};
-use ascending_time::Instant;
 
 #[derive(Debug, Clone, Default)]
 pub struct MovementData {
@@ -42,7 +42,7 @@ pub struct CombatData {
 #[derive(Educe, Debug, Copy, Clone, PartialEq, Eq, MByteBufferWrite, MByteBufferRead)]
 #[educe(Default)]
 pub struct Vitals {
-    #[educe(Default = [25, 2, 100])]
+    #[educe(Default =  [25, 2, 100])]
     pub vital: [i32; VITALS_MAX],
     #[educe(Default = [25, 2, 100])]
     pub vitalmax: [i32; VITALS_MAX],

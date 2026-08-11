@@ -162,8 +162,8 @@ pub fn player_earn_exp(
             }
 
             p_data.combat.in_combat = true;
-            p_data.combat.combat_timer.0 =
-                *storage.gettick.borrow() + Duration::try_milliseconds(2000).unwrap_or_default();
+            p_data.combat.combat_timer.0 = *storage.gettick.borrow()
+                + jiff::Span::new().try_milliseconds(2000).unwrap_or_default();
 
             (p_data.combat.level, p_data.socket.id, p_data.movement.pos)
         };

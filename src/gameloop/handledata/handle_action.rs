@@ -104,8 +104,8 @@ pub fn handle_attack(
                     .add_task(storage, dir_packet(entity, dir)?)?;
             };
 
-            p_data.combat.attack_timer.0 =
-                *storage.gettick.borrow() + Duration::try_milliseconds(250).unwrap_or_default();
+            p_data.combat.attack_timer.0 = *storage.gettick.borrow()
+                + jiff::Span::new().try_milliseconds(250).unwrap_or_default();
         }
 
         if let Some(target_entity) = target {
