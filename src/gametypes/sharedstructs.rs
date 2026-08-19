@@ -1,5 +1,3 @@
-use chrono::NaiveTime;
-use log::error;
 use mmap_bytey::{MByteBufferRead, MByteBufferWrite};
 use serde::{Deserialize, Serialize};
 use speedy::{Readable, Writable};
@@ -52,14 +50,8 @@ impl GameTime {
         maintime >= from.get_time() && maintime <= to.get_time()
     }
 
-    pub fn get_time(&self) -> NaiveTime {
-        NaiveTime::from_hms_opt(self.hour, self.min, self.sec).unwrap_or_else(|| {
-            error!(
-                "gametime Hour:{}, Min:{} or second:{} is not being set correctly.",
-                self.hour, self.min, self.sec
-            );
-            NaiveTime::default()
-        })
+    pub fn get_time(&self) -> jiff::civil::Time {
+        jiff::civil::time(self.hour as i8, self.min as i8, self.sec as i8, 0)
     }
 }
 

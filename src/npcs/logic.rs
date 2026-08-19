@@ -4,7 +4,6 @@ use crate::{
     npcs::*,
     tasks::*,
 };
-use chrono::Duration;
 
 pub fn update_npcs_targetting(
     world: &mut World,

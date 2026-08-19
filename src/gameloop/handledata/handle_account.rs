@@ -12,7 +12,6 @@ use crate::{
     socket::{ClientState, disconnect, send_codes, send_infomsg, send_myindex},
     sql::{check_existance, find_player, load_player, new_player},
 };
-use chrono::Duration;
 use log::info;
 use mmap_bytey::MByteBuffer;
 use rand::distr::{Alphanumeric, SampleString};

@@ -4,7 +4,6 @@ use crate::{
     maps::*,
     npcs::*,
 };
-use chrono::Duration;
 use rand::{RngExt, rng};
 
 pub fn targeting(

@@ -12,7 +12,6 @@ use crate::{
     tasks::{DataTaskToken, MapSwitchTasks},
 };
 use ascending_time::Instant;
-use chrono::Duration;
 use log::{LevelFilter, error, info, trace, warn};
 use mio::Poll;
 use pki_types::pem::PemObject;
